@@ -1,18 +1,44 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { useEffect } from 'react';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { AuthProvider } from '@/features/auth/auth-context';
+import { ListingDraftProvider } from '@/features/listings/listing-draft-context';
 
 SplashScreen.preventAutoHideAsync();
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <AuthProvider>
+      <ListingDraftProvider>
+        <ThemeProvider value={DefaultTheme}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="signup/name" />
+            <Stack.Screen name="signup/nickname" />
+            <Stack.Screen name="signup/email" />
+            <Stack.Screen name="signup/phone" />
+            <Stack.Screen name="signup/password" />
+            <Stack.Screen name="signup/otp" />
+            <Stack.Screen name="signup/complete" />
+            <Stack.Screen name="home" />
+            <Stack.Screen name="listing/[id]" />
+            <Stack.Screen name="listings/map" />
+            <Stack.Screen name="listings/filters" />
+            <Stack.Screen name="listings/new/index" />
+            <Stack.Screen name="listings/new/media" />
+            <Stack.Screen name="listings/new/details" />
+            <Stack.Screen name="listings/new/specs" />
+            <Stack.Screen name="listings/new/location" />
+            <Stack.Screen name="listings/new/pricing" />
+          </Stack>
+        </ThemeProvider>
+      </ListingDraftProvider>
+    </AuthProvider>
   );
 }
