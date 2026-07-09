@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -8,12 +8,19 @@ import { createListingFromDraft } from '@/features/listings/listing-service';
 import { useListingDraft } from '@/features/listings/listing-draft-context';
 import { listingRoutes } from '@/features/listings/routes';
 import { useAuth } from '@/features/auth/auth-context';
+import { PriceEstimateCard } from '@/features/pricing/components';
+import { draftToPriceRequest, getPriceEstimate, PriceEstimateResponse } from '@/features/pricing/price-service';
 
 export default function PostingPricingScreen() {
   const { draft, updateDraft, resetDraft } = useListingDraft();
   const { session } = useAuth();
   const [isPosting, setIsPosting] = useState(false);
-  const suggestedPrice = 32000;
+  const [estimate, setEstimate] = useState<PriceEstimateResponse | null>(null);
+  const suggestedPrice = estimate?.predictedRent ?? 32000;
+
+  useEffect(() => {
+    getPriceEstimate(draftToPriceRequest(draft)).then(setEstimate);
+  }, [draft]);
 
   async function postListing() {
     try {
@@ -46,13 +53,12 @@ export default function PostingPricingScreen() {
           placeholder="e.g. 1 month advance + 2 months deposit"
         />
 
-        <View style={styles.pricePanel}>
-          <ThemedText style={styles.panelLabel}>Suggested rent range price</ThemedText>
-          <ThemedText style={styles.range}>PHP 28,000 - PHP 38,000 / mo</ThemedText>
-          <ThemedText style={styles.panelLabel}>Suggested Exact Price</ThemedText>
-          <ThemedText style={styles.exact}>PHP 32,000 / mo</ThemedText>
-          <ThemedText style={styles.aiLabel}>Suggested by RentLease AI</ThemedText>
-        </View>
+        {estimate ? (
+          <PriceEstimateCard
+            estimate={estimate}
+            onUsePrice={() => updateDraft({ price: String(estimate.predictedRent), usedSuggestedPrice: true })}
+          />
+        ) : null}
 
         <PrimaryAction
           label="Yes, use suggested price"
@@ -94,36 +100,6 @@ const styles = StyleSheet.create({
   content: {
     marginTop: 28,
     gap: 14,
-  },
-  pricePanel: {
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#2CAA82',
-    borderRadius: 27,
-    backgroundColor: '#F0FFED',
-    padding: 20,
-    gap: 10,
-  },
-  panelLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  range: {
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  exact: {
-    fontSize: 34,
-    lineHeight: 42,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  aiLabel: {
-    alignSelf: 'flex-end',
-    fontSize: 12,
-    fontWeight: '200',
   },
   transparency: {
     fontSize: 20,

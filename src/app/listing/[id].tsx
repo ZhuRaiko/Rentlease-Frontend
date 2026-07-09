@@ -15,15 +15,39 @@ import {
 import { amenityLabels } from '@/features/listings/mock-data';
 import { getListingById } from '@/features/listings/listing-service';
 import { Listing } from '@/features/listings/types';
+import { useAuth } from '@/features/auth/auth-context';
+import { postListingRoutes } from '@/features/post-listing/routes';
+import { getOrCreateThread } from '@/features/post-listing/post-listing-service';
+import { PriceEstimateCard } from '@/features/pricing/components';
+import { getPriceEstimate, listingToPriceRequest, PriceEstimateResponse } from '@/features/pricing/price-service';
+import { trustRoutes } from '@/features/trust/routes';
+import { getListingRatings, getRatingSummary } from '@/features/trust/trust-service';
+import { Rating } from '@/features/trust/types';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { session } = useAuth();
   const [listing, setListing] = useState<Listing | null>(null);
+  const [ratings, setRatings] = useState<Rating[]>([]);
+  const [estimate, setEstimate] = useState<PriceEstimateResponse | null>(null);
   const theme = useTheme();
 
   useEffect(() => {
-    getListingById(id).then(setListing);
+    let isMounted = true;
+
+    Promise.all([getListingById(id), getListingRatings(id)]).then(([nextListing, nextRatings]) => {
+      if (!isMounted) return;
+      setListing(nextListing);
+      setRatings(nextRatings);
+      getPriceEstimate(listingToPriceRequest(nextListing)).then((nextEstimate) => {
+        if (isMounted) setEstimate(nextEstimate);
+      });
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   if (!listing) {
@@ -32,6 +56,14 @@ export default function ListingDetailScreen() {
         <ThemedText>Loading listing...</ThemedText>
       </AppScreen>
     );
+  }
+
+  const ratingSummary = getRatingSummary(ratings);
+
+  async function handleConnect() {
+    if (!session?.user.id || !listing) return;
+    const thread = await getOrCreateThread(listing.id, session.user.id, listing.ownerId);
+    router.push(postListingRoutes.chatThread(thread.id));
   }
 
   return (
@@ -53,7 +85,9 @@ export default function ListingDetailScreen() {
             <ThemedText style={styles.price}>{formatPeso(listing.price)}</ThemedText>
             <ThemedText style={styles.location}>{listing.city} City, Cavite</ThemedText>
           </View>
-          <ThemedText style={styles.report}>!</ThemedText>
+          <Pressable onPress={() => router.push(trustRoutes.reportListing(listing.id))} style={styles.reportButton}>
+            <ThemedText style={styles.report}>!</ThemedText>
+          </Pressable>
         </View>
         <ThemedText style={styles.title}>{listing.title}</ThemedText>
         <View style={styles.chips}>
@@ -63,6 +97,21 @@ export default function ListingDetailScreen() {
 
         <SectionLabel>Description</SectionLabel>
         <ThemedText style={styles.description}>{listing.description}</ThemedText>
+
+        <SectionLabel>Reviews</SectionLabel>
+        <Pressable
+          onPress={() => router.push(trustRoutes.listingReviews(listing.id))}
+          style={[styles.reviewSummary, { borderColor: theme.border }]}>
+          <View>
+            <ThemedText style={styles.reviewScore}>
+              {ratingSummary.count > 0 ? `${ratingSummary.average}/5` : 'No reviews yet'}
+            </ThemedText>
+            <ThemedText style={styles.reviewCount}>
+              {ratingSummary.count > 0 ? `${ratingSummary.count} renter reviews` : 'Be the first to rate this listing'}
+            </ThemedText>
+          </View>
+          <ThemedText style={styles.reviewArrow}>{'>'}</ThemedText>
+        </Pressable>
 
         <SectionLabel>Landlord</SectionLabel>
         <View style={styles.landlord}>
@@ -91,6 +140,13 @@ export default function ListingDetailScreen() {
           </View>
         </View>
 
+        {estimate ? (
+          <>
+            <SectionLabel>Suggested Price</SectionLabel>
+            <PriceEstimateCard estimate={estimate} compact />
+          </>
+        ) : null}
+
         <SectionLabel>Unit Specifications</SectionLabel>
         <View style={styles.specGrid}>
           <Spec label={`${listing.bedrooms} Bedrooms`} />
@@ -112,7 +168,28 @@ export default function ListingDetailScreen() {
           ))}
         </View>
 
-        <PrimaryAction label="Connect with Landlord" onPress={() => {}} style={styles.contactButton} />
+        <PrimaryAction label="Connect with Landlord" onPress={handleConnect} style={styles.contactButton} />
+        <View style={styles.trustActions}>
+          <PrimaryAction
+            label="Schedule Viewing"
+            tone="green"
+            onPress={() => router.push(postListingRoutes.schedule(listing.id, listing.ownerId))}
+            style={styles.trustAction}
+          />
+        </View>
+        <View style={styles.trustActions}>
+          <PrimaryAction
+            label="Rate Landlord"
+            tone="green"
+            onPress={() => router.push(trustRoutes.rate(listing.id, listing.ownerId, listing.landlordName))}
+            style={styles.trustAction}
+          />
+          <PrimaryAction
+            label="Report Landlord"
+            onPress={() => router.push(trustRoutes.reportUser(listing.ownerId))}
+            style={styles.trustAction}
+          />
+        </View>
       </AppScreen>
       <BottomNav active="discover" />
     </View>
@@ -185,6 +262,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
   },
+  reportButton: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     marginTop: 10,
     fontSize: 20,
@@ -198,10 +281,36 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   description: {
-    marginTop: 8,
+    marginTop: 10,
+    marginBottom: 26,
+    fontSize: 13,
+    lineHeight: 22,
+  },
+  reviewSummary: {
+    minHeight: 76,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 22,
-    fontSize: 11,
-    lineHeight: 19,
+  },
+  reviewScore: {
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '900',
+  },
+  reviewCount: {
+    marginTop: 2,
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.58,
+  },
+  reviewArrow: {
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '600',
   },
   landlord: {
     marginTop: 10,
@@ -224,7 +333,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   landlordBadge: {
-    fontSize: 10,
+    fontSize: 12,
+    lineHeight: 16,
     opacity: 0.37,
   },
   pricePanel: {
@@ -239,7 +349,8 @@ const styles = StyleSheet.create({
   },
   estimateLabel: {
     color: '#3B6D11',
-    fontSize: 10,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '500',
   },
   estimatePrice: {
@@ -258,7 +369,8 @@ const styles = StyleSheet.create({
   },
   rangeText: {
     color: '#3B6D11',
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 15,
   },
   estimateNotes: {
     flex: 1,
@@ -266,8 +378,8 @@ const styles = StyleSheet.create({
   },
   estimateNote: {
     color: '#3B6D11',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 17,
   },
   specGrid: {
     marginTop: 14,
@@ -301,6 +413,15 @@ const styles = StyleSheet.create({
   },
   contactButton: {
     marginTop: 26,
+  },
+  trustActions: {
+    marginTop: 10,
     marginBottom: 24,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  trustAction: {
+    flex: 1,
+    minHeight: 48,
   },
 });

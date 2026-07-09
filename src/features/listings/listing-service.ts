@@ -22,6 +22,7 @@ type ListingRow = {
   bathrooms: number;
   parking_spaces: number;
   size_sqm: number;
+  safety_rating: number | null;
   property_type: string;
   furnishing_status: Listing['furnishingStatus'];
   amenities: ListingAmenity[];
@@ -44,6 +45,7 @@ function rowToListing(row: ListingRow): Listing {
     bathrooms: row.bathrooms,
     parkingSpaces: row.parking_spaces,
     sizeSqm: row.size_sqm,
+    safetyRating: row.safety_rating ?? 3,
     propertyType: row.property_type,
     furnishingStatus: row.furnishing_status,
     amenities: row.amenities ?? [],
@@ -122,6 +124,7 @@ export async function createListingFromDraft(draft: ListingDraft, ownerId: strin
     bathrooms: draft.bathrooms,
     parking_spaces: draft.parkingSpaces,
     size_sqm: Number(draft.sizeSqm) || 0,
+    safety_rating: 3,
     property_type: draft.propertyType,
     furnishing_status: draft.furnishingStatus,
     amenities: draft.amenities,

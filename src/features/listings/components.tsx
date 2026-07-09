@@ -1,6 +1,8 @@
 import { router } from 'expo-router';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import {
+  Animated,
+  Easing,
   Pressable,
   ScrollView,
   StyleProp,
@@ -10,13 +12,15 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Typography } from '@/constants/theme';
 import { amenityLabels } from '@/features/listings/mock-data';
 import { listingRoutes } from '@/features/listings/routes';
 import { Listing } from '@/features/listings/types';
+import { profileRoutes } from '@/features/profile/routes';
+import { postListingRoutes } from '@/features/post-listing/routes';
 import { useTheme } from '@/hooks/use-theme';
 
 export function AppScreen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
@@ -36,6 +40,49 @@ export function AppScreen({ children, scroll = true }: { children: ReactNode; sc
   );
 }
 
+export function ScreenSlide({
+  children,
+  from = 'right',
+}: {
+  children: ReactNode;
+  from?: 'left' | 'right';
+}) {
+  const [progress] = useState(() => new Animated.Value(0));
+  const offset = from === 'right' ? 22 : -22;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: 210,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [progress]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.slideContent,
+        {
+          opacity: progress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.96, 1],
+          }),
+          transform: [
+            {
+              translateX: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [offset, 0],
+              }),
+            },
+          ],
+        },
+      ]}>
+      {children}
+    </Animated.View>
+  );
+}
+
 export function BrandHeader({ title = 'RentLease' }: { title?: string }) {
   return (
     <View style={styles.header}>
@@ -43,39 +90,64 @@ export function BrandHeader({ title = 'RentLease' }: { title?: string }) {
         <ThemedText style={styles.brandMarkText}>RL</ThemedText>
       </View>
       <ThemedText style={styles.brandTitle}>{title}</ThemedText>
-      <View style={styles.avatar} />
+      <Pressable onPress={() => router.push(profileRoutes.profile)} style={styles.avatar} />
     </View>
   );
 }
 
-export function BottomNav({ active }: { active: 'discover' | 'listing' | 'post' | 'tenancy' | 'chat' }) {
+export function BottomNav({ active }: { active: 'discover' | 'profile' | 'post' | 'tenancy' | 'chat' }) {
   const items = [
-    ['discover', 'Discover'],
-    ['listing', 'Listing'],
-    ['post', 'Post'],
-    ['tenancy', 'Tenancy'],
-    ['chat', 'Chat'],
+    ['discover', '⌕', 'Discover'],
+    ['profile', '◎', 'Profile'],
+    ['post', '+', 'Post'],
+    ['tenancy', '▣', 'Tenancy'],
+    ['chat', '◌', 'Chat'],
   ] as const;
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.bottomNav, { borderColor: theme.border }]}>
-      {items.map(([key, label]) => (
-        <Pressable
-          key={key}
-          onPress={() => {
-            if (key === 'discover') router.replace(listingRoutes.home);
-            if (key === 'post') router.push(listingRoutes.newStart);
-          }}
-          style={styles.navItem}>
-          <ThemedText style={[styles.navIcon, { color: key === active ? theme.primary : theme.tabInactive }]}>
-            {key === 'post' ? '+' : '•'}
-          </ThemedText>
-          <ThemedText style={[styles.navLabel, { color: key === active ? theme.primary : theme.tabInactive }]}>
-            {label}
-          </ThemedText>
-        </Pressable>
-      ))}
+    <View
+      style={[
+        styles.bottomNav,
+        {
+          borderColor: theme.border,
+          height: 64 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 8),
+        },
+      ]}>
+      {items.map(([key, icon, label]) => {
+        const isActive = key === active;
+
+        return (
+          <Pressable
+            key={key}
+            onPress={() => {
+              if (key === 'discover') router.replace(listingRoutes.home);
+              if (key === 'profile') router.replace(profileRoutes.profile);
+              if (key === 'post') router.push(listingRoutes.newStart);
+              if (key === 'tenancy') router.replace(postListingRoutes.maintenance);
+              if (key === 'chat') router.replace(postListingRoutes.chatList);
+            }}
+            style={({ pressed }) => [styles.navItem, pressed && styles.pressed]}>
+            <View
+              style={[
+                styles.navIconWrap,
+                {
+                  backgroundColor: isActive ? theme.primarySoft : 'transparent',
+                  borderColor: isActive ? theme.pricePanelBorder : 'transparent',
+                },
+              ]}>
+              <ThemedText style={[styles.navIcon, { color: isActive ? theme.primary : theme.tabInactive }]}>
+                {icon}
+              </ThemedText>
+            </View>
+            <ThemedText style={[styles.navLabel, { color: isActive ? theme.primary : theme.tabInactive }]}>
+              {label}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -278,7 +350,10 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingBottom: 86,
+    paddingBottom: 104,
+  },
+  slideContent: {
+    flex: 1,
   },
   header: {
     height: 74,
@@ -316,26 +391,34 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: 57,
+    zIndex: 20,
     borderTopWidth: 2,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
-    paddingBottom: 8,
   },
   navItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 1,
+    gap: 2,
+  },
+  navIconWrap: {
+    width: 32,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   navIcon: {
     fontSize: 18,
-    lineHeight: 18,
-    fontWeight: '700',
+    lineHeight: 20,
+    fontWeight: '900',
   },
   navLabel: {
     fontSize: 10,
     lineHeight: 12,
+    fontWeight: '700',
   },
   listingCard: {
     borderWidth: 1,
@@ -397,6 +480,10 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     ...Typography.sectionLabel,
+    marginTop: 24,
+    marginBottom: 2,
+    fontSize: 13,
+    lineHeight: 18,
     textTransform: 'uppercase',
   },
   formInput: {

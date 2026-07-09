@@ -6,7 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { AuthButton, AuthScreen, BackButton, OtpBoxes } from '@/features/auth/components';
 import { useAuth } from '@/features/auth/auth-context';
 import { completeVerifiedPhoneSignup, verifyPhoneOtp } from '@/features/auth/auth-service';
-import { authRoutes } from '@/features/auth/routes';
+import { recommendationRoutes } from '@/features/recommendations/routes';
 
 // DEV ONLY: use 0000 to walk through signup before Twilio/Supabase SMS is configured.
 // When testing real phone verification, set this false or remove this block so verifyPhoneOtp() is required.
@@ -14,7 +14,7 @@ const ENABLE_DEV_OTP_BYPASS = __DEV__;
 const DEV_OTP_CODE = '0000';
 
 export default function SignupOtpScreen() {
-  const { signupDraft } = useAuth();
+  const { resetSignupDraft, signupDraft } = useAuth();
   const [code, setCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<TextInput>(null);
@@ -29,13 +29,15 @@ export default function SignupOtpScreen() {
       setIsSubmitting(true);
 
       if (ENABLE_DEV_OTP_BYPASS && code === DEV_OTP_CODE) {
-        router.replace(authRoutes.signupComplete);
+        resetSignupDraft();
+        router.replace(recommendationRoutes.intro);
         return;
       }
 
       await verifyPhoneOtp(signupDraft.phone, code);
       await completeVerifiedPhoneSignup(signupDraft);
-      router.replace(authRoutes.signupComplete);
+      resetSignupDraft();
+      router.replace(recommendationRoutes.intro);
     } catch (error) {
       Alert.alert(
         'Verification failed',

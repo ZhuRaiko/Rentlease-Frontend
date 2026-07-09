@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { AuthButton, AuthScreen } from '@/features/auth/components';
 import { useAuth } from '@/features/auth/auth-context';
-import { authRoutes } from '@/features/auth/routes';
+import { recommendationRoutes } from '@/features/recommendations/routes';
 
 export default function SignupCompleteScreen() {
   const { resetSignupDraft, signupDraft } = useAuth();
@@ -12,7 +12,7 @@ export default function SignupCompleteScreen() {
 
   function handleContinue() {
     resetSignupDraft();
-    router.replace(authRoutes.home);
+    router.replace(recommendationRoutes.intro);
   }
 
   return (

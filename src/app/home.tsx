@@ -7,45 +7,70 @@ import {
   AppScreen,
   BottomNav,
   BrandHeader,
-  ListingCard,
   PrimaryAction,
+  ScreenSlide,
 } from '@/features/listings/components';
-import { getListings } from '@/features/listings/listing-service';
 import { listingRoutes } from '@/features/listings/routes';
-import { Listing } from '@/features/listings/types';
+import { ScoredListingCard } from '@/features/recommendations/components';
+import {
+  getRecommendedListings,
+  getTenantPreference,
+} from '@/features/recommendations/recommendation-service';
+import { defaultRecommendationPreference } from '@/features/recommendations/recommender';
+import { recommendationRoutes } from '@/features/recommendations/routes';
+import { ScoredListing } from '@/features/recommendations/types';
+import { useAuth } from '@/features/auth/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function HomeScreen() {
-  const [listings, setListings] = useState<Listing[]>([]);
+  const { session } = useAuth();
+  const [listings, setListings] = useState<ScoredListing[]>([]);
   const theme = useTheme();
 
   useEffect(() => {
-    getListings().then(setListings);
-  }, []);
+    async function loadRecommendations() {
+      const preference = (await getTenantPreference(session?.user.id)) ?? defaultRecommendationPreference;
+      setListings(await getRecommendedListings(preference));
+    }
+
+    loadRecommendations();
+  }, [session?.user.id]);
 
   return (
     <View style={styles.root}>
-      <AppScreen>
-        <BrandHeader />
-        <View style={styles.tabs}>
-          <ThemedText style={styles.inactiveTab}>Discover</ThemedText>
-          <View style={styles.divider} />
-          <ThemedText style={styles.activeTab}>For You</ThemedText>
-        </View>
-        <View style={styles.actions}>
-          <PrimaryAction label="Map View" onPress={() => router.push(listingRoutes.map)} style={styles.actionButton} />
-          <Pressable
-            onPress={() => router.push(listingRoutes.filters)}
-            style={[styles.filterButton, { borderColor: theme.borderStrong }]}>
-            <ThemedText style={styles.filterText}>Filter</ThemedText>
-          </Pressable>
-        </View>
-        <View style={styles.list}>
-          {listings.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} />
-          ))}
-        </View>
-      </AppScreen>
+      <ScreenSlide from="left">
+        <AppScreen>
+          <BrandHeader />
+          <View style={styles.tabs}>
+            <ThemedText style={styles.inactiveTab}>Discover</ThemedText>
+            <View style={styles.divider} />
+            <ThemedText style={styles.activeTab}>For You</ThemedText>
+          </View>
+          <View style={styles.actions}>
+            <PrimaryAction label="Map View" onPress={() => router.push(listingRoutes.map)} style={styles.actionButton} />
+            <PrimaryAction
+              label="Survey"
+              tone="green"
+              onPress={() => router.push(recommendationRoutes.survey)}
+              style={styles.surveyButton}
+            />
+            <Pressable
+              onPress={() => router.push(listingRoutes.filters)}
+              style={[styles.filterButton, { borderColor: theme.borderStrong }]}>
+              <ThemedText style={styles.filterText}>Filter</ThemedText>
+            </Pressable>
+          </View>
+          <View style={styles.list}>
+            {listings.map((listing) => (
+              <ScoredListingCard
+                key={listing.id}
+                listing={listing}
+                onPress={() => router.push(listingRoutes.detail(listing.id))}
+              />
+            ))}
+          </View>
+        </AppScreen>
+      </ScreenSlide>
       <BottomNav active="discover" />
     </View>
   );
@@ -84,6 +109,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   actionButton: {
+    flex: 1,
+    minHeight: 46,
+  },
+  surveyButton: {
     flex: 1,
     minHeight: 46,
   },

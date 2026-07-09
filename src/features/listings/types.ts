@@ -8,6 +8,7 @@ export type ListingAmenity =
   | 'air_conditioning'
   | 'near_public_transport'
   | 'near_grocery'
+  | 'near_mall'
   | 'near_school'
   | 'near_hospital'
   | 'pet_friendly'
@@ -25,6 +26,7 @@ export type Listing = {
   bathrooms: number;
   parkingSpaces: number;
   sizeSqm: number;
+  safetyRating: number;
   propertyType: string;
   furnishingStatus: FurnishingStatus;
   amenities: ListingAmenity[];
