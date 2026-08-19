@@ -1,53 +1,18 @@
 {
   "expo": {
-    "name": "rentlease",
+    "name": "RentLease",
     "slug": "rentlease",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "orientation": "portrait",
-    "jsEngine": "hermes",
-    "icon": "./assets/images/icon.png",
-    "scheme": "rentlease",
-    "userInterfaceStyle": "light",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
+    "platforms": ["android"],
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false,
-      "package": "com.jmkamantigs.rentlease"
+      "package": "com.rentlease.mobile"
     },
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
-    "plugins": [
-      "expo-router",
-      "@maplibre/maplibre-react-native",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
-        }
-      ],
-      "expo-secure-store"
-    ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "a06d8b7a-48fc-4a83-89a1-703a30d7d429"
-      }
-    },
-    "owner": "jmkamantigs"
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    }
   }
 }
