@@ -1,0 +1,82 @@
+import { StatusBar, StyleSheet, View } from 'react-native';
+
+import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
+import { ScreenContainer } from '../../../shared/components/ScreenContainer';
+import { colors } from '../../../shared/theme/colors';
+import type { MessagingActor } from '../models/MessagingViewing';
+import { useMessagingViewingViewModel } from '../viewModels/useMessagingViewingViewModel';
+import { MessagingConversationView } from './MessagingConversationView';
+import { MessagingInboxView } from './MessagingInboxView';
+import { ViewingScheduleView } from './ViewingScheduleView';
+
+interface MessagingViewingFlowViewProps {
+  actor: MessagingActor;
+  initialScreen?: 'inbox' | 'newInquiry';
+  isLandlord: boolean;
+  onClose: () => void;
+  onCreateListing: () => void;
+  onOpenDiscover: () => void;
+  onOpenListings: () => void;
+  onOpenMaintenance: () => void;
+}
+
+const inboxScreens = new Set(['inbox', 'emptyInbox']);
+const conversationScreens = new Set([
+  'conversation',
+  'newInquiry',
+  'attachment',
+  'listingUnavailable',
+]);
+
+export function MessagingViewingFlowView({
+  actor,
+  initialScreen = 'inbox',
+  isLandlord,
+  onClose,
+  onCreateListing,
+  onOpenDiscover,
+  onOpenListings,
+  onOpenMaintenance,
+}: MessagingViewingFlowViewProps) {
+  const viewModel = useMessagingViewingViewModel(actor, initialScreen);
+  let content;
+
+  if (inboxScreens.has(viewModel.screen)) {
+    content = <MessagingInboxView onClose={onClose} viewModel={viewModel} />;
+  } else if (conversationScreens.has(viewModel.screen)) {
+    content = <MessagingConversationView viewModel={viewModel} />;
+  } else {
+    content = <ViewingScheduleView viewModel={viewModel} />;
+  }
+
+  return (
+    <ScreenContainer includeBottomInset={false} padded={false}>
+      <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
+      <View style={styles.content}>{content}</View>
+      <RentLeaseBottomNavigation
+        active="chat"
+        onChat={viewModel.openInbox}
+        onDiscover={onOpenDiscover}
+        onListing={() => {
+          if (isLandlord) {
+            onOpenListings();
+            return;
+          }
+          viewModel.openInbox();
+          viewModel.setNotice('Listing management unlocks after Tier 3 landlord verification.');
+        }}
+        onPost={() => {
+          if (isLandlord) {
+            onCreateListing();
+            return;
+          }
+          viewModel.openInbox();
+          viewModel.setNotice('Property posting unlocks after Tier 3 landlord verification.');
+        }}
+        onTenancy={onOpenMaintenance}
+      />
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({ content: { flex: 1 } });
