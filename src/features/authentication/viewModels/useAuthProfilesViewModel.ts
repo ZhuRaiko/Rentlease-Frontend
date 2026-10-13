@@ -1,26 +1,125 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { isSupabaseConfigured } from '../../../config/env';
 import {
   initialRegistrationDraft,
-  previewProfile,
+  type AccountSnapshot,
   type AuthProfileScreen,
   type RegistrationDraft,
-  type UserProfile,
   type UserRole,
 } from '../models/AuthProfile';
+import { getAccountDestination } from '../models/accountRouting';
+import {
+  confirmPhoneChange,
+  isUnconfirmedEmailError,
+  loadAccount,
+  requestPhoneChange,
+  resendPhoneChange,
+  resendSignupEmail,
+  saveUserRoles,
+  signIn,
+  signOutAccount,
+  signUp,
+  updateOwnProfile,
+} from '../services/accountService';
 
-type EditableProfileField = 'firstName' | 'lastName' | 'nickname' | 'email' | 'phone' | 'city';
+type AsyncState = 'idle' | 'loading' | 'success' | 'error';
 
-export function useAuthProfilesViewModel(accountRole: UserRole = 'tenant') {
-  const [screen, setScreen] = useState<AuthProfileScreen>('welcome');
+function friendlyError(error: unknown): string {
+  const value = error as { code?: string; message?: string; status?: number } | null;
+  const code = value?.code ?? '';
+  const message = value?.message?.toLowerCase() ?? '';
+  if (code === 'invalid_credentials') return 'Incorrect email or password.';
+  if (code === 'email_not_confirmed') return 'Confirm your email before signing in.';
+  if (code === 'weak_password') return 'Choose a stronger password and try again.';
+  if (code === 'otp_expired' || message.includes('expired')) return 'This code has expired. Request a new code.';
+  if (message.includes('invalid') && message.includes('token')) return 'That code is incorrect. Check it and try again.';
+  if (code.includes('rate') || value?.status === 429) return 'Too many attempts. Please wait before trying again.';
+  if (value?.status === 401) return 'Your session expired. Please sign in again.';
+  if (value?.status === 403 || code === '42501') return 'This action is not permitted for your account.';
+  if (message.includes('network') || message.includes('fetch')) return 'Network unavailable. Check your connection and retry.';
+  if (message.includes('phone') || message.includes('sms')) return 'We could not send or verify the SMS. Please retry shortly.';
+  if (message.includes('already registered')) return 'This email already has an account. Please sign in.';
+  return 'Something went wrong. Please try again.';
+}
+
+function normalizePhilippinePhone(localNumber: string): string | null {
+  const digits = localNumber.replace(/\D/g, '');
+  return /^9\d{9}$/.test(digits) ? `+63${digits}` : null;
+}
+
+export function useAuthProfilesViewModel() {
+  const [screen, setScreen] = useState<AuthProfileScreen>('bootstrap');
   const [history, setHistory] = useState<AuthProfileScreen[]>([]);
   const [draft, setDraft] = useState<RegistrationDraft>(initialRegistrationDraft);
-  const [profile, setProfile] = useState<UserProfile>({ ...previewProfile, role: accountRole });
+  const [account, setAccount] = useState<AccountSnapshot | null>(null);
+  const [profileName, setProfileName] = useState('');
+  const [profileBio, setProfileBio] = useState('');
+  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
   const [signInIdentifier, setSignInIdentifier] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [asyncState, setAsyncState] = useState<AsyncState>('idle');
   const [showSignOutConfirmation, setShowSignOutConfirmation] = useState(false);
+  const [resendAvailableAt, setResendAvailableAt] = useState(0);
+  const [now, setNow] = useState(Date.now());
+  const [entryVersion, setEntryVersion] = useState(0);
+  const [signedOutVersion, setSignedOutVersion] = useState(0);
+
+  useEffect(() => {
+    if (resendAvailableAt <= Date.now()) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [resendAvailableAt]);
+
+  const routeAccount = (snapshot: AccountSnapshot, preservePhoneCode = false) => {
+    const destination = getAccountDestination(snapshot);
+    setAccount(snapshot);
+    setProfileName(snapshot.profile.display_name ?? '');
+    setProfileBio(snapshot.profile.bio ?? '');
+    if (destination !== 'emailConfirmation') {
+      setDraft((current) => ({ ...current, password: '' }));
+      setSignInPassword('');
+    }
+    setScreen(preservePhoneCode && destination === 'registrationPhone' ? 'mobileConfirmation' : destination);
+    if (destination === 'profile') {
+      setEntryVersion((current) => current + 1);
+    }
+    setHistory([]);
+  };
+
+  const refreshAccount = async (preservePhoneCode = false) => {
+    const snapshot = await loadAccount();
+    if (!snapshot) {
+      setAccount(null);
+      setScreen('welcome');
+      return null;
+    }
+    routeAccount(snapshot, preservePhoneCode);
+    return snapshot;
+  };
+
+  const bootstrap = async () => {
+    if (!isSupabaseConfigured()) {
+      setScreen('welcome');
+      setNotice('Supabase is not configured. Add the public project URL and anon/publishable key to .env, then restart Expo.');
+      return;
+    }
+    setScreen('bootstrap');
+    setAsyncState('loading');
+    try {
+      await refreshAccount();
+      setAsyncState('success');
+      setNotice(null);
+    } catch (error) {
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
+  };
+
+  useEffect(() => {
+    void bootstrap();
+  }, []);
 
   const navigate = (nextScreen: AuthProfileScreen) => {
     setHistory((current) => [...current, screen]);
@@ -30,8 +129,7 @@ export function useAuthProfilesViewModel(accountRole: UserRole = 'tenant') {
 
   const goBack = () => {
     setHistory((current) => {
-      const previous = current.at(-1) ?? 'welcome';
-      setScreen(previous);
+      setScreen(current.at(-1) ?? 'welcome');
       return current.slice(0, -1);
     });
     setNotice(null);
@@ -40,96 +138,298 @@ export function useAuthProfilesViewModel(accountRole: UserRole = 'tenant') {
   const updateDraft = <TField extends keyof RegistrationDraft>(
     field: TField,
     value: RegistrationDraft[TField],
-  ) => {
-    setDraft((current) => ({ ...current, [field]: value }));
-  };
+  ) => setDraft((current) => ({ ...current, [field]: value }));
 
-  const updateCodeDigit = (field: 'emailCode' | 'mobileCode', index: number, digit: string) => {
-    const nextDigit = digit.replace(/\D/g, '').slice(-1);
-    setDraft((current) => {
-      const digits = current[field].padEnd(4, ' ').slice(0, 4).split('');
-      digits[index] = nextDigit || ' ';
-      return { ...current, [field]: digits.join('').trimEnd() };
-    });
-  };
-
-  useEffect(() => {
-    setProfile((current) => ({ ...current, role: accountRole }));
-  }, [accountRole]);
-
-  const submitSignIn = () => {
-    if (!signInIdentifier.trim() || !signInPassword) {
-      setNotice('Enter your email or phone number and password to continue.');
-      return false;
+  const submitSignIn = async () => {
+    const email = signInIdentifier.trim().toLowerCase();
+    if (!email.includes('@') || !signInPassword) {
+      setNotice('Enter your email address and password to continue.');
+      return;
     }
-    setHistory([]);
-    setScreen('profile');
+    if (!isSupabaseConfigured()) {
+      setNotice('Add your public Supabase URL and key to .env, then restart Expo.');
+      return;
+    }
+    setAsyncState('loading');
     setNotice(null);
-    return true;
+    try {
+      await signIn(email, signInPassword);
+      await refreshAccount();
+      setAsyncState('success');
+    } catch (error) {
+      if (isUnconfirmedEmailError(error)) {
+        setDraft((current) => ({ ...current, email, password: signInPassword }));
+        setScreen('emailConfirmation');
+      }
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
   };
 
-  const openProfilePreview = () => navigate('profile');
-
-  const completeRegistrationPreview = () => {
-    setProfile({
-      firstName: draft.firstName || previewProfile.firstName,
-      lastName: draft.lastName || previewProfile.lastName,
-      nickname: draft.nickname || draft.firstName || previewProfile.nickname,
-      email: draft.email || previewProfile.email,
-      phone: draft.phone ? `+63 ${draft.phone}` : previewProfile.phone,
-      role: 'tenant',
-      city: previewProfile.city,
-    });
-    navigate('registrationComplete');
-  };
-
-  const updateProfile = (field: EditableProfileField, value: string) => {
-    setProfile((current) => ({ ...current, [field]: value }));
-  };
-
-  const saveProfile = () => {
-    setHistory([]);
-    setScreen('profile');
-    setNotice('Profile changes are stored only for this frontend preview.');
-  };
-
-  const signOutPreview = () => {
-    setShowSignOutConfirmation(false);
-    setHistory([]);
-    setScreen('welcome');
+  const register = async () => {
+    const email = draft.email.trim().toLowerCase();
+    const displayName = draft.nickname.trim() || `${draft.firstName} ${draft.lastName}`.trim();
+    if (!email.includes('@') || !displayName || draft.password.length < 8) {
+      setNotice('Enter a valid email, name and password before continuing.');
+      return;
+    }
+    if (!isSupabaseConfigured()) {
+      setNotice('Add your public Supabase URL and key to .env, then restart Expo.');
+      return;
+    }
+    setAsyncState('loading');
     setNotice(null);
+    try {
+      const result = await signUp(email, draft.password, displayName);
+      if (!result.user) throw new Error('Signup did not return a user.');
+      setDraft((current) => ({ ...current, email }));
+      if (result.session) await refreshAccount();
+      else setScreen('emailConfirmation');
+      setAsyncState('success');
+    } catch (error) {
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
+  };
+
+  const resendEmail = async () => {
+    if (resendAvailableAt > Date.now()) return;
+    const email = draft.email || account?.user.email;
+    if (!email) {
+      setNotice('Enter your email address on the sign-in screen first.');
+      return;
+    }
+    setAsyncState('loading');
+    try {
+      await resendSignupEmail(email);
+      setResendAvailableAt(Date.now() + 60_000);
+      setNow(Date.now());
+      setNotice('A new confirmation email was requested. Check your inbox.');
+      setAsyncState('success');
+    } catch (error) {
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
+  };
+
+  const continueAfterEmailConfirmation = async () => {
+    if (!draft.password) {
+      if (account) {
+        await refreshVerificationState();
+        return;
+      }
+      setScreen('signIn');
+      setNotice('After confirming your email, sign in to continue.');
+      return;
+    }
+    setAsyncState('loading');
+    try {
+      await signIn(draft.email, draft.password);
+      await refreshAccount();
+      setAsyncState('success');
+      setNotice(null);
+    } catch (error) {
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
+  };
+
+  const requestPhoneOtp = async () => {
+    const phone = normalizePhilippinePhone(draft.phone);
+    if (!phone) {
+      setNotice('Enter a 10-digit Philippine mobile number starting with 9.');
+      return;
+    }
+    setAsyncState('loading');
+    setNotice(null);
+    try {
+      await requestPhoneChange(phone);
+      setResendAvailableAt(Date.now() + 60_000);
+      setNow(Date.now());
+      setScreen('mobileConfirmation');
+      setAsyncState('success');
+    } catch (error) {
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
+  };
+
+  const resendPhoneOtp = async () => {
+    if (resendAvailableAt > Date.now()) return;
+    const phone = normalizePhilippinePhone(draft.phone);
+    if (!phone) return;
+    setAsyncState('loading');
+    try {
+      await resendPhoneChange(phone);
+      setResendAvailableAt(Date.now() + 60_000);
+      setNow(Date.now());
+      setNotice('A new SMS code was requested.');
+      setAsyncState('success');
+    } catch (error) {
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
+  };
+
+  const verifyPhoneOtp = async () => {
+    const phone = normalizePhilippinePhone(draft.phone);
+    if (!phone || !/^\d{6}$/.test(draft.mobileCode)) {
+      setNotice('Enter the six-digit code sent to your phone.');
+      return;
+    }
+    setAsyncState('loading');
+    setNotice(null);
+    try {
+      await confirmPhoneChange(phone, draft.mobileCode);
+      await refreshAccount();
+      setDraft((current) => ({ ...current, mobileCode: '' }));
+      setAsyncState('success');
+    } catch (error) {
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
+  };
+
+  const refreshVerificationState = async () => {
+    setAsyncState('loading');
+    setNotice(null);
+    try {
+      const snapshot = await refreshAccount(screen === 'mobileConfirmation');
+      if (snapshot && !snapshot.profile.tier1_verified_at) {
+        setNotice(snapshot.user.phone && snapshot.user.phone_confirmed_at
+          ? 'Your phone is confirmed, but your account verification is still pending. If this continues, contact RENTLEASE support.'
+          : 'This account still needs phone verification. You can verify it or sign out to use another account.');
+      }
+      setAsyncState('success');
+    } catch (error) {
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
+  };
+
+  const toggleRole = (role: UserRole) => {
+    setSelectedRoles((current) =>
+      current.includes(role) ? current.filter((value) => value !== role) : [...current, role],
+    );
+  };
+
+  const submitRoles = async () => {
+    if (selectedRoles.length === 0) {
+      setNotice('Choose at least one role to continue.');
+      return;
+    }
+    setAsyncState('loading');
+    setNotice(null);
+    try {
+      await saveUserRoles(selectedRoles);
+      await refreshAccount();
+      setAsyncState('success');
+    } catch (error) {
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
+  };
+
+  const saveProfile = async () => {
+    if (!account) return;
+    if (!profileName.trim()) {
+      setNotice('Display name cannot be empty.');
+      return;
+    }
+    setAsyncState('loading');
+    setNotice(null);
+    try {
+      await updateOwnProfile(account.user.id, {
+        display_name: profileName.trim(),
+        bio: profileBio.trim(),
+      });
+      const snapshot = await loadAccount();
+      if (!snapshot) throw new Error('Session ended during profile update.');
+      setAccount(snapshot);
+      setScreen('profile');
+      setHistory([]);
+      setAsyncState('success');
+      setNotice('Profile updated.');
+    } catch (error) {
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
+  };
+
+  const signOut = async (destination: 'welcome' | 'signIn' = 'welcome') => {
+    setAsyncState('loading');
+    try {
+      await signOutAccount();
+      setAccount(null);
+      setDraft(initialRegistrationDraft);
+      setSignInIdentifier('');
+      setSignInPassword('');
+      setProfileName('');
+      setProfileBio('');
+      setResendAvailableAt(0);
+      setSelectedRoles([]);
+      setHistory([]);
+      setScreen(destination);
+      setShowSignOutConfirmation(false);
+      setSignedOutVersion((current) => current + 1);
+      setAsyncState('success');
+      setNotice(null);
+    } catch (error) {
+      setAsyncState('error');
+      setNotice(friendlyError(error));
+    }
   };
 
   const displayName = useMemo(
-    () => `${profile.firstName} ${profile.lastName}`.trim(),
-    [profile.firstName, profile.lastName],
+    () => account?.profile.display_name || account?.user.email?.split('@')[0] || 'RENTLEASE user',
+    [account],
   );
+  const roles = account?.roles ?? [];
+  const resendSeconds = Math.max(0, Math.ceil((resendAvailableAt - now) / 1000));
 
   return {
     screen,
     draft,
-    profile,
+    account,
+    roles,
+    hasTenantRole: roles.includes('tenant'),
+    hasLandlordRole: roles.includes('landlord'),
+    isAdmin: roles.includes('admin'),
     displayName,
+    profileName,
+    profileBio,
+    selectedRoles,
     signInIdentifier,
     signInPassword,
-    rememberMe,
     notice,
+    asyncState,
     showSignOutConfirmation,
+    resendSeconds,
+    entryVersion,
+    signedOutVersion,
+    bootstrap,
     navigate,
     goBack,
     updateDraft,
-    updateCodeDigit,
+    setProfileName,
+    setProfileBio,
     setSignInIdentifier,
     setSignInPassword,
-    setRememberMe,
     setNotice,
     submitSignIn,
-    openProfilePreview,
-    completeRegistrationPreview,
-    updateProfile,
+    register,
+    resendEmail,
+    continueAfterEmailConfirmation,
+    requestPhoneOtp,
+    resendPhoneOtp,
+    verifyPhoneOtp,
+    refreshVerificationState,
+    toggleRole,
+    submitRoles,
     saveProfile,
     setShowSignOutConfirmation,
-    signOutPreview,
+    signOut,
+    switchAccount: () => signOut('signIn'),
   };
 }
 

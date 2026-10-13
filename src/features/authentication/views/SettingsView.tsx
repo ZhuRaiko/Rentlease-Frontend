@@ -6,87 +6,26 @@ import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { AuthButton } from '../components/AuthButton';
 import { AuthScaffold } from '../components/AuthScaffold';
-import { ProfileActionRow } from '../components/ProfileActionRow';
 import type { AuthProfilesViewModel } from '../viewModels/useAuthProfilesViewModel';
 
-const settingsIcon = require('../../../assets/authentication/settings.png');
-const verificationIcon = require('../../../assets/authentication/verification.png');
-
-interface SettingsViewProps {
-  viewModel: AuthProfilesViewModel;
-}
-
-export function SettingsView({ viewModel }: SettingsViewProps) {
-  return (
-    <AuthScaffold
-      description="Manage your profile details and account state."
-      onBack={viewModel.goBack}
-      title="Account settings"
-    >
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryName}>{viewModel.displayName}</Text>
-        <Text style={styles.summaryDetail}>{viewModel.profile.email}</Text>
-        <Text style={styles.summaryDetail}>{viewModel.profile.phone}</Text>
-      </View>
-      <View style={styles.rows}>
-        <ProfileActionRow
-          detail={viewModel.profile.role === 'tenant' ? 'Tenant' : 'Landlord'}
-          icon={settingsIcon}
-          label="Active role"
-          onPress={() => viewModel.setNotice('Role changes require a confirmed backend contract.')}
-        />
-        <ProfileActionRow
-          detail="Good standing"
-          icon={verificationIcon}
-          label="Account status"
-          onPress={() => viewModel.navigate('restricted')}
-        />
-      </View>
-      <Text style={styles.previewHint}>
-        Select Account status to preview the required restricted-account state.
-      </Text>
-      {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
-      <AuthButton
-        label="Sign out"
-        onPress={() => viewModel.setShowSignOutConfirmation(true)}
-        variant="secondary"
-      />
-    </AuthScaffold>
-  );
+export function SettingsView({ viewModel }: { viewModel: AuthProfilesViewModel }) {
+  return <AuthScaffold description="Your account information is loaded from Supabase." onBack={viewModel.goBack} title="Account settings">
+    <View style={styles.summaryCard}>
+      <Text style={styles.summaryName}>{viewModel.displayName}</Text>
+      <Text style={styles.detail}>Email: {viewModel.account?.user.email || 'Not available'}</Text>
+      <Text style={styles.detail}>Phone: {viewModel.account?.user.phone || 'Not verified'}</Text>
+      <Text style={styles.detail}>Roles: {viewModel.roles.join(', ') || 'None selected'}</Text>
+      <Text style={styles.detail}>Tier 1: {viewModel.account?.profile.tier1_verified_at ? 'Verified' : 'Pending'}</Text>
+      <Text style={styles.detail}>Account status: {viewModel.account?.profile.account_status || 'Unknown'}</Text>
+    </View>
+    <AuthButton label="Edit profile" onPress={() => viewModel.navigate('editProfile')} variant="secondary" />
+    <AuthButton label="Sign out" onPress={() => viewModel.setShowSignOutConfirmation(true)} variant="secondary" />
+    {viewModel.notice ? <Text style={styles.detail}>{viewModel.notice}</Text> : null}
+  </AuthScaffold>;
 }
 
 const styles = StyleSheet.create({
-  summaryCard: {
-    backgroundColor: colors.primaryPale,
-    borderRadius: radius.card,
-    gap: spacing.xs,
-    padding: spacing.md,
-  },
-  summaryName: {
-    color: colors.text,
-    fontFamily: typography.family,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  summaryDetail: {
-    color: colors.textSecondary,
-    fontFamily: typography.family,
-    fontSize: 14,
-  },
-  rows: { borderColor: colors.border, borderRadius: radius.card, borderWidth: 1, overflow: 'hidden' },
-  previewHint: {
-    color: colors.textMuted,
-    fontFamily: typography.family,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  notice: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-    color: colors.textSecondary,
-    fontFamily: typography.family,
-    fontSize: 13,
-    lineHeight: 18,
-    padding: spacing.sm,
-  },
+  summaryCard: { backgroundColor: colors.primaryPale, borderRadius: radius.card, gap: spacing.xs, padding: spacing.md },
+  summaryName: { color: colors.text, fontFamily: typography.family, fontSize: 20, fontWeight: '800' },
+  detail: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14 },
 });

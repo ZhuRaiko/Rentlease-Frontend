@@ -1,223 +1,111 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
+import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { AuthButton } from '../components/AuthButton';
 import { AuthField } from '../components/AuthField';
 import { AuthScaffold } from '../components/AuthScaffold';
-import { OtpCodeInput } from '../components/OtpCodeInput';
+import type { UserRole } from '../models/AuthProfile';
 import type { AuthProfilesViewModel } from '../viewModels/useAuthProfilesViewModel';
 
-interface RegistrationViewProps {
-  viewModel: AuthProfilesViewModel;
-  onCompleteAccountSetup?: (() => void) | undefined;
-}
-
-export function RegistrationView({ viewModel, onCompleteAccountSetup }: RegistrationViewProps) {
+export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewModel }) {
   const { screen, draft } = viewModel;
+  const busy = viewModel.asyncState === 'loading';
+  const notice = viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null;
+  const accountActions = viewModel.account ? <View style={styles.accountActions}>
+    <Text style={styles.body}>Signed in as {viewModel.account.user.email || viewModel.displayName}</Text>
+    <AuthButton disabled={busy} label="Sign out / use another account" onPress={() => void viewModel.switchAccount()} variant="secondary" />
+  </View> : null;
 
-  if (screen === 'registrationName') {
-    const canContinue = Boolean(draft.firstName.trim() && draft.lastName.trim());
-    return (
-      <AuthScaffold largeTitle onBack={viewModel.goBack} title="Please enter your name.">
-        <AuthField
-          autoCapitalize="words"
-          onChangeText={(value) => viewModel.updateDraft('firstName', value)}
-          placeholder="First Name"
-          value={draft.firstName}
-        />
-        <AuthField
-          autoCapitalize="words"
-          onChangeText={(value) => viewModel.updateDraft('lastName', value)}
-          placeholder="Last Name"
-          value={draft.lastName}
-        />
-        <View style={styles.narrowButton}>
-          <AuthButton
-            disabled={!canContinue}
-            label="Next"
-            onPress={() => viewModel.navigate('registrationNickname')}
-          />
-        </View>
-      </AuthScaffold>
-    );
-  }
+  if (screen === 'registrationName') return (
+    <AuthScaffold largeTitle onBack={viewModel.goBack} title="Please enter your name.">
+      <AuthField autoCapitalize="words" label="First name" onChangeText={(value) => viewModel.updateDraft('firstName', value)} value={draft.firstName} />
+      <AuthField autoCapitalize="words" label="Last name" onChangeText={(value) => viewModel.updateDraft('lastName', value)} value={draft.lastName} />
+      <AuthButton disabled={!draft.firstName.trim() || !draft.lastName.trim()} label="Next" onPress={() => viewModel.navigate('registrationNickname')} />
+    </AuthScaffold>
+  );
 
-  if (screen === 'registrationNickname') {
-    return (
-      <AuthScaffold
-        description="We’ll use this in notifications and messages from us."
-        largeTitle
-        onBack={viewModel.goBack}
-        title="What should we call you?"
-      >
-        <AuthField
-          autoCapitalize="words"
-          onChangeText={(value) => viewModel.updateDraft('nickname', value)}
-          placeholder="Nickname"
-          value={draft.nickname}
-        />
-        <View style={styles.narrowButton}>
-          <AuthButton
-            disabled={!draft.nickname.trim()}
-            label="Next"
-            onPress={() => viewModel.navigate('registrationEmail')}
-          />
-        </View>
-      </AuthScaffold>
-    );
-  }
+  if (screen === 'registrationNickname') return (
+    <AuthScaffold description="This name will appear on your profile." largeTitle onBack={viewModel.goBack} title="What should we call you?">
+      <AuthField autoCapitalize="words" label="Display name" onChangeText={(value) => viewModel.updateDraft('nickname', value)} value={draft.nickname} />
+      <AuthButton disabled={!draft.nickname.trim()} label="Next" onPress={() => viewModel.navigate('registrationEmail')} />
+    </AuthScaffold>
+  );
 
-  if (screen === 'registrationEmail') {
-    return (
-      <AuthScaffold
-        description="We’ll use this in notifications and messages from us."
-        largeTitle
-        onBack={viewModel.goBack}
-        title="Enter your E-mail address"
-      >
-        <AuthField
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-          onChangeText={(value) => viewModel.updateDraft('email', value)}
-          placeholder="E-mail Address"
-          value={draft.email}
-        />
-        <View style={styles.narrowButton}>
-          <AuthButton
-            disabled={!draft.email.includes('@')}
-            label="Next"
-            onPress={() => viewModel.navigate('emailConfirmation')}
-          />
-        </View>
-      </AuthScaffold>
-    );
-  }
+  if (screen === 'registrationEmail') return (
+    <AuthScaffold description="We'll send a confirmation link to this address." largeTitle onBack={viewModel.goBack} title="Enter your email address">
+      <AuthField autoCapitalize="none" autoComplete="email" keyboardType="email-address" label="Email address" onChangeText={(value) => viewModel.updateDraft('email', value)} value={draft.email} />
+      <AuthButton disabled={!draft.email.includes('@')} label="Next" onPress={() => viewModel.navigate('registrationPassword')} />
+    </AuthScaffold>
+  );
 
-  if (screen === 'emailConfirmation') {
-    return (
-      <AuthScaffold
-        description="Email delivery is not connected. Enter four digits to preview the confirmation state."
-        onBack={viewModel.goBack}
-        title="Confirm your email address"
-      >
-        <OtpCodeInput
-          onChangeDigit={(index, digit) => viewModel.updateCodeDigit('emailCode', index, digit)}
-          value={draft.emailCode}
-        />
-        <View style={styles.narrowButton}>
-          <AuthButton
-            disabled={!/^\d{4}$/.test(draft.emailCode)}
-            label="Verify"
-            onPress={() => viewModel.navigate('registrationPhone')}
-          />
-        </View>
-      </AuthScaffold>
-    );
-  }
+  if (screen === 'registrationPassword') return (
+    <AuthScaffold description="Use at least 8 characters. Your account will be created when you continue." onBack={viewModel.goBack} title="Create a password">
+      <AuthField autoComplete="new-password" label="Password" onChangeText={(value) => viewModel.updateDraft('password', value)} secureTextEntry value={draft.password} />
+      <AuthButton disabled={busy || draft.password.length < 8} label={busy ? 'Creating account…' : 'Create account'} onPress={() => void viewModel.register()} />
+      {notice}
+    </AuthScaffold>
+  );
 
-  if (screen === 'registrationPhone') {
-    return (
-      <AuthScaffold
-        description="We’ll send a short code to confirm it’s really you — takes less than a minute."
-        onBack={viewModel.goBack}
-        title={`You're nearly set, ${draft.nickname || draft.firstName || 'there'}! Lastly verify your Phone number`}
-      >
-        <AuthField
-          inputMode="tel"
-          maxLength={10}
-          onChangeText={(value) => viewModel.updateDraft('phone', value.replace(/\D/g, ''))}
-          placeholder="Enter Phone Number"
-          prefix="+63"
-          value={draft.phone}
-        />
-        <View style={styles.narrowButton}>
-          <AuthButton
-            disabled={draft.phone.length < 10}
-            label="Next"
-            onPress={() => viewModel.navigate('mobileConfirmation')}
-          />
-        </View>
-      </AuthScaffold>
-    );
-  }
+  if (screen === 'emailConfirmation') return (
+    <AuthScaffold description={`Open the confirmation link sent to ${draft.email || viewModel.account?.user.email || 'your email'}, then return here.`} footer={accountActions} title="Confirm your email">
+      <Text style={styles.body}>Email verification happens through the secure link from Supabase. There is no in-app four-digit email code.</Text>
+      <AuthButton disabled={busy} label={busy ? 'Checking…' : 'I confirmed my email'} onPress={() => void viewModel.continueAfterEmailConfirmation()} />
+      <AuthButton disabled={busy || viewModel.resendSeconds > 0} label={viewModel.resendSeconds ? `Resend in ${viewModel.resendSeconds}s` : 'Resend confirmation email'} onPress={() => void viewModel.resendEmail()} variant="secondary" />
+      {!viewModel.account ? <AuthButton disabled={busy} label="Back to sign in" onPress={() => viewModel.navigate('signIn')} variant="secondary" /> : null}
+      {notice}
+    </AuthScaffold>
+  );
 
-  if (screen === 'mobileConfirmation') {
-    return (
-      <AuthScaffold
-        description="SMS delivery is not connected. Enter four digits to preview the confirmation state."
-        onBack={viewModel.goBack}
-        title="Enter the 4-digit code we sent to you."
-      >
-        <OtpCodeInput
-          onChangeDigit={(index, digit) => viewModel.updateCodeDigit('mobileCode', index, digit)}
-          value={draft.mobileCode}
-        />
-        <View style={styles.narrowButton}>
-          <AuthButton
-            disabled={!/^\d{4}$/.test(draft.mobileCode)}
-            label="Verify"
-            onPress={() => viewModel.navigate('registrationPassword')}
-          />
-        </View>
-      </AuthScaffold>
-    );
-  }
+  if (screen === 'registrationPhone') return (
+    <AuthScaffold description="You're signed in. This account still needs a confirmed mobile number before you can enter RENTLEASE." footer={accountActions} title="Verify your phone">
+      <AuthField inputMode="tel" keyboardType="phone-pad" label="Mobile number" maxLength={10} onChangeText={(value) => viewModel.updateDraft('phone', value.replace(/\D/g, ''))} placeholder="9XXXXXXXXX" prefix="+63" value={draft.phone} />
+      <AuthButton disabled={busy || !/^9\d{9}$/.test(draft.phone)} label={busy ? 'Sending code…' : 'Send SMS code'} onPress={() => void viewModel.requestPhoneOtp()} />
+      <AuthButton disabled={busy} label="Already verified? Refresh status" onPress={() => void viewModel.refreshVerificationState()} variant="secondary" />
+      {notice}
+    </AuthScaffold>
+  );
 
-  if (screen === 'registrationPassword') {
-    return (
-      <AuthScaffold
-        description="Must be at least 8 characters long and include uppercase and lowercase letters, a number, and a special character (e.g., !@#$%)."
-        onBack={viewModel.goBack}
-        title="Enter your password."
-      >
-        <AuthField
-          autoComplete="new-password"
-          onChangeText={(value) => viewModel.updateDraft('password', value)}
-          placeholder="Password"
-          secureTextEntry
-          value={draft.password}
-        />
-        <View style={styles.narrowButton}>
-          <AuthButton
-            disabled={!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(draft.password)}
-            label="Finish setup"
-            onPress={viewModel.completeRegistrationPreview}
-          />
-        </View>
-      </AuthScaffold>
-    );
-  }
+  if (screen === 'mobileConfirmation') return (
+    <AuthScaffold description={`Enter the six-digit SMS code sent to +63${draft.phone}.`} footer={accountActions} title="Confirm your mobile number">
+      <AuthField keyboardType="number-pad" label="Six-digit code" maxLength={6} onChangeText={(value) => viewModel.updateDraft('mobileCode', value.replace(/\D/g, ''))} placeholder="000000" value={draft.mobileCode} />
+      <AuthButton disabled={busy || !/^\d{6}$/.test(draft.mobileCode)} label={busy ? 'Verifying…' : 'Verify phone'} onPress={() => void viewModel.verifyPhoneOtp()} />
+      <AuthButton disabled={busy || viewModel.resendSeconds > 0} label={viewModel.resendSeconds ? `Resend in ${viewModel.resendSeconds}s` : 'Resend SMS code'} onPress={() => void viewModel.resendPhoneOtp()} variant="secondary" />
+      <AuthButton disabled={busy} label="Refresh Tier 1 status" onPress={() => void viewModel.refreshVerificationState()} variant="secondary" />
+      <AuthButton disabled={busy} label="Change phone number" onPress={() => viewModel.navigate('registrationPhone')} variant="secondary" />
+      {notice}
+    </AuthScaffold>
+  );
+
+  if (screen === 'verificationPending') return (
+    <AuthScaffold description="Your email and phone are confirmed. Your account verification has not finished updating yet." footer={accountActions} title="Checking account verification">
+      <Text style={styles.body}>You don't need to request another SMS code. Refresh your status to continue. If it stays pending, contact RENTLEASE support to check your account.</Text>
+      <AuthButton disabled={busy} label={busy ? 'Checking…' : 'Refresh verification status'} onPress={() => void viewModel.refreshVerificationState()} />
+      {notice}
+    </AuthScaffold>
+  );
 
   return (
-    <AuthScaffold
-      description="Frontend preview complete. No account, session, email confirmation, or mobile verification was created."
-      largeTitle
-      title={`You're all set, ${draft.nickname || draft.firstName || 'there'}!`}
-    >
-      <Text style={styles.completeCopy}>
-        Your profile preview is ready. Once backend authentication is connected, this boundary can
-        be replaced without redesigning the screen.
-      </Text>
-      <AuthButton
-        label="Set matching preferences"
-        onPress={() => {
-          viewModel.openProfilePreview();
-          onCompleteAccountSetup?.();
-        }}
-      />
+    <AuthScaffold description="Choose how you want to use RENTLEASE. You can select both. Landlord verification is a separate trust step." footer={accountActions} title="Choose your role">
+      {(['tenant', 'landlord'] as UserRole[]).map((role) => (
+        <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: viewModel.selectedRoles.includes(role) }} key={role} onPress={() => viewModel.toggleRole(role)} style={[styles.roleCard, viewModel.selectedRoles.includes(role) && styles.roleSelected]}>
+          <Text style={styles.roleTitle}>{role === 'tenant' ? 'Tenant' : 'Landlord'}</Text>
+          <Text style={styles.body}>{role === 'tenant' ? 'Discover rental homes and manage your tenancy.' : 'Manage properties and rental listings.'}</Text>
+        </Pressable>
+      ))}
+      <AuthButton disabled={busy || viewModel.selectedRoles.length === 0} label={busy ? 'Saving roles…' : 'Continue'} onPress={() => void viewModel.submitRoles()} />
+      {notice}
     </AuthScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  narrowButton: { alignSelf: 'center', marginTop: spacing.sm, maxWidth: 272, width: '100%' },
-  completeCopy: {
-    color: colors.textSecondary,
-    fontFamily: typography.family,
-    fontSize: 16,
-    lineHeight: 24,
-  },
+  accountActions: { gap: spacing.sm },
+  body: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
+  notice: { backgroundColor: colors.primaryPale, borderRadius: radius.sm, color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 18, padding: spacing.sm },
+  roleCard: { borderColor: colors.border, borderRadius: radius.card, borderWidth: 1, gap: spacing.xs, padding: spacing.md },
+  roleSelected: { backgroundColor: colors.primaryPale, borderColor: colors.primary },
+  roleTitle: { color: colors.text, fontFamily: typography.family, fontSize: 17, fontWeight: '700' },
 });

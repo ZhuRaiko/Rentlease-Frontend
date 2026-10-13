@@ -1,25 +1,27 @@
 # Routes
 
-No navigation dependency is installed, so `App` is the Expo application root rather than a named navigation route. The Authentication & Profiles feature currently uses a feature-local, ViewModel-owned screen state so the complete frontend flow remains testable without introducing an unapproved navigation framework.
+No navigation dependency is installed, so `App` is the Expo application root rather than a named navigation route. The Authentication & Profiles ViewModel restores the Supabase session, loads the authoritative profile and complete role set, and owns the onboarding screen state. Non-active accounts are blocked. An active Admin goes to Admin Moderation based on the backend-loaded `admin` role; ordinary Tenant/Landlord accounts need confirmed email and Tier 1 before entering a marketplace workspace.
 
 | Page | Path / Route | Component | Feature Folder | Auth Required |
 |---|---|---|---|---|
 | Application root | Expo root | `App` | N/A | No |
 | Welcome / App Entry | Feature state: `welcome` | `WelcomeView` | Authentication & Profiles | No |
 | Sign In | Feature state: `signIn` | `SignInView` | Authentication & Profiles | No |
-| Create Account / Registration | Feature states: `registrationName` through `registrationComplete` | `RegistrationView` | Authentication & Profiles | No |
+| Create Account / Registration | Feature states: `registrationName`, `registrationNickname`, `registrationEmail`, `registrationPassword` | `RegistrationView` | Authentication & Profiles | No |
 | Email Confirmation | Feature state: `emailConfirmation` | `RegistrationView` | Authentication & Profiles | No |
-| Mobile Number Confirmation | Feature state: `mobileConfirmation` | `RegistrationView` | Authentication & Profiles | No |
-| User Profile | Feature state: `profile` | `ProfileView` | Authentication & Profiles | Preview only |
-| Edit Profile | Feature state: `editProfile` | `EditProfileView` | Authentication & Profiles | Preview only |
-| Account / Profile Settings | Feature state: `settings` | `SettingsView` | Authentication & Profiles | Preview only |
-| Account Restricted / Suspended | Feature state: `restricted` | `RestrictedAccountView` | Authentication & Profiles | Preview only |
+| Mobile Number Confirmation | Feature state: `mobileConfirmation` | `RegistrationView` | Authentication & Profiles | Yes |
+| Account Verification Pending | Feature state: `verificationPending` | `RegistrationView` | Authentication & Profiles | Yes, Auth phone confirmed but Tier 1 pending |
+| Role Selection | Feature state: `roleSelection` | `RegistrationView` | Authentication & Profiles | Yes, Tier 1 complete |
+| User Profile | Feature state: `profile` | `ProfileView` | Authentication & Profiles | Yes |
+| Edit Profile | Feature state: `editProfile` | `EditProfileView` | Authentication & Profiles | Yes |
+| Account / Profile Settings | Feature state: `settings` | `SettingsView` | Authentication & Profiles | Yes |
+| Account Restricted / Suspended | Feature state: `restricted` | `RestrictedAccountView` | Authentication & Profiles | Yes, blocked from workspace |
 
-Successful frontend sign-in opens `SearchDiscoveryFlowView` at the Home / For You feed. The authenticated Profile state remains underneath the root-owned workspace so closing Home returns to Profile. New account completion still opens Matching Preferences first and proceeds to Home after those preferences are saved. Sign-out confirmation is rendered as a modal owned by `AuthProfilesFlowView`. Replace the feature-local screen state with the approved application navigator when one is selected; preserve the ViewModel action boundaries and role separation.
+After authoritative checks, ordinary sign-in or completed onboarding opens `SearchDiscoveryFlowView` at Home / For You. Any active account whose role set contains `admin` opens Admin Moderation first, including accounts that also have Tenant or Landlord roles. The authenticated Profile state remains underneath the root-owned workspace. Matching Preferences are optional for ordinary accounts. Sign-out confirmation is rendered as a modal owned by `AuthProfilesFlowView`, and sign-out clears the workspace. See `docs/AUTH_SUPABASE_INTEGRATION.md` for the backend routing contract and unvalidated assumptions.
 
 ## User Verification feature states
 
-The Profile Verification action opens `UserVerificationFlowView` in a root-owned full-screen modal. This preserves Authentication/Profile state while keeping feature Views and ViewModels isolated.
+The Tier 2/3 verification preview flow is retained in source but is not reachable from the authenticated app shell until its backend submission/status contract is connected. Profile shows authoritative Tier 1 state; the Verification action explains the current limitation.
 
 | Flow | Feature states | Component | Actor |
 |---|---|---|---|
@@ -30,11 +32,11 @@ The Profile Verification action opens `UserVerificationFlowView` in a root-owned
 | Tier 3 property and document verification | `tier3Intro`, `tier3Property`, `tier3Document`, `tier3Review` | `TierThreeVerificationView` | Verified Tier 2 user seeking Landlord status |
 | Tier 3 review states | `tier3Pending`, `tier3Approved`, `tier3Rejected` | `VerificationStatusView` | Landlord applicant |
 
-These are frontend-local route states. New accounts default to Tenant, and the local profile changes to Landlord only after Tier 3 approval. Supabase submission, Storage upload, and admin review remain disconnected.
+These are frontend-local preview route states, not backend verification statuses. New accounts do not receive an automatic role. Landlord can be selected through the backend role RPC after Tier 1; Tier 3 approval never changes roles. Supabase Tier 2/3 submission, Storage upload, and admin review remain disconnected.
 
 ## Property & Listing Management feature states
 
-The Profile My Properties action and the Listing tab open `PropertyListingFlowView` in the root-owned full-screen workspace only when the current local profile role is Landlord. Tenant profiles see the same universal five-item toolbar, but Listing and Post explain the Tier 3 requirement instead of opening landlord-only screens. The landlord Post action enters the Figma posting-type selection, while Discover returns to tenant discovery without changing the earned Landlord capability. The shared toolbar remains visible throughout authenticated Discovery and Property/Listing workspace states, including nested creation and preview screens; it is not rendered on Authentication/Profile screens.
+The Profile My Properties action and the Listing tab open `PropertyListingFlowView` in the root-owned full-screen workspace only when the backend-loaded roles include Landlord. Tenant-only accounts see the same universal five-item toolbar, but Listing and Post do not open landlord-only screens. The landlord Post action enters the Figma posting-type selection, while Discover remains available. The shared toolbar remains visible throughout authenticated Discovery and Property/Listing workspace states, including nested creation and preview screens; it is not rendered on Authentication/Profile screens.
 
 | Flow | Feature states | Component | Actor |
 |---|---|---|---|

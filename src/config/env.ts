@@ -14,6 +14,15 @@ export const env: PublicEnvironment = {
   fastApiBaseUrl: process.env.EXPO_PUBLIC_FASTAPI_BASE_URL,
 };
 
+export function isSupabaseConfigured(): boolean {
+  return Boolean(
+    env.supabaseUrl?.startsWith('https://') &&
+      !env.supabaseUrl.includes('your-project-id') &&
+      env.supabaseAnonKey &&
+      !env.supabaseAnonKey.startsWith('replace-with-'),
+  );
+}
+
 export function requireEnvironmentValue(
   value: string | undefined,
   variableName: keyof NodeJS.ProcessEnv,

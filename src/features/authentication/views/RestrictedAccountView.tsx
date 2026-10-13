@@ -15,31 +15,19 @@ interface RestrictedAccountViewProps {
 export function RestrictedAccountView({ viewModel }: RestrictedAccountViewProps) {
   return (
     <AuthScaffold
-      description="This is a frontend-only preview of the account state shown when trusted backend moderation restricts access."
-      onBack={viewModel.goBack}
-      title="Account restricted"
+      description="Your account status is set by RENTLEASE moderation. Marketplace access is unavailable."
+      title="Account access limited"
     >
       <View style={styles.statusCard}>
-        <Text style={styles.statusLabel}>TEMPORARILY RESTRICTED</Text>
+        <Text style={styles.statusLabel}>{(viewModel.account?.profile.account_status || 'UNAVAILABLE').toUpperCase()}</Text>
         <Text style={styles.statusTitle}>Your RENTLEASE access is limited</Text>
         <Text style={styles.statusBody}>
           You can still review your profile and account information, but marketplace actions are
           unavailable while this status is active.
         </Text>
       </View>
-      <View style={styles.referenceCard}>
-        <Text style={styles.referenceLabel}>Reference</Text>
-        <Text style={styles.referenceValue}>RL-ACCOUNT-REVIEW</Text>
-        <Text style={styles.referenceBody}>
-          Account status remains backend-authoritative. This preview does not assign or clear a
-          restriction.
-        </Text>
-      </View>
+      <View style={styles.referenceCard}><Text style={styles.referenceBody}>If you believe this is an error, contact RENTLEASE support. Your account status cannot be changed in the app.</Text></View>
       {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
-      <AuthButton
-        label="Contact support"
-        onPress={() => viewModel.setNotice('Support contact is not connected in this frontend preview.')}
-      />
       <AuthButton
         label="Sign out"
         onPress={() => viewModel.setShowSignOutConfirmation(true)}

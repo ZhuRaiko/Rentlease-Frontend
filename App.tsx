@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { UserRole } from './src/features/authentication/models/AuthProfile';
+import { getWorkspaceDestination } from './src/features/authentication/models/accountRouting';
 import { AuthProfilesFlowView } from './src/features/authentication/views/AuthProfilesFlowView';
+import { useAuthProfilesViewModel } from './src/features/authentication/viewModels/useAuthProfilesViewModel';
 import { AdminModerationFlowView } from './src/features/admin-moderation/views/AdminModerationFlowView';
 import { MessagingViewingFlowView } from './src/features/messaging-viewing/views/MessagingViewingFlowView';
 import { MaintenanceRequestsFlowView } from './src/features/maintenance/views/MaintenanceRequestsFlowView';
@@ -13,7 +15,6 @@ import { RatingsReportsFlowView } from './src/features/ratings-reports/views/Rat
 import type { EstimateActor } from './src/features/rental-price-estimation/models/RentalPriceEstimate';
 import { RentalPriceEstimationFlowView } from './src/features/rental-price-estimation/views/RentalPriceEstimationFlowView';
 import { SearchDiscoveryFlowView } from './src/features/search-discovery/views/SearchDiscoveryFlowView';
-import { UserVerificationFlowView } from './src/features/user-verification/views/UserVerificationFlowView';
 
 type DiscoveryEntry = 'home' | 'matchingPreferences';
 
@@ -29,24 +30,44 @@ type AppWorkspace =
   | null;
 
 export default function App() {
-  const [accountRole, setAccountRole] = useState<UserRole>('tenant');
-  const [showVerification, setShowVerification] = useState(false);
+  const auth = useAuthProfilesViewModel();
+  const [preferredRole, setPreferredRole] = useState<UserRole>('tenant');
+  const accountRole: UserRole = auth.hasLandlordRole && (!auth.hasTenantRole || preferredRole === 'landlord') ? 'landlord' : 'tenant';
   const [workspace, setWorkspace] = useState<AppWorkspace>(null);
+  const workspaceDestination = auth.account ? getWorkspaceDestination(auth.account) : null;
+  const canEnterAdmin = workspaceDestination === 'adminModeration';
+  const canEnterMarketplace = workspaceDestination === 'discovery';
+  const openProperties = (initialScreen: 'dashboard' | 'postingType') => {
+    if (canEnterMarketplace && auth.hasLandlordRole) setWorkspace({ type: 'properties', initialScreen });
+  };
+
+  useEffect(() => {
+    if (auth.entryVersion === 0 || !workspaceDestination) return;
+    setPreferredRole(auth.hasTenantRole ? 'tenant' : 'landlord');
+    setWorkspace(workspaceDestination === 'adminModeration'
+      ? { type: 'adminModeration' }
+      : { type: 'discovery', initialScreen: 'home' });
+  }, [auth.entryVersion, workspaceDestination]);
+
+  useEffect(() => {
+    if (auth.signedOutVersion > 0) {
+      setWorkspace(null);
+      setPreferredRole('tenant');
+    }
+  }, [auth.signedOutVersion]);
 
   return (
     <SafeAreaProvider>
       <AuthProfilesFlowView
-        accountRole={accountRole}
-        onOpenAdminModeration={() => setWorkspace({ type: 'adminModeration' })}
-        onOpenDiscovery={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
-        onSignInComplete={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
-        onOpenMatchingPreferences={() =>
-          setWorkspace({ type: 'discovery', initialScreen: 'matchingPreferences' })
-        }
-        onOpenNotifications={() => setWorkspace({ type: 'notifications' })}
-        onOpenProperties={() => setWorkspace({ type: 'properties', initialScreen: 'dashboard' })}
-        onOpenRatingsReports={() => setWorkspace({ type: 'ratingsReports' })}
-        onOpenVerification={() => setShowVerification(true)}
+        viewModel={auth}
+        activeRole={accountRole}
+        onSwitchRole={setPreferredRole}
+        onOpenAdminModeration={() => { if (canEnterAdmin) setWorkspace({ type: 'adminModeration' }); }}
+        onOpenDiscovery={() => { if (canEnterMarketplace) setWorkspace({ type: 'discovery', initialScreen: 'home' }); }}
+        onOpenMatchingPreferences={() => { if (canEnterMarketplace) setWorkspace({ type: 'discovery', initialScreen: 'matchingPreferences' }); }}
+        onOpenNotifications={() => { if (canEnterMarketplace) setWorkspace({ type: 'notifications' }); }}
+        onOpenProperties={() => openProperties('dashboard')}
+        onOpenRatingsReports={() => { if (canEnterMarketplace) setWorkspace({ type: 'ratingsReports' }); }}
       />
 
       <Modal
@@ -54,7 +75,7 @@ export default function App() {
         onRequestClose={() => setWorkspace(null)}
         presentationStyle="fullScreen"
         statusBarTranslucent
-        visible={workspace !== null}
+        visible={workspace !== null && (workspace?.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace)}
       >
         {workspace?.type === 'discovery' ? (
           <SearchDiscoveryFlowView
@@ -62,10 +83,10 @@ export default function App() {
             isLandlord={accountRole === 'landlord'}
             onClose={() => setWorkspace(null)}
             onCreateListing={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'postingType' })
+              openProperties('postingType')
             }
             onOpenListings={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'dashboard' })
+              openProperties('dashboard')
             }
             onOpenPriceEstimate={() =>
               setWorkspace({ type: 'priceEstimate', actor: 'tenant', returnTo: 'discovery' })
@@ -77,7 +98,7 @@ export default function App() {
             }
           />
         ) : null}
-        {workspace?.type === 'properties' && accountRole === 'landlord' ? (
+        {workspace?.type === 'properties' && auth.hasLandlordRole ? (
           <PropertyListingFlowView
             initialScreen={workspace.initialScreen}
             onClose={() => setWorkspace(null)}
@@ -95,18 +116,18 @@ export default function App() {
             isLandlord={accountRole === 'landlord'}
             onClose={() =>
               setWorkspace(
-                workspace.returnTo === 'properties' && accountRole === 'landlord'
+                workspace.returnTo === 'properties' && auth.hasLandlordRole
                   ? { type: 'properties', initialScreen: 'dashboard' }
                   : { type: 'discovery', initialScreen: 'home' },
               )
             }
             onCreateListing={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'postingType' })
+              openProperties('postingType')
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
             onOpenDiscover={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
             onOpenListings={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'dashboard' })
+              openProperties('dashboard')
             }
             onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
           />
@@ -118,11 +139,11 @@ export default function App() {
             isLandlord={accountRole === 'landlord'}
             onClose={() => setWorkspace(null)}
             onCreateListing={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'postingType' })
+              openProperties('postingType')
             }
             onOpenDiscover={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
             onOpenListings={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'dashboard' })
+              openProperties('dashboard')
             }
             onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
           />
@@ -133,12 +154,12 @@ export default function App() {
             isLandlord={accountRole === 'landlord'}
             onClose={() => setWorkspace(null)}
             onCreateListing={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'postingType' })
+              openProperties('postingType')
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
             onOpenDiscover={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
             onOpenListings={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'dashboard' })
+              openProperties('dashboard')
             }
           />
         ) : null}
@@ -148,17 +169,17 @@ export default function App() {
             isLandlord={accountRole === 'landlord'}
             onClose={() => setWorkspace(null)}
             onCreateListing={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'postingType' })
+              openProperties('postingType')
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
             onOpenDiscover={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
             onOpenListings={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'dashboard' })
+              openProperties('dashboard')
             }
             onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
           />
         ) : null}
-        {workspace?.type === 'adminModeration' ? (
+        {workspace?.type === 'adminModeration' && auth.isAdmin ? (
           <AdminModerationFlowView onClose={() => setWorkspace(null)} />
         ) : null}
         {workspace?.type === 'notifications' ? (
@@ -166,36 +187,23 @@ export default function App() {
             isLandlord={accountRole === 'landlord'}
             onClose={() => setWorkspace(null)}
             onCreateListing={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'postingType' })
+              openProperties('postingType')
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
             onOpenDiscover={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
             onOpenListings={() =>
-              setWorkspace({ type: 'properties', initialScreen: 'dashboard' })
+              openProperties('dashboard')
             }
             onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
             onOpenRatingsReports={() => setWorkspace({ type: 'ratingsReports' })}
             onOpenVerification={() => {
               setWorkspace(null);
-              setShowVerification(true);
+              auth.setNotice('Tier 2 and Tier 3 verification submissions are not connected yet.');
             }}
           />
         ) : null}
       </Modal>
 
-      <Modal
-        animationType="slide"
-        onRequestClose={() => setShowVerification(false)}
-        presentationStyle="fullScreen"
-        statusBarTranslucent
-        visible={showVerification}
-      >
-        <UserVerificationFlowView
-          initialActor={accountRole}
-          onClose={() => setShowVerification(false)}
-          onLandlordVerified={() => setAccountRole('landlord')}
-        />
-      </Modal>
     </SafeAreaProvider>
   );
 }

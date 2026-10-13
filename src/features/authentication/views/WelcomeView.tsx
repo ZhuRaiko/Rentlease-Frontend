@@ -11,6 +11,7 @@ const arrowForward = require('../../../assets/authentication/arrow-forward.png')
 interface WelcomeViewProps {
   onSignIn: () => void;
   onCreateAccount: () => void;
+  notice?: string | null;
 }
 
 interface ChoiceCardProps {
@@ -40,7 +41,7 @@ function ChoiceCard({ title, description, accent = false, onPress }: ChoiceCardP
   );
 }
 
-export function WelcomeView({ onSignIn, onCreateAccount }: WelcomeViewProps) {
+export function WelcomeView({ onSignIn, onCreateAccount, notice }: WelcomeViewProps) {
   return (
     <ScrollView contentContainerStyle={styles.screen}>
       <View style={styles.brandArea}>
@@ -54,6 +55,7 @@ export function WelcomeView({ onSignIn, onCreateAccount }: WelcomeViewProps) {
         />
         <ChoiceCard accent onPress={onCreateAccount} title="Let’s Make an Account!" />
       </View>
+      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
     </ScrollView>
   );
 }
@@ -94,4 +96,5 @@ const styles = StyleSheet.create({
   },
   arrow: { height: 48, width: 28 },
   pressed: { opacity: 0.78 },
+  notice: { backgroundColor: colors.primaryPale, color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 18, marginTop: spacing.lg, padding: spacing.sm },
 });

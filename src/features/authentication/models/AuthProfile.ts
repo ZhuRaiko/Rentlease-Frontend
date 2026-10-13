@@ -1,6 +1,10 @@
+import type { User } from '@supabase/supabase-js';
+
 export type UserRole = 'tenant' | 'landlord';
+export type AppRole = UserRole | 'admin';
 
 export type AuthProfileScreen =
+  | 'bootstrap'
   | 'welcome'
   | 'signIn'
   | 'registrationName'
@@ -9,8 +13,9 @@ export type AuthProfileScreen =
   | 'emailConfirmation'
   | 'registrationPhone'
   | 'mobileConfirmation'
+  | 'verificationPending'
   | 'registrationPassword'
-  | 'registrationComplete'
+  | 'roleSelection'
   | 'profile'
   | 'editProfile'
   | 'settings'
@@ -21,20 +26,27 @@ export interface RegistrationDraft {
   lastName: string;
   nickname: string;
   email: string;
-  emailCode: string;
   phone: string;
   mobileCode: string;
   password: string;
 }
 
-export interface UserProfile {
-  firstName: string;
-  lastName: string;
-  nickname: string;
-  email: string;
-  phone: string;
-  role: UserRole;
-  city: string;
+export interface AccountProfile {
+  id: string;
+  display_name: string | null;
+  bio: string | null;
+  avatar_path: string | null;
+  tier1_verified_at: string | null;
+  tier2_verified_at: string | null;
+  tier3_verified_at: string | null;
+  trust_score: number | null;
+  account_status: string | null;
+}
+
+export interface AccountSnapshot {
+  user: User;
+  profile: AccountProfile;
+  roles: AppRole[];
 }
 
 export const initialRegistrationDraft: RegistrationDraft = {
@@ -42,18 +54,7 @@ export const initialRegistrationDraft: RegistrationDraft = {
   lastName: '',
   nickname: '',
   email: '',
-  emailCode: '',
   phone: '',
   mobileCode: '',
   password: '',
-};
-
-export const previewProfile: UserProfile = {
-  firstName: 'Samuel',
-  lastName: 'Feliciano',
-  nickname: 'Sam',
-  email: 'samuel.feliciano@example.com',
-  phone: '+63 917 123 4567',
-  role: 'tenant',
-  city: 'Imus, Cavite',
 };
