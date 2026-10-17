@@ -21,7 +21,7 @@ After authoritative checks, ordinary sign-in or completed onboarding opens `Sear
 
 ## User Verification feature states
 
-The Tier 2/3 verification preview flow is retained in source but is not reachable from the authenticated app shell until its backend submission/status contract is connected. Profile shows authoritative Tier 1 state; the Verification action explains the current limitation.
+The Tier 2/3 verification preview flow is retained in source but is not reachable from the authenticated app shell until its backend submission/status contract is connected. Profile shows authoritative Tier 1 state; the Verification action explains the current limitation. Phase 1 adapts the existing document-selection/review UI to real local files, with submission disabled; it adds no production entry or routes. See [User Verification](features/USER_VERIFICATION.md).
 
 | Flow | Feature states | Component | Actor |
 |---|---|---|---|
@@ -29,10 +29,10 @@ The Tier 2/3 verification preview flow is retained in source but is not reachabl
 | Tier 1 introduction and contact confirmation | `tier1Intro`, `tier1Email`, `tier1Mobile`, `tier1Complete` | `TierOneVerificationView`, `VerificationStatusView` | Tenant / Landlord |
 | Tier 2 ID verification | `tier2Intro`, `tier2IdType`, `tier2Upload`, `tier2Review` | `TierTwoVerificationView` | Tenant / Landlord |
 | Tier 2 review states | `tier2Pending`, `tier2Approved`, `tier2Rejected`, `tier2Resubmission` | `VerificationStatusView`, `TierTwoVerificationView` | Tenant / Landlord |
-| Tier 3 property and document verification | `tier3Intro`, `tier3Property`, `tier3Document`, `tier3Review` | `TierThreeVerificationView` | Verified Tier 2 user seeking Landlord status |
-| Tier 3 review states | `tier3Pending`, `tier3Approved`, `tier3Rejected` | `VerificationStatusView` | Landlord applicant |
+| Tier 3 property and document verification | `tier3Intro`, `tier3Property`, `tier3Document`, `tier3Review` | `TierThreeVerificationView` | Legacy preview only; intended real flow is an existing Tier 1-verified landlord with an owned property |
+| Tier 3 review states | `tier3Pending`, `tier3Approved`, `tier3Rejected` | `VerificationStatusView` | Legacy preview only; real status integration deferred |
 
-These are frontend-local preview route states, not backend verification statuses. New accounts do not receive an automatic role. Landlord can be selected through the backend role RPC after Tier 1; Tier 3 approval never changes roles. Supabase Tier 2/3 submission, Storage upload, and admin review remain disconnected.
+These are frontend-local preview route states, not backend verification statuses. New accounts do not receive an automatic role. Landlord can be selected through the backend role RPC after Tier 1; real Tier 3 approval grants no role and does not require Tier 2. The disconnected legacy ViewModel still contains contrary gating/local actor-promotion logic; do not reconnect it unchanged. A shared private upload primitive now exists without a UI caller. Supabase Tier 2/3 submission, document metadata/status loading and Admin review remain disconnected.
 
 ## Property & Listing Management feature states
 
@@ -53,7 +53,7 @@ These states are frontend-local. Supabase listing persistence, Storage photo upl
 
 ## Search & Discovery feature states
 
-The Profile Discover Properties action opens `SearchDiscoveryFlowView` in a root-owned full-screen modal. Completing the local registration preview opens the same flow at Matching Preferences, and the Profile Matching Preferences action can edit those presentation-only choices later.
+The Profile Discover Properties action opens `SearchDiscoveryFlowView` in a root-owned full-screen modal. Authoritative sign-in/onboarding opens Home / For You. The Profile Matching Preferences action opens the existing presentation-only preference editor; it is not a mandatory registration destination.
 
 | Flow | Feature states | Component | Actor |
 |---|---|---|---|
@@ -68,7 +68,7 @@ The Profile Discover Properties action opens `SearchDiscoveryFlowView` in a root
 | Saved listings | `savedListings` | `TenantDiscoveryView` | Tenant / Landlord-as-tenant |
 | Search recovery states | `noResults`, `searchError` | `TenantDiscoveryView` | Tenant / Landlord-as-tenant |
 
-These states are frontend-local. Supabase/PostGIS search, MapTiler/MapLibre map rendering, MapTiler geocoding, Android location permission acquisition and OpenStreetMap Overpass queries remain disconnected. Landlord accounts retain Tenant discovery access because Landlord is an earned capability rather than a mutually exclusive account type.
+These states are frontend-local. Supabase/PostGIS search, MapTiler/MapLibre map rendering, MapTiler geocoding, Android location permission acquisition and OpenStreetMap Overpass queries remain disconnected. Landlord-capable marketplace accounts can browse Discovery; Tenant/Landlord roles are backend-loaded capabilities and the active mode is a UI preference, not a Tier 3 promotion.
 
 ## Rental Price Estimation feature states
 
@@ -143,7 +143,7 @@ All reviews, rating aggregates, review eligibility, publication waiting, reports
 
 ## Admin & Moderation feature states
 
-The Profile screen exposes an explicitly labeled `Admin Moderation Preview` entry so this frontend-only repository can evaluate the admin interface before an authoritative admin session exists. `App` opens `AdminModerationFlowView` in the root-owned full-screen workspace. This entry is not an authorization check and must be replaced or guarded by backend-derived admin claims and RLS before production use. The admin workspace has its own Dashboard, Queues, Actions and Audit navigation because it is separate from Tenant/Landlord application navigation.
+Only an active account with a backend-loaded Admin role can enter `AdminModerationFlowView`; ordinary Profile navigation does not expose Admin Preview. Admin bypasses ordinary Tenant/Landlord onboarding. The admin workspace retains Dashboard, Queues, Actions and Audit navigation. Its content/actions remain local previews; this navigation gate does not implement backend review authorization or persistence, which remain server-owned.
 
 | Flow | Feature states | Component | Actor |
 |---|---|---|---|
@@ -158,7 +158,7 @@ The Profile screen exposes an explicitly labeled `Admin Moderation Preview` entr
 | Confirmation, restrictions and restoration | `moderationConfirmation`, `activeRestrictions`, `restoreAccount` | `EnforcementView` | Admin preview |
 | Audit and case history | `auditHistory`, `caseHistory` | `AuditView` | Admin preview |
 
-All admin session details, verification/report queues, secure files, evidence, decisions, enforcement, restoration and audit entries are local frontend previews. Supabase Auth/JWT admin claims, RLS authorization, database persistence, secure Storage retrieval, Edge Functions, immutable audit logging, notifications and production moderation policy enforcement remain disconnected.
+Admin entry uses the authoritative Auth/profile/role snapshot. Displayed admin identity details, verification/report queues, files, evidence, decisions, enforcement, restoration and audit entries remain local previews. Backend review/enforcement operations, secure document retrieval, audit persistence and notifications remain disconnected; no Start review or review RPC was added in Phase 1.
 
 ## Notifications feature states
 

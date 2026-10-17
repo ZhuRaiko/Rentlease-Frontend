@@ -1,3 +1,3 @@
 # Generated database types
 
-Place Supabase CLI-generated TypeScript types here when the canonical schema is available. Do not hand-author table or column definitions.
+The canonical Supabase CLI-generated contract is now `../database.types.ts`, imported by the typed singleton client. Do not create a duplicate contract in this older reserved directory or hand-author table/column definitions. Generated types describe structure, not RLS or business rules.

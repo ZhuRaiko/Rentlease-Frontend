@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+import { selectLocalDocument } from '../../../shared/services/documents/documentPickerService';
+import type { AppError } from '../../../shared/errors/AppError';
 
 import {
   initialVerificationDraft,
@@ -31,6 +34,13 @@ export function useUserVerificationViewModel(
     3: 'locked',
   });
   const [notice, setNotice] = useState<string | null>(null);
+  const [isSelectingDocument, setIsSelectingDocument] = useState(false);
+  const selectingRef = useRef(false);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const navigate = (nextScreen: VerificationScreen) => {
     setHistory((current) => [...current, screen]);
@@ -108,16 +118,27 @@ export function useUserVerificationViewModel(
   };
 
   const selectGovernmentId = (governmentIdType: GovernmentIdType) => {
-    setDraft((current) => ({ ...current, governmentIdType, tier2FileName: null }));
+    setDraft((current) => ({ ...current, governmentIdType, tier2Document: null }));
     navigate('tier2Upload');
   };
 
-  const selectTierTwoDocumentPreview = () => {
-    setDraft((current) => ({
-      ...current,
-      tier2FileName: `${(current.governmentIdType ?? 'government-id').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-front.jpg`,
-    }));
-    setNotice('Figma sample selected locally. Nothing was uploaded.');
+  const selectDocument = async (field: 'tier2Document' | 'tier3Document') => {
+    if (selectingRef.current) return;
+    selectingRef.current = true;
+    setIsSelectingDocument(true);
+    setNotice(null);
+    try {
+      const selected = await selectLocalDocument();
+      if (selected && mountedRef.current) {
+        setDraft((current) => ({ ...current, [field]: selected }));
+        setNotice('Document selected on this device only. Nothing has been uploaded or submitted.');
+      }
+    } catch (error) {
+      if (mountedRef.current) setNotice((error as AppError).message);
+    } finally {
+      selectingRef.current = false;
+      if (mountedRef.current) setIsSelectingDocument(false);
+    }
   };
 
   const submitTierTwoPreview = () => {
@@ -135,7 +156,7 @@ export function useUserVerificationViewModel(
   };
 
   const startTierTwoResubmission = () => {
-    setDraft((current) => ({ ...current, tier2FileName: null }));
+    setDraft((current) => ({ ...current, tier2Document: null }));
     setStatuses((current) => ({ ...current, 2: 'inProgress' }));
     navigate('tier2Resubmission');
   };
@@ -146,15 +167,7 @@ export function useUserVerificationViewModel(
   };
 
   const selectOwnershipDocument = (ownershipDocumentType: OwnershipDocumentType) => {
-    setDraft((current) => ({ ...current, ownershipDocumentType, tier3FileName: null }));
-  };
-
-  const selectTierThreeDocumentPreview = () => {
-    setDraft((current) => ({
-      ...current,
-      tier3FileName: `${(current.ownershipDocumentType ?? 'ownership-document').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.jpg`,
-    }));
-    setNotice('Figma sample selected locally. Nothing was uploaded.');
+    setDraft((current) => ({ ...current, ownershipDocumentType, tier3Document: null }));
   };
 
   const submitTierThreePreview = () => {
@@ -172,7 +185,7 @@ export function useUserVerificationViewModel(
   };
 
   const startTierThreeResubmission = () => {
-    setDraft((current) => ({ ...current, tier3FileName: null }));
+    setDraft((current) => ({ ...current, tier3Document: null }));
     setStatuses((current) => ({ ...current, 3: 'inProgress' }));
     navigate('tier3Document');
     setNotice('Replace the ownership or authorization document before reviewing again.');
@@ -184,6 +197,7 @@ export function useUserVerificationViewModel(
     draft,
     statuses,
     notice,
+    isSelectingDocument,
     navigate,
     goBack,
     goToOverview,
@@ -193,13 +207,13 @@ export function useUserVerificationViewModel(
     openTier,
     completeTierOne,
     selectGovernmentId,
-    selectTierTwoDocumentPreview,
+    selectTierTwoDocument: () => selectDocument('tier2Document'),
     submitTierTwoPreview,
     previewTierTwoDecision,
     startTierTwoResubmission,
     selectProperty,
     selectOwnershipDocument,
-    selectTierThreeDocumentPreview,
+    selectTierThreeDocument: () => selectDocument('tier3Document'),
     submitTierThreePreview,
     previewTierThreeDecision,
     startTierThreeResubmission,

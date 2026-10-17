@@ -1,5 +1,7 @@
-import type { ImageSourcePropType } from 'react-native';
+import { useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import type { SelectedDocument } from '../../../shared/models/SelectedDocument';
 
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -7,43 +9,47 @@ import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 
 interface DocumentPreviewPickerProps {
-  image: ImageSourcePropType;
-  fileName: string | null;
-  onSelect: () => void;
-  label: string;
+  document: SelectedDocument | null;
+  onSelect?: (() => void) | undefined;
+  busy?: boolean;
 }
 
 export function DocumentPreviewPicker({
-  image,
-  fileName,
+  document,
   onSelect,
-  label,
+  busy = false,
 }: DocumentPreviewPickerProps) {
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+  const showImage = document?.mimeType?.startsWith('image/') && document.uri !== failedUri;
   return (
     <View style={styles.wrapper}>
       <View style={styles.preview}>
-        {fileName ? (
+        {document && showImage ? (
           <>
-            <Image resizeMode="cover" source={image} style={styles.image} />
+            <Image onError={() => setFailedUri(document.uri)} resizeMode="contain" source={{ uri: document.uri }} style={styles.image} />
             <View style={styles.sampleBadge}>
-              <Text style={styles.sampleText}>FIGMA SAMPLE · LOCAL ONLY</Text>
+              <Text style={styles.sampleText}>LOCAL FILE · NOT UPLOADED</Text>
             </View>
           </>
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>No document selected</Text>
-            <Text style={styles.emptyCopy}>The file picker and upload remain disconnected.</Text>
+            <Text style={styles.emptyTitle}>{document ? 'Document selected' : 'No document selected'}</Text>
+            <Text style={styles.emptyCopy}>{document ? 'A visual preview is unavailable for this file. The selection is local only.' : 'Choose a document from your device.'}</Text>
           </View>
         )}
       </View>
-      {fileName ? <Text style={styles.fileName}>{fileName}</Text> : null}
-      <Pressable
+      {document ? <>
+        <Text style={styles.fileName}>{document.fileName}</Text>
+        <Text style={styles.emptyCopy}>{document.mimeType ?? 'File type unavailable'}{document.size !== null ? ` · ${document.size} bytes` : ''}</Text>
+      </> : null}
+      {onSelect ? <Pressable
         accessibilityRole="button"
+        disabled={busy}
         onPress={onSelect}
-        style={({ pressed }) => [styles.selectButton, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.selectButton, (pressed || busy) && styles.pressed]}
       >
-        <Text style={styles.selectLabel}>{label}</Text>
-      </Pressable>
+        <Text style={styles.selectLabel}>{busy ? 'Opening document picker…' : document ? 'Choose another document' : 'Choose document'}</Text>
+      </Pressable> : null}
     </View>
   );
 }

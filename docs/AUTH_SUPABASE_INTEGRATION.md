@@ -1,6 +1,8 @@
 # Authentication and profile Supabase integration
 
-This frontend follows `RENTLEASE_Frontend_Realignment_Handoff.md` for authentication, profile, role, and Tier 1 behavior. The repository remains frontend-only; authorization is enforced by Supabase Auth, RLS, triggers, and the `set_user_roles` RPC.
+The current living implementation is documented in [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md). Generated `src/shared/services/supabase/database.types.ts` is the structural contract. The earlier `RENTLEASE_Frontend_Realignment_Handoff.md` is a historical reference not present in this checkout. The repository remains frontend-only; authorization is enforced by Supabase Auth, RLS, triggers, and the `set_user_roles` RPC.
+
+Phase 1 adds service-owned Auth subscription and root ViewModel account synchronization, including deferred/coalesced refresh, stale-request invalidation and cleanup. Profile saves reapply authoritative account routing. These changes are IMPLEMENTED and RUNTIME-UNVERIFIED. Feature documentation owns the detailed lifecycle and remaining test matrix.
 
 ## Required local configuration
 
@@ -13,7 +15,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_PUBLIC_ANON_OR_PUBLISHABLE_KEY
 
 Use only the public anon/publishable key. Never place a service-role key, JWT signing secret, or SMS-provider secret in an `EXPO_PUBLIC_*` value. Restart Expo after changing `.env` (`npm run android`; clear Metro's cache if old values persist). A read-only request to the configured Supabase Auth settings endpoint returned HTTP 200; no key value was printed.
 
-The Supabase project must have email confirmation enabled, the tested SMS hook/provider configured, and the matching Auth/PostgREST contracts from the handoff deployed. The app does not create or alter these backend resources.
+The Supabase project must have email confirmation enabled, an appropriate SMS hook/provider configured, and matching Auth/PostgREST contracts deployed. Phase 1 did not test or alter these resources. The previously recorded HTTP 200 is not a live account-flow verification.
 
 ## Implemented frontend contract
 
@@ -24,12 +26,12 @@ The Supabase project must have email confirmation enabled, the tested SMS hook/p
 | Confirm email | Supabase confirmation link, manual return and sign-in | Auth user and profile |
 | Resend email | `auth.resend({ type: 'signup', email })` | None until confirmed |
 | Sign in | `auth.signInWithPassword` | Auth user, profile, roles |
-| Send phone code | `auth.updateUser({ phone: '+639XXXXXXXXX' })` | None until verified |
+| Send phone code | `auth.updateUser({ phone: '+639XXXXXXXXX' })` | Reload account; retain OTP entry when phone verification is still required |
 | Verify phone | `auth.verifyOtp({ type: 'phone_change', phone, token })` | Auth user and `tier1_verified_at` |
 | Resend phone code | `auth.resend({ type: 'phone_change', phone })` | None until verified |
 | Select roles | `rpc('set_user_roles', { requested_roles })` | `user_roles` |
 | Save profile | Update own `profiles.display_name` and `profiles.bio` | Own profile |
-| Sign out | `auth.signOut()` | Clear local account and workspace |
+| Sign out | `auth.signOut({ scope: 'local' })` | Clear local account and workspace; Auth SIGNED_OUT also clears them |
 
 The app loads the Auth user, own profile, and complete `user_roles` set before routing. A non-active `account_status` blocks access first. An active account with a backend-loaded `admin` role enters Admin Moderation without Tenant/Landlord role selection or Tier 1 onboarding. For ordinary Tenant/Landlord accounts, app entry requires confirmed email, backend-populated `tier1_verified_at`, and a backend-loaded Tenant or Landlord role. The landlord workspace is exposed by the `landlord` role, not Tier 3. Client-side gating is presentation only; the backend's `is_admin()` check and RLS remain the authorization boundary.
 
@@ -43,7 +45,7 @@ If Auth already confirms a nonempty phone number but `tier1_verified_at` is miss
 
 Regression checks cover verified returning accounts, incomplete phone verification, confirmed-phone/profile mismatches, email confirmation, restrictions, roles, and admin accounts in `tests/accountRouting.test.ts`.
 
-## Contract assumptions to validate against the live project
+## Structural contract and runtime assumptions
 
 - The own profile is selected and updated using `profiles.id = auth.users.id`.
 - Roles are read from `user_roles.user_id` with a `role` column.
@@ -51,13 +53,13 @@ Regression checks cover verified returning accounts, incomplete phone verificati
 - `set_user_roles` takes `requested_roles` as an array.
 - A verified Philippine phone is represented by a six-digit `phone_change` OTP and the backend trigger populates `tier1_verified_at` promptly.
 
-These field names are consistent with the handoff where stated, but no generated database types or live Supabase project were available in this repository to confirm the exact schema and enum values. If the live contract differs, adapt the service mapping, not the backend or View layer.
+Generated types now confirm profile columns, user_roles fields, the active account-status enum, and `set_user_roles({ requested_roles: string[] })` returning `{ role: string }[]`. They do not prove the Auth-user/profile-ID relationship, RLS, OTP length/configuration or trigger timing. Keep those business/runtime facts distinct. Available `update_my_profile` and `refresh_my_tier1_verification` RPCs remain unused; the safe existing direct profile write is retained.
 
 ## Known integration gaps
 
 - The configured public URL/key reach Supabase Auth (HTTP 200), but no live signup, SMS, RLS, or role-RPC round trip has been tested with a user account.
 - The email link opens outside the app; users return to the waiting screen and tap **I confirmed my email**, which signs them in with their registration credentials. A project-specific Android deep-link redirect and Supabase allowlist are not configured yet. A restarted app can use Sign in after confirmation.
-- Avatar upload, email/phone change after onboarding, password recovery, Google OAuth, Tier 2/3 submissions, and Admin moderation backend actions are not connected by this change. The unsafe local Tier 3-to-landlord promotion and ordinary-user Admin Preview entry are no longer reachable from the authenticated app shell.
+- Avatar upload, email/phone change after onboarding, password recovery, Google OAuth, Tier 2/3 submissions, and Admin moderation backend actions remain disconnected. Real local document selection and a private upload primitive now exist, but no production verification entry, submission, metadata or status workflow is integrated. See [User Verification](features/USER_VERIFICATION.md). The unsafe local Tier 3-to-landlord promotion and ordinary-user Admin Preview entry remain unreachable from the authenticated app shell.
 - Other feature cohorts continue using local preview data. Authentication now gates their entry, but their content and mutations are not Supabase-backed.
 
 ## Manual test checklist with a real project

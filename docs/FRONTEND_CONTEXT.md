@@ -17,6 +17,8 @@ Primary actors:
 
 ## Feature Cohorts
 
+Current statuses are indexed in [FEATURES.md](FEATURES.md). Auth/account ownership, event synchronization and document foundation details live in [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) and [User Verification](features/USER_VERIFICATION.md). Generated `src/shared/services/supabase/database.types.ts` is the structural contract; the singleton remains typed with `Database`. Implemented frontend code is not evidence of successful live runtime flows.
+
 1. Authentication & Profiles
 2. User Verification
 3. Property & Listing Management

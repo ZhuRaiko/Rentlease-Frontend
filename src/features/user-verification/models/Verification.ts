@@ -1,3 +1,5 @@
+import type { SelectedDocument } from '../../../shared/models/SelectedDocument';
+
 export type VerificationActor = 'tenant' | 'landlord';
 
 export type VerificationTier = 1 | 2 | 3;
@@ -57,10 +59,10 @@ export interface VerificationDraft {
   mobile: string;
   mobileCode: string;
   governmentIdType: GovernmentIdType | null;
-  tier2FileName: string | null;
+  tier2Document: SelectedDocument | null;
   propertyId: string | null;
   ownershipDocumentType: OwnershipDocumentType | null;
-  tier3FileName: string | null;
+  tier3Document: SelectedDocument | null;
 }
 
 export const governmentIdTypes: GovernmentIdType[] = [
@@ -90,8 +92,8 @@ export const initialVerificationDraft: VerificationDraft = {
   mobile: '+63 917 123 4567',
   mobileCode: '',
   governmentIdType: null,
-  tier2FileName: null,
+  tier2Document: null,
   propertyId: null,
   ownershipDocumentType: null,
-  tier3FileName: null,
+  tier3Document: null,
 };

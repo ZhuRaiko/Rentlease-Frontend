@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { isSupabaseConfigured } from '../../../config/env';
 import {
@@ -8,7 +8,8 @@ import {
   type RegistrationDraft,
   type UserRole,
 } from '../models/AuthProfile';
-import { getAccountDestination } from '../models/accountRouting';
+import { getAccountDestination, getWorkspaceDestination } from '../models/accountRouting';
+import { createAccountSynchronization } from './accountSynchronization';
 import {
   confirmPhoneChange,
   isUnconfirmedEmailError,
@@ -20,6 +21,7 @@ import {
   signIn,
   signOutAccount,
   signUp,
+  subscribeToAccountAuthChanges,
   updateOwnProfile,
 } from '../services/accountService';
 
@@ -65,6 +67,12 @@ export function useAuthProfilesViewModel() {
   const [now, setNow] = useState(Date.now());
   const [entryVersion, setEntryVersion] = useState(0);
   const [signedOutVersion, setSignedOutVersion] = useState(0);
+  const accountRef = useRef(account);
+  const screenRef = useRef(screen);
+  const mountedRef = useRef(false);
+  const syncRef = useRef<ReturnType<typeof createAccountSynchronization<AccountSnapshot>> | null>(null);
+  accountRef.current = account;
+  screenRef.current = screen;
 
   useEffect(() => {
     if (resendAvailableAt <= Date.now()) return;
@@ -72,31 +80,59 @@ export function useAuthProfilesViewModel() {
     return () => clearInterval(timer);
   }, [resendAvailableAt]);
 
-  const routeAccount = (snapshot: AccountSnapshot, preservePhoneCode = false) => {
+  const clearAccount = (destination: 'welcome' | 'signIn' = 'welcome') => {
+    accountRef.current = null;
+    setAccount(null);
+    setDraft(initialRegistrationDraft);
+    setSignInIdentifier('');
+    setSignInPassword('');
+    setProfileName('');
+    setProfileBio('');
+    setResendAvailableAt(0);
+    setSelectedRoles([]);
+    setHistory([]);
+    setScreen(destination);
+    setShowSignOutConfirmation(false);
+    setSignedOutVersion((current) => current + 1);
+    setAsyncState('success');
+    setNotice(null);
+  };
+
+  const routeAccount = (snapshot: AccountSnapshot, preservePhoneCode = false, background = false) => {
     const destination = getAccountDestination(snapshot);
+    const previous = accountRef.current;
+    const sameAccount = previous?.user.id === snapshot.user.id;
+    const sameDestination = sameAccount && getAccountDestination(previous) === destination;
+    const enteringWorkspace = getWorkspaceDestination(snapshot) !== null &&
+      (!sameAccount || !previous || getWorkspaceDestination(previous) !== getWorkspaceDestination(snapshot));
+    accountRef.current = snapshot;
     setAccount(snapshot);
-    setProfileName(snapshot.profile.display_name ?? '');
-    setProfileBio(snapshot.profile.bio ?? '');
+    if (!background || !sameDestination || screenRef.current !== 'editProfile') {
+      setProfileName(snapshot.profile.display_name ?? '');
+      setProfileBio(snapshot.profile.bio ?? '');
+    }
     if (destination !== 'emailConfirmation') {
       setDraft((current) => ({ ...current, password: '' }));
       setSignInPassword('');
     }
-    setScreen(preservePhoneCode && destination === 'registrationPhone' ? 'mobileConfirmation' : destination);
-    if (destination === 'profile') {
+    if (!background || !sameDestination) {
+      setScreen(preservePhoneCode && destination === 'registrationPhone' ? 'mobileConfirmation' : destination);
+      setHistory([]);
+    }
+    if (enteringWorkspace) {
       setEntryVersion((current) => current + 1);
     }
-    setHistory([]);
   };
 
   const refreshAccount = async (preservePhoneCode = false) => {
-    const snapshot = await loadAccount();
-    if (!snapshot) {
-      setAccount(null);
-      setScreen('welcome');
-      return null;
-    }
-    routeAccount(snapshot, preservePhoneCode);
-    return snapshot;
+    preservePhoneCodeRef.current = preservePhoneCode;
+    return syncRef.current?.refresh('explicit') ?? null;
+  };
+  const preservePhoneCodeRef = useRef(false);
+  const mutateAccount = <T,>(action: () => Promise<T>) => {
+    const sync = syncRef.current;
+    if (!sync) throw new Error('Account synchronization is not ready.');
+    return sync.mutate(action);
   };
 
   const bootstrap = async () => {
@@ -118,7 +154,44 @@ export function useAuthProfilesViewModel() {
   };
 
   useEffect(() => {
+    mountedRef.current = true;
+    const sync = createAccountSynchronization<AccountSnapshot>({
+      load: loadAccount,
+      apply: (snapshot, source) => {
+        if (snapshot) routeAccount(snapshot, source === 'explicit' && preservePhoneCodeRef.current, source === 'background');
+        else clearAccount();
+        if (source === 'background') {
+          setAsyncState('success');
+          setNotice(null);
+        }
+      },
+      clear: () => clearAccount(),
+      onError: (error) => {
+        setAsyncState('error');
+        setNotice(friendlyError(error));
+      },
+    });
+    syncRef.current = sync;
+    const unsubscribe = isSupabaseConfigured() ? subscribeToAccountAuthChanges((event, userId) => {
+      if (event === 'SIGNED_IN' && accountRef.current && userId !== accountRef.current.user.id) {
+        // Hide the prior account immediately while loading the new identity.
+        accountRef.current = null;
+        setAccount(null);
+        setDraft(initialRegistrationDraft);
+        setProfileName('');
+        setProfileBio('');
+        setSelectedRoles([]);
+        setScreen('bootstrap');
+      }
+      sync.handleEvent(event, userId);
+    }) : () => {};
     void bootstrap();
+    return () => {
+      mountedRef.current = false;
+      unsubscribe();
+      sync.dispose();
+      syncRef.current = null;
+    };
   }, []);
 
   const navigate = (nextScreen: AuthProfileScreen) => {
@@ -153,7 +226,7 @@ export function useAuthProfilesViewModel() {
     setAsyncState('loading');
     setNotice(null);
     try {
-      await signIn(email, signInPassword);
+      await mutateAccount(() => signIn(email, signInPassword));
       await refreshAccount();
       setAsyncState('success');
     } catch (error) {
@@ -180,7 +253,7 @@ export function useAuthProfilesViewModel() {
     setAsyncState('loading');
     setNotice(null);
     try {
-      const result = await signUp(email, draft.password, displayName);
+      const result = await mutateAccount(() => signUp(email, draft.password, displayName));
       if (!result.user) throw new Error('Signup did not return a user.');
       setDraft((current) => ({ ...current, email }));
       if (result.session) await refreshAccount();
@@ -224,7 +297,7 @@ export function useAuthProfilesViewModel() {
     }
     setAsyncState('loading');
     try {
-      await signIn(draft.email, draft.password);
+      await mutateAccount(() => signIn(draft.email, draft.password));
       await refreshAccount();
       setAsyncState('success');
       setNotice(null);
@@ -243,10 +316,11 @@ export function useAuthProfilesViewModel() {
     setAsyncState('loading');
     setNotice(null);
     try {
-      await requestPhoneChange(phone);
+      await mutateAccount(() => requestPhoneChange(phone));
+      const snapshot = await refreshAccount(true);
       setResendAvailableAt(Date.now() + 60_000);
       setNow(Date.now());
-      setScreen('mobileConfirmation');
+      if (snapshot && getAccountDestination(snapshot) === 'registrationPhone') setScreen('mobileConfirmation');
       setAsyncState('success');
     } catch (error) {
       setAsyncState('error');
@@ -280,7 +354,7 @@ export function useAuthProfilesViewModel() {
     setAsyncState('loading');
     setNotice(null);
     try {
-      await confirmPhoneChange(phone, draft.mobileCode);
+      await mutateAccount(() => confirmPhoneChange(phone, draft.mobileCode));
       await refreshAccount();
       setDraft((current) => ({ ...current, mobileCode: '' }));
       setAsyncState('success');
@@ -321,7 +395,7 @@ export function useAuthProfilesViewModel() {
     setAsyncState('loading');
     setNotice(null);
     try {
-      await saveUserRoles(selectedRoles);
+      await mutateAccount(() => saveUserRoles(selectedRoles));
       await refreshAccount();
       setAsyncState('success');
     } catch (error) {
@@ -339,15 +413,12 @@ export function useAuthProfilesViewModel() {
     setAsyncState('loading');
     setNotice(null);
     try {
-      await updateOwnProfile(account.user.id, {
+      await mutateAccount(() => updateOwnProfile(account.user.id, {
         display_name: profileName.trim(),
         bio: profileBio.trim(),
-      });
-      const snapshot = await loadAccount();
+      }));
+      const snapshot = await refreshAccount();
       if (!snapshot) throw new Error('Session ended during profile update.');
-      setAccount(snapshot);
-      setScreen('profile');
-      setHistory([]);
       setAsyncState('success');
       setNotice('Profile updated.');
     } catch (error) {
@@ -359,21 +430,8 @@ export function useAuthProfilesViewModel() {
   const signOut = async (destination: 'welcome' | 'signIn' = 'welcome') => {
     setAsyncState('loading');
     try {
-      await signOutAccount();
-      setAccount(null);
-      setDraft(initialRegistrationDraft);
-      setSignInIdentifier('');
-      setSignInPassword('');
-      setProfileName('');
-      setProfileBio('');
-      setResendAvailableAt(0);
-      setSelectedRoles([]);
-      setHistory([]);
-      setScreen(destination);
-      setShowSignOutConfirmation(false);
-      setSignedOutVersion((current) => current + 1);
-      setAsyncState('success');
-      setNotice(null);
+      await mutateAccount(signOutAccount);
+      if (mountedRef.current) clearAccount(destination);
     } catch (error) {
       setAsyncState('error');
       setNotice(friendlyError(error));

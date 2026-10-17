@@ -1,7 +1,17 @@
-import type { AuthError } from '@supabase/supabase-js';
+import type { AuthChangeEvent, AuthError } from '@supabase/supabase-js';
 
 import { getSupabaseClient } from '../../../shared/services/supabase/client';
 import type { AccountProfile, AccountSnapshot, AppRole } from '../models/AuthProfile';
+
+export function subscribeToAccountAuthChanges(
+  onChange: (event: AuthChangeEvent, userId: string | null) => void,
+): () => void {
+  const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange((event, session) => {
+    // Keep this callback synchronous; the ViewModel defers account requests.
+    onChange(event, session?.user.id ?? null);
+  });
+  return () => subscription.unsubscribe();
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));

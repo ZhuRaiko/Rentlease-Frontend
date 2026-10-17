@@ -13,7 +13,6 @@ import type { UserVerificationViewModel } from '../viewModels/useUserVerificatio
 
 const idIcon = require('../../../assets/verification/government-id.png');
 const idGuide = require('../../../assets/verification/id-example.png');
-const idPreview = require('../../../assets/verification/camera-preview.png');
 
 interface TierTwoVerificationViewProps {
   viewModel: UserVerificationViewModel;
@@ -62,20 +61,18 @@ export function TierTwoVerificationView({
   if (viewModel.screen === 'tier2Review') {
     return (
       <VerificationScaffold
-        description="Check the document details before creating a local pending-state preview."
+        description="Check your local document. Verification submission is not connected yet."
         onBack={viewModel.goBack}
         onClose={onClose}
         title="Review your ID"
       >
         <View style={styles.reviewCard}>
-          <Image resizeMode="cover" source={idPreview} style={styles.reviewImage} />
+          <DocumentPreviewPicker document={viewModel.draft.tier2Document} />
           <Text style={styles.reviewLabel}>ID type</Text>
           <Text style={styles.reviewValue}>{viewModel.draft.governmentIdType}</Text>
-          <Text style={styles.reviewLabel}>Local sample file</Text>
-          <Text style={styles.reviewValue}>{viewModel.draft.tier2FileName}</Text>
         </View>
-        <Text style={styles.previewNotice}>Submitting creates only a local UI state. Nothing is uploaded or sent to Supabase.</Text>
-        <AppButton label="Submit preview" onPress={viewModel.submitTierTwoPreview} />
+        <Text style={styles.previewNotice}>This file is only selected on your device. Nothing has been uploaded or submitted.</Text>
+        <AppButton disabled label="Submission not connected" onPress={() => {}} />
       </VerificationScaffold>
     );
   }
@@ -92,16 +89,15 @@ export function TierTwoVerificationView({
       onClose={onClose}
       title={isResubmission ? 'Resubmit your ID' : viewModel.draft.governmentIdType ?? 'Government ID'}
     >
-      {isResubmission ? <Text style={styles.rejectionBanner}>Previous sample was marked blurry or cropped.</Text> : null}
+      {isResubmission ? <Text style={styles.rejectionBanner}>Legacy resubmission preview. Backend resubmission is not connected.</Text> : null}
       <DocumentPreviewPicker
-        fileName={viewModel.draft.tier2FileName}
-        image={idPreview}
-        label={viewModel.draft.tier2FileName ? 'Replace local sample' : 'Select local sample'}
-        onSelect={viewModel.selectTierTwoDocumentPreview}
+        document={viewModel.draft.tier2Document}
+        busy={viewModel.isSelectingDocument}
+        onSelect={() => void viewModel.selectTierTwoDocument()}
       />
       {viewModel.notice ? <Text style={styles.previewNotice}>{viewModel.notice}</Text> : null}
       <AppButton
-        disabled={!viewModel.draft.tier2FileName}
+        disabled={viewModel.isSelectingDocument || !viewModel.draft.tier2Document}
         label="Review document"
         onPress={() => viewModel.navigate('tier2Review')}
       />

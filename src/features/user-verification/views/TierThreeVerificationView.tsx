@@ -12,7 +12,6 @@ import { ownershipDocumentTypes, previewProperties } from '../models/Verificatio
 import type { UserVerificationViewModel } from '../viewModels/useUserVerificationViewModel';
 
 const propertyIcon = require('../../../assets/verification/property.png');
-const propertyDocumentPreview = require('../../../assets/verification/property-document-preview.png');
 
 interface TierThreeVerificationViewProps {
   viewModel: UserVerificationViewModel;
@@ -72,22 +71,20 @@ export function TierThreeVerificationView({
     const property = previewProperties.find((item) => item.id === viewModel.draft.propertyId);
     return (
       <VerificationScaffold
-        description="Check the property and document before creating a local pending-state preview."
+        description="Review your local selection. Property verification submission is not connected yet."
         onBack={viewModel.goBack}
         onClose={onClose}
         title="Review landlord verification"
       >
         <View style={styles.reviewCard}>
-          <Image resizeMode="cover" source={propertyDocumentPreview} style={styles.reviewImage} />
+          <DocumentPreviewPicker document={viewModel.draft.tier3Document} />
           <Text style={styles.reviewLabel}>Property</Text>
           <Text style={styles.reviewValue}>{property?.title}</Text>
           <Text style={styles.reviewLabel}>Document</Text>
           <Text style={styles.reviewValue}>{viewModel.draft.ownershipDocumentType}</Text>
-          <Text style={styles.reviewLabel}>Local sample file</Text>
-          <Text style={styles.reviewValue}>{viewModel.draft.tier3FileName}</Text>
         </View>
-        <Text style={styles.previewNotice}>Submitting creates only a local UI state. Nothing is uploaded or sent to Supabase.</Text>
-        <AppButton label="Submit preview" onPress={viewModel.submitTierThreePreview} />
+        <Text style={styles.previewNotice}>This file is only selected on your device. Nothing has been uploaded or submitted.</Text>
+        <AppButton disabled label="Submission not connected" onPress={() => {}} />
       </VerificationScaffold>
     );
   }
@@ -95,7 +92,7 @@ export function TierThreeVerificationView({
   return (
     <VerificationScaffold
       compact
-      description="Choose one supported document, then select the local Figma sample to preview the upload state."
+      description="Choose a document type, then select a file from your device. Nothing will be uploaded."
       onBack={viewModel.goBack}
       onClose={onClose}
       title="Landlord Verification"
@@ -113,15 +110,14 @@ export function TierThreeVerificationView({
       <View style={styles.paddedContent}>
         {viewModel.draft.ownershipDocumentType ? (
           <DocumentPreviewPicker
-            fileName={viewModel.draft.tier3FileName}
-            image={propertyDocumentPreview}
-            label={viewModel.draft.tier3FileName ? 'Replace local sample' : 'Select local sample'}
-            onSelect={viewModel.selectTierThreeDocumentPreview}
+            document={viewModel.draft.tier3Document}
+            busy={viewModel.isSelectingDocument}
+            onSelect={() => void viewModel.selectTierThreeDocument()}
           />
         ) : null}
         {viewModel.notice ? <Text style={styles.previewNotice}>{viewModel.notice}</Text> : null}
         <AppButton
-          disabled={!viewModel.draft.ownershipDocumentType || !viewModel.draft.tier3FileName}
+          disabled={viewModel.isSelectingDocument || !viewModel.draft.ownershipDocumentType || !viewModel.draft.tier3Document}
           label="Review document"
           onPress={() => viewModel.navigate('tier3Review')}
         />

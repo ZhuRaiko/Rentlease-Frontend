@@ -2,22 +2,23 @@
 
 ## Purpose
 
-This document summarizes the frontend architectural scaffold and identifies the backend contracts required for future feature implementation.
+This document records shared backend integration boundaries. Feature-specific current implementation and runtime gaps live in [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) and [User Verification](features/USER_VERIFICATION.md).
 
 The repository is strictly an Android-first React Native frontend. It does not contain database migrations, backend services, Python/ML code, seeded records, or authoritative authorization logic.
 
 ## Current frontend foundation
 
-- Expo SDK 57 and React Native 0.86.2
+- Expo SDK 57 and React Native 0.86.3
 - TypeScript with strict checking
 - Android-only Expo configuration
 - EAS development, preview APK, production APK, and OTA-update configuration
 - Feature-oriented MVVM structure
-- One centralized Supabase client
+- One centralized `SupabaseClient<Database>` using the generated structural contract
 - Shared integration boundaries for Supabase, MapTiler, Overpass, device location, Expo notifications, and FastAPI
 - Shared normalized error and asynchronous-state conventions
-- No navigation library or feature routes yet
-- No production feature screens yet; only the minimal application root exists
+- Existing root workspace/Modal and feature-state routing; no navigation library
+- Real Auth/Profile integration and root Auth-event synchronization; live flows RUNTIME-UNVERIFIED
+- Other feature screens primarily use preview data; local document selection/private upload foundation does not complete verification
 
 ## Architecture boundary
 
@@ -50,20 +51,19 @@ The Supabase `service_role` key and all other server secrets must never be suppl
 
 ### Implemented frontend boundary
 
-- `src/shared/services/supabase/client.ts` provides the only Supabase client factory.
-- `auth/authService.ts` currently exposes session retrieval and sign-out.
-- `storage/storageService.ts` exposes the configured Supabase Storage client without assuming bucket names.
+- `src/shared/services/supabase/client.ts` provides the only typed Supabase client factory.
+- Feature-local `authentication/services/accountService.ts` owns active Auth/profile/role operations and the Auth subscription; shared `auth/authService.ts` retains older session/sign-out wrappers.
+- `storage/storageService.ts` exposes the Storage client. The separate verification upload primitive uses the confirmed private `verification-documents` bucket and remains disconnected from selection/submission UI.
 - `realtime/realtimeService.ts` creates and removes feature-specific channels.
 - `edgeFunctions/edgeFunctionService.ts` invokes only function names supplied by confirmed feature code.
-- `database/README.md` reserves the location for generated database types.
+- `database.types.ts` contains generated tables, relationships, enums and RPC signatures. The older `database/` directory is not the canonical type location.
 
 ### Backend information required
 
-- Generated TypeScript database types from the canonical Supabase schema
-- Confirmed tables, views, database functions, columns, relationships, and enums
+- Generated types now resolve structural tables, views, database functions, columns, relationships and enums; regenerate from the canonical schema when it changes
 - RLS policies for tenant, landlord, admin, and shared records
-- Profile/role retrieval contract after authentication
-- Confirmed Storage bucket names and permitted file types/sizes
+- Runtime validation of own profile/role retrieval and permission behavior
+- Other Storage bucket contracts; verification bucket is known but MIME/size limits and replacement/deletion lifecycle remain unresolved
 - Confirmed Realtime publication and message subscription contract
 - Confirmed Edge Function names and request/response contracts
 
@@ -71,9 +71,9 @@ The frontend will not infer tables or columns from prose. Generated schema types
 
 ## Authentication and authorization
 
-The planned authentication system is Supabase Auth with JWT-backed sessions. PostgreSQL Row-Level Security remains the authoritative security layer.
+The implemented frontend uses Supabase Auth with JWT-backed sessions and persisted-session bootstrap plus Auth-event account refresh. PostgreSQL Row-Level Security remains the authoritative security layer. These flows are RUNTIME-UNVERIFIED.
 
-The frontend eventually needs backend-supported contracts for:
+Auth signup/sign-in/sign-out, profile/role retrieval, account-status gating and Admin routing are implemented against the confirmed/generated contracts. Runtime validation is still needed for:
 
 - Registration and login
 - Session restoration
@@ -107,14 +107,16 @@ The backend must define the authoritative coordinate representation, distance un
 
 ## Storage
 
-The frontend has a generic Storage boundary but assumes no bucket names. The backend must confirm buckets and RLS policies for expected uses such as:
+The generic Storage boundary remains reusable. Verification additionally has a private upload primitive for `verification-documents`, path `<USER_ID>/<SUBMISSION_ID>/<UNIQUE_FILENAME>`, with `upsert: false` and no public URLs. The primitive is not called by file selection and requires a real existing submission ID from future orchestration. See [User Verification](features/USER_VERIFICATION.md).
+
+Other bucket and RLS contracts remain necessary for expected uses such as:
 
 - Profile avatars
 - Property images
 - Verification documents
 - Permitted message attachments
 
-Required contract details include allowed MIME types, maximum file sizes, ownership rules, path conventions, signed/public URL behavior, and deletion permissions.
+Verification MIME types, maximum size, private retrieval and replacement/deletion lifecycle remain unresolved. Do not infer them from generated types or picker acceptance. Other buckets additionally need ownership/path/access contracts.
 
 ## Realtime messaging
 
@@ -179,8 +181,8 @@ Firebase Cloud Messaging is used only as Expo's Android delivery relay; Firebase
 
 | Feature | Primary backend contract needed |
 |---|---|
-| Authentication & Profiles | Auth flow, profiles, roles, session behavior |
-| User Verification | Verification submissions, statuses, protected documents |
+| Authentication & Profiles | Structural contract present; live Auth/RLS/trigger validation required |
+| User Verification | Structural submissions/status contract present; MIME/size, private access and replacement/resubmission behavior unresolved |
 | Property & Listing Management | Listing schema, media storage, publishing lifecycle |
 | Search & Discovery | Filters, pagination, PostGIS proximity query |
 | Property Recommendations | Preference and recommendation result contracts |
@@ -194,7 +196,7 @@ Firebase Cloud Messaging is used only as Expo's Android delivery relay; Firebase
 
 ## Backend handoff checklist
 
-- Export generated Supabase TypeScript types from the canonical schema.
+- Keep the existing generated Supabase TypeScript contract synchronized with the canonical schema.
 - Document RLS behavior for each user role and feature.
 - Provide confirmed RPC, Edge Function, and API contracts.
 - Provide Storage bucket and upload-policy details.

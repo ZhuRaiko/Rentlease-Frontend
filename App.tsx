@@ -71,6 +71,7 @@ export default function App() {
       />
 
       <Modal
+        key={auth.account?.user.id ?? 'signed-out'}
         animationType="slide"
         onRequestClose={() => setWorkspace(null)}
         presentationStyle="fullScreen"
