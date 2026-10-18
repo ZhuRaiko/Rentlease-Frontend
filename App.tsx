@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { traceAuthBoot } from './src/shared/utils/authBootTrace';
 
 import type { UserRole } from './src/features/authentication/models/AuthProfile';
 import { getWorkspaceDestination } from './src/features/authentication/models/accountRouting';
@@ -17,6 +18,8 @@ import { RentalPriceEstimationFlowView } from './src/features/rental-price-estim
 import { SearchDiscoveryFlowView } from './src/features/search-discovery/views/SearchDiscoveryFlowView';
 
 type DiscoveryEntry = 'home' | 'matchingPreferences';
+
+traceAuthBoot('APP_MODULE_READY');
 
 type AppWorkspace =
   | { type: 'discovery'; initialScreen: DiscoveryEntry }
@@ -37,6 +40,15 @@ export default function App() {
   const workspaceDestination = auth.account ? getWorkspaceDestination(auth.account) : null;
   const canEnterAdmin = workspaceDestination === 'adminModeration';
   const canEnterMarketplace = workspaceDestination === 'discovery';
+  useEffect(() => {
+    traceAuthBoot('APP_MOUNT', { initialMetricsPresent: initialWindowMetrics !== null });
+    return () => traceAuthBoot('APP_UNMOUNT');
+  }, []);
+  useEffect(() => {
+    traceAuthBoot('APP_DESTINATION', { screen: auth.screen, asyncState: auth.asyncState,
+      accountPresent: auth.account !== null, destination: workspaceDestination, workspace: workspace?.type ?? null,
+      modalVisible: workspace !== null && (workspace.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace) });
+  }, [auth.screen, auth.asyncState, auth.account, workspaceDestination, workspace, canEnterAdmin, canEnterMarketplace]);
   const openProperties = (initialScreen: 'dashboard' | 'postingType') => {
     if (canEnterMarketplace && auth.hasLandlordRole) setWorkspace({ type: 'properties', initialScreen });
   };

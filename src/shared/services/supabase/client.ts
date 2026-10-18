@@ -6,6 +6,7 @@ import { AppState } from 'react-native';
 
 import { env, requireEnvironmentValue } from '../../../config/env';
 import type { Database } from './database.types';
+import { traceAuthBoot } from '../../utils/authBootTrace';
 
 let client: SupabaseClient<Database> | undefined;
 
@@ -23,10 +24,12 @@ export function getSupabaseClient(): SupabaseClient<Database> {
         },
       },
     );
+    traceAuthBoot('SUPABASE_CLIENT_CREATED', { appState: AppState.currentState });
 
     const currentClient = client;
 
     AppState.addEventListener('change', (state) => {
+      traceAuthBoot('APP_STATE', { appState: state });
       if (state === 'active') currentClient.auth.startAutoRefresh();
       else currentClient.auth.stopAutoRefresh();
     });

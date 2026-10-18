@@ -2,15 +2,21 @@ import type { AuthChangeEvent, AuthError } from '@supabase/supabase-js';
 
 import { getSupabaseClient } from '../../../shared/services/supabase/client';
 import type { AccountProfile, AccountSnapshot, AppRole } from '../models/AuthProfile';
+import { nextAuthBootInstance, traceAuthBoot } from '../../../shared/utils/authBootTrace';
 
 export function subscribeToAccountAuthChanges(
   onChange: (event: AuthChangeEvent, userId: string | null) => void,
 ): () => void {
+  traceAuthBoot('AUTH_SUBSCRIBE');
   const { data: { subscription } } = getSupabaseClient().auth.onAuthStateChange((event, session) => {
     // Keep this callback synchronous; the ViewModel defers account requests.
     onChange(event, session?.user.id ?? null);
   });
-  return () => subscription.unsubscribe();
+  traceAuthBoot('AUTH_SUBSCRIBED');
+  return () => {
+    traceAuthBoot('AUTH_UNSUBSCRIBE');
+    subscription.unsubscribe();
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -49,21 +55,34 @@ function parseRoles(value: unknown): AppRole[] {
 }
 
 export async function loadAccount(): Promise<AccountSnapshot | null> {
+  const instance = nextAuthBootInstance();
   const client = getSupabaseClient();
+  traceAuthBoot('SESSION_REQUEST', { instance });
   const { data: sessionData, error: sessionError } = await client.auth.getSession();
+  traceAuthBoot('SESSION_RESULT', { instance, userPresent: Boolean(sessionData.session), errorPresent: Boolean(sessionError) });
   if (sessionError) throw sessionError;
   if (!sessionData.session) return null;
+  traceAuthBoot('AUTH_USER_REQUEST', { instance });
   const { data: authData, error: authError } = await client.auth.getUser();
+  traceAuthBoot('AUTH_USER_RESULT', { instance, userPresent: Boolean(authData.user), errorPresent: Boolean(authError) });
   if (authError) throw authError;
   if (!authData.user) return null;
 
+  traceAuthBoot('PROFILE_QUERY_START', { instance });
+  traceAuthBoot('ROLES_QUERY_START', { instance });
   const [profileResult, rolesResult] = await Promise.all([
     client
       .from('profiles')
       .select('id,display_name,bio,avatar_path,tier1_verified_at,tier2_verified_at,tier3_verified_at,trust_score,account_status')
       .eq('id', authData.user.id)
-      .single(),
-    client.from('user_roles').select('role').eq('user_id', authData.user.id),
+      .single().then((result) => {
+        traceAuthBoot('PROFILE_QUERY_RESULT', { instance, errorPresent: Boolean(result.error) });
+        return result;
+      }),
+    client.from('user_roles').select('role').eq('user_id', authData.user.id).then((result) => {
+      traceAuthBoot('ROLES_QUERY_RESULT', { instance, errorPresent: Boolean(result.error) });
+      return result;
+    }),
   ]);
   if (profileResult.error) throw profileResult.error;
   if (rolesResult.error) throw rolesResult.error;

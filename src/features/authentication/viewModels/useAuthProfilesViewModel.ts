@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { isSupabaseConfigured } from '../../../config/env';
+import { traceAuthBoot } from '../../../shared/utils/authBootTrace';
 import {
   initialRegistrationDraft,
   type AccountSnapshot,
@@ -31,6 +32,7 @@ function friendlyError(error: unknown): string {
   const value = error as { code?: string; message?: string; status?: number } | null;
   const code = value?.code ?? '';
   const message = value?.message?.toLowerCase() ?? '';
+  if (code === 'account_timeout') return 'Account loading timed out. Check your connection and retry.';
   if (code === 'invalid_credentials') return 'Incorrect email or password.';
   if (code === 'email_not_confirmed') return 'Confirm your email before signing in.';
   if (code === 'weak_password') return 'Choose a stronger password and try again.';
@@ -75,12 +77,19 @@ export function useAuthProfilesViewModel() {
   screenRef.current = screen;
 
   useEffect(() => {
+    traceAuthBoot('VM_STATE', { screen, asyncState, accountPresent: account !== null,
+      destination: account ? getAccountDestination(account) : null,
+      retryVisible: screen === 'bootstrap' && asyncState === 'error' });
+  }, [screen, asyncState, account]);
+
+  useEffect(() => {
     if (resendAvailableAt <= Date.now()) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [resendAvailableAt]);
 
   const clearAccount = (destination: 'welcome' | 'signIn' = 'welcome') => {
+    traceAuthBoot('STARTUP_RESOLVED', { destination: 'signed-out' });
     accountRef.current = null;
     setAccount(null);
     setDraft(initialRegistrationDraft);
@@ -100,6 +109,7 @@ export function useAuthProfilesViewModel() {
 
   const routeAccount = (snapshot: AccountSnapshot, preservePhoneCode = false, background = false) => {
     const destination = getAccountDestination(snapshot);
+    traceAuthBoot('STARTUP_RESOLVED', { destination, accountPresent: true });
     const previous = accountRef.current;
     const sameAccount = previous?.user.id === snapshot.user.id;
     const sameDestination = sameAccount && getAccountDestination(previous) === destination;
@@ -115,7 +125,7 @@ export function useAuthProfilesViewModel() {
       setDraft((current) => ({ ...current, password: '' }));
       setSignInPassword('');
     }
-    if (!background || !sameDestination) {
+    if (!background || !sameDestination || screenRef.current === 'bootstrap') {
       setScreen(preservePhoneCode && destination === 'registrationPhone' ? 'mobileConfirmation' : destination);
       setHistory([]);
     }
@@ -135,7 +145,7 @@ export function useAuthProfilesViewModel() {
     return sync.mutate(action);
   };
 
-  const bootstrap = async () => {
+  const bootstrap = () => {
     if (!isSupabaseConfigured()) {
       setScreen('welcome');
       setNotice('Supabase is not configured. Add the public project URL and anon/publishable key to .env, then restart Expo.');
@@ -143,30 +153,31 @@ export function useAuthProfilesViewModel() {
     }
     setScreen('bootstrap');
     setAsyncState('loading');
-    try {
-      await refreshAccount();
-      setAsyncState('success');
-      setNotice(null);
-    } catch (error) {
+    setNotice(null);
+    preservePhoneCodeRef.current = false;
+    const sync = syncRef.current;
+    if (!sync) {
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice('Account loading is unavailable. Please retry.');
+      return;
     }
+    sync.bootstrap();
   };
 
   useEffect(() => {
+    traceAuthBoot('VM_MOUNT');
     mountedRef.current = true;
     const sync = createAccountSynchronization<AccountSnapshot>({
       load: loadAccount,
       apply: (snapshot, source) => {
         if (snapshot) routeAccount(snapshot, source === 'explicit' && preservePhoneCodeRef.current, source === 'background');
         else clearAccount();
-        if (source === 'background') {
-          setAsyncState('success');
-          setNotice(null);
-        }
+        setAsyncState('success');
+        setNotice(null);
       },
       clear: () => clearAccount(),
       onError: (error) => {
+        traceAuthBoot('STARTUP_RESOLVED', { destination: 'error' });
         setAsyncState('error');
         setNotice(friendlyError(error));
       },
@@ -187,6 +198,7 @@ export function useAuthProfilesViewModel() {
     }) : () => {};
     void bootstrap();
     return () => {
+      traceAuthBoot('VM_UNMOUNT');
       mountedRef.current = false;
       unsubscribe();
       sync.dispose();

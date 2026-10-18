@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { Modal, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { traceAuthBoot } from '../../../shared/utils/authBootTrace';
 
 import { ScreenContainer } from '../../../shared/components/ScreenContainer';
 import { colors } from '../../../shared/theme/colors';
@@ -37,6 +39,14 @@ export function AuthProfilesFlowView({
   viewModel, onOpenAdminModeration, onOpenDiscovery, onOpenMatchingPreferences,
   onOpenNotifications, onOpenProperties, onOpenRatingsReports, activeRole, onSwitchRole,
 }: AuthProfilesFlowViewProps) {
+  useEffect(() => {
+    traceAuthBoot('AUTH_VIEW_MOUNT');
+    return () => traceAuthBoot('AUTH_VIEW_UNMOUNT');
+  }, []);
+  useEffect(() => {
+    traceAuthBoot('AUTH_VIEW_STATE', { screen: viewModel.screen, asyncState: viewModel.asyncState,
+      retryVisible: viewModel.screen === 'bootstrap' && viewModel.asyncState === 'error' });
+  }, [viewModel.screen, viewModel.asyncState]);
   let content;
   if (viewModel.screen === 'bootstrap') {
     content = <View style={styles.bootstrap}>
