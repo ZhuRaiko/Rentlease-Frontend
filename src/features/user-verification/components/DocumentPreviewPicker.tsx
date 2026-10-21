@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { SelectedDocument } from '../../../shared/models/SelectedDocument';
+import { FullscreenDocumentImage } from '../../../shared/components/FullscreenDocumentImage';
+import { isPreviewImage, localImagePreviewReducer } from '../../../shared/models/documentImagePreview';
 
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -20,17 +22,21 @@ export function DocumentPreviewPicker({
   busy = false,
 }: DocumentPreviewPickerProps) {
   const [failedUri, setFailedUri] = useState<string | null>(null);
-  const showImage = document?.mimeType?.startsWith('image/') && document.uri !== failedUri;
+  const [expanded, dispatchPreview] = useReducer(localImagePreviewReducer, null);
+  useEffect(() => { dispatchPreview({ type: 'close' }); }, [document, busy]);
+  const showImage = !!document && isPreviewImage(document.mimeType) && document.uri !== failedUri;
+  const closePreview = () => dispatchPreview({ type: 'close' });
+  const visible = !!expanded && expanded === document && !busy;
   return (
     <View style={styles.wrapper}>
       <View style={styles.preview}>
         {document && showImage ? (
-          <>
+          <Pressable accessibilityRole="button" accessibilityLabel="Open fullscreen document preview" accessibilityHint="Pinch to zoom and drag to inspect the image" disabled={busy} onPress={() => dispatchPreview({ type: 'open', document })} style={styles.image}>
             <Image onError={() => setFailedUri(document.uri)} resizeMode="contain" source={{ uri: document.uri }} style={styles.image} />
             <View style={styles.sampleBadge}>
               <Text style={styles.sampleText}>LOCAL FILE · NOT UPLOADED</Text>
             </View>
-          </>
+          </Pressable>
         ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>{document ? 'Document selected' : 'No document selected'}</Text>
@@ -38,6 +44,8 @@ export function DocumentPreviewPicker({
           </View>
         )}
       </View>
+      {showImage ? <Text style={styles.emptyCopy}>Tap the document to inspect fullscreen and zoom.</Text> : null}
+      <FullscreenDocumentImage visible={visible} uri={visible ? expanded?.uri ?? null : null} title="Document preview" description={document?.fileName ?? 'Selected document'} onClose={closePreview} />
       {document ? <>
         <Text style={styles.fileName}>{document.fileName}</Text>
         <Text style={styles.emptyCopy}>{document.mimeType ?? 'File type unavailable'}{document.size !== null ? ` · ${document.size} bytes` : ''}</Text>

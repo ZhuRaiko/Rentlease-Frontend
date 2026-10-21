@@ -31,12 +31,6 @@ export type AdminNavigationSection = 'dashboard' | 'queues' | 'enforcement' | 'a
 
 export type QueuePriority = 'Urgent' | 'High' | 'Normal';
 
-export type VerificationQueueStatus =
-  | 'Awaiting review'
-  | 'Additional information requested'
-  | 'Approved'
-  | 'Rejected';
-
 export type ReportQueueStatus =
   | 'New'
   | 'Investigating'
@@ -50,22 +44,6 @@ export type ModerationActionType =
   | 'Account suspension'
   | 'Listing removal'
   | 'Permanent account removal';
-
-export interface VerificationSubmissionPreview {
-  id: string;
-  applicantName: string;
-  requestedTier: 2 | 3;
-  submittedAt: string;
-  age: string;
-  priority: QueuePriority;
-  status: VerificationQueueStatus;
-  governmentIdType: string;
-  governmentIdFile: string;
-  propertyName: string;
-  propertyAddress: string;
-  ownershipDocumentType: string;
-  ownershipDocumentFile: string;
-}
 
 export interface ModerationReportPreview {
   id: string;
@@ -109,54 +87,6 @@ export interface ModerationDecisionDraft {
   userNotice: string;
   duration: string;
 }
-
-export const previewVerificationSubmissions: VerificationSubmissionPreview[] = [
-  {
-    id: 'VER-2026-0218',
-    applicantName: 'Samuel Feliciano',
-    requestedTier: 3,
-    submittedAt: 'September 18, 2026 · 8:12 AM',
-    age: '2h 16m',
-    priority: 'High',
-    status: 'Awaiting review',
-    governmentIdType: 'National ID',
-    governmentIdFile: 'samuel-national-id-front.jpg',
-    propertyName: '2-Bedroom House with Balcony',
-    propertyAddress: 'Brgy. Alapan II-B, Imus, Cavite',
-    ownershipDocumentType: 'Land Title',
-    ownershipDocumentFile: 'imus-property-title.pdf',
-  },
-  {
-    id: 'VER-2026-0217',
-    applicantName: 'Liza Ramos',
-    requestedTier: 2,
-    submittedAt: 'September 17, 2026 · 5:40 PM',
-    age: '16h 48m',
-    priority: 'Normal',
-    status: 'Additional information requested',
-    governmentIdType: 'Driver’s License',
-    governmentIdFile: 'liza-license.jpg',
-    propertyName: 'Not applicable',
-    propertyAddress: 'Dasmariñas City, Cavite',
-    ownershipDocumentType: 'Not applicable',
-    ownershipDocumentFile: 'Not applicable',
-  },
-  {
-    id: 'VER-2026-0216',
-    applicantName: 'Marco Bautista',
-    requestedTier: 2,
-    submittedAt: 'September 17, 2026 · 1:15 PM',
-    age: '21h 13m',
-    priority: 'Normal',
-    status: 'Awaiting review',
-    governmentIdType: 'Passport',
-    governmentIdFile: 'marco-passport.jpg',
-    propertyName: 'Not applicable',
-    propertyAddress: 'Tagaytay City, Cavite',
-    ownershipDocumentType: 'Not applicable',
-    ownershipDocumentFile: 'Not applicable',
-  },
-];
 
 export const previewModerationReports: ModerationReportPreview[] = [
   {
@@ -225,15 +155,6 @@ export const previewActiveRestrictions: ActiveRestrictionPreview[] = [
 ];
 
 export const previewAuditEntries: AuditEntryPreview[] = [
-  {
-    id: 'AUD-0881',
-    action: 'Verification approved',
-    subject: 'Tier 2 · Carla Villanueva',
-    adminName: 'Admin Preview',
-    occurredAt: 'September 18, 2026 · 9:44 AM',
-    caseId: 'VER-2026-0215',
-    tone: 'positive',
-  },
   {
     id: 'AUD-0880',
     action: 'Report information requested',

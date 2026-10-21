@@ -21,18 +21,18 @@ After authoritative checks, ordinary sign-in or completed onboarding opens `Sear
 
 ## User Verification feature states
 
-The Tier 2/3 verification preview flow is retained in source but is not reachable from the authenticated app shell until its backend submission/status contract is connected. Profile shows authoritative Tier 1 state; the Verification action explains the current limitation. Phase 1 adapts the existing document-selection/review UI to real local files, with submission disabled; it adds no production entry or routes. See [User Verification](features/USER_VERIFICATION.md).
+Profile Verification and the Notifications verification action open `UserVerificationFlowView` in the existing root workspace/Modal for permitted ordinary marketplace accounts. It uses the real Tier 2 ViewModel/service and a separate Tier 3 property workflow for Tier 1-verified landlords. Tier 2 is not required for Tier 3. Admin routing, account restrictions, email/Tier 1 onboarding and role-selection precedence are unchanged. See [User Verification](features/USER_VERIFICATION.md).
 
-| Flow | Feature states | Component | Actor |
-|---|---|---|---|
-| Verification overview and level selection | `overview` | `VerificationOverviewView` | Tenant / Landlord |
-| Tier 1 introduction and contact confirmation | `tier1Intro`, `tier1Email`, `tier1Mobile`, `tier1Complete` | `TierOneVerificationView`, `VerificationStatusView` | Tenant / Landlord |
-| Tier 2 ID verification | `tier2Intro`, `tier2IdType`, `tier2Upload`, `tier2Review` | `TierTwoVerificationView` | Tenant / Landlord |
-| Tier 2 review states | `tier2Pending`, `tier2Approved`, `tier2Rejected`, `tier2Resubmission` | `VerificationStatusView`, `TierTwoVerificationView` | Tenant / Landlord |
-| Tier 3 property and document verification | `tier3Intro`, `tier3Property`, `tier3Document`, `tier3Review` | `TierThreeVerificationView` | Legacy preview only; intended real flow is an existing Tier 1-verified landlord with an owned property |
-| Tier 3 review states | `tier3Pending`, `tier3Approved`, `tier3Rejected` | `VerificationStatusView` | Legacy preview only; real status integration deferred |
+| Flow | Production feature state | Component | Behavior |
+| --- | --- | --- | --- |
+| Verification levels | `overview` | `VerificationOverviewView` | Tier 1 read-only; Tier 2 available; Tier 3 owned-property entry for eligible landlords |
+| Identity selection/review | `tier2Intro`, `tier2IdType`, `tier2Upload`, `tier2Review` | `TierTwoVerificationView` | Four supported ID types, real file selection and submission |
+| Existing/resulting status | `tier2Status` | `VerificationStatusView` | Exact pending/under_review/approved/rejected/cancelled/revoked values; refresh; no resubmission |
+| Property verification | Tier 3 `intro`, `property`, `document`, `review`, `status` | `TierThreeVerificationView` | Own backend properties; four qualifying document types; real submit/upload/metadata/status per property; no resubmission |
 
-These are frontend-local preview route states, not backend verification statuses. New accounts do not receive an automatic role. Landlord can be selected through the backend role RPC after Tier 1; real Tier 3 approval grants no role and does not require Tier 2. The disconnected legacy ViewModel still contains contrary gating/local actor-promotion logic; do not reconnect it unchanged. A shared private upload primitive now exists without a UI caller. Supabase Tier 2/3 submission, document metadata/status loading and Admin review remain disconnected.
+Feature Back follows the active tier's sequence. Tier 3 intro Back returns to verification levels; Tier 3 status Back returns to owned-property selection. Overview Back/Close returns to Profile. Android Modal Back delegates to guarded feature navigation; picker/submission actions cannot be dismissed through those controls while active. Returning from Tier 3 to overview clears its local draft and invalidates asynchronous results without removing mounted subscriptions. No second navigation framework was added.
+
+Legacy Tier 1/3 prototype route names remain disconnected; the production Tier 3 View now consumes the real property ViewModel. Fake Tier 1 completion, local approval controls and Tier 3 actor promotion are not connected. Landlord selection remains a backend role operation; Tier 2/3 grants no role. Admin review for both tiers uses the existing backend RPC described below.
 
 ## Property & Listing Management feature states
 
@@ -143,13 +143,13 @@ All reviews, rating aggregates, review eligibility, publication waiting, reports
 
 ## Admin & Moderation feature states
 
-Only an active account with a backend-loaded Admin role can enter `AdminModerationFlowView`; ordinary Profile navigation does not expose Admin Preview. Admin bypasses ordinary Tenant/Landlord onboarding. The admin workspace retains Dashboard, Queues, Actions and Audit navigation. Its content/actions remain local previews; this navigation gate does not implement backend review authorization or persistence, which remain server-owned.
+Only an active account with a backend-loaded Admin role can enter `AdminModerationFlowView`; ordinary Profile navigation does not expose Admin Preview. Admin bypasses ordinary Tenant/Landlord onboarding. The admin workspace retains Dashboard, Queues, Actions and Audit navigation. Outside connected verification reads, private image viewing and Tier 2/3 review, its content/actions remain local previews. This navigation gate does not implement backend review authorization or persistence, which remain server-owned.
 
 | Flow | Feature states | Component | Actor |
 |---|---|---|---|
 | Dashboard and review queue overview | `dashboard`, `reviewQueues` | `AdminDashboardView`, `AdminQueueView` | Admin preview |
-| Verification queue and submission | `verificationQueue`, `verificationDetails` | `AdminQueueView`, `VerificationModerationView` | Admin preview |
-| Verification documents and decisions | `verificationDocument`, `approveVerification`, `rejectVerification`, `requestVerificationInfo` | `VerificationModerationView` | Admin preview |
+| Verification queue and submission | `verificationQueue`, `verificationDetails` | `AdminQueueView`, `VerificationModerationView` | Admin; real active queue/metadata |
+| Verification document metadata | `verificationDocument`, legacy `approveVerification`, `rejectVerification`, `requestVerificationInfo` | `VerificationModerationView` | Admin; real reads, Tier 2/3 decisions use inline Modals |
 | Reports queue and report details | `reportsQueue`, `reportDetails` | `AdminQueueView`, `ReportModerationView` | Admin preview |
 | Report evidence and subject context | `evidenceViewer`, `reportedUserDetails`, `reportedListingDetails`, `reportedMessageContext` | `ReportModerationView` | Admin preview |
 | Report follow-up and dismissal | `requestReportInfo`, `dismissReport` | `ReportModerationView` | Admin preview |
@@ -158,7 +158,7 @@ Only an active account with a backend-loaded Admin role can enter `AdminModerati
 | Confirmation, restrictions and restoration | `moderationConfirmation`, `activeRestrictions`, `restoreAccount` | `EnforcementView` | Admin preview |
 | Audit and case history | `auditHistory`, `caseHistory` | `AuditView` | Admin preview |
 
-Admin entry uses the authoritative Auth/profile/role snapshot. Displayed admin identity details, verification/report queues, files, evidence, decisions, enforcement, restoration and audit entries remain local previews. Backend review/enforcement operations, secure document retrieval, audit persistence and notifications remain disconnected; no Start review or review RPC was added in Phase 1.
+Admin entry uses the authoritative Auth/profile/role snapshot. Verification queue and submission/document metadata load through the Admin-gated get_admin_verification_queue RPC and document SELECT; no hardcoded verification dataset or local decisions remain. Private JPEG/PNG/WebP image viewing uses an on-demand signed-URL Modal and is user-reported Android PASS. Close, Android Back and navigation clear temporary preview state. Tier 2/3 detail opens confirmation/rejection Modals for Start review (Pending), then Approve/Reject (Under review), using review_verification_submission. Terminal success returns to the refreshed active queue; disappearance is expected. Feature navigation/Modal Back is blocked while saving and refreshing; Cancel clears unsubmitted drafts. No new named route or navigation dependency was added. Tier 2 approval is user-reported development-build PASS; Tier 3 actions remain Android RUNTIME-UNVERIFIED. Non-image viewing, reports/enforcement/restoration/audit persistence and notifications remain deferred or preview. See [Admin Verification](features/ADMIN_VERIFICATION.md).
 
 ## Notifications feature states
 

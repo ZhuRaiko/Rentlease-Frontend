@@ -11,6 +11,7 @@ import {
 } from '../models/AuthProfile';
 import { getAccountDestination, getWorkspaceDestination } from '../models/accountRouting';
 import { createAccountSynchronization } from './accountSynchronization';
+import { advanceRegistration, createRegistrationSubmission, getRegistrationBackTarget, getRegistrationProgress, validateRegistrationStep } from './registrationFlow';
 import {
   confirmPhoneChange,
   isUnconfirmedEmailError,
@@ -56,6 +57,7 @@ export function useAuthProfilesViewModel() {
   const [screen, setScreen] = useState<AuthProfileScreen>('bootstrap');
   const [history, setHistory] = useState<AuthProfileScreen[]>([]);
   const [draft, setDraft] = useState<RegistrationDraft>(initialRegistrationDraft);
+  const [registrationSubmission] = useState(() => createRegistrationSubmission(signUp));
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [profileName, setProfileName] = useState('');
   const [profileBio, setProfileBio] = useState('');
@@ -93,6 +95,7 @@ export function useAuthProfilesViewModel() {
     accountRef.current = null;
     setAccount(null);
     setDraft(initialRegistrationDraft);
+    registrationSubmission.reset();
     setSignInIdentifier('');
     setSignInPassword('');
     setProfileName('');
@@ -122,7 +125,7 @@ export function useAuthProfilesViewModel() {
       setProfileBio(snapshot.profile.bio ?? '');
     }
     if (destination !== 'emailConfirmation') {
-      setDraft((current) => ({ ...current, password: '' }));
+      setDraft((current) => ({ ...current, password: '', confirmPassword: '' }));
       setSignInPassword('');
     }
     if (!background || !sameDestination || screenRef.current === 'bootstrap') {
@@ -207,15 +210,21 @@ export function useAuthProfilesViewModel() {
   }, []);
 
   const navigate = (nextScreen: AuthProfileScreen) => {
+    if (registrationSubmission.phase() === 'submitting') return;
+    if (['registrationName', 'registrationNickname', 'registrationEmail', 'registrationPassword'].includes(nextScreen) && ['created', 'uncertain'].includes(registrationSubmission.phase())) {
+      setScreen('emailConfirmation'); setNotice('Check your confirmation email or sign in before starting another signup.'); return;
+    }
     setHistory((current) => [...current, screen]);
     setScreen(nextScreen);
     setNotice(null);
   };
 
   const goBack = () => {
+    if (registrationSubmission.phase() === 'submitting') return;
     setHistory((current) => {
-      setScreen(current.at(-1) ?? 'welcome');
-      return current.slice(0, -1);
+      const previous = getRegistrationBackTarget(current, registrationSubmission.phase(), screenRef.current);
+      setScreen(previous.screen);
+      return previous.history;
     });
     setNotice(null);
   };
@@ -224,6 +233,14 @@ export function useAuthProfilesViewModel() {
     field: TField,
     value: RegistrationDraft[TField],
   ) => setDraft((current) => ({ ...current, [field]: value }));
+
+  const continueRegistration = (skipNickname = false) => {
+    if (registrationSubmission.phase() !== 'ready') return;
+    const next = advanceRegistration(screen, draft, skipNickname);
+    if (next.error) { setNotice(next.error); return; }
+    setDraft(next.draft);
+    if (next.screen !== screen) navigate(next.screen);
+  };
 
   const submitSignIn = async () => {
     const email = signInIdentifier.trim().toLowerCase();
@@ -252,11 +269,11 @@ export function useAuthProfilesViewModel() {
   };
 
   const register = async () => {
+    if (screenRef.current !== 'registrationPassword' || accountRef.current || registrationSubmission.phase() !== 'ready') return;
     const email = draft.email.trim().toLowerCase();
-    const displayName = draft.nickname.trim() || `${draft.firstName} ${draft.lastName}`.trim();
-    if (!email.includes('@') || !displayName || draft.password.length < 8) {
-      setNotice('Enter a valid email, name and password before continuing.');
-      return;
+    for (const step of ['registrationName', 'registrationEmail', 'registrationPassword'] as const) {
+      const error = validateRegistrationStep(step, draft);
+      if (error) { setNotice(error); return; }
     }
     if (!isSupabaseConfigured()) {
       setNotice('Add your public Supabase URL and key to .env, then restart Expo.');
@@ -265,11 +282,18 @@ export function useAuthProfilesViewModel() {
     setAsyncState('loading');
     setNotice(null);
     try {
-      const result = await mutateAccount(() => signUp(email, draft.password, displayName));
-      if (!result.user) throw new Error('Signup did not return a user.');
-      setDraft((current) => ({ ...current, email }));
+      const outcome = await mutateAccount(() => registrationSubmission.submit(draft));
+      if (!mountedRef.current || outcome.kind === 'blocked') return;
+      if (outcome.kind === 'invalid') { setAsyncState('error'); setNotice(outcome.message); return; }
+      if (outcome.kind === 'error') throw outcome.error;
+      if (outcome.kind === 'uncertain') {
+        setAsyncState('error'); setNotice('Account creation could not be confirmed. Check your inbox or sign in before trying to create another account.'); return;
+      }
+      const result = outcome.result;
+      setDraft((current) => ({ ...current, email, confirmPassword: '' }));
+      setHistory([]);
+      setScreen('emailConfirmation');
       if (result.session) await refreshAccount();
-      else setScreen('emailConfirmation');
       setAsyncState('success');
     } catch (error) {
       setAsyncState('error');
@@ -481,6 +505,10 @@ export function useAuthProfilesViewModel() {
     navigate,
     goBack,
     updateDraft,
+    continueRegistration,
+    registrationProgress: getRegistrationProgress(screen),
+    registrationError: validateRegistrationStep(screen, draft),
+    signupNeedsRecovery: registrationSubmission.phase() === 'uncertain',
     setProfileName,
     setProfileBio,
     setSignInIdentifier,

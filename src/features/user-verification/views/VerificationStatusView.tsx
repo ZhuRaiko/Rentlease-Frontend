@@ -1,104 +1,45 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
-
 import { AppButton } from '../../../shared/components/AppButton';
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { VerificationScaffold } from '../components/VerificationScaffold';
-import type { UserVerificationViewModel } from '../viewModels/useUserVerificationViewModel';
+import { tierTwoStatusLabels } from '../models/TierTwoVerification';
+import type { TierTwoVerificationViewModel } from '../viewModels/useTierTwoVerificationViewModel';
+import { formatVerificationDate } from '../../../shared/utils/formatVerificationDate';
 
 const pendingIcon = require('../../../assets/verification/pending-clock.png');
 const approvedIcon = require('../../../assets/verification/approved-check.png');
 const verificationIcon = require('../../../assets/verification/verification-mark.png');
 
-interface VerificationStatusViewProps {
-  viewModel: UserVerificationViewModel;
-  onClose: () => void;
-}
-
-export function VerificationStatusView({
-  viewModel,
-  onClose,
-}: VerificationStatusViewProps) {
-  const { screen } = viewModel;
-  const isTierOne = screen === 'tier1Complete';
-  const isTierTwo = screen.startsWith('tier2');
-  const isPending = screen === 'tier2Pending' || screen === 'tier3Pending';
-  const isApproved = isTierOne || screen === 'tier2Approved' || screen === 'tier3Approved';
-  const tierLabel = isTierOne ? 'Tier 1' : isTierTwo ? 'Tier 2' : 'Tier 3';
-  const title = isPending
-    ? 'Pending Verification'
-    : isApproved
-      ? isTierOne
-        ? 'Tier 1 completed!'
-        : isTierTwo
-          ? 'Your ID has been verified!'
-          : 'Premium verification approved!'
-      : 'Correction required';
-  const message = isPending
-    ? `We received your ${tierLabel} preview request. A real submission would be reviewed by an admin and updates would be sent to samuel.feliciano@example.com.`
-    : isApproved
-      ? isTierOne
-        ? 'Email and mobile presentation steps are complete. Tier 2 is now available in this local preview.'
-        : isTierTwo
-          ? 'Your local preview now shows the Trusted state and profile badge.'
-          : 'Your local preview now shows the Premium Landlord state and listing-priority benefit.'
-      : isTierTwo
-        ? 'The ID image is blurry or cropped. Retake it in good light with all four corners visible.'
-        : 'The property document is incomplete or does not clearly show ownership or authorization to lease.';
-
+export function VerificationStatusView({ viewModel, onClose }: { viewModel: TierTwoVerificationViewModel; onClose: () => void }) {
+  const submission = viewModel.submission;
+  const status = submission?.status;
+  const messages = {
+    pending: 'Your identity verification is pending review.',
+    under_review: 'Your identity verification is under review.',
+    approved: 'Your Tier 2 identity verification has been approved.',
+    rejected: 'Your identity verification was rejected. Resubmission is not available in this phase.',
+    cancelled: 'Your identity verification was cancelled. Starting another submission is not available in this phase.',
+    revoked: 'Your identity verification was revoked. Starting another submission is not available in this phase.',
+  };
   return (
-    <VerificationScaffold onBack={viewModel.goBack} onClose={onClose} title="">
+    <VerificationScaffold onBack={viewModel.goBack} onClose={onClose} title="Tier 2 verification">
       <View style={styles.centeredState}>
-        <Image
-          resizeMode="contain"
-          source={isPending ? pendingIcon : isApproved ? approvedIcon : verificationIcon}
-          style={styles.stateIcon}
-        />
-        <Text accessibilityRole="header" style={styles.title}>{title}</Text>
-        <Text style={styles.message}>{message}</Text>
+        <Image resizeMode="contain" source={status === 'approved' ? approvedIcon : status === 'pending' || status === 'under_review' ? pendingIcon : verificationIcon} style={styles.stateIcon} />
+        <Text accessibilityRole="header" style={styles.title}>{status ? tierTwoStatusLabels[status] : 'Status unavailable'}</Text>
+        {submission && !submission.hasDocument ? (
+          <Text style={styles.message}>No document attachment could be confirmed for this submission. It may be incomplete. Creating another submission or replacing the document is not available here.</Text>
+        ) : <Text style={styles.message}>{status ? messages[status] : 'Refresh to check your submission.'}</Text>}
+        {submission?.rejection_reason ? <Text style={styles.message}>Rejection reason: {submission.rejection_reason}</Text> : null}
+        {submission?.review_note ? <Text style={styles.message}>Review note: {submission.review_note}</Text> : null}
+        {submission ? <Text style={styles.message}>Submitted: {formatVerificationDate(submission.submitted_at)}</Text> : null}
+        {submission?.reviewed_at ? <Text style={styles.message}>Reviewed: {formatVerificationDate(submission.reviewed_at)}</Text> : null}
       </View>
-      {isPending ? (
-        <View style={styles.decisionCard}>
-          <Text style={styles.decisionTitle}>Admin decision preview</Text>
-          <Text style={styles.decisionCopy}>These controls change local UI state only.</Text>
-          <AppButton
-            label="Preview approval"
-            onPress={() =>
-              isTierTwo
-                ? viewModel.previewTierTwoDecision('approved')
-                : viewModel.previewTierThreeDecision('approved')
-            }
-          />
-          <AppButton
-            label="Preview correction required"
-            onPress={() =>
-              isTierTwo
-                ? viewModel.previewTierTwoDecision('rejected')
-                : viewModel.previewTierThreeDecision('rejected')
-            }
-            variant="secondary"
-          />
-        </View>
-      ) : null}
-      {!isPending && !isApproved ? (
-        <AppButton
-          label="Correct and resubmit"
-          onPress={
-            isTierTwo
-              ? viewModel.startTierTwoResubmission
-              : viewModel.startTierThreeResubmission
-          }
-        />
-      ) : null}
-      {isTierOne ? (
-        <AppButton label="Continue to Tier 2" onPress={() => viewModel.startTier(2)} />
-      ) : null}
-      {screen === 'tier2Approved' ? (
-        <AppButton label="Continue to Tier 3" onPress={() => viewModel.startTier(3)} />
-      ) : null}
-      <AppButton label="Back to verification levels" onPress={viewModel.goToOverview} variant="secondary" />
+      {viewModel.error ? <Text accessibilityRole="alert" style={styles.message}>{viewModel.error}</Text> : null}
+      <AppButton disabled={viewModel.busy} label={viewModel.isLoading ? 'Refreshing?' : 'Refresh status'} onPress={() => void viewModel.refresh()} />
+      <AppButton disabled={viewModel.busy} label="Back to verification levels" onPress={() => viewModel.navigate('overview')} variant="secondary" />
     </VerificationScaffold>
   );
 }

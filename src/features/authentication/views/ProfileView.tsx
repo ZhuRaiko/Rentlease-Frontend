@@ -25,9 +25,10 @@ interface ProfileViewProps {
   onOpenNotifications?: (() => void) | undefined;
   onOpenProperties?: (() => void) | undefined;
   onOpenRatingsReports?: (() => void) | undefined;
+  onOpenVerification?: (() => void) | undefined;
 }
 
-export function ProfileView({ viewModel, activeRole, onSwitchRole, onOpenAdminModeration, onOpenDiscovery, onOpenMatchingPreferences, onOpenNotifications, onOpenProperties, onOpenRatingsReports }: ProfileViewProps) {
+export function ProfileView({ viewModel, activeRole, onSwitchRole, onOpenAdminModeration, onOpenDiscovery, onOpenMatchingPreferences, onOpenNotifications, onOpenProperties, onOpenRatingsReports, onOpenVerification }: ProfileViewProps) {
   const initials = viewModel.displayName.split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase()).join('');
   const roles = viewModel.isAdmin
     ? 'Admin'
@@ -66,7 +67,7 @@ export function ProfileView({ viewModel, activeRole, onSwitchRole, onOpenAdminMo
         <>
           <ProfileActionRow detail="Browse listings" icon={propertyIcon} label="Discover Properties" onPress={() => onOpenDiscovery?.()} />
           <ProfileActionRow detail="Set your search preferences" icon={preferencesIcon} label="Matching Preferences" onPress={() => onOpenMatchingPreferences?.()} />
-          <ProfileActionRow detail={viewModel.account?.profile.tier1_verified_at ? 'Tier 1 verified' : 'Tier 1 pending'} icon={verificationIcon} label="Verification" onPress={() => viewModel.setNotice('Tier 2 and Tier 3 backend submissions are not connected yet. Your verified status above comes from Supabase.')} />
+          <ProfileActionRow detail={viewModel.account?.profile.tier1_verified_at ? 'Tier 1 verified' : 'Tier 1 pending'} icon={verificationIcon} label="Verification" onPress={() => onOpenVerification?.()} />
           {viewModel.hasLandlordRole ? <ProfileActionRow detail="Manage listings" icon={propertyIcon} label="My Properties" onPress={() => onOpenProperties?.()} /> : null}
           <ProfileActionRow icon={require('../../../assets/verification/pending-clock.png')} label="Notifications" onPress={() => onOpenNotifications?.()} />
           <ProfileActionRow detail="Reviews and safety" icon={verificationIcon} label="Ratings & Reports" onPress={() => onOpenRatingsReports?.()} />

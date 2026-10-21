@@ -16,6 +16,8 @@ interface VerificationTierCardProps {
   status: VerificationStatus;
   icon: ImageSourcePropType;
   onPress: () => void;
+  actionLabel?: string;
+  disabled?: boolean;
 }
 
 const paletteByTier = {
@@ -57,6 +59,8 @@ export function VerificationTierCard({
   status,
   icon,
   onPress,
+  actionLabel,
+  disabled = false,
 }: VerificationTierCardProps) {
   const palette = paletteByTier[tier];
   return (
@@ -81,6 +85,8 @@ export function VerificationTierCard({
       </View>
       <Pressable
         accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        disabled={disabled}
         onPress={onPress}
         style={({ pressed }) => [
           styles.action,
@@ -88,7 +94,7 @@ export function VerificationTierCard({
           pressed && styles.pressed,
         ]}
       >
-        <Text style={styles.actionText}>{actionByStatus[status]}</Text>
+        <Text style={styles.actionText}>{actionLabel ?? actionByStatus[status]}</Text>
       </Pressable>
     </View>
   );

@@ -1,5 +1,6 @@
 import type { TextInputProps } from 'react-native';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState, type Ref } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -9,13 +10,18 @@ import { typography } from '../../../shared/theme/typography';
 interface AuthFieldProps extends Omit<TextInputProps, 'style'> {
   label?: string;
   prefix?: string;
+  inputRef?: Ref<TextInput>;
+  allowVisibilityToggle?: boolean;
+  errorMessage?: string | undefined;
 }
 
-export function AuthField({ label, prefix, ...inputProps }: AuthFieldProps) {
+export function AuthField({ label, prefix, inputRef, allowVisibilityToggle = false, errorMessage, ...inputProps }: AuthFieldProps) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => { setVisible(false); }, [label, inputProps.secureTextEntry]);
   return (
     <View style={styles.field}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <View style={styles.inputShell}>
+      <View style={[styles.inputShell, !!errorMessage && styles.invalid]}>
         {prefix ? (
           <View style={styles.prefix}>
             <Text style={styles.prefixText}>{prefix}</Text>
@@ -23,16 +29,25 @@ export function AuthField({ label, prefix, ...inputProps }: AuthFieldProps) {
         ) : null}
         <TextInput
           {...inputProps}
+          ref={inputRef}
+          accessibilityLabel={inputProps.accessibilityLabel ?? label}
+          secureTextEntry={!!inputProps.secureTextEntry && !visible}
           placeholderTextColor={colors.textMuted}
           style={styles.input}
         />
+        {allowVisibilityToggle && inputProps.secureTextEntry ? <Pressable accessibilityRole="button" accessibilityLabel={`${visible ? 'Hide' : 'Show'} ${label?.toLowerCase() ?? 'password'}`} disabled={inputProps.editable === false} onPress={() => setVisible(current => !current)} style={styles.visibility}><Text style={styles.visibilityText}>{visible ? 'Hide' : 'Show'}</Text></Pressable> : null}
       </View>
+      {errorMessage ? <Text accessibilityRole="alert" style={styles.error}>{errorMessage}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   field: { gap: spacing.xs, width: '100%' },
+  invalid: { borderColor: colors.restricted },
+  error: { color: colors.restricted, fontFamily: typography.family, fontSize: typography.caption, lineHeight: 18 },
+  visibility: { minWidth: 56, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.sm },
+  visibilityText: { color: colors.primary, fontFamily: typography.family, fontSize: typography.caption, fontWeight: '700' },
   label: {
     color: colors.text,
     fontFamily: typography.family,

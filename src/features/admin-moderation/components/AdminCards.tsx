@@ -1,3 +1,4 @@
+import { documentTypeLabel, formatVerificationDate, verificationStatusLabel, verificationTierLabel, type AdminVerificationQueueItem } from '../models/AdminVerification';
 import type { PropsWithChildren } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -10,8 +11,6 @@ import type {
   ModerationReportPreview,
   QueuePriority,
   ReportQueueStatus,
-  VerificationQueueStatus,
-  VerificationSubmissionPreview,
 } from '../models/AdminModeration';
 
 export function AdminHeading({ eyebrow, title, body }: { eyebrow: string; title: string; body: string }) {
@@ -41,7 +40,7 @@ export function PriorityPill({ priority }: { priority: QueuePriority }) {
   );
 }
 
-export function AdminStatusPill({ status }: { status: VerificationQueueStatus | ReportQueueStatus }) {
+export function AdminStatusPill({ status }: { status: string }) {
   const positive = status === 'Approved' || status === 'Action taken';
   const danger = status === 'Rejected' || status === 'Dismissed';
   const warning = status === 'Additional information requested' || status === 'Information requested';
@@ -52,13 +51,14 @@ export function AdminStatusPill({ status }: { status: VerificationQueueStatus | 
   );
 }
 
-export function VerificationQueueCard({ item, onPress }: { item: VerificationSubmissionPreview; onPress: () => void }) {
+export function VerificationQueueCard({ item, onPress }: { item: AdminVerificationQueueItem; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.queueCard, pressed && styles.pressed]}>
-      <View style={styles.queueTop}><PriorityPill priority={item.priority} /><Text style={styles.queueAge}>{item.age}</Text></View>
-      <Text style={styles.queueTitle}>{item.applicantName}</Text>
-      <Text style={styles.queueSubtitle}>Tier {item.requestedTier} verification · {item.id}</Text>
-      <View style={styles.queueBottom}><AdminStatusPill status={item.status} /><Text style={styles.viewAction}>Review ›</Text></View>
+      <View style={styles.queueTop}><Text style={styles.queueAge}>{formatVerificationDate(item.submittedAt)}</Text></View>
+      <Text style={styles.queueTitle}>{item.displayName}</Text>
+      <Text style={styles.queueSubtitle}>{verificationTierLabel(item.tier)} | {item.submissionId}</Text>
+      <Text style={styles.queueSubtitle}>{documentTypeLabel(item.documentType)}{item.fileName ? ` | ${item.fileName}` : ''}</Text>
+      <View style={styles.queueBottom}><AdminStatusPill status={verificationStatusLabel(item.status)} /><Text style={styles.viewAction}>Review {'>'}</Text></View>
     </Pressable>
   );
 }

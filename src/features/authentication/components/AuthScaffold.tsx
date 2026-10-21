@@ -19,6 +19,8 @@ interface AuthScaffoldProps extends PropsWithChildren {
   onBack?: () => void;
   footer?: ReactNode;
   largeTitle?: boolean;
+  progress?: { step: number; total: number; completed: number } | null;
+  backDisabled?: boolean;
 }
 
 export function AuthScaffold({
@@ -28,10 +30,12 @@ export function AuthScaffold({
   footer,
   children,
   largeTitle = false,
+  progress,
+  backDisabled = false,
 }: AuthScaffoldProps) {
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : progress ? 'height' : undefined}
       style={styles.flex}
     >
       <ScrollView
@@ -40,12 +44,16 @@ export function AuthScaffold({
       >
         <View style={styles.topBar}>
           {onBack ? (
-            <Pressable accessibilityRole="button" hitSlop={12} onPress={onBack}>
+            <Pressable accessibilityRole="button" accessibilityState={{ disabled: backDisabled }} disabled={backDisabled} hitSlop={12} onPress={onBack} style={styles.backTarget}>
               <Text style={styles.back}>Back</Text>
             </Pressable>
           ) : null}
         </View>
-        <View style={styles.content}>
+        <View style={[styles.content, !!progress && styles.registrationContent]}>
+          {progress ? <View style={styles.progress} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: progress.total, now: progress.completed, text: `Step ${progress.step} of ${progress.total}` }}>
+            <Text style={styles.progressLabel}>Step {progress.step} of {progress.total}</Text>
+            <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress.completed / progress.total * 100}%` }]} /></View>
+          </View> : null}
           <View style={styles.headingBlock}>
             <Text accessibilityRole="header" style={[styles.title, largeTitle && styles.largeTitle]}>
               {title}
@@ -64,6 +72,12 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: spacing.xl },
   topBar: { height: 52, justifyContent: 'center', paddingHorizontal: spacing.lg },
+  backTarget: { minHeight: 48, minWidth: 48, alignSelf: 'flex-start', justifyContent: 'center' },
+  registrationContent: { paddingTop: spacing.lg },
+  progress: { gap: spacing.xs, marginBottom: spacing.lg },
+  progressLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: typography.caption },
+  progressTrack: { height: 3, borderRadius: 2, backgroundColor: colors.surfaceStrong, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: colors.primary },
   back: {
     color: colors.primary,
     fontFamily: typography.family,

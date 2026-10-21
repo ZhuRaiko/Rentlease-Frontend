@@ -1,3 +1,4 @@
+import { AppButton } from '../../../shared/components/AppButton';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
@@ -10,21 +11,23 @@ import type { AdminModerationViewModel } from '../viewModels/useAdminModerationV
 
 export function AdminDashboardView({ onExit, viewModel }: { onExit: () => void; viewModel: AdminModerationViewModel }) {
   return (
-    <AdminScaffold onExit={onExit} subtitle="Frontend moderation workspace" title="Admin dashboard">
+    <AdminScaffold onExit={onExit} subtitle="Admin moderation workspace" title="Admin dashboard">
       <View style={styles.previewBanner}>
         <View style={styles.previewDot} />
         <View style={styles.previewCopy}>
-          <Text style={styles.previewTitle}>ADMIN PREVIEW MODE</Text>
-          <Text style={styles.previewBody}>No admin identity, queue item, document, or decision is loaded from or written to a backend.</Text>
+          <Text style={styles.previewTitle}>VERIFICATION QUEUE + MODERATION PREVIEW</Text>
+          <Text style={styles.previewBody}>Verification loads real submission metadata. Reports, enforcement and audit remain previews; verification review actions are not connected.</Text>
         </View>
       </View>
       <AdminHeading
         body="Review trust, safety, and enforcement work that needs attention today."
-        eyebrow="SEPTEMBER 18, 2026"
+        eyebrow={new Date().toLocaleDateString()}
         title="Good morning, Admin"
       />
+      <AppButton disabled={viewModel.verification.status === 'loading'} label={viewModel.verification.status === 'loading' ? 'Loading verifications...' : 'Refresh verifications'} onPress={() => void viewModel.refreshVerification()} variant="secondary" />
+      {viewModel.verification.error ? <Text accessibilityRole="alert" style={styles.previewBody}>{viewModel.verification.error}</Text> : null}
       <View style={styles.statsGrid}>
-        <AdminStatCard label="PENDING VERIFICATIONS" tone="warning" value={viewModel.pendingVerificationCount} />
+        <AdminStatCard label="PENDING VERIFICATIONS" tone="warning" value={viewModel.verification.status === 'success' ? viewModel.pendingVerificationCount : '--'} />
         <AdminStatCard label="OPEN REPORTS" tone="danger" value={viewModel.openReportCount} />
         <AdminStatCard label="ACTIVE RESTRICTIONS" value={viewModel.restrictions.length} />
         <AdminStatCard label="DECISIONS TODAY" tone="positive" value="12" />
@@ -37,7 +40,7 @@ export function AdminDashboardView({ onExit, viewModel }: { onExit: () => void; 
       <View style={styles.queueSummaryList}>
         <QueueSummary
           body="Identity and property documents awaiting verification."
-          count={viewModel.pendingVerificationCount}
+          count={viewModel.verification.status === 'success' ? viewModel.verification.queue.length : '--'}
           label="Verification queue"
           onPress={() => viewModel.navigate('verificationQueue')}
           tone="warning"
@@ -62,7 +65,7 @@ export function AdminDashboardView({ onExit, viewModel }: { onExit: () => void; 
   );
 }
 
-function QueueSummary({ label, body, count, tone, onPress }: { label: string; body: string; count: number; tone: 'warning' | 'danger'; onPress: () => void }) {
+function QueueSummary({ label, body, count, tone, onPress }: { label: string; body: string; count: number | string; tone: 'warning' | 'danger'; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.queueSummary, pressed && styles.pressed]}>
       <View style={[styles.queueCount, tone === 'danger' ? styles.queueCountDanger : styles.queueCountWarning]}><Text style={[styles.queueCountValue, tone === 'danger' ? styles.queueTextDanger : styles.queueTextWarning]}>{count}</Text></View>

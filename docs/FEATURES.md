@@ -5,7 +5,7 @@ Status describes frontend implementation, not live runtime validation. Detailed 
 | Feature | Current status | Living documentation |
 | --- | --- | --- |
 | Authentication & Profiles | IMPLEMENTED baseline and Auth event synchronization; RUNTIME-UNVERIFIED | [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) |
-| User Verification | IMPLEMENTED local document-selection/private upload foundation; Tier 2/3 submissions/status workflows DEFERRED; legacy UI disconnected | [User Verification](features/USER_VERIFICATION.md) |
+| User Verification | Tier 2 submission/upload/metadata USER-REPORTED development-build PASS; Tier 3 flow and shared fullscreen zoom IMPLEMENTED/AUTOMATED-TESTED, Android RUNTIME-UNVERIFIED | [User Verification](features/USER_VERIFICATION.md) |
 | Property & Listing Management | PREVIEW UI; persistence, uploads and maps DEFERRED | Not yet created |
 | Search & Discovery | PREVIEW UI; backend search, maps, GPS and proximity integration DEFERRED | Not yet created |
 | Property Recommendations | Scaffolded | Not yet created |
@@ -14,7 +14,7 @@ Status describes frontend implementation, not live runtime validation. Detailed 
 | Tenancy Management | Scaffolded; current Tenancy tab opens Maintenance preview | Not yet created |
 | Maintenance Requests | PREVIEW UI; persistence/uploads/notifications DEFERRED | Not yet created |
 | Ratings & Reports | PREVIEW UI; publication/moderation/uploads/persistence DEFERRED | Not yet created |
-| Admin & Moderation | Backend-loaded Admin role gates entry; verification queue/review and moderation content remain PREVIEW, backend workflow DEFERRED | Verification boundary: [User Verification](features/USER_VERIFICATION.md) |
+| Admin & Moderation | Tier 2 queue/private viewing/approval USER-REPORTED development-build PASS; new zoom and Tier 3 compatibility AUTOMATED-TESTED, Android RUNTIME-UNVERIFIED; non-image viewing DEFERRED; other moderation PREVIEW | [Admin Verification](features/ADMIN_VERIFICATION.md) |
 | Notifications | PREVIEW UI; device permission/push delivery/persistence DEFERRED | Not yet created |
 
 Actual screen identifiers and preview reachability are recorded in [ROUTES.md](ROUTES.md). Architecture and feature isolation remain in [ARCHITECTURE.md](ARCHITECTURE.md). No additional feature documents are created merely to populate an index.

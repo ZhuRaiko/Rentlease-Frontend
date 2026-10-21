@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { getSupabaseClient } from '../../../shared/services/supabase/client';
+import { createAdminVerificationService } from '../services/adminVerificationService';
+import { createAdminVerificationQueue } from './adminVerificationQueue';
 
 import {
   initialDecisionDraft,
   previewActiveRestrictions,
   previewAuditEntries,
   previewModerationReports,
-  previewVerificationSubmissions,
   type ActiveRestrictionPreview,
   type AdminModerationScreen,
   type AuditEntryPreview,
@@ -13,18 +15,18 @@ import {
   type ModerationDecisionDraft,
   type ModerationReportPreview,
   type ReportQueueStatus,
-  type VerificationQueueStatus,
-  type VerificationSubmissionPreview,
 } from '../models/AdminModeration';
 
 export function useAdminModerationViewModel() {
+  const [verificationQueue] = useState(() => createAdminVerificationQueue(createAdminVerificationService(getSupabaseClient)));
+  const verification = useSyncExternalStore(verificationQueue.subscribe, verificationQueue.getSnapshot);
+  useEffect(() => { verificationQueue.activate(); void verificationQueue.refresh(); return () => verificationQueue.dispose(); }, [verificationQueue]);
   const [screen, setScreen] = useState<AdminModerationScreen>('dashboard');
   const [history, setHistory] = useState<AdminModerationScreen[]>([]);
-  const [verificationSubmissions, setVerificationSubmissions] = useState<VerificationSubmissionPreview[]>(previewVerificationSubmissions);
+  const [verificationFilter, setVerificationFilter] = useState('All');
   const [reports, setReports] = useState<ModerationReportPreview[]>(previewModerationReports);
   const [restrictions, setRestrictions] = useState<ActiveRestrictionPreview[]>(previewActiveRestrictions);
   const [auditEntries, setAuditEntries] = useState<AuditEntryPreview[]>(previewAuditEntries);
-  const [selectedVerificationId, setSelectedVerificationId] = useState(previewVerificationSubmissions[0]?.id ?? '');
   const [selectedReportId, setSelectedReportId] = useState(previewModerationReports[0]?.id ?? '');
   const [selectedRestrictionId, setSelectedRestrictionId] = useState(previewActiveRestrictions[0]?.id ?? '');
   const [decisionDraft, setDecisionDraft] = useState<ModerationDecisionDraft>(initialDecisionDraft);
@@ -32,31 +34,36 @@ export function useAdminModerationViewModel() {
   const [reportInformationRequest, setReportInformationRequest] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
 
-  const selectedVerification = verificationSubmissions.find((item) => item.id === selectedVerificationId) ?? verificationSubmissions[0];
   const selectedReport = reports.find((item) => item.id === selectedReportId) ?? reports[0];
   const selectedRestriction = restrictions.find((item) => item.id === selectedRestrictionId) ?? restrictions[0];
 
-  const pendingVerificationCount = useMemo(
-    () => verificationSubmissions.filter((item) => item.status === 'Awaiting review').length,
-    [verificationSubmissions],
-  );
+  const pendingVerificationCount = verification.queue.filter((item) => item.status === 'pending').length;
   const openReportCount = useMemo(
     () => reports.filter((item) => item.status !== 'Dismissed' && item.status !== 'Action taken').length,
     [reports],
   );
 
   const navigate = (next: AdminModerationScreen) => {
+    if (verificationQueue.getSnapshot().reviewBusy) return;
+    verificationQueue.cancelReview();
+    verificationQueue.closePrivateDocument();
     setHistory((current) => [...current, screen]);
     setScreen(next);
     setNotice(null);
   };
 
   const replace = (next: AdminModerationScreen) => {
+    if (verificationQueue.getSnapshot().reviewBusy) return;
+    verificationQueue.cancelReview();
+    verificationQueue.closePrivateDocument();
     setScreen(next);
     setNotice(null);
   };
 
   const goBack = () => {
+    if (verificationQueue.getSnapshot().reviewBusy) return;
+    verificationQueue.cancelReview();
+    verificationQueue.closePrivateDocument();
     setHistory((current) => {
       const previous = current.at(-1) ?? 'dashboard';
       setScreen(previous);
@@ -66,40 +73,21 @@ export function useAdminModerationViewModel() {
   };
 
   const openSection = (next: AdminModerationScreen) => {
+    if (verificationQueue.getSnapshot().reviewBusy) return;
+    verificationQueue.cancelReview();
+    verificationQueue.closePrivateDocument();
     setScreen(next);
     setHistory([]);
     setNotice(null);
   };
 
   const openVerification = (id: string) => {
-    setSelectedVerificationId(id);
+    if (verificationQueue.getSnapshot().reviewBusy) return;
+    void verificationQueue.select(id);
     setScreen('verificationDetails');
     setHistory(['verificationQueue']);
     setVerificationNote('');
     setNotice(null);
-  };
-
-  const updateVerificationStatus = (status: VerificationQueueStatus, auditAction: string) => {
-    setVerificationSubmissions((current) => current.map((item) => item.id === selectedVerificationId ? { ...item, status } : item));
-    appendAudit(auditAction, selectedVerification?.applicantName ?? 'Verification applicant', selectedVerificationId, status === 'Approved' ? 'positive' : status === 'Rejected' ? 'danger' : 'warning');
-  };
-
-  const approveVerification = () => {
-    updateVerificationStatus('Approved', 'Verification approved');
-    replace('moderationConfirmation');
-    setDecisionDraft({ ...initialDecisionDraft, action: null, reason: `Tier ${selectedVerification?.requestedTier ?? 2} verification approved`, userNotice: 'Your verification has been approved.' });
-  };
-
-  const rejectVerification = () => {
-    updateVerificationStatus('Rejected', 'Verification rejected');
-    replace('moderationConfirmation');
-    setDecisionDraft({ ...initialDecisionDraft, action: null, reason: verificationNote || 'Submitted documents could not be verified', userNotice: 'Your verification was not approved. Review the reason and submit a new request if eligible.' });
-  };
-
-  const requestVerificationInformation = () => {
-    updateVerificationStatus('Additional information requested', 'Verification information requested');
-    replace('moderationConfirmation');
-    setDecisionDraft({ ...initialDecisionDraft, action: null, reason: verificationNote || 'A clearer or corrected document is required', userNotice: 'Please provide the requested corrected or additional verification information.' });
   };
 
   const openReport = (id: string) => {
@@ -191,11 +179,27 @@ export function useAdminModerationViewModel() {
 
   return {
     screen,
-    verificationSubmissions,
+    verification,
+    verificationSubmissions: verification.queue.filter((item) => verificationFilter === 'All' || item.tier === (verificationFilter === 'Tier 2' ? 'tier_2_identity' : 'tier_3_property')),
+    verificationFilter, setVerificationFilter,
+    refreshVerification: verificationQueue.refresh,
+    reviewActions: verificationQueue.reviewActions(),
+    requestReview: verificationQueue.requestReview,
+    cancelReview: verificationQueue.cancelReview,
+    setRejectionReason: verificationQueue.setRejectionReason,
+    confirmReview: async () => {
+      if (await verificationQueue.confirmReview()) {
+        setScreen('verificationQueue'); setHistory(['reviewQueues']);
+      }
+    },
+    canViewPrivateDocument: verificationQueue.canViewPrivateDocument,
+    openPrivateDocument: verificationQueue.openPrivateDocument,
+    closePrivateDocument: verificationQueue.closePrivateDocument,
+    privateDocumentFailed: verificationQueue.privateDocumentFailed,
     reports,
     restrictions,
     auditEntries,
-    selectedVerification,
+    selectedVerification: verification.detail,
     selectedReport,
     selectedRestriction,
     pendingVerificationCount,
@@ -209,9 +213,6 @@ export function useAdminModerationViewModel() {
     goBack,
     openSection,
     openVerification,
-    approveVerification,
-    rejectVerification,
-    requestVerificationInformation,
     openReport,
     requestReportInformation,
     dismissReport,

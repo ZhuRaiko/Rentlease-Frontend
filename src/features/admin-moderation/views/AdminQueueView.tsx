@@ -1,3 +1,4 @@
+import { AppButton } from '../../../shared/components/AppButton';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
@@ -23,9 +24,9 @@ export function AdminQueueView({ viewModel }: { viewModel: AdminModerationViewMo
         />
         <View style={styles.overviewList}>
           <QueueOverview
-            count={viewModel.pendingVerificationCount}
+            count={viewModel.verification.status === 'success' ? viewModel.verification.queue.length : '--'}
             label="Verification"
-            meta="Oldest item · 21h"
+            meta="Pending and under review; oldest first"
             onPress={() => viewModel.navigate('verificationQueue')}
             tone="warning"
           />
@@ -39,7 +40,7 @@ export function AdminQueueView({ viewModel }: { viewModel: AdminModerationViewMo
         </View>
         <View style={styles.guidanceCard}>
           <Text style={styles.guidanceTitle}>Queue handling guidance</Text>
-          <Text style={styles.guidanceBody}>Review urgent safety reports first, then age-sensitive verification requests. Every frontend decision creates a local audit preview.</Text>
+          <Text style={styles.guidanceBody}>Review urgent safety reports first, then age-sensitive verification requests. Tier 2 decisions use the backend review workflow; other moderation actions remain local previews.</Text>
         </View>
       </AdminScaffold>
     );
@@ -50,13 +51,18 @@ export function AdminQueueView({ viewModel }: { viewModel: AdminModerationViewMo
       <AdminScaffold onBack={viewModel.goBack} title="Verification queue">
         <AdminHeading
           body="Review submitted identity and property-authorization materials."
-          eyebrow={`${viewModel.pendingVerificationCount} PENDING`}
+          eyebrow={viewModel.verification.status === 'success' ? `${viewModel.verification.queue.length} WAITING FOR REVIEW` : 'VERIFICATION QUEUE'}
           title="Verification submissions"
         />
-        <FilterRow labels={['All', 'Tier 2', 'Tier 3', 'Oldest']} />
+        <FilterRow labels={['All', 'Tier 2', 'Tier 3']} selected={viewModel.verificationFilter} onSelect={viewModel.setVerificationFilter} />
+        <AppButton disabled={viewModel.verification.status === 'loading'} label={viewModel.verification.status === 'loading' ? 'Loading verification...' : 'Refresh queue'} onPress={() => void viewModel.refreshVerification()} variant="secondary" />
+        {viewModel.verification.error ? <Text accessibilityRole="alert" style={styles.guidanceBody}>{viewModel.verification.error}</Text> : null}
+        {viewModel.verification.reviewError ? <Text accessibilityRole="alert" style={styles.guidanceBody}>{viewModel.verification.reviewError}</Text> : null}
+        {viewModel.verification.reviewNotice ? <Text accessibilityRole="alert" style={styles.guidanceBody}>{viewModel.verification.reviewNotice}</Text> : null}
+        {viewModel.verification.status === 'success' && viewModel.verificationSubmissions.length === 0 ? <Text style={styles.guidanceBody}>No verification submissions are waiting for review.</Text> : null}
         <View style={styles.queueList}>
           {viewModel.verificationSubmissions.map((item) => (
-            <VerificationQueueCard item={item} key={item.id} onPress={() => viewModel.openVerification(item.id)} />
+            <VerificationQueueCard item={item} key={item.submissionId} onPress={() => viewModel.openVerification(item.submissionId)} />
           ))}
         </View>
       </AdminScaffold>
@@ -80,19 +86,19 @@ export function AdminQueueView({ viewModel }: { viewModel: AdminModerationViewMo
   );
 }
 
-function FilterRow({ labels }: { labels: readonly string[] }) {
+function FilterRow({ labels, selected, onSelect }: { labels: readonly string[]; selected?: string; onSelect?: (label: string) => void }) {
   return (
     <View style={styles.filters}>
       {labels.map((label, index) => (
-        <Pressable accessibilityRole="button" key={label} style={[styles.filter, index === 0 && styles.filterActive]}>
-          <Text style={[styles.filterLabel, index === 0 && styles.filterLabelActive]}>{label}</Text>
+        <Pressable accessibilityRole="button" key={label} onPress={() => onSelect?.(label)} style={[styles.filter, (selected ? selected === label : index === 0) && styles.filterActive]}>
+          <Text style={[styles.filterLabel, (selected ? selected === label : index === 0) && styles.filterLabelActive]}>{label}</Text>
         </Pressable>
       ))}
     </View>
   );
 }
 
-function QueueOverview({ label, count, meta, tone, onPress }: { label: string; count: number; meta: string; tone: 'warning' | 'danger'; onPress: () => void }) {
+function QueueOverview({ label, count, meta, tone, onPress }: { label: string; count: number | string; meta: string; tone: 'warning' | 'danger'; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={styles.overviewCard}>
       <Text style={[styles.overviewCount, tone === 'danger' ? styles.danger : styles.warning]}>{count}</Text>

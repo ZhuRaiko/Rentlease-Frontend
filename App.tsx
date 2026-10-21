@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { traceAuthBoot } from './src/shared/utils/authBootTrace';
@@ -7,6 +7,7 @@ import type { UserRole } from './src/features/authentication/models/AuthProfile'
 import { getWorkspaceDestination } from './src/features/authentication/models/accountRouting';
 import { AuthProfilesFlowView } from './src/features/authentication/views/AuthProfilesFlowView';
 import { useAuthProfilesViewModel } from './src/features/authentication/viewModels/useAuthProfilesViewModel';
+import { UserVerificationFlowView } from './src/features/user-verification/views/UserVerificationFlowView';
 import { AdminModerationFlowView } from './src/features/admin-moderation/views/AdminModerationFlowView';
 import { MessagingViewingFlowView } from './src/features/messaging-viewing/views/MessagingViewingFlowView';
 import { MaintenanceRequestsFlowView } from './src/features/maintenance/views/MaintenanceRequestsFlowView';
@@ -30,6 +31,7 @@ type AppWorkspace =
   | { type: 'ratingsReports' }
   | { type: 'adminModeration' }
   | { type: 'notifications' }
+  | { type: 'verification' }
   | null;
 
 export default function App() {
@@ -37,6 +39,8 @@ export default function App() {
   const [preferredRole, setPreferredRole] = useState<UserRole>('tenant');
   const accountRole: UserRole = auth.hasLandlordRole && (!auth.hasTenantRole || preferredRole === 'landlord') ? 'landlord' : 'tenant';
   const [workspace, setWorkspace] = useState<AppWorkspace>(null);
+  const verificationBackAction = useRef<(() => void) | null>(null);
+  const registerVerificationBack = useCallback((action: (() => void) | null) => { verificationBackAction.current = action; }, []);
   const workspaceDestination = auth.account ? getWorkspaceDestination(auth.account) : null;
   const canEnterAdmin = workspaceDestination === 'adminModeration';
   const canEnterMarketplace = workspaceDestination === 'discovery';
@@ -80,16 +84,23 @@ export default function App() {
         onOpenNotifications={() => { if (canEnterMarketplace) setWorkspace({ type: 'notifications' }); }}
         onOpenProperties={() => openProperties('dashboard')}
         onOpenRatingsReports={() => { if (canEnterMarketplace) setWorkspace({ type: 'ratingsReports' }); }}
+        onOpenVerification={() => { if (canEnterMarketplace) setWorkspace({ type: 'verification' }); }}
       />
 
       <Modal
         key={auth.account?.user.id ?? 'signed-out'}
         animationType="slide"
-        onRequestClose={() => setWorkspace(null)}
+        onRequestClose={() => {
+          if (workspace?.type === 'verification') verificationBackAction.current?.();
+          else setWorkspace(null);
+        }}
         presentationStyle="fullScreen"
         statusBarTranslucent
         visible={workspace !== null && (workspace?.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace)}
       >
+        {workspace?.type === 'verification' && canEnterMarketplace ? (
+          <UserVerificationFlowView tierOneVerified={!!auth.account?.profile.tier1_verified_at} hasLandlordRole={auth.hasLandlordRole} onClose={() => setWorkspace(null)} registerBackAction={registerVerificationBack} />
+        ) : null}
         {workspace?.type === 'discovery' ? (
           <SearchDiscoveryFlowView
             initialScreen={workspace.initialScreen}
@@ -210,8 +221,7 @@ export default function App() {
             onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
             onOpenRatingsReports={() => setWorkspace({ type: 'ratingsReports' })}
             onOpenVerification={() => {
-              setWorkspace(null);
-              auth.setNotice('Tier 2 and Tier 3 verification submissions are not connected yet.');
+              if (canEnterMarketplace) setWorkspace({ type: 'verification' });
             }}
           />
         ) : null}

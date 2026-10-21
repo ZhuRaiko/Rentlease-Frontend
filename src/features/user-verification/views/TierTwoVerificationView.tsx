@@ -8,14 +8,14 @@ import { typography } from '../../../shared/theme/typography';
 import { DocumentPreviewPicker } from '../components/DocumentPreviewPicker';
 import { SelectionRow } from '../components/SelectionRow';
 import { VerificationScaffold } from '../components/VerificationScaffold';
-import { governmentIdTypes } from '../models/Verification';
-import type { UserVerificationViewModel } from '../viewModels/useUserVerificationViewModel';
+import { tierTwoDocumentOptions } from '../models/TierTwoVerification';
+import type { TierTwoVerificationViewModel } from '../viewModels/useTierTwoVerificationViewModel';
 
 const idIcon = require('../../../assets/verification/government-id.png');
 const idGuide = require('../../../assets/verification/id-example.png');
 
 interface TierTwoVerificationViewProps {
-  viewModel: UserVerificationViewModel;
+  viewModel: TierTwoVerificationViewModel;
   onClose: () => void;
 }
 
@@ -46,11 +46,11 @@ export function TierTwoVerificationView({
     return (
       <VerificationScaffold compact onBack={viewModel.goBack} onClose={onClose} title="ID Verification">
         <View style={styles.rows}>
-          {governmentIdTypes.map((idType) => (
+          {tierTwoDocumentOptions.map(({ label: idType }) => (
             <SelectionRow
               key={idType}
               label={idType}
-              onPress={() => viewModel.selectGovernmentId(idType)}
+              onPress={() => viewModel.chooseId(idType)}
             />
           ))}
         </View>
@@ -61,43 +61,39 @@ export function TierTwoVerificationView({
   if (viewModel.screen === 'tier2Review') {
     return (
       <VerificationScaffold
-        description="Check your local document. Verification submission is not connected yet."
+        description="Check your document before sending it for identity verification."
         onBack={viewModel.goBack}
         onClose={onClose}
         title="Review your ID"
       >
         <View style={styles.reviewCard}>
-          <DocumentPreviewPicker document={viewModel.draft.tier2Document} />
+          <DocumentPreviewPicker document={viewModel.selectedDocument} busy={viewModel.busy} />
           <Text style={styles.reviewLabel}>ID type</Text>
-          <Text style={styles.reviewValue}>{viewModel.draft.governmentIdType}</Text>
+          <Text style={styles.reviewValue}>{viewModel.selectedIdLabel}</Text>
         </View>
-        <Text style={styles.previewNotice}>This file is only selected on your device. Nothing has been uploaded or submitted.</Text>
-        <AppButton disabled label="Submission not connected" onPress={() => {}} />
+        <Text style={styles.previewNotice}>{viewModel.isSubmitting ? 'Sending your verification document…' : 'This file stays on your device until you submit.'}</Text>
+        {viewModel.error ? <Text accessibilityRole="alert" style={styles.previewNotice}>{viewModel.error}</Text> : null}
+        {viewModel.requiresRefresh ? <AppButton disabled={viewModel.busy} label={viewModel.isLoading ? 'Refreshing…' : 'Refresh verification'} onPress={() => void viewModel.refresh()} variant="secondary" /> : null}
+        <AppButton disabled={!viewModel.canSubmit} label={viewModel.isSubmitting ? 'Submitting…' : 'Submit verification'} onPress={() => void viewModel.submit()} />
       </VerificationScaffold>
     );
   }
 
-  const isResubmission = viewModel.screen === 'tier2Resubmission';
   return (
     <VerificationScaffold
-      description={
-        isResubmission
-          ? 'Correction required: provide a clear, uncropped image with all four corners visible.'
-          : 'Make sure that your photo is shot in a well-lit environment.'
-      }
+      description="Choose a clear document from your device. It stays local until you submit."
       onBack={viewModel.goBack}
       onClose={onClose}
-      title={isResubmission ? 'Resubmit your ID' : viewModel.draft.governmentIdType ?? 'Government ID'}
+      title={viewModel.selectedIdLabel ?? 'Government ID'}
     >
-      {isResubmission ? <Text style={styles.rejectionBanner}>Legacy resubmission preview. Backend resubmission is not connected.</Text> : null}
       <DocumentPreviewPicker
-        document={viewModel.draft.tier2Document}
+        document={viewModel.selectedDocument}
         busy={viewModel.isSelectingDocument}
-        onSelect={() => void viewModel.selectTierTwoDocument()}
+        onSelect={() => void viewModel.pickDocument()}
       />
-      {viewModel.notice ? <Text style={styles.previewNotice}>{viewModel.notice}</Text> : null}
+      {viewModel.error ? <Text accessibilityRole="alert" style={styles.previewNotice}>{viewModel.error}</Text> : null}
       <AppButton
-        disabled={viewModel.isSelectingDocument || !viewModel.draft.tier2Document}
+        disabled={!viewModel.canSubmit}
         label="Review document"
         onPress={() => viewModel.navigate('tier2Review')}
       />

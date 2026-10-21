@@ -104,3 +104,20 @@ test('Tenant and Landlord without Admin still require Tier 1', () => {
     assert.equal(getWorkspaceDestination(account), null);
   }
 });
+test('email and mobile continuation advance only from authoritative confirmation and Tier 1 facts', () => {
+  const account = existingAccount(); account.roles = []; account.profile.tier1_verified_at = null;
+  delete account.user.email_confirmed_at; delete account.user.phone_confirmed_at; account.user.phone = '';
+  assert.equal(getAccountDestination(account), 'emailConfirmation');
+  account.user.email_confirmed_at = '2026-10-22T00:00:00Z'; assert.equal(getAccountDestination(account), 'registrationPhone');
+  account.user.phone = '+639171234567'; account.user.phone_confirmed_at = '2026-10-22T00:01:00Z';
+  assert.equal(getAccountDestination(account), 'verificationPending'); assert.equal(getWorkspaceDestination(account), null);
+  account.profile.tier1_verified_at = '2026-10-22T00:01:01Z'; assert.equal(getAccountDestination(account), 'roleSelection');
+});
+test('Tenant, Landlord and Both enter the marketplace only after backend role loading', () => {
+  for (const roles of [['tenant'], ['landlord'], ['tenant', 'landlord']] as AccountSnapshot['roles'][]) {
+    const account = existingAccount(); account.roles = [];
+    assert.equal(getAccountDestination(account), 'roleSelection');
+    account.roles = roles;
+    assert.equal(getAccountDestination(account), 'profile'); assert.equal(getWorkspaceDestination(account), 'discovery');
+  }
+});

@@ -4,7 +4,9 @@
     "slug": "rentlease",
     "version": "0.1.0",
     "orientation": "portrait",
-    "platforms": ["android"],
+    "platforms": [
+      "android"
+    ],
     "android": {
       "package": "com.rentlease.mobile"
     },
@@ -13,6 +15,11 @@
     },
     "updates": {
       "fallbackToCacheTimeout": 0
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2ec46a6d-c6dc-4b99-88f6-901cc3717080"
+      }
     }
   }
 }

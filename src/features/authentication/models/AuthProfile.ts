@@ -29,6 +29,7 @@ export interface RegistrationDraft {
   phone: string;
   mobileCode: string;
   password: string;
+  confirmPassword: string;
 }
 
 export interface AccountProfile {
@@ -57,4 +58,5 @@ export const initialRegistrationDraft: RegistrationDraft = {
   phone: '',
   mobileCode: '',
   password: '',
+  confirmPassword: '',
 };

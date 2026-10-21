@@ -60,11 +60,23 @@ The root opens a workspace when account identity or permitted workspace changes,
 
 ## Current implementation
 
+### Registration experience (2026-10-22)
+
+**IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED.** Registration retains the fullscreen, one-question-at-a-time layout, existing green theme and Roboto typography. The sequence remains name → preferred name → email → password → email confirmation → phone → SMS confirmation → roles. Preferred name is now optional with **Skip for now**; skipping clears it and uses trimmed first and last names as `display_name`. Password and confirmation share one step, require matching values and at least eight characters, and have independent Show/Hide controls. Email validation, input focus/keyboard hints, busy controls and inline errors support this flow.
+
+The progress indicator shows the current stage out of eight; its filled portion excludes the current stage. It does not assert successful email/SMS verification or Tier 1 completion. Existing backend account facts still determine progression, including the pending Tier 1 synchronization screen and Tenant/Landlord/Both selection without a default role.
+
+Only the password step's **Create account** action (or its keyboard submit) calls `useAuthProfilesViewModel.register`, which validates the complete draft and invokes the existing `accountService.signUp` through the existing mutation coordinator. Earlier Continue/Skip actions are local. The payload remains normalized email, unchanged password and `display_name` metadata; no new backend operation was introduced. A synchronous registration-local guard excludes duplicate requests, including rapid taps before React rerenders. Definitive backend validation errors permit a corrected manual retry; uncertain/network outcomes require checking email confirmation or signing in, without automatic signup retry. After a created/uncertain attempt, Back cannot return to editable pre-signup questions; ordinary Profile navigation is unaffected.
+
+Before submission, Back preserves the in-memory draft. No credentials or registration draft are persisted. Confirmation password is cleared after account creation; both password fields are cleared when authoritative routing leaves email confirmation, or account state is cleared. The existing password remains in memory only for the existing manual email-confirmation return/sign-in path. Restarting loses an unfinished local draft; an already-created account uses confirmation/sign-in and existing account restoration. Android email deep links remain deferred.
+
+`registrationFlow.ts` owns pure validation, display-name fallback, stage progress, Back recovery and a phase/generation request guard; it owns no account/session snapshot or external client. Views remain presentation-only. Auth services, account synchronization/bootstrap, routing precedence, phone_change OTP, Tier 1 refresh and role persistence are unchanged.
+
 IMPLEMENTED, RUNTIME-UNVERIFIED: signup with display-name metadata; password sign-in; confirmation-link waiting/resend/manual return; Philippine phone change and six-digit phone_change OTP/resend; Tier 1 pending-status recovery; multi-role selection; persisted-session bootstrap; Auth event synchronization; profile read/display-name/bio update; sign-out/account switching; restricted routing; Admin onboarding bypass.
 
-PREVIEW/LEGACY: marketplace feature contents and Admin review content are not made backend-backed merely by authenticating their entry.
+PREVIEW/LEGACY: marketplace feature contents are not made backend-backed merely by authenticating their entry. Connected verification/Admin behavior is documented separately in [User Verification](USER_VERIFICATION.md) and [Admin Verification](ADMIN_VERIFICATION.md).
 
-DEFERRED: avatar upload, Google OAuth, password recovery, post-onboarding contact changes, Android email deep-link/redirect configuration and Tier 2/3/Admin verification integration.
+DEFERRED within this feature: avatar upload, Google OAuth, password recovery, post-onboarding contact changes and Android email deep-link/redirect configuration. Profile opens the separate user verification workflow; see [User Verification](USER_VERIFICATION.md) for Tier 2/Tier 3 implementation and evidence. This does not change Auth/account ownership, startup or roles.
 
 ## Known issues and unresolved decisions
 
@@ -99,6 +111,14 @@ See [the second investigation report](../../RENTLEASE_PHASE_1_COLD_LAUNCH_INVEST
 
 ## Runtime tests still needed
 
+Registration refinement Android checklist (RUNTIME-UNVERIFIED):
+
+- Walk forward/back through name, optional preferred name, email and password; retain draft values, test Skip after entering a preferred name, and confirm full-name fallback on the resulting profile.
+- Test invalid email, short/mismatched passwords, both Show/Hide controls, input focus, autofill, keyboard visibility, scrolling and larger system text on a small Android screen.
+- Rapidly tap Create account; confirm only one signup occurs. Exercise network/uncertain outcomes, Back and sign-in/email recovery without another automatic signup.
+- Complete real email confirmation/resend/manual return, Philippine phone_change SMS OTP including invalid/expired codes/resend, pending Tier 1 refresh, then Tenant, Landlord and Both on suitable test accounts. Progress must follow authoritative state.
+- Restart before signup and after signup; verify local draft loss versus existing confirmation/sign-in recovery. Recheck restricted/Admin routing and normal Profile Back behavior.
+
 1. Repeated cold-launch retest for an ordinary user and Admin: sign in, fully close the Expo app/session, reopen, and confirm every attempt reaches the normal destination, signed-out screen or error with Retry. Repeat several launches (at least 10 per account), including quick restarts and a network-unavailable launch followed by reconnect/Retry. Report success/error outcomes and whether Retry is always available after a stalled attempt. Cold-launch reliability is not yet marked passed.
 2. Signup → confirmation email/resend → manual return → real SMS request/invalid/expired OTP/resend → backend Tier 1 → role selection.
 3. Admin with no Tier 1 enters Admin; inactive Admin remains restricted.
@@ -112,10 +132,12 @@ See [the second investigation report](../../RENTLEASE_PHASE_1_COLD_LAUNCH_INVEST
 - `App.tsx`
 - `src/features/authentication/models/AuthProfile.ts`, `models/accountRouting.ts`
 - `src/features/authentication/viewModels/useAuthProfilesViewModel.ts`, `viewModels/accountSynchronization.ts`
+- `src/features/authentication/viewModels/registrationFlow.ts`
 - `src/features/authentication/services/accountService.ts`
 - `src/features/authentication/views/` (existing layouts retained)
 - `src/shared/services/supabase/client.ts`, `database.types.ts`
 - `tests/accountRouting.test.ts`, `tests/accountSynchronization.test.ts`, `scripts/run-tests.cjs`
+- `tests/registrationFlow.test.ts`
 
 Structural contract: generated `profiles`, `user_roles`, `app_role`, `account_status`, `set_user_roles`. Auth email/phone confirmation and backend trigger/RLS behavior require the confirmed business contract, not inference from generated Insert/Update fields.
 
@@ -129,8 +151,12 @@ Structural contract: generated `profiles`, `user_roles`, `app_role`, `account_st
 
 ## Last Verified
 
-Date: 2026-10-18.
+Date: 2026-10-22.
 
-Commit baseline: `cf59ffb84df3ae812d61a1afd291082f8761e8bd` plus uncommitted cold-launch bugfix changes. This hash contains Phase 1 but does not include the current bugfix.
+Commit baseline: `6578b6ebf7186df67e46c7bef6e20b3a1548648d` plus existing uncommitted work and registration refinements. The baseline commit does not contain these refinements; no commit was created.
 
-Verification status: see the second investigation report for current validation results (36 tests, including the preserved 34). Normal-user/Admin sign-in and session identity restoration: USER-REPORTED PASS. A persisted ordinary-user emulator launch reached Discovery during investigation. Cold-launch reliability: ISSUE REPRODUCED BY USER; ROOT CAUSE STILL UNRESOLVED. Other untested device/native/live flows remain RUNTIME-UNVERIFIED.
+Verification status: registration refinements IMPLEMENTED / AUTOMATED-TESTED (`npm run typecheck` passed; full `npm test`: 180 passed, 0 failed, including 12 registration helper tests and two additional routing tests). These tests exercise pure flow/coordination contracts, not rendered native interactions or live signup/SMS. Registration Android behavior remains RUNTIME-UNVERIFIED. Historical normal-user/Admin sign-in and session identity restoration: USER-REPORTED PASS. A persisted ordinary-user emulator launch reached Discovery during the earlier investigation. Cold-launch reliability: ISSUE REPRODUCED BY USER; ROOT CAUSE STILL UNRESOLVED. Historical investigation test counts describe their original passes, not the current suite.
+
+Compatibility check: `npx expo install --check` reports existing patch-version drift: installed `expo@57.0.30` versus expected `~57.0.31`, and `expo-location@57.0.21` versus expected `~57.0.22`. No dependencies were added or upgraded for registration. Git working/index whitespace checks passed.
+
+Android production JS/Hermes export passed (912 modules) to a temporary directory. This validates bundling only; it is not an APK build or Android runtime acceptance test.

@@ -4,7 +4,7 @@
 
 This document records shared backend integration boundaries. Feature-specific current implementation and runtime gaps live in [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) and [User Verification](features/USER_VERIFICATION.md).
 
-The repository is strictly an Android-first React Native frontend. It does not contain database migrations, backend services, Python/ML code, seeded records, or authoritative authorization logic.
+The repository is strictly an Android-first React Native frontend. It contains one explicitly requested and approved Admin verification queue RPC migration under supabase/migrations, applied to the live project with regenerated types. It does not contain a Node/Express backend, Python/ML implementation or seeded records. See [Admin Verification](features/ADMIN_VERIFICATION.md) for the narrow exception and its authorization boundary.
 
 ## Current frontend foundation
 
@@ -18,7 +18,7 @@ The repository is strictly an Android-first React Native frontend. It does not c
 - Shared normalized error and asynchronous-state conventions
 - Existing root workspace/Modal and feature-state routing; no navigation library
 - Real Auth/Profile integration and root Auth-event synchronization; live flows RUNTIME-UNVERIFIED
-- Other feature screens primarily use preview data; local document selection/private upload foundation does not complete verification
+- Tier 2 Passport submission/upload/metadata and Admin queue/detail/private image viewing are user-reported Android PASS. Tier 2 approval is user-reported Android development-build PASS. Tier 3 owned-property submission and Admin compatibility are implemented/automated-tested but Android RUNTIME-UNVERIFIED; broader negative cases remain required. See the feature docs. Other feature contents primarily remain previews
 
 ## Architecture boundary
 
@@ -53,7 +53,7 @@ The Supabase `service_role` key and all other server secrets must never be suppl
 
 - `src/shared/services/supabase/client.ts` provides the only typed Supabase client factory.
 - Feature-local `authentication/services/accountService.ts` owns active Auth/profile/role operations and the Auth subscription; shared `auth/authService.ts` retains older session/sign-out wrappers.
-- `storage/storageService.ts` exposes the Storage client. The separate verification upload primitive uses the confirmed private `verification-documents` bucket and remains disconnected from selection/submission UI.
+- `storage/storageService.ts` exposes the Storage client. Verification uses the private `verification-documents` bucket for normal-user upload and Admin short-lived image links. Admin Tier 2/3 review uses the existing `review_verification_submission` RPC; Tier 3 approval requires qualifying ownership/authorization metadata. Existing backend triggers/derived trust values are not manually updated by the Admin client.
 - `realtime/realtimeService.ts` creates and removes feature-specific channels.
 - `edgeFunctions/edgeFunctionService.ts` invokes only function names supplied by confirmed feature code.
 - `database.types.ts` contains generated tables, relationships, enums and RPC signatures. The older `database/` directory is not the canonical type location.
@@ -107,7 +107,7 @@ The backend must define the authoritative coordinate representation, distance un
 
 ## Storage
 
-The generic Storage boundary remains reusable. Verification additionally has a private upload primitive for `verification-documents`, path `<USER_ID>/<SUBMISSION_ID>/<UNIQUE_FILENAME>`, with `upsert: false` and no public URLs. The primitive is not called by file selection and requires a real existing submission ID from future orchestration. See [User Verification](features/USER_VERIFICATION.md).
+The generic Storage boundary remains reusable. Verification has a private upload primitive for `verification-documents`, path `<USER_ID>/<SUBMISSION_ID>/<UNIQUE_FILENAME>`, with `upsert: false` and no public URLs. The production Tier 2/3 workflows create real submissions before upload; file selection alone does not upload. Admin image viewing uses on-demand 90-second signed links. See [User Verification](features/USER_VERIFICATION.md) and [Admin Verification](features/ADMIN_VERIFICATION.md).
 
 Other bucket and RLS contracts remain necessary for expected uses such as:
 

@@ -33,11 +33,12 @@ interface AuthProfilesFlowViewProps {
   onOpenNotifications?: () => void;
   onOpenProperties?: () => void;
   onOpenRatingsReports?: () => void;
+  onOpenVerification?: () => void;
 }
 
 export function AuthProfilesFlowView({
   viewModel, onOpenAdminModeration, onOpenDiscovery, onOpenMatchingPreferences,
-  onOpenNotifications, onOpenProperties, onOpenRatingsReports, activeRole, onSwitchRole,
+  onOpenNotifications, onOpenProperties, onOpenRatingsReports, onOpenVerification, activeRole, onSwitchRole,
 }: AuthProfilesFlowViewProps) {
   useEffect(() => {
     traceAuthBoot('AUTH_VIEW_MOUNT');
@@ -61,7 +62,7 @@ export function AuthProfilesFlowView({
   } else if (registrationScreens.has(viewModel.screen)) {
     content = <RegistrationView viewModel={viewModel} />;
   } else if (viewModel.screen === 'profile') {
-    content = <ProfileView viewModel={viewModel} activeRole={activeRole} onSwitchRole={onSwitchRole} onOpenAdminModeration={onOpenAdminModeration} onOpenDiscovery={onOpenDiscovery} onOpenMatchingPreferences={onOpenMatchingPreferences} onOpenNotifications={onOpenNotifications} onOpenProperties={viewModel.hasLandlordRole ? onOpenProperties : undefined} onOpenRatingsReports={onOpenRatingsReports} />;
+    content = <ProfileView viewModel={viewModel} activeRole={activeRole} onSwitchRole={onSwitchRole} onOpenAdminModeration={onOpenAdminModeration} onOpenDiscovery={onOpenDiscovery} onOpenMatchingPreferences={onOpenMatchingPreferences} onOpenNotifications={onOpenNotifications} onOpenProperties={viewModel.hasLandlordRole ? onOpenProperties : undefined} onOpenRatingsReports={onOpenRatingsReports} onOpenVerification={onOpenVerification} />;
   } else if (viewModel.screen === 'editProfile') {
     content = <EditProfileView viewModel={viewModel} />;
   } else if (viewModel.screen === 'settings') {

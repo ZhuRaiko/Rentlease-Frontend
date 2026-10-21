@@ -6,6 +6,8 @@ RentLease is an Android-first React Native and strict TypeScript application usi
 
 The approved integration stack is Supabase (PostgreSQL/PostGIS, Auth/JWT/RLS, Storage, Realtime and Edge Functions), MapTiler/MapLibre, MapTiler Geocoding, `expo-location`, OpenStreetMap Overpass, Expo Notifications with Android delivery through FCM, and a Render-hosted FastAPI service that owns XGBoost inference. Figma remains the visual source of truth; reuse the existing shared theme, assets and feature UI. The document foundation uses Expo DocumentPicker, FileSystem and Crypto behind services, without introducing another picker or state manager.
 
+Verification image inspection shares one fullscreen component using Expo-compatible react-native-gesture-handler ~2.32.0 and core Animated. Gestures are presentation-only; private signed-URL ownership remains in the Admin ViewModel/service. The Modal contains its own GestureHandlerRootView; no navigation framework or Reanimated plugin is added. Development builds predating this native dependency need rebuilding. Gesture runtime acceptance remains documented under the verification feature docs.
+
 ## MVVM dependency direction
 
 ```text
@@ -39,7 +41,7 @@ The root Authentication ViewModel owns one authoritative account snapshot. Its s
 ## Integration boundaries
 
 - Supabase: `getSupabaseClient()` is the sole client factory. Only public URL/anon-key environment variables are accepted; never use a `service_role` key. RLS is authoritative. Client checks only affect presentation/navigation. Auth, Storage, Realtime, and confirmed Edge Function entry points are separated. Subscription creation is service-owned and cleanup is ViewModel-owned.
-- Database/PostGIS: generated `src/shared/services/supabase/database.types.ts` is the canonical structural contract. The singleton is `SupabaseClient<Database>`. No backend SQL/migrations belong here. Generated types do not describe RLS, triggers, permitted transitions or business rules. PostGIS calculations execute in PostgreSQL and are consumed through confirmed database functions/queries later.
+- Database/PostGIS: generated `src/shared/services/supabase/database.types.ts` is the canonical structural contract. The singleton is `SupabaseClient<Database>`. The explicit Admin queue exception is supabase/migrations/20261020134152_get_admin_verification_queue.sql, a narrow Admin-gated read-only summary approved by the user; other backend schema/infrastructure work remains outside this frontend repository. Generated types do not describe RLS, triggers, permitted transitions or business rules. PostGIS calculations execute in PostgreSQL and are consumed through confirmed database functions/queries later.
 - MapTiler/MapLibre: map URL configuration lives in the map service. Map rendering belongs in a View/shared component only after `react-native-maplibre-gl` is approved and installed. MapLibre requires an EAS development build rather than stock Expo Go.
 - Geocoding: typed address searches call only MapTiler through the geocoding service; a future ViewModel must coordinate candidate selection and pin confirmation.
 - Device location: `expo-location` permission and coordinate acquisition live in the location service. A discovery ViewModel owns workflow state.

@@ -1,151 +1,97 @@
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FullscreenDocumentImage } from '../../../shared/components/FullscreenDocumentImage';
 import { AppButton } from '../../../shared/components/AppButton';
+import { ScreenContainer } from '../../../shared/components/ScreenContainer';
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
-import {
-  AdminHeading,
-  AdminStatusPill,
-  DetailCard,
-  DetailRow,
-  PriorityPill,
-} from '../components/AdminCards';
+import { AdminStatusPill, DetailCard, DetailRow } from '../components/AdminCards';
 import { AdminScaffold } from '../components/AdminScaffold';
+import { documentTypeLabel, formatVerificationDate, verificationStatusLabel, verificationTierLabel } from '../models/AdminVerification';
 import type { AdminModerationViewModel } from '../viewModels/useAdminModerationViewModel';
 
-const idPreview = require('../../../assets/verification/id-example.png');
-const propertyDocumentPreview = require('../../../assets/verification/property-document-preview.png');
-
 export function VerificationModerationView({ viewModel }: { viewModel: AdminModerationViewModel }) {
-  const submission = viewModel.selectedVerification;
-  if (!submission) return null;
-
-  if (viewModel.screen === 'verificationDetails') {
-    return (
-      <AdminScaffold onBack={viewModel.goBack} title="Verification submission">
-        <View style={styles.caseHeader}>
-          <PriorityPill priority={submission.priority} />
-          <Text style={styles.caseId}>{submission.id}</Text>
-        </View>
-        <Text accessibilityRole="header" style={styles.applicantName}>{submission.applicantName}</Text>
-        <Text style={styles.caseSubtitle}>Tier {submission.requestedTier} verification · Submitted {submission.age} ago</Text>
-        <View style={styles.statusRow}><AdminStatusPill status={submission.status} /></View>
-
-        <Text style={styles.sectionLabel}>SUBMISSION DETAILS</Text>
-        <DetailCard>
-          <DetailRow label="GOVERNMENT ID" value={submission.governmentIdType} />
-          <DetailRow label="ID FILE" value={submission.governmentIdFile} />
-          <DetailRow label="PROPERTY" value={submission.propertyName} />
-          <DetailRow label="PROPERTY ADDRESS" value={submission.propertyAddress} />
-          <DetailRow label="OWNERSHIP / AUTHORIZATION" value={submission.ownershipDocumentType} />
-          <DetailRow label="DOCUMENT FILE" last value={submission.ownershipDocumentFile} />
-        </DetailCard>
-
-        <View style={styles.documentSummary}>
-          <View style={styles.documentCount}><Text style={styles.documentCountValue}>{submission.requestedTier === 3 ? 2 : 1}</Text></View>
-          <View style={styles.documentCopy}><Text style={styles.documentTitle}>Documents available</Text><Text style={styles.documentBody}>Inspect each local preview before making a decision.</Text></View>
-          <Pressable accessibilityRole="button" onPress={() => viewModel.navigate('verificationDocument')}><Text style={styles.openDocument}>View ›</Text></Pressable>
-        </View>
-
-        <View style={styles.actions}>
-          <AppButton label="Approve verification" onPress={() => viewModel.navigate('approveVerification')} />
-          <AppButton label="Request corrected information" onPress={() => viewModel.navigate('requestVerificationInfo')} variant="secondary" />
-          <AppButton label="Reject verification" onPress={() => viewModel.navigate('rejectVerification')} variant="danger" />
-        </View>
-      </AdminScaffold>
-    );
-  }
-
-  if (viewModel.screen === 'verificationDocument') {
-    return (
-      <AdminScaffold onBack={viewModel.goBack} title="Verification documents">
-        <AdminHeading body="Inspect the local document previews and compare their details with the submission." eyebrow="DOCUMENT VIEWER" title="Review submitted files" />
-        <Text style={styles.documentLabel}>GOVERNMENT ID · {submission.governmentIdType.toUpperCase()}</Text>
-        <View style={styles.imageCard}>
-          <Image resizeMode="contain" source={idPreview} style={styles.documentImage} />
-          <View style={styles.localBadge}><Text style={styles.localBadgeText}>LOCAL SAMPLE · NOT A REAL ID</Text></View>
-        </View>
-        <Text style={styles.fileName}>{submission.governmentIdFile}</Text>
-        {submission.requestedTier === 3 ? (
-          <>
-            <Text style={styles.documentLabel}>OWNERSHIP · {submission.ownershipDocumentType.toUpperCase()}</Text>
-            <View style={[styles.imageCard, styles.propertyImageCard]}>
-              <Image resizeMode="contain" source={propertyDocumentPreview} style={styles.documentImage} />
-              <View style={styles.localBadge}><Text style={styles.localBadgeText}>LOCAL SAMPLE · NOT A REAL DOCUMENT</Text></View>
-            </View>
-            <Text style={styles.fileName}>{submission.ownershipDocumentFile}</Text>
-          </>
-        ) : null}
-        <View style={styles.viewerNote}><Text style={styles.viewerNoteTitle}>Viewer limitations</Text><Text style={styles.viewerNoteBody}>Zoom, secure file retrieval, authenticity checks, and download auditing require confirmed backend and Storage contracts.</Text></View>
-      </AdminScaffold>
-    );
-  }
-
-  if (viewModel.screen === 'approveVerification') {
-    return (
-      <AdminScaffold onBack={viewModel.goBack} title="Approve verification">
-        <AdminHeading body="Confirm that the submitted information supports the requested verification tier." eyebrow="APPROVAL REVIEW" title={`Approve Tier ${submission.requestedTier}?`} />
-        <DetailCard>
-          <DetailRow label="APPLICANT" value={submission.applicantName} />
-          <DetailRow label="IDENTITY DOCUMENT" value={`${submission.governmentIdType} reviewed`} />
-          <DetailRow label="PROPERTY DOCUMENT" value={submission.requestedTier === 3 ? `${submission.ownershipDocumentType} reviewed` : 'Not required for Tier 2'} />
-          <DetailRow label="RESULT" last value={`Grant Tier ${submission.requestedTier} verification`} />
-        </DetailCard>
-        <View style={styles.checkList}>
-          <CheckItem label="Applicant details are consistent" />
-          <CheckItem label="Documents are readable in this preview" />
-          <CheckItem label="Requested tier requirements are represented" />
-        </View>
-        <AppButton label="Confirm approval preview" onPress={viewModel.approveVerification} />
-        <Text style={styles.previewNote}>This does not change a Supabase profile, role, or verification record.</Text>
-      </AdminScaffold>
-    );
-  }
-
-  if (viewModel.screen === 'rejectVerification') {
-    return (
-      <AdminScaffold onBack={viewModel.goBack} title="Reject verification">
-        <AdminHeading body="Record a clear reason the applicant can understand before rejecting this submission preview." eyebrow="REJECTION" title="Why can’t this be approved?" />
-        <ReasonOption label="Document details cannot be verified" onPress={() => viewModel.setVerificationNote('Document details cannot be verified.')} selected={viewModel.verificationNote.includes('cannot be verified')} />
-        <ReasonOption label="Ownership or authorization is insufficient" onPress={() => viewModel.setVerificationNote('Ownership or authorization documentation is insufficient.')} selected={viewModel.verificationNote.includes('insufficient')} />
-        <ReasonOption label="Information does not match the account" onPress={() => viewModel.setVerificationNote('Submitted information does not match the account profile.')} selected={viewModel.verificationNote.includes('does not match')} />
-        <Text style={styles.inputLabel}>REJECTION NOTE</Text>
-        <TextInput multiline onChangeText={viewModel.setVerificationNote} placeholder="Explain the rejection reason" placeholderTextColor={colors.textMuted} style={styles.textArea} textAlignVertical="top" value={viewModel.verificationNote} />
-        <AppButton disabled={viewModel.verificationNote.trim().length < 10} label="Confirm rejection preview" onPress={viewModel.rejectVerification} variant="danger" />
-      </AdminScaffold>
-    );
-  }
-
+  const detail = viewModel.selectedVerification;
+  if (!detail) return (
+    <AdminScaffold onBack={viewModel.goBack} title="Verification submission">
+      <Text style={styles.viewerNoteBody}>{viewModel.verification.reviewBusy ? 'Review saved. Refreshing backend state...' : viewModel.verification.detailStatus === 'loading' ? 'Loading submission...' : viewModel.verification.detailError ?? 'Select a submission from the current queue.'}</Text>
+      <AppButton disabled={viewModel.verification.reviewBusy} label="Back to verification queue" onPress={() => { viewModel.openSection('verificationQueue'); void viewModel.refreshVerification(); }} />
+    </AdminScaffold>
+  );
+  const { item, documents } = detail;
+  const preview = viewModel.verification.documentPreview;
+  const review = viewModel.verification;
+  const reviewTier = item.tier === 'tier_3_property' ? 'Tier 3 property' : 'Tier 2';
   return (
-    <AdminScaffold onBack={viewModel.goBack} title="Request information">
-      <AdminHeading body="Ask for only the corrected or additional material needed to complete this review." eyebrow="CORRECTION REQUIRED" title="What should the applicant provide?" />
-      <ReasonOption label="Clearer government ID image" onPress={() => viewModel.setVerificationNote('Upload a clearer government ID image with all edges and details visible.')} selected={viewModel.verificationNote.includes('clearer government')} />
-      <ReasonOption label="Correct property ownership document" onPress={() => viewModel.setVerificationNote('Upload the correct ownership or authorization document for the selected property.')} selected={viewModel.verificationNote.includes('correct ownership')} />
-      <ReasonOption label="Additional authorization evidence" onPress={() => viewModel.setVerificationNote('Provide additional signed authorization showing permission to lease the property.')} selected={viewModel.verificationNote.includes('additional signed')} />
-      <Text style={styles.inputLabel}>MESSAGE TO APPLICANT</Text>
-      <TextInput multiline onChangeText={viewModel.setVerificationNote} placeholder="Describe exactly what must be corrected" placeholderTextColor={colors.textMuted} style={styles.textArea} textAlignVertical="top" value={viewModel.verificationNote} />
-      <AppButton disabled={viewModel.verificationNote.trim().length < 10} label="Send request preview" onPress={viewModel.requestVerificationInformation} />
-      <Text style={styles.previewNote}>No email, push notification, or database update will be sent.</Text>
+    <AdminScaffold onBack={viewModel.goBack} title={viewModel.screen === 'verificationDocument' ? 'Verification documents' : 'Verification submission'}>
+      <View style={styles.caseHeader}><Text style={styles.caseId}>{item.submissionId}</Text></View>
+      <Text accessibilityRole="header" style={styles.applicantName}>{item.displayName}</Text>
+      <Text style={styles.caseSubtitle}>{verificationTierLabel(item.tier)} | {formatVerificationDate(item.submittedAt)}</Text>
+      <View style={styles.statusRow}><AdminStatusPill status={verificationStatusLabel(item.status)} /></View>
+      <Text style={styles.sectionLabel}>SUBMISSION DETAILS</Text>
+      <DetailCard>
+        <DetailRow label="USER ID" value={item.userId} />
+        <DetailRow label="UPDATED" value={formatVerificationDate(item.updatedAt)} />
+        <DetailRow label="TRUST SCORE" value={item.trustScore === null ? 'Not available' : String(item.trustScore)} />
+        <DetailRow label="TIER 1 VERIFIED" value={item.tier1VerifiedAt ? formatVerificationDate(item.tier1VerifiedAt) : 'Not verified'} />
+        <DetailRow label="TIER 2 VERIFIED" value={item.tier2VerifiedAt ? formatVerificationDate(item.tier2VerifiedAt) : 'Not verified'} />
+        <DetailRow label="TIER 3 VERIFIED" value={item.tier3VerifiedAt ? formatVerificationDate(item.tier3VerifiedAt) : 'Not verified'} />
+        {item.propertyId ? <DetailRow label="PROPERTY ID" value={item.propertyId} /> : null}
+        <DetailRow label="SUBMITTED NOTE" value={item.submittedNote ?? 'No note provided'} last />
+      </DetailCard>
+      <View style={styles.documentSummary}>
+        <View style={styles.documentCount}><Text style={styles.documentCountValue}>{documents.length}</Text></View>
+        <View style={styles.documentCopy}><Text style={styles.documentTitle}>Documents attached</Text><Text style={styles.documentBody}>Private image previews are available on demand.</Text></View>
+      </View>
+      {documents.length === 0 ? <Text style={styles.viewerNoteBody}>No document attached</Text> : documents.map((document) => (
+        <DetailCard key={document.id}>
+          <DetailRow label="DOCUMENT TYPE" value={documentTypeLabel(document.document_type)} />
+          <DetailRow label="FILE NAME" value={document.file_name ?? 'Filename unavailable'} />
+          <DetailRow label="MIME TYPE" value={document.mime_type ?? 'Not available'} />
+          <DetailRow label="ATTACHED" value={formatVerificationDate(document.created_at)} last />
+          <View style={styles.previewAction}>
+            {viewModel.canViewPrivateDocument(document.id) ? (
+              <AppButton disabled={!!preview?.isOpening} label="View private document" onPress={() => void viewModel.openPrivateDocument(document.id)} />
+            ) : <Text style={styles.viewerNoteBody}>Preview is not available for this file type.</Text>}
+          </View>
+        </DetailCard>
+      ))}
+      <View style={styles.actions}>
+        {documents.length === 0 ? <AppButton disabled label="View private document" onPress={() => {}} /> : null}
+        {viewModel.reviewActions.includes('under_review') ? <AppButton label="Start review" onPress={() => viewModel.requestReview('under_review')} /> : null}
+        {viewModel.reviewActions.includes('approved') ? <AppButton label="Approve verification" onPress={() => viewModel.requestReview('approved')} /> : null}
+        {viewModel.reviewActions.includes('rejected') ? <AppButton label="Reject verification" onPress={() => viewModel.requestReview('rejected')} variant="danger" /> : null}
+        {review.reviewBusy ? <ActivityIndicator accessibilityLabel="Saving review and refreshing" color={colors.primary} /> : null}
+        {review.reviewError ? <Text accessibilityRole="alert" style={styles.viewerNoteBody}>{review.reviewError}</Text> : null}
+        {review.reviewNotice ? <Text accessibilityRole="alert" style={styles.viewerNoteBody}>{review.reviewNotice}</Text> : null}
+        <AppButton disabled={review.reviewBusy} label="Refresh queue" variant="secondary" onPress={() => { viewModel.openSection('verificationQueue'); void viewModel.refreshVerification(); }} />
+      </View>
+      <Modal visible={!!review.reviewDialog} onRequestClose={viewModel.cancelReview} animationType="fade" presentationStyle="fullScreen">
+        <ScreenContainer>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.actions}>
+            <Text accessibilityRole="header" style={styles.documentTitle}>{review.reviewDialog === 'approved' ? `Approve ${reviewTier} verification?` : review.reviewDialog === 'rejected' ? `Reject ${reviewTier} verification` : `Start ${reviewTier} review?`}</Text>
+            <Text style={styles.viewerNoteBody}>{review.reviewDialog === 'approved' ? item.tier === 'tier_3_property' ? 'Approve this property ownership or authorization proof? The backend requires a qualifying property document.' : 'This will verify the submitted identity document and complete Tier 2 verification for this user.' : review.reviewDialog === 'rejected' ? 'Explain why this verification submission is being rejected.' : 'Mark this submission as under review before making a decision.'}</Text>
+            {review.reviewDialog === 'rejected' ? <>
+              <Text style={styles.inputLabel}>Rejection reason (required)</Text>
+              <TextInput accessibilityLabel="Rejection reason" multiline editable={!review.reviewBusy} onChangeText={viewModel.setRejectionReason} value={review.rejectionReason} style={styles.textArea} textAlignVertical="top" />
+            </> : null}
+            {review.reviewError ? <Text accessibilityRole="alert" style={styles.viewerNoteBody}>{review.reviewError}</Text> : null}
+            <AppButton disabled={review.reviewBusy || (review.reviewDialog === 'rejected' && !review.rejectionReason.trim())} label={review.reviewBusy ? 'Saving review...' : review.reviewDialog === 'approved' ? 'Approve' : review.reviewDialog === 'rejected' ? 'Reject' : 'Start review'} onPress={() => void viewModel.confirmReview()} variant={review.reviewDialog === 'rejected' ? 'danger' : 'primary'} />
+            <AppButton disabled={review.reviewBusy} label="Cancel" onPress={viewModel.cancelReview} variant="secondary" />
+          </ScrollView>
+        </ScreenContainer>
+      </Modal>
+      <FullscreenDocumentImage visible={!!preview?.isVisible} uri={preview?.signedUrl ?? null} title="Private verification document"
+        description={preview ? `${documentTypeLabel(preview.documentType)} | ${preview.fileName ?? 'Filename unavailable'} | ${preview.mimeType ?? 'MIME type unavailable'}` : ''}
+        loading={!!preview?.isOpening} error={preview?.error ?? null} onClose={viewModel.closePrivateDocument}
+        onImageError={() => { if (preview) viewModel.privateDocumentFailed(preview.requestId); }} />
     </AdminScaffold>
   );
 }
 
-function CheckItem({ label }: { label: string }) {
-  return <View style={styles.checkItem}><View style={styles.checkCircle}><View style={styles.checkShort} /><View style={styles.checkLong} /></View><Text style={styles.checkLabel}>{label}</Text></View>;
-}
-
-function ReasonOption({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={[styles.reasonOption, selected && styles.reasonSelected]}>
-      <Text style={styles.reasonLabel}>{label}</Text>
-      <View style={[styles.radio, selected && styles.radioSelected]}>{selected ? <View style={styles.radioCenter} /> : null}</View>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
+  previewAction: { padding: spacing.sm },
   caseHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xs },
   caseId: { color: colors.textMuted, fontFamily: typography.family, fontSize: 9 },
   applicantName: { color: colors.text, fontFamily: typography.family, fontSize: 27, fontWeight: '900', marginTop: spacing.md },

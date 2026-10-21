@@ -25,6 +25,15 @@ test('picker cancellation is a normal null result', () => {
   assert.equal(normalizeDocumentSelection({ canceled: true, assets: null }), null);
 });
 
+test('successful picker selection preserves the exact cached asset URI rather than deriving a path from its filename', () => {
+  const uri = 'file:///app/cache/DocumentPicker/unique%20file.jpeg';
+  const document = normalizeDocumentSelection({ canceled: false, assets: [
+    { uri, name: 'images (1).jpeg', mimeType: 'image/jpeg', size: 44619 },
+  ] });
+  assert.equal(document?.uri, uri);
+  assert.equal(document?.fileName, 'images (1).jpeg');
+});
+
 test('a successful selection without an asset is a failure, not cancellation', () => {
   assert.throws(() => normalizeDocumentSelection({ canceled: false, assets: [] }), /Picker returned no document/);
 });

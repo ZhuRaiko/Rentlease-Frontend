@@ -12,9 +12,9 @@ export function AuditView({ viewModel }: { viewModel: AdminModerationViewModel }
   if (viewModel.screen === 'auditHistory') {
     return (
       <AdminScaffold title="Admin audit history">
-        <AdminHeading body="Review the chronological local preview of verification, report, and enforcement decisions." eyebrow="ACCOUNTABILITY" title="Moderation audit log" />
+        <AdminHeading body="Review the chronological local preview of report and enforcement decisions. Verification audit integration is deferred." eyebrow="ACCOUNTABILITY" title="Moderation audit log" />
         <View style={styles.filterRow}>
-          {['All activity', 'Verification', 'Reports', 'Enforcement'].map((filter, index) => (
+          {['All activity', 'Reports', 'Enforcement'].map((filter, index) => (
             <Pressable accessibilityRole="button" key={filter} style={[styles.filter, index === 0 && styles.filterActive]}><Text style={[styles.filterLabel, index === 0 && styles.filterLabelActive]}>{filter}</Text></Pressable>
           ))}
         </View>
