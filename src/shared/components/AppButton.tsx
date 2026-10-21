@@ -25,6 +25,7 @@ export function AppButton({
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
+      accessibilityState={{ disabled }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
@@ -34,7 +35,7 @@ export function AppButton({
       ]}
     >
       {icon ? <Image resizeMode="contain" source={icon} style={styles.icon} /> : null}
-      <Text style={[styles.label, variant === 'secondary' && styles.secondaryLabel]}>{label}</Text>
+      <Text style={[styles.label, variant === 'secondary' && styles.secondaryLabel, disabled && styles.disabledLabel]}>{label}</Text>
     </Pressable>
   );
 }
@@ -45,26 +46,30 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     flexDirection: 'row',
     gap: spacing.xs,
-    height: 50,
+    minHeight: 50,
+    paddingVertical: spacing.sm,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     width: '100%',
   },
-  primary: { backgroundColor: colors.primary },
+  primary: { backgroundColor: colors.primaryAction },
   secondary: {
     backgroundColor: colors.background,
     borderColor: colors.border,
     borderWidth: 1,
   },
   danger: { backgroundColor: colors.restricted },
-  disabled: { backgroundColor: '#D3D3D3' },
+  disabled: { backgroundColor: colors.surfaceStrong },
   pressed: { opacity: 0.78 },
   icon: { height: 22, width: 22 },
   label: {
+    flexShrink: 1,
+    textAlign: 'center',
     color: colors.white,
     fontFamily: typography.family,
     fontSize: 15,
     fontWeight: '700',
   },
-  secondaryLabel: { color: '#595959' },
+  secondaryLabel: { color: colors.text },
+  disabledLabel: { color: colors.text },
 });

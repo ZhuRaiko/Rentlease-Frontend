@@ -1,4 +1,6 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { useRef } from 'react';
+import { Pressable, StyleSheet, Text, TextInput } from 'react-native';
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing } from '../../../shared/theme/spacing';
@@ -11,11 +13,16 @@ import type { AuthProfilesViewModel } from '../viewModels/useAuthProfilesViewMod
 
 export function SignInView({ viewModel }: { viewModel: AuthProfilesViewModel }) {
   const busy = viewModel.asyncState === 'loading';
+  const passwordInput = useRef<TextInput>(null);
   return (
-    <AuthScaffold description="Sign in to continue to RENTLEASE" onBack={viewModel.goBack} title="Sign in">
+    <AuthScaffold formLayout backDisabled={busy} description="Welcome back to RentLease." onBack={viewModel.goBack} title="Sign in">
       <AuthBrand compact />
       <AuthField
         autoCapitalize="none"
+        autoCorrect={false}
+        editable={!busy}
+        returnKeyType="next"
+        onSubmitEditing={() => passwordInput.current?.focus()}
         autoComplete="email"
         keyboardType="email-address"
         label="Email address"
@@ -25,6 +32,13 @@ export function SignInView({ viewModel }: { viewModel: AuthProfilesViewModel }) 
       />
       <AuthField
         autoComplete="password"
+        inputRef={passwordInput}
+        allowVisibilityToggle
+        autoCapitalize="none"
+        autoCorrect={false}
+        editable={!busy}
+        returnKeyType="done"
+        onSubmitEditing={() => { if (!busy) void viewModel.submitSignIn(); }}
         label="Password"
         onChangeText={viewModel.setSignInPassword}
         placeholder="Enter your password"
@@ -36,8 +50,8 @@ export function SignInView({ viewModel }: { viewModel: AuthProfilesViewModel }) 
         label={busy ? 'Signing in…' : 'Sign in'}
         onPress={() => void viewModel.submitSignIn()}
       />
-      {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
-      <Pressable accessibilityRole="button" onPress={() => viewModel.navigate('registrationName')}>
+      <FeedbackNotice message={viewModel.notice} tone={viewModel.noticeTone} />
+      <Pressable disabled={busy} style={styles.signUpTarget} accessibilityRole="button" onPress={() => viewModel.navigate('registrationName')}>
         <Text style={styles.signUpText}>Don't have an account? <Text style={styles.signUpLink}>Sign up</Text></Text>
       </Pressable>
     </AuthScaffold>
@@ -45,6 +59,7 @@ export function SignInView({ viewModel }: { viewModel: AuthProfilesViewModel }) 
 }
 
 const styles = StyleSheet.create({
+  signUpTarget: { minHeight: 48, justifyContent: 'center', paddingVertical: spacing.sm },
   notice: {
     backgroundColor: colors.primaryPale,
     color: colors.textSecondary,

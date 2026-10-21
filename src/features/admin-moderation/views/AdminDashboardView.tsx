@@ -1,3 +1,4 @@
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { AppButton } from '../../../shared/components/AppButton';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -16,7 +17,7 @@ export function AdminDashboardView({ onExit, viewModel }: { onExit: () => void; 
         <View style={styles.previewDot} />
         <View style={styles.previewCopy}>
           <Text style={styles.previewTitle}>VERIFICATION QUEUE + MODERATION PREVIEW</Text>
-          <Text style={styles.previewBody}>Verification loads real submission metadata. Reports, enforcement and audit remain previews; verification review actions are not connected.</Text>
+          <Text style={styles.previewBody}>Verification loads real submission metadata. Verification review is connected. Reports, enforcement and audit remain previews.</Text>
         </View>
       </View>
       <AdminHeading
@@ -25,12 +26,12 @@ export function AdminDashboardView({ onExit, viewModel }: { onExit: () => void; 
         title="Good morning, Admin"
       />
       <AppButton disabled={viewModel.verification.status === 'loading'} label={viewModel.verification.status === 'loading' ? 'Loading verifications...' : 'Refresh verifications'} onPress={() => void viewModel.refreshVerification()} variant="secondary" />
-      {viewModel.verification.error ? <Text accessibilityRole="alert" style={styles.previewBody}>{viewModel.verification.error}</Text> : null}
+      <FeedbackNotice tone="error" message={viewModel.verification.error} />
       <View style={styles.statsGrid}>
         <AdminStatCard label="PENDING VERIFICATIONS" tone="warning" value={viewModel.verification.status === 'success' ? viewModel.pendingVerificationCount : '--'} />
-        <AdminStatCard label="OPEN REPORTS" tone="danger" value={viewModel.openReportCount} />
-        <AdminStatCard label="ACTIVE RESTRICTIONS" value={viewModel.restrictions.length} />
-        <AdminStatCard label="DECISIONS TODAY" tone="positive" value="12" />
+        <AdminStatCard label="OPEN REPORTS (PREVIEW)" tone="danger" value={viewModel.openReportCount} />
+        <AdminStatCard label="RESTRICTIONS (PREVIEW)" value={viewModel.restrictions.length} />
+        <AdminStatCard label="DECISIONS TODAY (PREVIEW)" tone="positive" value="12" />
       </View>
 
       <View style={styles.sectionHeader}>
@@ -55,7 +56,7 @@ export function AdminDashboardView({ onExit, viewModel }: { onExit: () => void; 
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>RECENT ADMIN ACTIVITY</Text>
+        <Text style={styles.sectionLabel}>RECENT ACTIVITY (PREVIEW)</Text>
         <Pressable accessibilityRole="button" onPress={() => viewModel.navigate('auditHistory')}><Text style={styles.viewAll}>Full audit</Text></Pressable>
       </View>
       {viewModel.auditEntries.slice(0, 3).map((item) => (

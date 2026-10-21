@@ -17,6 +17,7 @@ export function SelectionRow({ label, detail, selected = false, onPress }: Selec
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.row,
@@ -28,20 +29,22 @@ export function SelectionRow({ label, detail, selected = false, onPress }: Selec
         <Text style={styles.label}>{label}</Text>
         {detail ? <Text style={styles.detail}>{detail}</Text> : null}
       </View>
+      {selected ? <Text style={styles.selectionLabel}>Selected</Text> : null}
       <Image resizeMode="contain" source={chevron} style={styles.chevron} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  selectionLabel: { color: colors.trustedText, fontFamily: typography.family, fontSize: 12, marginHorizontal: spacing.xs },
   row: {
     alignItems: 'center',
     backgroundColor: colors.background,
     borderBottomColor: colors.border,
     borderBottomWidth: 1,
     flexDirection: 'row',
-    minHeight: 81,
-    paddingHorizontal: spacing.xl,
+    minHeight: 64,
+    paddingHorizontal: spacing.md,
   },
   selected: { backgroundColor: colors.primaryPale },
   pressed: { backgroundColor: colors.surface },
@@ -51,7 +54,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.family,
     fontSize: 16,
     fontWeight: '700',
-    letterSpacing: 0.5,
+
   },
   detail: { color: colors.textMuted, fontFamily: typography.family, fontSize: 12 },
   chevron: { height: 32, width: 18 },

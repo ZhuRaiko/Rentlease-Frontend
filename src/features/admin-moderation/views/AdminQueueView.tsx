@@ -1,3 +1,4 @@
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { AppButton } from '../../../shared/components/AppButton';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -54,11 +55,11 @@ export function AdminQueueView({ viewModel }: { viewModel: AdminModerationViewMo
           eyebrow={viewModel.verification.status === 'success' ? `${viewModel.verification.queue.length} WAITING FOR REVIEW` : 'VERIFICATION QUEUE'}
           title="Verification submissions"
         />
-        <FilterRow labels={['All', 'Tier 2', 'Tier 3']} selected={viewModel.verificationFilter} onSelect={viewModel.setVerificationFilter} />
+        <FilterRow accessibleSelection labels={['All', 'Tier 2', 'Tier 3']} selected={viewModel.verificationFilter} onSelect={viewModel.setVerificationFilter} />
         <AppButton disabled={viewModel.verification.status === 'loading'} label={viewModel.verification.status === 'loading' ? 'Loading verification...' : 'Refresh queue'} onPress={() => void viewModel.refreshVerification()} variant="secondary" />
-        {viewModel.verification.error ? <Text accessibilityRole="alert" style={styles.guidanceBody}>{viewModel.verification.error}</Text> : null}
-        {viewModel.verification.reviewError ? <Text accessibilityRole="alert" style={styles.guidanceBody}>{viewModel.verification.reviewError}</Text> : null}
-        {viewModel.verification.reviewNotice ? <Text accessibilityRole="alert" style={styles.guidanceBody}>{viewModel.verification.reviewNotice}</Text> : null}
+        <FeedbackNotice tone="error" message={viewModel.verification.error} />
+        <FeedbackNotice tone="error" message={viewModel.verification.reviewError} />
+        <FeedbackNotice tone="success" message={viewModel.verification.reviewNotice} />
         {viewModel.verification.status === 'success' && viewModel.verificationSubmissions.length === 0 ? <Text style={styles.guidanceBody}>No verification submissions are waiting for review.</Text> : null}
         <View style={styles.queueList}>
           {viewModel.verificationSubmissions.map((item) => (
@@ -86,11 +87,11 @@ export function AdminQueueView({ viewModel }: { viewModel: AdminModerationViewMo
   );
 }
 
-function FilterRow({ labels, selected, onSelect }: { labels: readonly string[]; selected?: string; onSelect?: (label: string) => void }) {
+function FilterRow({ labels, selected, onSelect, accessibleSelection = false }: { labels: readonly string[]; selected?: string; onSelect?: (label: string) => void; accessibleSelection?: boolean }) {
   return (
     <View style={styles.filters}>
       {labels.map((label, index) => (
-        <Pressable accessibilityRole="button" key={label} onPress={() => onSelect?.(label)} style={[styles.filter, (selected ? selected === label : index === 0) && styles.filterActive]}>
+        <Pressable accessibilityRole="button" accessibilityState={{ selected: selected === label }} key={label} onPress={() => onSelect?.(label)} style={[styles.filter, accessibleSelection && { minHeight: 48, justifyContent: 'center' }, (selected ? selected === label : index === 0) && styles.filterActive]}>
           <Text style={[styles.filterLabel, (selected ? selected === label : index === 0) && styles.filterLabelActive]}>{label}</Text>
         </Pressable>
       ))}

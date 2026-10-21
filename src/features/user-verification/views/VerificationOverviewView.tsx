@@ -1,4 +1,5 @@
-import { FlatList, StyleSheet, Text } from 'react-native';
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
+import { StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../../../shared/components/AppButton';
 
 import { colors } from '../../../shared/theme/colors';
@@ -26,7 +27,7 @@ const tierDefinitions = [
   {
     tier: 1 as const,
     title: 'Tier 1 verification',
-    subtitle: 'Mandatory for all users',
+    subtitle: 'Managed in account onboarding',
     badge: 'Required',
     icon: tierOneIcon,
     items: ['Email confirmation', 'Philippine mobile number via SMS OTP', 'Unlocks: Application access'],
@@ -70,13 +71,9 @@ export function VerificationOverviewView({
       onClose={onClose}
       title="Verification level"
     >
-      <FlatList
-        contentContainerStyle={styles.tierList}
-        data={tierDefinitions}
-        horizontal
-        keyExtractor={(item) => String(item.tier)}
-        renderItem={({ item }) => (
+      <View style={styles.tierList}>{tierDefinitions.map(item => (
           <VerificationTierCard
+            key={item.tier}
             {...item}
             title={
               item.tier === 1 && tierOneVerified
@@ -90,21 +87,16 @@ export function VerificationOverviewView({
               : viewModel.submission ? `View ${tierTwoStatusLabels[viewModel.submission.status]}` : 'Verify'}
             status={item.tier === 1 && tierOneVerified ? 'approved' : item.tier === 3 && !tierThreeEligible ? 'locked' : 'notStarted'}
           />
-        )}
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={353}
-        decelerationRate="fast"
-      />
-      <Text style={styles.swipeHint}>Swipe horizontally to see other tiers</Text>
-      {viewModel.error ? <Text accessibilityRole="alert" style={styles.notice}>{viewModel.error}</Text> : null}
+      ))}</View>
+      <FeedbackNotice tone="error" message={viewModel.error} />
       {viewModel.submission && !viewModel.submission.hasDocument ? <Text style={styles.notice}>An existing Tier 2 submission has no confirmed document attachment. A new submission is not available.</Text> : null}
-      <AppButton disabled={viewModel.busy} label={viewModel.isLoading ? 'Loading verification…' : 'Refresh verification'} onPress={() => void viewModel.refresh()} variant="secondary" />
+      {viewModel.showRecovery ? <AppButton disabled={viewModel.busy} label={viewModel.isLoading ? 'Checking...' : 'Check status'} onPress={() => void viewModel.refresh()} variant="secondary" /> : null}
     </VerificationScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  tierList: { gap: spacing.md, paddingHorizontal: 36 },
+  tierList: { gap: spacing.md, paddingHorizontal: spacing.lg },
   swipeHint: {
     color: colors.textMuted,
     fontFamily: typography.family,

@@ -1,3 +1,4 @@
+import { needsVerificationRecovery } from '../../../shared/models/verificationPresentation';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { selectLocalDocument } from '../../../shared/services/documents/documentPickerService';
 import { getSupabaseClient } from '../../../shared/services/supabase/client';
@@ -13,6 +14,6 @@ export function useTierThreeVerificationViewModel(enabled: boolean) {
     return () => workflow.dispose();
   }, [workflow]);
   useEffect(() => { void workflow.setEnabled(enabled); }, [workflow, enabled]);
-  return { ...state, ...workflow, canSubmit: workflow.canSubmit(), busy: state.isLoading || state.isSelectingDocument || state.isSubmitting };
+  return { ...state, ...workflow, showRecovery: needsVerificationRecovery(state), canSubmit: workflow.canSubmit(), busy: state.isLoading || state.isSelectingDocument || state.isSubmitting };
 }
 export type TierThreeVerificationViewModel = ReturnType<typeof useTierThreeVerificationViewModel>;

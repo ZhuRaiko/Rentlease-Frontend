@@ -1,3 +1,5 @@
+import { VerificationStatusBadge } from '../../../shared/components/VerificationStatusBadge';
+import { verificationStatusPresentation } from '../../../shared/models/verificationPresentation';
 import { documentTypeLabel, formatVerificationDate, verificationStatusLabel, verificationTierLabel, type AdminVerificationQueueItem } from '../models/AdminVerification';
 import type { PropsWithChildren } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -54,11 +56,11 @@ export function AdminStatusPill({ status }: { status: string }) {
 export function VerificationQueueCard({ item, onPress }: { item: AdminVerificationQueueItem; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.queueCard, pressed && styles.pressed]}>
-      <View style={styles.queueTop}><Text style={styles.queueAge}>{formatVerificationDate(item.submittedAt)}</Text></View>
-      <Text style={styles.queueTitle}>{item.displayName}</Text>
-      <Text style={styles.queueSubtitle}>{verificationTierLabel(item.tier)} | {item.submissionId}</Text>
-      <Text style={styles.queueSubtitle}>{documentTypeLabel(item.documentType)}{item.fileName ? ` | ${item.fileName}` : ''}</Text>
-      <View style={styles.queueBottom}><AdminStatusPill status={verificationStatusLabel(item.status)} /><Text style={styles.viewAction}>Review {'>'}</Text></View>
+      <View style={styles.queueTop}><Text style={styles.verificationMeta}>{formatVerificationDate(item.submittedAt)}</Text></View>
+      <Text style={styles.verificationTitle}>{item.displayName}</Text>
+      <Text style={styles.verificationMeta}>{verificationTierLabel(item.tier)}</Text>
+      <Text style={styles.verificationMeta}>{documentTypeLabel(item.documentType)}{item.fileName ? ` | ${item.fileName}` : ''}</Text>
+      <View style={styles.queueBottom}><VerificationStatusBadge {...verificationStatusPresentation(item.status)} label={verificationStatusLabel(item.status)} /><Text style={styles.viewAction}>Review {'>'}</Text></View>
     </Pressable>
   );
 }
@@ -78,11 +80,11 @@ export function DetailCard({ children }: PropsWithChildren) {
   return <View style={styles.detailCard}>{children}</View>;
 }
 
-export function DetailRow({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
+export function DetailRow({ label, value, last = false, readable = false }: { label: string; value: string; last?: boolean; readable?: boolean }) {
   return (
     <View style={[styles.detailRow, !last && styles.detailRowBorder]}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      <Text style={[styles.detailLabel, readable && styles.verificationMeta]}>{label}</Text>
+      <Text selectable style={[styles.detailValue, readable && styles.verificationValue]}>{value}</Text>
     </View>
   );
 }
@@ -115,6 +117,9 @@ export function AuditCard({ item, onPress }: { item: AuditEntryPreview; onPress:
 }
 
 const styles = StyleSheet.create({
+  verificationTitle: { color: colors.text, fontFamily: typography.family, fontSize: 19, lineHeight: 25, fontWeight: '700' },
+  verificationMeta: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 20, letterSpacing: 0, fontWeight: '400' },
+  verificationValue: { fontSize: 15, lineHeight: 22, fontWeight: '500' },
   headingBlock: { marginBottom: spacing.lg },
   eyebrow: { color: '#2E7552', fontFamily: typography.family, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
   heading: { color: colors.text, fontFamily: typography.family, fontSize: 27, fontWeight: '900', letterSpacing: -0.5, lineHeight: 33, marginTop: spacing.xs },

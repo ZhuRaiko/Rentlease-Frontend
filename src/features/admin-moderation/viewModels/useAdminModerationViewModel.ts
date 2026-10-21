@@ -183,6 +183,11 @@ export function useAdminModerationViewModel() {
     verificationSubmissions: verification.queue.filter((item) => verificationFilter === 'All' || item.tier === (verificationFilter === 'Tier 2' ? 'tier_2_identity' : 'tier_3_property')),
     verificationFilter, setVerificationFilter,
     refreshVerification: verificationQueue.refresh,
+    returnToVerificationQueue: async () => {
+      if (verificationQueue.getSnapshot().reviewBusy) return;
+      openSection('verificationQueue');
+      await verificationQueue.refresh();
+    },
     reviewActions: verificationQueue.reviewActions(),
     requestReview: verificationQueue.requestReview,
     cancelReview: verificationQueue.cancelReview,

@@ -14,6 +14,7 @@ export function isTierThreeDocumentType(value: string): value is TierThreeDocume
 // Presentation eligibility only. Services recheck identity; backend RLS/triggers enforce authorization.
 export const canEnterTierThree = (tierOneVerified: boolean, hasLandlordRole: boolean) => tierOneVerified && hasLandlordRole;
 export type VerificationProperty = Pick<Tables<'properties'>, 'id' | 'landlord_id' | 'property_type' | 'barangay' | 'city'>;
-export const verificationPropertyLabel = (property: VerificationProperty) => `${property.property_type.replace(/_/g, ' ')} - ${property.barangay}, ${property.city}`;
+const readable = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+export const verificationPropertyLabel = (property: VerificationProperty) => `${readable(property.property_type)} - ${property.barangay}, ${readable(property.city)}`;
 export type TierThreeSubmission = TierTwoSubmission & Pick<Tables<'verification_submissions'>, 'property_id'>;
-export type TierThreeScreen = 'intro' | 'property' | 'document' | 'review' | 'status';
+export type TierThreeScreen = 'intro' | 'property' | 'documentType' | 'document' | 'review' | 'status';

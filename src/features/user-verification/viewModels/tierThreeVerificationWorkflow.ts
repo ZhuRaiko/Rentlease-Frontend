@@ -30,7 +30,7 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
       const propertyId = (!userId || userId === id) && properties.some(p => p.id === state.propertyId) ? state.propertyId : null;
       const submission = propertyId ? await service.fetchLatest(id, propertyId) : null; alive(attempt);
       userId = id;
-      update({ properties, propertyId, submission, loaded: true, requiresRefresh: false, screen: submission ? 'status' : propertyId ? 'document' : state.screen === 'intro' ? 'intro' : 'property' });
+      update({ properties, propertyId, submission, loaded: true, requiresRefresh: false, screen: submission ? 'status' : propertyId ? 'documentType' : state.screen === 'intro' ? 'intro' : 'property' });
     } catch { if (current(attempt)) update({ properties: [], propertyId: null, submission: null, loaded: false, requiresRefresh: true, error: 'Could not load Tier 3. Check your connection and active Tier 1-verified landlord account, then refresh.' }); }
     finally { if (current(attempt)) update({ isLoading: false }); }
   };
@@ -40,6 +40,7 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
     if (!state.loaded || state.requiresRefresh || !state.propertyId) return;
     if (state.submission) { update({ screen: 'status' }); return; }
     if (screen === 'status' || (screen === 'review' && (!state.documentType || !state.selectedDocument))) return;
+    if (screen === 'document' && !state.documentType) return;
     update({ screen });
   };
   return {
@@ -53,21 +54,22 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
       return Promise.resolve();
     },
     activate() { if (disposed) { disposed = false; update({ isLoading: false, isSubmitting: false, isSelectingDocument: false }); } },
-    goBack() { navigate(({ intro: 'intro', property: 'intro', document: 'property', review: 'document', status: 'property' } as const)[state.screen]); },
+    goBack() { navigate(({ intro: 'intro', property: 'intro', documentType: 'property', document: 'documentType', review: 'document', status: 'property' } as const)[state.screen]); },
     async selectProperty(propertyId: string) {
       if (disposed || busy() || !state.loaded || state.requiresRefresh || !userId || !state.properties.some(p => p.id === propertyId)) return;
+      const sameProperty = propertyId === state.propertyId;
       const attempt = epoch;
-      update({ propertyId, submission: null, selectedDocument: null, documentType: null, isLoading: true, error: null });
+      update({ propertyId, submission: null, ...(!sameProperty ? { selectedDocument: null, documentType: null } : {}), isLoading: true, error: null });
       try {
         const submission = await service.fetchLatest(userId, propertyId); alive(attempt);
-        update({ submission, screen: submission ? 'status' : 'document' });
+        update({ submission, screen: submission ? 'status' : sameProperty && state.documentType ? 'document' : 'documentType', ...(submission ? { selectedDocument: null, documentType: null } : {}) });
       } catch { if (current(attempt)) update({ requiresRefresh: true, error: 'Could not check this property submission. Refresh before continuing.' }); }
       finally { if (current(attempt)) update({ isLoading: false }); }
     },
     chooseDocumentType(value: string) {
       if (!canEdit()) return;
       if (!isTierThreeDocumentType(value)) { update({ error: 'Choose one of the four supported property documents.' }); return; }
-      update({ documentType: value, selectedDocument: null, screen: 'document', error: null });
+      update({ documentType: value, selectedDocument: value === state.documentType ? state.selectedDocument : null, screen: 'document', error: null });
     },
     async pickDocument() {
       if (!canEdit() || !state.documentType) return;

@@ -102,22 +102,22 @@ export function VerificationTierCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 29,
+    borderRadius: radius.card,
     borderWidth: 1,
-    height: 466,
-    padding: 24,
-    width: 337,
+
+    padding: spacing.md,
+    width: '100%',
   },
   headingRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
-  icon: { height: 60, width: 60 },
+  icon: { height: 40, width: 40 },
   headingCopy: { flex: 1, gap: spacing.xxs },
   title: {
     fontFamily: typography.family,
-    fontSize: 28,
+    fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  subtitle: { fontFamily: typography.family, fontSize: 14, fontWeight: '700', opacity: 0.58 },
+  subtitle: { fontFamily: typography.family, fontSize: 14, fontWeight: '700', opacity: 1 },
   badge: {
     alignSelf: 'flex-end',
     borderRadius: radius.sm,
@@ -127,12 +127,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxs,
   },
   badgeText: {
-    color: colors.white,
+    color: colors.text,
     fontFamily: typography.family,
     fontSize: 13,
     fontWeight: '700',
   },
-  items: { flex: 1, gap: spacing.lg, justifyContent: 'center' },
+  items: { gap: spacing.sm, paddingVertical: spacing.md },
   itemRow: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm },
   itemDot: { borderRadius: radius.pill, height: 8, marginTop: 6, opacity: 0.7, width: 8 },
   itemText: {
@@ -147,13 +147,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: radius.sm,
     borderWidth: 2,
-    height: 41,
+    minHeight: 48,
+    padding: spacing.sm,
     justifyContent: 'center',
   },
   actionText: {
-    color: colors.white,
+    color: colors.text,
     fontFamily: typography.family,
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
   },
   pressed: { opacity: 0.75 },

@@ -1,3 +1,4 @@
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '../../../shared/components/AppButton';
@@ -12,7 +13,6 @@ import { tierTwoDocumentOptions } from '../models/TierTwoVerification';
 import type { TierTwoVerificationViewModel } from '../viewModels/useTierTwoVerificationViewModel';
 
 const idIcon = require('../../../assets/verification/government-id.png');
-const idGuide = require('../../../assets/verification/id-example.png');
 
 interface TierTwoVerificationViewProps {
   viewModel: TierTwoVerificationViewModel;
@@ -36,7 +36,6 @@ export function TierTwoVerificationView({
           <Text style={styles.infoTitle}>Use one government-issued ID</Text>
           <Text style={styles.infoBody}>Make sure the document is current, readable, and photographed in good light.</Text>
         </View>
-        <Image resizeMode="contain" source={idGuide} style={styles.guideImage} />
         <AppButton label="Choose ID type" onPress={() => viewModel.navigate('tier2IdType')} />
       </VerificationScaffold>
     );
@@ -72,8 +71,8 @@ export function TierTwoVerificationView({
           <Text style={styles.reviewValue}>{viewModel.selectedIdLabel}</Text>
         </View>
         <Text style={styles.previewNotice}>{viewModel.isSubmitting ? 'Sending your verification document…' : 'This file stays on your device until you submit.'}</Text>
-        {viewModel.error ? <Text accessibilityRole="alert" style={styles.previewNotice}>{viewModel.error}</Text> : null}
-        {viewModel.requiresRefresh ? <AppButton disabled={viewModel.busy} label={viewModel.isLoading ? 'Refreshing…' : 'Refresh verification'} onPress={() => void viewModel.refresh()} variant="secondary" /> : null}
+        <FeedbackNotice tone="error" message={viewModel.error} />
+        {viewModel.requiresRefresh ? <AppButton disabled={viewModel.busy} label={viewModel.isLoading ? 'Refreshing…' : 'Check status'} onPress={() => void viewModel.refresh()} variant="secondary" /> : null}
         <AppButton disabled={!viewModel.canSubmit} label={viewModel.isSubmitting ? 'Submitting…' : 'Submit verification'} onPress={() => void viewModel.submit()} />
       </VerificationScaffold>
     );
@@ -91,7 +90,7 @@ export function TierTwoVerificationView({
         busy={viewModel.isSelectingDocument}
         onSelect={() => void viewModel.pickDocument()}
       />
-      {viewModel.error ? <Text accessibilityRole="alert" style={styles.previewNotice}>{viewModel.error}</Text> : null}
+      <FeedbackNotice tone="error" message={viewModel.error} />
       <AppButton
         disabled={!viewModel.canSubmit}
         label="Review document"

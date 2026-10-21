@@ -27,10 +27,12 @@ Profile Verification and the Notifications verification action open `UserVerific
 | --- | --- | --- | --- |
 | Verification levels | `overview` | `VerificationOverviewView` | Tier 1 read-only; Tier 2 available; Tier 3 owned-property entry for eligible landlords |
 | Identity selection/review | `tier2Intro`, `tier2IdType`, `tier2Upload`, `tier2Review` | `TierTwoVerificationView` | Four supported ID types, real file selection and submission |
-| Existing/resulting status | `tier2Status` | `VerificationStatusView` | Exact pending/under_review/approved/rejected/cancelled/revoked values; refresh; no resubmission |
-| Property verification | Tier 3 `intro`, `property`, `document`, `review`, `status` | `TierThreeVerificationView` | Own backend properties; four qualifying document types; real submit/upload/metadata/status per property; no resubmission |
+| Existing/resulting status | `tier2Status` | `VerificationStatusView` | Exact backend statuses; contextual recovery or reopen to reload; no resubmission |
+| Property verification | Tier 3 `intro`, `property`, `documentType`, `document`, `review`, `status` | `TierThreeVerificationView` | Own properties -> four document types -> local file -> explicit submission confirmation; existing backend workflow; no resubmission |
 
 Feature Back follows the active tier's sequence. Tier 3 intro Back returns to verification levels; Tier 3 status Back returns to owned-property selection. Overview Back/Close returns to Profile. Android Modal Back delegates to guarded feature navigation; picker/submission actions cannot be dismissed through those controls while active. Returning from Tier 3 to overview clears its local draft and invalidates asynchronous results without removing mounted subscriptions. No second navigation framework was added.
+
+Tier 3's Submit for review action opens `review` as confirmation without writes. Confirm and submit invokes the existing workflow; Cancel/Back returns to local file selection with property/type/file retained. Document Back returns to `documentType`. The root `App.tsx` workspace composition and Auth routing are unchanged.
 
 Legacy Tier 1/3 prototype route names remain disconnected; the production Tier 3 View now consumes the real property ViewModel. Fake Tier 1 completion, local approval controls and Tier 3 actor promotion are not connected. Landlord selection remains a backend role operation; Tier 2/3 grants no role. Admin review for both tiers uses the existing backend RPC described below.
 

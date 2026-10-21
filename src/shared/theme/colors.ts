@@ -7,6 +7,7 @@ export const colors = {
   surface: '#F5F5F5',
   surfaceStrong: '#E9E9E9',
   primary: '#469C53',
+  primaryAction: '#32743C',
   primarySoft: '#7CDD72',
   primaryPale: '#EDF8EE',
   tierOneSurface: '#D9D9D9',

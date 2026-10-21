@@ -21,6 +21,7 @@ interface AuthScaffoldProps extends PropsWithChildren {
   largeTitle?: boolean;
   progress?: { step: number; total: number; completed: number } | null;
   backDisabled?: boolean;
+  formLayout?: boolean;
 }
 
 export function AuthScaffold({
@@ -32,10 +33,11 @@ export function AuthScaffold({
   largeTitle = false,
   progress,
   backDisabled = false,
+  formLayout = false,
 }: AuthScaffoldProps) {
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : progress ? 'height' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : progress || formLayout ? 'height' : undefined}
       style={styles.flex}
     >
       <ScrollView
@@ -49,7 +51,7 @@ export function AuthScaffold({
             </Pressable>
           ) : null}
         </View>
-        <View style={[styles.content, !!progress && styles.registrationContent]}>
+        <View style={[styles.content, (!!progress || formLayout) && styles.registrationContent]}>
           {progress ? <View style={styles.progress} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: progress.total, now: progress.completed, text: `Step ${progress.step} of ${progress.total}` }}>
             <Text style={styles.progressLabel}>Step {progress.step} of {progress.total}</Text>
             <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress.completed / progress.total * 100}%` }]} /></View>

@@ -1,4 +1,6 @@
+import type { FeedbackTone } from '../../../shared/models/verificationPresentation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { accountVerificationSummary, roleLabel } from '../models/accountPresentation';
 
 import { isSupabaseConfigured } from '../../../config/env';
 import { traceAuthBoot } from '../../../shared/utils/authBootTrace';
@@ -64,7 +66,9 @@ export function useAuthProfilesViewModel() {
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
   const [signInIdentifier, setSignInIdentifier] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNoticeText] = useState<string | null>(null);
+  const [noticeTone, setNoticeTone] = useState<FeedbackTone>('info');
+  const setNotice = (message: string | null, tone: FeedbackTone = 'info') => { setNoticeText(message); setNoticeTone(tone); };
   const [asyncState, setAsyncState] = useState<AsyncState>('idle');
   const [showSignOutConfirmation, setShowSignOutConfirmation] = useState(false);
   const [resendAvailableAt, setResendAvailableAt] = useState(0);
@@ -161,7 +165,7 @@ export function useAuthProfilesViewModel() {
     const sync = syncRef.current;
     if (!sync) {
       setAsyncState('error');
-      setNotice('Account loading is unavailable. Please retry.');
+      setNotice('Account loading is unavailable. Please retry.', 'error');
       return;
     }
     sync.bootstrap();
@@ -182,7 +186,7 @@ export function useAuthProfilesViewModel() {
       onError: (error) => {
         traceAuthBoot('STARTUP_RESOLVED', { destination: 'error' });
         setAsyncState('error');
-        setNotice(friendlyError(error));
+        setNotice(friendlyError(error), 'error');
       },
     });
     syncRef.current = sync;
@@ -237,7 +241,7 @@ export function useAuthProfilesViewModel() {
   const continueRegistration = (skipNickname = false) => {
     if (registrationSubmission.phase() !== 'ready') return;
     const next = advanceRegistration(screen, draft, skipNickname);
-    if (next.error) { setNotice(next.error); return; }
+    if (next.error) { setNotice(next.error, 'error'); return; }
     setDraft(next.draft);
     if (next.screen !== screen) navigate(next.screen);
   };
@@ -245,11 +249,11 @@ export function useAuthProfilesViewModel() {
   const submitSignIn = async () => {
     const email = signInIdentifier.trim().toLowerCase();
     if (!email.includes('@') || !signInPassword) {
-      setNotice('Enter your email address and password to continue.');
+      setNotice('Enter your email address and password to continue.', 'error');
       return;
     }
     if (!isSupabaseConfigured()) {
-      setNotice('Add your public Supabase URL and key to .env, then restart Expo.');
+      setNotice('Add your public Supabase URL and key to .env, then restart Expo.', 'error');
       return;
     }
     setAsyncState('loading');
@@ -264,7 +268,7 @@ export function useAuthProfilesViewModel() {
         setScreen('emailConfirmation');
       }
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice(friendlyError(error), 'error');
     }
   };
 
@@ -273,10 +277,10 @@ export function useAuthProfilesViewModel() {
     const email = draft.email.trim().toLowerCase();
     for (const step of ['registrationName', 'registrationEmail', 'registrationPassword'] as const) {
       const error = validateRegistrationStep(step, draft);
-      if (error) { setNotice(error); return; }
+      if (error) { setNotice(error, 'error'); return; }
     }
     if (!isSupabaseConfigured()) {
-      setNotice('Add your public Supabase URL and key to .env, then restart Expo.');
+      setNotice('Add your public Supabase URL and key to .env, then restart Expo.', 'error');
       return;
     }
     setAsyncState('loading');
@@ -284,10 +288,10 @@ export function useAuthProfilesViewModel() {
     try {
       const outcome = await mutateAccount(() => registrationSubmission.submit(draft));
       if (!mountedRef.current || outcome.kind === 'blocked') return;
-      if (outcome.kind === 'invalid') { setAsyncState('error'); setNotice(outcome.message); return; }
+      if (outcome.kind === 'invalid') { setAsyncState('error'); setNotice(outcome.message, 'error'); return; }
       if (outcome.kind === 'error') throw outcome.error;
       if (outcome.kind === 'uncertain') {
-        setAsyncState('error'); setNotice('Account creation could not be confirmed. Check your inbox or sign in before trying to create another account.'); return;
+        setAsyncState('error'); setNotice('Account creation could not be confirmed. Check your inbox or sign in before trying to create another account.', 'warning'); return;
       }
       const result = outcome.result;
       setDraft((current) => ({ ...current, email, confirmPassword: '' }));
@@ -297,7 +301,7 @@ export function useAuthProfilesViewModel() {
       setAsyncState('success');
     } catch (error) {
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice(friendlyError(error), 'error');
     }
   };
 
@@ -313,11 +317,11 @@ export function useAuthProfilesViewModel() {
       await resendSignupEmail(email);
       setResendAvailableAt(Date.now() + 60_000);
       setNow(Date.now());
-      setNotice('A new confirmation email was requested. Check your inbox.');
+      setNotice('A new confirmation email was requested. Check your inbox.', 'success');
       setAsyncState('success');
     } catch (error) {
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice(friendlyError(error), 'error');
     }
   };
 
@@ -339,14 +343,14 @@ export function useAuthProfilesViewModel() {
       setNotice(null);
     } catch (error) {
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice(friendlyError(error), 'error');
     }
   };
 
   const requestPhoneOtp = async () => {
     const phone = normalizePhilippinePhone(draft.phone);
     if (!phone) {
-      setNotice('Enter a 10-digit Philippine mobile number starting with 9.');
+      setNotice('Enter a 10-digit Philippine mobile number starting with 9.', 'error');
       return;
     }
     setAsyncState('loading');
@@ -360,7 +364,7 @@ export function useAuthProfilesViewModel() {
       setAsyncState('success');
     } catch (error) {
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice(friendlyError(error), 'error');
     }
   };
 
@@ -373,18 +377,18 @@ export function useAuthProfilesViewModel() {
       await resendPhoneChange(phone);
       setResendAvailableAt(Date.now() + 60_000);
       setNow(Date.now());
-      setNotice('A new SMS code was requested.');
+      setNotice('A new SMS code was requested.', 'success');
       setAsyncState('success');
     } catch (error) {
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice(friendlyError(error), 'error');
     }
   };
 
   const verifyPhoneOtp = async () => {
     const phone = normalizePhilippinePhone(draft.phone);
     if (!phone || !/^\d{6}$/.test(draft.mobileCode)) {
-      setNotice('Enter the six-digit code sent to your phone.');
+      setNotice('Enter the six-digit code sent to your phone.', 'error');
       return;
     }
     setAsyncState('loading');
@@ -396,7 +400,7 @@ export function useAuthProfilesViewModel() {
       setAsyncState('success');
     } catch (error) {
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice(friendlyError(error), 'error');
     }
   };
 
@@ -408,12 +412,12 @@ export function useAuthProfilesViewModel() {
       if (snapshot && !snapshot.profile.tier1_verified_at) {
         setNotice(snapshot.user.phone && snapshot.user.phone_confirmed_at
           ? 'Your phone is confirmed, but your account verification is still pending. If this continues, contact RENTLEASE support.'
-          : 'This account still needs phone verification. You can verify it or sign out to use another account.');
+          : 'This account still needs phone verification. You can verify it or sign out to use another account.', 'warning');
       }
       setAsyncState('success');
     } catch (error) {
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice(friendlyError(error), 'error');
     }
   };
 
@@ -425,7 +429,7 @@ export function useAuthProfilesViewModel() {
 
   const submitRoles = async () => {
     if (selectedRoles.length === 0) {
-      setNotice('Choose at least one role to continue.');
+      setNotice('Choose at least one role to continue.', 'error');
       return;
     }
     setAsyncState('loading');
@@ -436,14 +440,14 @@ export function useAuthProfilesViewModel() {
       setAsyncState('success');
     } catch (error) {
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice(friendlyError(error), 'error');
     }
   };
 
   const saveProfile = async () => {
     if (!account) return;
     if (!profileName.trim()) {
-      setNotice('Display name cannot be empty.');
+      setNotice('Display name cannot be empty.', 'error');
       return;
     }
     setAsyncState('loading');
@@ -456,10 +460,10 @@ export function useAuthProfilesViewModel() {
       const snapshot = await refreshAccount();
       if (!snapshot) throw new Error('Session ended during profile update.');
       setAsyncState('success');
-      setNotice('Profile updated.');
+      setNotice('Profile updated.', 'success');
     } catch (error) {
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice(friendlyError(error), 'error');
     }
   };
 
@@ -470,7 +474,7 @@ export function useAuthProfilesViewModel() {
       if (mountedRef.current) clearAccount(destination);
     } catch (error) {
       setAsyncState('error');
-      setNotice(friendlyError(error));
+      setNotice(friendlyError(error), 'error');
     }
   };
 
@@ -486,6 +490,8 @@ export function useAuthProfilesViewModel() {
     draft,
     account,
     roles,
+    roleLabels: roles.map(roleLabel),
+    verificationSummary: accountVerificationSummary(account?.profile ?? null, roles),
     hasTenantRole: roles.includes('tenant'),
     hasLandlordRole: roles.includes('landlord'),
     isAdmin: roles.includes('admin'),
@@ -496,6 +502,7 @@ export function useAuthProfilesViewModel() {
     signInIdentifier,
     signInPassword,
     notice,
+    noticeTone,
     asyncState,
     showSignOutConfirmation,
     resendSeconds,

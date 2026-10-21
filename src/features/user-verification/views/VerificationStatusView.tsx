@@ -1,3 +1,6 @@
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
+import { VerificationStatusBadge } from '../../../shared/components/VerificationStatusBadge';
+import { verificationStatusPresentation } from '../../../shared/models/verificationPresentation';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../../../shared/components/AppButton';
 import { colors } from '../../../shared/theme/colors';
@@ -28,7 +31,7 @@ export function VerificationStatusView({ viewModel, onClose }: { viewModel: Tier
     <VerificationScaffold onBack={viewModel.goBack} onClose={onClose} title="Tier 2 verification">
       <View style={styles.centeredState}>
         <Image resizeMode="contain" source={status === 'approved' ? approvedIcon : status === 'pending' || status === 'under_review' ? pendingIcon : verificationIcon} style={styles.stateIcon} />
-        <Text accessibilityRole="header" style={styles.title}>{status ? tierTwoStatusLabels[status] : 'Status unavailable'}</Text>
+        {status ? <VerificationStatusBadge {...verificationStatusPresentation(status)} /> : <Text style={styles.title}>Status unavailable</Text>}
         {submission && !submission.hasDocument ? (
           <Text style={styles.message}>No document attachment could be confirmed for this submission. It may be incomplete. Creating another submission or replacing the document is not available here.</Text>
         ) : <Text style={styles.message}>{status ? messages[status] : 'Refresh to check your submission.'}</Text>}
@@ -37,16 +40,16 @@ export function VerificationStatusView({ viewModel, onClose }: { viewModel: Tier
         {submission ? <Text style={styles.message}>Submitted: {formatVerificationDate(submission.submitted_at)}</Text> : null}
         {submission?.reviewed_at ? <Text style={styles.message}>Reviewed: {formatVerificationDate(submission.reviewed_at)}</Text> : null}
       </View>
-      {viewModel.error ? <Text accessibilityRole="alert" style={styles.message}>{viewModel.error}</Text> : null}
-      <AppButton disabled={viewModel.busy} label={viewModel.isLoading ? 'Refreshing?' : 'Refresh status'} onPress={() => void viewModel.refresh()} />
+      <FeedbackNotice tone="error" message={viewModel.error} />
+      {viewModel.showRecovery ? <AppButton disabled={viewModel.busy} label={viewModel.isLoading ? 'Checking...' : 'Check status'} onPress={() => void viewModel.refresh()} /> : null}
       <AppButton disabled={viewModel.busy} label="Back to verification levels" onPress={() => viewModel.navigate('overview')} variant="secondary" />
     </VerificationScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  centeredState: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xl },
-  stateIcon: { height: 145, width: 145 },
+  centeredState: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
+  stateIcon: { height: 80, width: 80 },
   title: {
     color: colors.text,
     fontFamily: typography.family,

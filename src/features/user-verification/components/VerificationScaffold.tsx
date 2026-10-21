@@ -26,11 +26,11 @@ export function VerificationScaffold({
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
       <View style={styles.topBar}>
-        <Pressable accessibilityLabel="Back" accessibilityRole="button" onPress={onBack}>
+        <Pressable accessibilityLabel="Back" accessibilityRole="button" onPress={onBack} style={styles.touchTarget}>
           <Image resizeMode="contain" source={backIcon} style={styles.backIcon} />
         </Pressable>
         {onClose ? (
-          <Pressable accessibilityRole="button" hitSlop={12} onPress={onClose}>
+          <Pressable accessibilityRole="button" hitSlop={12} onPress={onClose} style={styles.touchTarget}>
             <Text style={styles.close}>Close</Text>
           </Pressable>
         ) : null}
@@ -49,11 +49,12 @@ export function VerificationScaffold({
 }
 
 const styles = StyleSheet.create({
+  touchTarget: { minHeight: 48, minWidth: 48, justifyContent: 'center' },
   scrollContent: { flexGrow: 1, paddingBottom: spacing.xl },
   topBar: {
     alignItems: 'center',
     flexDirection: 'row',
-    height: 112,
+    minHeight: 64,
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
   },
@@ -69,12 +70,12 @@ const styles = StyleSheet.create({
   title: {
     color: colors.text,
     fontFamily: typography.family,
-    fontSize: 40,
+    fontSize: 28,
     fontWeight: '800',
     letterSpacing: -1.2,
-    lineHeight: 48,
+    lineHeight: 35,
   },
-  compactTitle: { fontSize: 32, lineHeight: 38, paddingHorizontal: 25 },
+  compactTitle: { fontSize: 28, lineHeight: 35, paddingHorizontal: 25 },
   description: {
     color: colors.textSecondary,
     fontFamily: typography.family,
@@ -84,5 +85,5 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   compactDescription: { paddingHorizontal: 25 },
-  body: { gap: spacing.md, marginTop: spacing.xl },
+  body: { gap: spacing.md, marginTop: spacing.lg },
 });

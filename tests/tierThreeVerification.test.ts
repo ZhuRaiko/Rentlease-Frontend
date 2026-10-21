@@ -30,6 +30,28 @@ function fixture() {
 test('Tier 3 entry requires Tier 1 and landlord, not Tier 2', () => {
   assert.equal(canEnterTierThree(true, true), true); assert.equal(canEnterTierThree(false, true), false); assert.equal(canEnterTierThree(true, false), false);
 });
+
+test('separate type step and confirmation cancellation retain property/type/file without writes', async () => {
+  const h = fixture(); await h.workflow.refresh(); await h.workflow.selectProperty(property.id);
+  assert.equal(h.workflow.getSnapshot().screen, 'documentType');
+  h.workflow.chooseDocumentType('land_title'); await h.workflow.pickDocument();
+  assert.equal(h.workflow.getSnapshot().screen, 'document');
+  await h.workflow.submit(); assert.ok(!h.calls.some(c => c[0] === 'create'));
+  h.workflow.navigate('review'); h.workflow.goBack();
+  assert.equal(h.workflow.getSnapshot().screen, 'document');
+  assert.equal(h.workflow.getSnapshot().propertyId, property.id);
+  assert.equal(h.workflow.getSnapshot().documentType, 'land_title');
+  assert.equal(h.workflow.getSnapshot().selectedDocument, selectedDocument);
+  assert.ok(!h.calls.some(c => ['create', 'upload', 'metadata'].includes(String(c[0]))));
+  h.workflow.goBack(); assert.equal(h.workflow.getSnapshot().screen, 'documentType');
+  h.workflow.chooseDocumentType('land_title');
+  assert.equal(h.workflow.getSnapshot().selectedDocument, selectedDocument);
+  h.workflow.goBack(); h.workflow.goBack();
+  const reads = h.calls.filter(c => c[0] === 'fetch').length;
+  await h.workflow.selectProperty(property.id);
+  assert.equal(h.calls.filter(c => c[0] === 'fetch').length, reads + 1);
+  assert.equal(h.workflow.getSnapshot().selectedDocument, selectedDocument);
+});
 test('only four generated ownership/authorization document types qualify', () => {
   assert.deepEqual(tierThreeDocumentOptions.map(o => o.value), ['land_title', 'tax_declaration', 'hoa_document', 'authorization_to_lease']);
   for (const type of ['other', 'passport', 'drivers_license', 'umid', 'philsys_id']) assert.equal(isTierThreeDocumentType(type), false);

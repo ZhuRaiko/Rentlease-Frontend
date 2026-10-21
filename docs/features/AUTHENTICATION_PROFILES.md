@@ -60,6 +60,18 @@ The root opens a workspace when account identity or permitted workspace changes,
 
 ## Current implementation
 
+### UI refinement Phase 1 (2026-10-22)
+
+**IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED.** Login uses the existing form scaffold with reduced top spacing, Android keyboard avoidance, next-field focus, password Show/Hide and keyboard submit. Inputs and registration navigation are disabled while signing in. Registration remains one question at a time with its existing validation and signup recovery.
+
+Auth notices now carry a ViewModel-owned semantic tone: validation/service errors, successful saves/resends, pending/uncertain warnings and neutral instructions are distinct. Shared `FeedbackNotice` renders these tones without classifying message strings in Views. The root account snapshot, Auth subscription/bootstrap, service operations and routing precedence are unchanged.
+
+Profile keeps the initials avatar fallback, real display name/bio and capitalized roles. A compact summary derives Tier 1/2/3 indications from existing backend profile timestamps via `models/accountPresentation.ts`; it does not fetch or invent submission states. Missing timestamps show Not Verified, with Not Applicable for ordinary Tier 1 onboarding bypassed by Admin and Tier 3 absent on a non-landlord. Existing timestamps remain evidence even when a role later changes. Tier 3 is explicitly an account indication, not approval of every property. The Verification action opens authoritative submission/property details; pending, under-review and rejection details remain there. No avatar upload or new profile query is added.
+
+The duplicate Profile settings icon was removed; the labelled Settings menu entry remains. Edit profile stays discoverable on Profile and Settings. Settings groups actual contact, role and account information without treating a missing phone as proof of failed verification. Shared buttons retain existing variants, allow text wrapping/system scaling, expose disabled accessibility state and use a darker green action token for readable white labels.
+
+Manual Android acceptance: small-screen Login with keyboard open and larger system text; password Show/Hide and keyboard submit; invalid credentials versus informational/success notices; registration Back/Skip; Profile/Settings navigation and role switching; Tenant/Admin/non-landlord verification indications; verify an account Tier 3 badge never suggests all properties are approved. Existing cold-launch conclusions below remain unchanged.
+
 ### Registration experience (2026-10-22)
 
 **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED.** Registration retains the fullscreen, one-question-at-a-time layout, existing green theme and Roboto typography. The sequence remains name → preferred name → email → password → email confirmation → phone → SMS confirmation → roles. Preferred name is now optional with **Skip for now**; skipping clears it and uses trimmed first and last names as `display_name`. Password and confirmation share one step, require matching values and at least eight characters, and have independent Show/Hide controls. Email validation, input focus/keyboard hints, busy controls and inline errors support this flow.
@@ -153,10 +165,16 @@ Structural contract: generated `profiles`, `user_roles`, `app_role`, `account_st
 
 Date: 2026-10-22.
 
-Commit baseline: `6578b6ebf7186df67e46c7bef6e20b3a1548648d` plus existing uncommitted work and registration refinements. The baseline commit does not contain these refinements; no commit was created.
+Last Verified Commit baseline: `c2a1b9f` plus uncommitted UI Phase 1 changes. The baseline contains the earlier registration/verification work, but not this UI refinement; no commit was created.
 
-Verification status: registration refinements IMPLEMENTED / AUTOMATED-TESTED (`npm run typecheck` passed; full `npm test`: 180 passed, 0 failed, including 12 registration helper tests and two additional routing tests). These tests exercise pure flow/coordination contracts, not rendered native interactions or live signup/SMS. Registration Android behavior remains RUNTIME-UNVERIFIED. Historical normal-user/Admin sign-in and session identity restoration: USER-REPORTED PASS. A persisted ordinary-user emulator launch reached Discovery during the earlier investigation. Cold-launch reliability: ISSUE REPRODUCED BY USER; ROOT CAUSE STILL UNRESOLVED. Historical investigation test counts describe their original passes, not the current suite.
+Registration checkpoint: refinements IMPLEMENTED / AUTOMATED-TESTED (`npm run typecheck` passed; full `npm test`: 180 passed, 0 failed, including 12 registration helper tests and two additional routing tests). These tests exercise pure flow/coordination contracts, not rendered native interactions or live signup/SMS. Registration Android behavior remains RUNTIME-UNVERIFIED. Historical normal-user/Admin sign-in and session identity restoration: USER-REPORTED PASS. A persisted ordinary-user emulator launch reached Discovery during the earlier investigation. Cold-launch reliability: ISSUE REPRODUCED BY USER; ROOT CAUSE STILL UNRESOLVED. Historical investigation test counts describe their original passes, not the current suite.
 
 Compatibility check: `npx expo install --check` reports existing patch-version drift: installed `expo@57.0.30` versus expected `~57.0.31`, and `expo-location@57.0.21` versus expected `~57.0.22`. No dependencies were added or upgraded for registration. Git working/index whitespace checks passed.
 
 Android production JS/Hermes export passed (912 modules) to a temporary directory. This validates bundling only; it is not an APK build or Android runtime acceptance test.
+
+### UI Phase 1 validation record
+
+Last Verified Date: 2026-10-22. Last Verified Commit baseline: `c2a1b9f` plus uncommitted UI refinements; these changes are not in that commit. Verification Status: **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**. `npm run typecheck` passed; `npm test` passed **188/188**, zero failures/skips/cancellations. Eight additional tests cover status/role/applicability mappings, contextual recovery, Tier 3 selection/confirmation cancellation with no writes, and Login/confirmation/recovery source wiring. Existing Auth routing, registration, synchronization, Tier 2/Tier 3 upload, Admin review and private-preview regressions remain. Native rendering/gesture/keyboard/live acceptance is not implied.
+
+Android JS/Hermes export passed to a temporary folder (bundling only, not an APK/runtime test). `npx expo install --check` reports existing installed `expo@57.0.30` versus expected `~57.0.31`, and `expo-location@57.0.21` versus expected `~57.0.22`; no dependencies were added/upgraded. Backend services, schema, RLS, RPCs, Storage operations, Auth synchronization and root `App.tsx` remain unchanged. Source review found no View-level backend access or new MVVM violation. Shared presentation primitives affect button wrapping/disabled feedback across their existing consumers; untested marketplace operations remain unchanged.

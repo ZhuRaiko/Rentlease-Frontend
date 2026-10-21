@@ -1,3 +1,6 @@
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
+import { VerificationStatusBadge } from '../../../shared/components/VerificationStatusBadge';
+import { verificationStatusPresentation } from '../../../shared/models/verificationPresentation';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { FullscreenDocumentImage } from '../../../shared/components/FullscreenDocumentImage';
 import { AppButton } from '../../../shared/components/AppButton';
@@ -16,7 +19,7 @@ export function VerificationModerationView({ viewModel }: { viewModel: AdminMode
   if (!detail) return (
     <AdminScaffold onBack={viewModel.goBack} title="Verification submission">
       <Text style={styles.viewerNoteBody}>{viewModel.verification.reviewBusy ? 'Review saved. Refreshing backend state...' : viewModel.verification.detailStatus === 'loading' ? 'Loading submission...' : viewModel.verification.detailError ?? 'Select a submission from the current queue.'}</Text>
-      <AppButton disabled={viewModel.verification.reviewBusy} label="Back to verification queue" onPress={() => { viewModel.openSection('verificationQueue'); void viewModel.refreshVerification(); }} />
+      <AppButton disabled={viewModel.verification.reviewBusy} label="Back to verification queue" onPress={() => void viewModel.returnToVerificationQueue()} />
     </AdminScaffold>
   );
   const { item, documents } = detail;
@@ -25,20 +28,21 @@ export function VerificationModerationView({ viewModel }: { viewModel: AdminMode
   const reviewTier = item.tier === 'tier_3_property' ? 'Tier 3 property' : 'Tier 2';
   return (
     <AdminScaffold onBack={viewModel.goBack} title={viewModel.screen === 'verificationDocument' ? 'Verification documents' : 'Verification submission'}>
-      <View style={styles.caseHeader}><Text style={styles.caseId}>{item.submissionId}</Text></View>
+
       <Text accessibilityRole="header" style={styles.applicantName}>{item.displayName}</Text>
       <Text style={styles.caseSubtitle}>{verificationTierLabel(item.tier)} | {formatVerificationDate(item.submittedAt)}</Text>
-      <View style={styles.statusRow}><AdminStatusPill status={verificationStatusLabel(item.status)} /></View>
-      <Text style={styles.sectionLabel}>SUBMISSION DETAILS</Text>
+      <View style={styles.statusRow}><VerificationStatusBadge {...verificationStatusPresentation(item.status)} label={verificationStatusLabel(item.status)} /></View>
+      <Text style={styles.sectionLabel}>Applicant and submission</Text>
       <DetailCard>
-        <DetailRow label="USER ID" value={item.userId} />
-        <DetailRow label="UPDATED" value={formatVerificationDate(item.updatedAt)} />
-        <DetailRow label="TRUST SCORE" value={item.trustScore === null ? 'Not available' : String(item.trustScore)} />
-        <DetailRow label="TIER 1 VERIFIED" value={item.tier1VerifiedAt ? formatVerificationDate(item.tier1VerifiedAt) : 'Not verified'} />
-        <DetailRow label="TIER 2 VERIFIED" value={item.tier2VerifiedAt ? formatVerificationDate(item.tier2VerifiedAt) : 'Not verified'} />
-        <DetailRow label="TIER 3 VERIFIED" value={item.tier3VerifiedAt ? formatVerificationDate(item.tier3VerifiedAt) : 'Not verified'} />
-        {item.propertyId ? <DetailRow label="PROPERTY ID" value={item.propertyId} /> : null}
-        <DetailRow label="SUBMITTED NOTE" value={item.submittedNote ?? 'No note provided'} last />
+        <DetailRow readable label="User ID" value={item.userId} />
+        <DetailRow readable label="Submission ID" value={item.submissionId} />
+        <DetailRow readable label="Updated" value={formatVerificationDate(item.updatedAt)} />
+        <DetailRow readable label="Trust score" value={item.trustScore === null ? 'Not available' : String(item.trustScore)} />
+        <DetailRow readable label="Tier 1 verified" value={item.tier1VerifiedAt ? formatVerificationDate(item.tier1VerifiedAt) : 'Not verified'} />
+        <DetailRow readable label="Tier 2 verified" value={item.tier2VerifiedAt ? formatVerificationDate(item.tier2VerifiedAt) : 'Not verified'} />
+        <DetailRow readable label="Tier 3 account indication" value={item.tier3VerifiedAt ? formatVerificationDate(item.tier3VerifiedAt) : 'Not verified'} />
+        {item.propertyId ? <DetailRow readable label="Property ID" value={item.propertyId} /> : null}
+        <DetailRow readable label="Submitted note" value={item.submittedNote ?? 'No note provided'} last />
       </DetailCard>
       <View style={styles.documentSummary}>
         <View style={styles.documentCount}><Text style={styles.documentCountValue}>{documents.length}</Text></View>
@@ -46,10 +50,10 @@ export function VerificationModerationView({ viewModel }: { viewModel: AdminMode
       </View>
       {documents.length === 0 ? <Text style={styles.viewerNoteBody}>No document attached</Text> : documents.map((document) => (
         <DetailCard key={document.id}>
-          <DetailRow label="DOCUMENT TYPE" value={documentTypeLabel(document.document_type)} />
-          <DetailRow label="FILE NAME" value={document.file_name ?? 'Filename unavailable'} />
-          <DetailRow label="MIME TYPE" value={document.mime_type ?? 'Not available'} />
-          <DetailRow label="ATTACHED" value={formatVerificationDate(document.created_at)} last />
+          <DetailRow readable label="Document type" value={documentTypeLabel(document.document_type)} />
+          <DetailRow readable label="Filename" value={document.file_name ?? 'Filename unavailable'} />
+          <DetailRow readable label="File type" value={document.mime_type ?? 'Not available'} />
+          <DetailRow readable label="Attached" value={formatVerificationDate(document.created_at)} last />
           <View style={styles.previewAction}>
             {viewModel.canViewPrivateDocument(document.id) ? (
               <AppButton disabled={!!preview?.isOpening} label="View private document" onPress={() => void viewModel.openPrivateDocument(document.id)} />
@@ -63,20 +67,20 @@ export function VerificationModerationView({ viewModel }: { viewModel: AdminMode
         {viewModel.reviewActions.includes('approved') ? <AppButton label="Approve verification" onPress={() => viewModel.requestReview('approved')} /> : null}
         {viewModel.reviewActions.includes('rejected') ? <AppButton label="Reject verification" onPress={() => viewModel.requestReview('rejected')} variant="danger" /> : null}
         {review.reviewBusy ? <ActivityIndicator accessibilityLabel="Saving review and refreshing" color={colors.primary} /> : null}
-        {review.reviewError ? <Text accessibilityRole="alert" style={styles.viewerNoteBody}>{review.reviewError}</Text> : null}
-        {review.reviewNotice ? <Text accessibilityRole="alert" style={styles.viewerNoteBody}>{review.reviewNotice}</Text> : null}
-        <AppButton disabled={review.reviewBusy} label="Refresh queue" variant="secondary" onPress={() => { viewModel.openSection('verificationQueue'); void viewModel.refreshVerification(); }} />
+        <FeedbackNotice tone="error" message={review.reviewError} />
+        <FeedbackNotice tone="success" message={review.reviewNotice} />
+        <AppButton disabled={review.reviewBusy} label="Refresh queue" variant="secondary" onPress={() => void viewModel.returnToVerificationQueue()} />
       </View>
       <Modal visible={!!review.reviewDialog} onRequestClose={viewModel.cancelReview} animationType="fade" presentationStyle="fullScreen">
         <ScreenContainer>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.actions}>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.confirmation}>
             <Text accessibilityRole="header" style={styles.documentTitle}>{review.reviewDialog === 'approved' ? `Approve ${reviewTier} verification?` : review.reviewDialog === 'rejected' ? `Reject ${reviewTier} verification` : `Start ${reviewTier} review?`}</Text>
             <Text style={styles.viewerNoteBody}>{review.reviewDialog === 'approved' ? item.tier === 'tier_3_property' ? 'Approve this property ownership or authorization proof? The backend requires a qualifying property document.' : 'This will verify the submitted identity document and complete Tier 2 verification for this user.' : review.reviewDialog === 'rejected' ? 'Explain why this verification submission is being rejected.' : 'Mark this submission as under review before making a decision.'}</Text>
             {review.reviewDialog === 'rejected' ? <>
               <Text style={styles.inputLabel}>Rejection reason (required)</Text>
               <TextInput accessibilityLabel="Rejection reason" multiline editable={!review.reviewBusy} onChangeText={viewModel.setRejectionReason} value={review.rejectionReason} style={styles.textArea} textAlignVertical="top" />
             </> : null}
-            {review.reviewError ? <Text accessibilityRole="alert" style={styles.viewerNoteBody}>{review.reviewError}</Text> : null}
+            <FeedbackNotice tone="error" message={review.reviewError} />
             <AppButton disabled={review.reviewBusy || (review.reviewDialog === 'rejected' && !review.rejectionReason.trim())} label={review.reviewBusy ? 'Saving review...' : review.reviewDialog === 'approved' ? 'Approve' : review.reviewDialog === 'rejected' ? 'Reject' : 'Start review'} onPress={() => void viewModel.confirmReview()} variant={review.reviewDialog === 'rejected' ? 'danger' : 'primary'} />
             <AppButton disabled={review.reviewBusy} label="Cancel" onPress={viewModel.cancelReview} variant="secondary" />
           </ScrollView>
@@ -91,19 +95,20 @@ export function VerificationModerationView({ viewModel }: { viewModel: AdminMode
 }
 
 const styles = StyleSheet.create({
+  confirmation: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
   previewAction: { padding: spacing.sm },
   caseHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xs },
   caseId: { color: colors.textMuted, fontFamily: typography.family, fontSize: 9 },
   applicantName: { color: colors.text, fontFamily: typography.family, fontSize: 27, fontWeight: '900', marginTop: spacing.md },
-  caseSubtitle: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 11, marginTop: 4 },
+  caseSubtitle: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21, marginTop: 4 },
   statusRow: { marginTop: spacing.sm },
-  sectionLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: spacing.xs, marginTop: spacing.lg },
+  sectionLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 14, fontWeight: '700', marginBottom: spacing.xs, marginTop: spacing.lg },
   documentSummary: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.card, flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, padding: spacing.md },
   documentCount: { alignItems: 'center', backgroundColor: '#173C2C', borderRadius: 21, height: 42, justifyContent: 'center', width: 42 },
   documentCountValue: { color: colors.white, fontFamily: typography.family, fontSize: 16, fontWeight: '900' },
   documentCopy: { flex: 1 },
-  documentTitle: { color: colors.text, fontFamily: typography.family, fontSize: 12, fontWeight: '900' },
-  documentBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 9, marginTop: 3 },
+  documentTitle: { color: colors.text, fontFamily: typography.family, fontSize: 18, fontWeight: '700' },
+  documentBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 20, marginTop: 3 },
   openDocument: { color: '#2E7552', fontFamily: typography.family, fontSize: 10, fontWeight: '900' },
   actions: { gap: spacing.xs, marginTop: spacing.lg },
   documentLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 9, fontWeight: '900', letterSpacing: 0.8, marginBottom: spacing.xs },
@@ -115,20 +120,20 @@ const styles = StyleSheet.create({
   fileName: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 9, marginBottom: spacing.lg, marginTop: 5 },
   viewerNote: { backgroundColor: '#EAF1ED', borderRadius: radius.sm, gap: 4, padding: spacing.sm },
   viewerNoteTitle: { color: '#173C2C', fontFamily: typography.family, fontSize: 10, fontWeight: '900' },
-  viewerNoteBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 9, lineHeight: 14 },
+  viewerNoteBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
   checkList: { backgroundColor: colors.primaryPale, borderRadius: radius.card, gap: spacing.sm, marginVertical: spacing.lg, padding: spacing.md },
   checkItem: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   checkCircle: { backgroundColor: colors.primary, borderRadius: 10, height: 20, position: 'relative', width: 20 },
   checkShort: { backgroundColor: colors.white, height: 2, left: 4, position: 'absolute', top: 10, transform: [{ rotate: '45deg' }], width: 6 },
   checkLong: { backgroundColor: colors.white, height: 2, left: 8, position: 'absolute', top: 9, transform: [{ rotate: '-45deg' }], width: 9 },
   checkLabel: { color: colors.text, flex: 1, fontFamily: typography.family, fontSize: 11, fontWeight: '700' },
-  previewNote: { color: colors.textMuted, fontFamily: typography.family, fontSize: 9, lineHeight: 14, marginTop: spacing.sm, textAlign: 'center' },
+  previewNote: { color: colors.textMuted, fontFamily: typography.family, fontSize: 14, lineHeight: 21, marginTop: spacing.sm, textAlign: 'center' },
   reasonOption: { alignItems: 'center', borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', marginBottom: spacing.xs, minHeight: 56, padding: spacing.sm },
   reasonSelected: { backgroundColor: colors.restrictedSurface, borderColor: colors.restricted },
   reasonLabel: { color: colors.text, flex: 1, fontFamily: typography.family, fontSize: 11, fontWeight: '700' },
   radio: { alignItems: 'center', borderColor: colors.border, borderRadius: 10, borderWidth: 2, height: 20, justifyContent: 'center', width: 20 },
   radioSelected: { borderColor: colors.restricted },
   radioCenter: { backgroundColor: colors.restricted, borderRadius: 5, height: 10, width: 10 },
-  inputLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: spacing.xs, marginTop: spacing.md },
-  textArea: { borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, fontFamily: typography.family, fontSize: 12, marginBottom: spacing.lg, minHeight: 130, padding: spacing.md },
+  inputLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 14, fontWeight: '700', marginBottom: spacing.xs, marginTop: spacing.md },
+  textArea: { borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, fontFamily: typography.family, fontSize: 16, marginBottom: spacing.lg, minHeight: 130, padding: spacing.md },
 });

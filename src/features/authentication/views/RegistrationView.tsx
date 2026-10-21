@@ -1,3 +1,4 @@
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -18,7 +19,7 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
   const confirmationInput = useRef<TextInput>(null);
   const [emailBlurred, setEmailBlurred] = useState(false);
   const scaffold = { progress: viewModel.registrationProgress, backDisabled: busy };
-  const notice = viewModel.notice ? <Text accessibilityRole="alert" style={styles.notice}>{viewModel.notice}</Text> : null;
+  const notice = <FeedbackNotice message={viewModel.notice} tone={viewModel.noticeTone} />;
   const accountActions = viewModel.account ? <View style={styles.accountActions}>
     <Text style={styles.body}>Signed in as {viewModel.account.user.email || viewModel.displayName}</Text>
     <AuthButton disabled={busy} label="Sign out / use another account" onPress={() => void viewModel.switchAccount()} variant="secondary" />
