@@ -42,17 +42,18 @@ function serviceHarness() {
   const client = {
     auth: { getUser: async () => ({ data: { user: authenticated ? { id: authenticated } : null }, error: null }) },
     from: (table: string) => { calls.push(['from', table]); return query; },
+    rpc: async (...args: unknown[]) => { calls.push(['rpc', ...args]); return { data, error }; },
   } as unknown as SupabaseClient<Database>;
   return { service: createTierTwoVerificationService(() => client), calls,
     respond: (value: unknown, failure: unknown = null) => { data = value; error = failure; },
     setUser: (value: string | null) => { authenticated = value; } };
 }
 
-test('service creates Tier 2 with only authenticated user_id and tier; omits property/review/status fields', async () => {
-  const h = serviceHarness(); h.respond(row());
+test('service begins Tier 2 only through the no-argument RPC; no direct submission INSERT', async () => {
+  const h = serviceHarness(); h.respond({ ...row(), user_id: userId, tier: 'tier_2_identity', property_id: null });
   const identity = await h.service.getCurrentUserId();
-  await h.service.createSubmission(identity);
-  assert.deepEqual(h.calls.find(([name]) => name === 'insert'), ['insert', { user_id: userId, tier: 'tier_2_identity' }]);
+  await h.service.beginSubmission(identity);
+  assert.deepEqual(h.calls, [['rpc', 'begin_tier2_verification_resubmission']]);
 });
 test('latest lookup filters identity/tier, orders deterministically and handles historical rows with limit one', async () => {
   const h = serviceHarness(); h.respond({ ...row(), verification_documents: [{ id: 'doc' }] });
@@ -73,7 +74,7 @@ test('service rejects missing/changed authenticated identity before querying', a
   const h = serviceHarness(); h.setUser(null);
   await assert.rejects(h.service.getCurrentUserId());
   h.setUser('another-user');
-  await assert.rejects(h.service.createSubmission(userId));
+  await assert.rejects(h.service.beginSubmission(userId));
   assert.equal(h.calls.length, 0);
 });
 test('query errors are not treated as no submission', async () => {
@@ -92,7 +93,9 @@ function workflowHarness() {
     service: {
       getCurrentUserId: async () => { if (failure === 'auth') throw Error(); return userId; },
       fetchLatest: async (id) => { assert.equal(id, userId); calls.push('fetch'); if (failure === 'fetch') throw Error(); return latest; },
-      createSubmission: async (id) => { assert.equal(id, userId); calls.push('create'); if (failure === 'create') throw Error(); latest = { ...row(), hasDocument: false }; return failure === 'missing-id' ? { ...latest, id: '' } : latest; },
+      fetchSubmission: async (_id, submission) => { calls.push('detail'); assert.equal(submission, submissionId); return latest; },
+      fetchPreviousRejection: async () => null,
+      beginSubmission: async (id) => { assert.equal(id, userId); calls.push('begin'); if (failure === 'create') throw Error(); latest = { ...row(), hasDocument: false }; return failure === 'missing-id' ? { ...latest, id: '' } : latest; },
       insertDocument: async (id, submission, type, document) => {
         calls.push('metadata'); assert.equal(id, userId); assert.equal(submission, submissionId); assert.equal(type, 'passport'); assert.deepEqual(document, uploaded);
         if (failure === 'metadata') throw Error(); latest = row(); if (failure === 'refresh') failure = 'fetch';
@@ -106,7 +109,7 @@ function workflowHarness() {
       return uploaded;
     },
   });
-  const ready = async () => { await workflow.refresh(); workflow.chooseId('Passport'); await workflow.pickDocument(); };
+  const ready = async () => { await workflow.refresh(); workflow.chooseId('Passport'); await workflow.pickDocument(); workflow.navigate('tier2Review'); };
   return { workflow, calls, ready, setLatest: (value: TierTwoSubmission | null) => { latest = value; },
     setPickedDocument: (value: typeof selectedDocument) => { pick = value; },
     fail: (value: string | null) => { failure = value; }, cancelPicker: () => { pick = null; },
@@ -123,19 +126,19 @@ test('Tier 2 fullscreen preview interactions preserve selected ID/file/step and 
 test('submit orders authenticated preflight/create/upload/metadata/refresh and uses created ID', async () => {
   const h = workflowHarness(); await h.ready(); h.calls.length = 0;
   await h.workflow.submit();
-  assert.deepEqual(h.calls, ['fetch', 'create', 'upload', 'metadata', 'fetch']);
+  assert.deepEqual(h.calls, ['fetch', 'begin', 'detail', 'upload', 'detail', 'metadata', 'fetch']);
   assert.equal(h.workflow.getSnapshot().submission?.status, 'pending');
   assert.equal(h.workflow.getSnapshot().error, null);
   assert.equal(h.workflow.canSubmit(), false);
 });
-for (const status of ['pending', 'under_review', 'approved', 'rejected', 'cancelled', 'revoked'] as const) {
+for (const status of ['pending', 'under_review', 'approved', 'cancelled', 'revoked'] as const) {
   test(`${status} remains exact and blocks a new submission, including preflight race`, async () => {
-    const h = workflowHarness(); await h.ready(); h.setLatest({ ...row(status), rejection_reason: status === 'rejected' ? 'Unreadable' : null });
+    const h = workflowHarness(); await h.ready(); h.setLatest({ ...row(status), rejection_reason: null });
     await h.workflow.submit();
     assert.equal(h.workflow.getSnapshot().submission?.status, status);
-    assert.equal(h.workflow.getSnapshot().submission?.rejection_reason, status === 'rejected' ? 'Unreadable' : null);
+    assert.equal(h.workflow.getSnapshot().submission?.rejection_reason, null);
     assert.equal(h.workflow.canSubmit(), false);
-    assert.ok(!h.calls.includes('create'));
+    assert.ok(!h.calls.includes('begin'));
     assert.ok(tierTwoStatusLabels[status]);
   });
 }
@@ -145,7 +148,7 @@ test('double-submit, refresh and selection are blocked while submit owns the wor
   await new Promise((resolve) => setImmediate(resolve));
   await h.workflow.submit(); await h.workflow.refresh(); h.workflow.chooseId('UMID');
   assert.equal(h.workflow.getSnapshot().isSubmitting, true);
-  assert.equal(h.calls.filter((c) => c === 'create').length, 1);
+  assert.equal(h.calls.filter((c) => c === 'begin').length, 1);
   h.release(); await first;
 });
 test('picker cancellation retains selection without error', async () => {
@@ -163,7 +166,7 @@ for (const failure of ['auth', 'fetch', 'create', 'upload', 'metadata', 'refresh
       assert.equal(h.workflow.getSnapshot().submission?.hasDocument, false);
       assert.equal(h.workflow.canSubmit(), false);
     }
-    if (['auth', 'fetch'].includes(failure)) assert.ok(!h.calls.includes('create'));
+    if (['auth', 'fetch'].includes(failure)) assert.ok(!h.calls.includes('begin'));
     if (failure === 'upload') assert.ok(!h.calls.includes('metadata'));
   });
 }
@@ -190,7 +193,8 @@ test('development effect cleanup/setup can reload without accepting an obsolete 
     service: {
       getCurrentUserId: async () => userId,
       fetchLatest: async () => ++reads === 1 ? new Promise((resolve) => { firstResolve = resolve; }) : null,
-      createSubmission: async () => row(), insertDocument: async () => {},
+      beginSubmission: async () => row(), insertDocument: async () => {},
+      fetchSubmission: async () => null, fetchPreviousRejection: async () => null,
     },
     selectDocument: async () => null, uploadDocument: async () => uploaded,
   });
@@ -203,5 +207,26 @@ test('development effect cleanup/setup can reload without accepting an obsolete 
 });
 test('picker failure is recoverable without creation', async () => {
   const h = workflowHarness(); await h.ready(); h.fail('picker'); await h.workflow.pickDocument();
-  assert.ok(h.workflow.getSnapshot().error); assert.ok(!h.calls.includes('create'));
+  assert.ok(h.workflow.getSnapshot().error); assert.ok(!h.calls.includes('begin'));
+});
+
+
+test('previous rejection lookup is bounded to one own Tier 2 rejected row', async () => {
+  const h = serviceHarness(); h.respond({ ...row('rejected'), verification_documents: [] });
+  await h.service.fetchPreviousRejection(userId);
+  for (const [column, value] of [['user_id', userId], ['tier', 'tier_2_identity'], ['status', 'rejected']]) assert.ok(h.calls.some(c => c[0] === 'eq' && c[1] === column && c[2] === value));
+  assert.ok(h.calls.some(c => c[0] === 'limit' && c[1] === 1));
+});
+
+test('single application lookup is scoped to the returned ID and current owner', async () => {
+  const h = serviceHarness(); h.respond({ ...row(), verification_documents: [] });
+  await h.service.fetchSubmission(userId, submissionId);
+  assert.ok(h.calls.some(c => c[0] === 'eq' && c[1] === 'id' && c[2] === submissionId));
+  assert.ok(h.calls.some(c => c[0] === 'eq' && c[1] === 'user_id' && c[2] === userId));
+});
+
+test('RPC wrong identity/tier/status/missing data responses are rejected instead of uploaded', async () => {
+  for (const value of [null, { ...row(), user_id: 'foreign', tier: 'tier_2_identity', property_id: null }, { ...row('approved'), user_id: userId, tier: 'tier_2_identity', property_id: null }, { ...row(), user_id: userId, tier: 'tier_3_property', property_id: 'property' }]) {
+    const h = serviceHarness(); h.respond(value); await assert.rejects(h.service.beginSubmission(userId));
+  }
 });

@@ -2204,6 +2204,29 @@ export type Database = {
       }
     }
     Functions: {
+      begin_tier2_verification_resubmission: {
+        Args: never
+        Returns: {
+          id: string
+          property_id: string | null
+          rejection_reason: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["verification_status"]
+          submitted_at: string
+          submitted_note: string | null
+          tier: Database["public"]["Enums"]["verification_tier"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "verification_submissions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       can_access_conversation: {
         Args: { conversation_uuid: string; requested_user?: string }
         Returns: boolean

@@ -51,11 +51,11 @@ test('tier identity pairs maintain readable contrast and do not replace semantic
   assert.match(card, /<VerificationStatusBadge \{\.\.\.presentation\}/);
 });
 
-test('rejected Tier 2 copy explains the app limitation without enabling a status write or new application', () => {
+test('rejected Tier 2 action binds only local recovery selection, without direct backend writes', () => {
   const status = read('src/features/user-verification/views/VerificationStatusView.tsx');
-  assert.match(status, /Corrected applications are not available in the app yet/);
-  assert.match(status, /does not by itself restrict your account/);
+  assert.match(status, /Submit Corrected Documents/);
+  assert.match(status, /onPress=\{viewModel.startRecovery\}/);
   assert.doesNotMatch(status, /createSubmission|\.submit\(|tier2Upload|resubmit\(/);
   const workflow = read('src/features/user-verification/viewModels/tierTwoVerificationWorkflow.ts');
-  assert.match(workflow, /state.loaded && !state.submission && !state.requiresRefresh/);
+  assert.match(workflow, /tierTwoRecoveryKind\(state.submission\)/);
 });

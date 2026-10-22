@@ -22,8 +22,11 @@ export function useTierTwoVerificationViewModel() {
     overview: 'overview', tier2Intro: 'overview', tier2IdType: 'tier2Intro',
     tier2Upload: 'tier2IdType', tier2Review: 'tier2Upload', tier2Status: 'overview',
   } as const;
-  const goBack = () => workflow.navigate(backScreens[workflow.getSnapshot().screen]);
-  return { ...state, ...workflow, showRecovery: needsVerificationRecovery(state), goBack, canSubmit: workflow.canSubmit(), busy: state.isLoading || state.isSelectingDocument || state.isSubmitting };
+  const goBack = () => {
+    const current = workflow.getSnapshot();
+    workflow.navigate(current.editingApplication && current.screen === 'tier2IdType' ? 'tier2Status' : backScreens[current.screen]);
+  };
+  return { ...state, ...workflow, showRecovery: needsVerificationRecovery(state), goBack, canStartRecovery: workflow.canStartRecovery(), canSubmit: workflow.canSubmit(), busy: state.isLoading || state.isSelectingDocument || state.isSubmitting };
 }
 
 export type TierTwoVerificationViewModel = ReturnType<typeof useTierTwoVerificationViewModel>;

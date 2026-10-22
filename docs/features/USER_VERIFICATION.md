@@ -6,7 +6,7 @@ Admin work is documented in [Admin Verification](ADMIN_VERIFICATION.md). The use
 
 Optional Tier 2 identity verification has a normal-user backend-connected flow. Status: **IMPLEMENTED, AUTOMATED-TESTED; Passport submission/upload/metadata USER-REPORTED Android PASS** at the 2026-10-20 checkpoint. Broader mappings, negative cases and recovery still require validation. Follow [ARCHITECTURE.md](../ARCHITECTURE.md); Authentication owns Tier 1 in [AUTHENTICATION_PROFILES.md](AUTHENTICATION_PROFILES.md).
 
-Neither Tier 2 nor Tier 3 replaces Tier 1 or assigns Tenant, Landlord or Admin. Document replacement, resubmission and additional-information workflows remain DEFERRED. Existing backend triggers update profile verification timestamps and database-derived trust. Submission integration changes no schema, RLS, function or infrastructure. The shared zoom viewer's native gesture dependency is described below.
+Neither Tier 2 nor Tier 3 replaces Tier 1 or assigns Tenant, Landlord or Admin. Tier 2 rejected correction and incomplete pending recovery are implemented as described below. Tier 3 resubmission, replacement of registered documents and additional-information workflows remain DEFERRED. Existing backend triggers update profile verification timestamps and database-derived trust. Submission integration changes no schema, RLS, function or infrastructure. The shared zoom viewer's native gesture dependency is described below.
 
 ## Entry, UI and ownership
 
@@ -16,7 +16,7 @@ Neither Tier 2 nor Tier 3 replaces Tier 1 or assigns Tenant, Landlord or Admin. 
 
 Tier 3 uses property selection -> document type -> local file -> confirmation. Owned-property rows have a clearly identified placeholder image area, existing property type/barangay/city and selection indication; UUIDs are not their main labels. No property name/address/photo column or image integration was invented. The four enum mappings remain unchanged. **Submit for review** opens the existing `review` screen, now explicitly a confirmation; only **Confirm and submit** calls the existing submission workflow. Cancel/Back retains property/type/file. Reselecting the same type preserves the file; changing type clears it. Returning to the same property preserves the draft while still checking its latest backend submission; changing property clears incompatible selections.
 
-Normal Tier 2/Tier 3 overview/status screens no longer show redundant refresh buttons. Initial loading and feature reopening still refresh authoritative data. Contextual Check status remains for unloaded/error/uncertain-write recovery; closing and reopening Verification is the ordinary way to load later review outcomes. No polling was introduced. Backend statuses remain distinct, including Pending, Under Review, Verified (approved), Rejected, Cancelled and Revoked. No resubmission/replacement path was added.
+Normal Tier 2/Tier 3 overview/status screens no longer show redundant refresh buttons. Initial loading and feature reopening still refresh authoritative data. Contextual Check status remains for unloaded/error/uncertain-write recovery; closing and reopening Verification is the ordinary way to load later review outcomes. No polling was introduced. Backend statuses remain distinct, including Pending, Under Review, Verified (approved), Rejected, Cancelled and Revoked. That UI checkpoint added no resubmission path; the Stage 2 integration below now adds controlled Tier 2 correction/recovery.
 
 Android acceptance: select an owned property/type/file; tap the image to zoom without submitting; open confirmation and cancel or press Back, checking all selections remain. Confirm once with rapid taps and check one real submission. Reopen to check its status. Test Tier 2 local selection/review, unsupported-file metadata fallback and fullscreen Back/Close. Trigger a load failure and confirm Check status restores backend loading. Existing Tier 3 workflow, broader negative cases and all revised layouts remain Android RUNTIME-UNVERIFIED.
 
@@ -92,13 +92,13 @@ Manual Android checks after rebuilding: on Tier 2 selection and review, tap a sh
 
 Canonical structure: `src/shared/services/supabase/database.types.ts`. `createTierTwoVerificationService` uses the existing `SupabaseClient<Database>` singleton through injection. It resolves identity with `auth.getUser()` and rechecks it before queries/writes. No View supplies a trusted user ID.
 
-1. Load the current user's latest `verification_submissions` where `tier = tier_2_identity`, ordered by `submitted_at DESC, id DESC`, limited to one with `maybeSingle`. Historical rows do not cause a multiple-row error. Select only id/status/rejection_reason/review_note/submitted_at/reviewed_at and related document IDs to determine attachment presence.
-2. When none exists, allow ID/document selection. Disable Submit unless selection is valid, initial loading succeeded, no refresh is required and no picker/load/submit action is active.
-3. On Submit, synchronously exclude duplicate actions, resolve Auth identity and repeat the latest-submission check. Any existing row blocks new creation in this phase.
-4. Insert exactly `{ user_id: authenticatedUserId, tier: 'tier_2_identity' }`; omit property_id, status, timestamps and all review fields, relying on backend defaults. Return the created ID/status projection.
-5. Recheck identity and call the existing `uploadVerificationDocument` with authenticated user ID, created submission ID and real selected document.
-6. Insert `verification_documents` with exactly submission_id, document_type, storage_path, file_name and mime_type. There is no file_size field.
-7. Re-fetch the latest real submission and confirm an attachment before finishing without error. Display its backend status; never approve locally.
+1. Load the authenticated user's latest Tier 2 submission, ordered `submitted_at DESC, id DESC`, limited to one, including related document IDs. A separate owner-filtered, rejected-only query retrieves at most one previous rejection; this is not complete history.
+2. Initial selection is available when no application exists. Rejected users explicitly choose **Submit Corrected Documents**; pending without metadata offers **Complete Document Upload**. These actions only enter local ID/file selection. Viewing the status page never starts a submission.
+3. The existing review screen requires **Confirm and Submit**. A synchronous guard excludes picker/load/submit overlap and rapid confirmation; Auth identity and latest status are revalidated.
+4. The service calls `supabase.rpc('begin_tier2_verification_resubmission')` without arguments for initial creation, rejected correction or incomplete pending recovery. There is no Tier 2 direct submission INSERT. Validate the returned own Tier 2 pending row; pending recovery must return the existing ID.
+5. Recheck that returned application is pending without metadata, then upload with its ID. Recheck again before registering metadata; if another client registered a document or review changed status, do not insert this attempt's metadata or delete its uploaded object.
+6. Insert exactly submission_id, document_type, storage_path, file_name and mime_type through the existing service. No file_size/status/review/profile field is supplied.
+7. Reload the authoritative latest application and require the same ID and registered document before presenting confirmed backend status. Backend approval timestamps and trust remain backend-derived.
 
 The reused uploader targets private bucket `verification-documents`, path `<USER_ID>/<SUBMISSION_ID>/<UNIQUE_FILENAME>`, with Expo Crypto randomUUID and a safe filename extension. It reads an ArrayBuffer through Expo FileSystem, uploads with `upsert: false`, passes known MIME metadata and returns storagePath/original fileName/nullable mimeType/actual size. It returns no public or signed URL. The whole file is read into memory; native memory behavior and actual configured upload limits require testing.
 
@@ -107,10 +107,10 @@ The reused uploader targets private bucket `verification-documents`, path `<USER
 | Backend status | Production behavior |
 | --- | --- |
 | No submission | Allow initial ID/document flow after successful load |
-| pending | Pending; no duplicate creation |
+| pending | With metadata: read-only Pending. Without metadata: Incomplete Upload and explicit Complete Document Upload action |
 | under_review | Under Review, retained as a distinct backend value; no duplicate |
 | approved | Approved; no new submission or role mutation |
-| rejected | Rejected with actual rejection_reason when present; no resubmission |
+| rejected | Rejected with real reason and PHT dates; explicit Submit Corrected Documents action |
 | cancelled | Cancelled; no invented restart behavior |
 | revoked | Revoked; no invented restart behavior |
 
@@ -120,13 +120,13 @@ Submitted/reviewed dates in both Tier 2 and Tier 3 status Views now reuse src/sh
 
 ## Failure and partial-state behavior
 
-The insert ? Storage upload ? metadata insert workflow is **not atomic**. Failed Auth/preflight/load, create, upload, metadata or final refresh shows a stage-specific error; required steps cannot fail and still produce a success outcome. Uncertain writes require a refresh before another attempt.
+The RPC ? Storage upload ? metadata insert ? authoritative reload sequence is **not atomic**. Auth, preflight, RPC, upload, metadata and final-refresh errors remain distinguishable. Uncertain results show **Status Unconfirmed** and contextual **Check Status**, never fabricated Pending or automatic write retry.
 
-A known created submission blocks duplicate creation even when a later upload/metadata step fails. Existing submissions with no visible document metadata are flagged as potentially incomplete, including after reopen. This is an attachment-presence check under RLS, not proof of upload integrity or a backend readiness flag. A network response may be lost even when a write succeeded; error copy distinguishes an unconfirmed result. Final refresh failure preserves error presentation instead of claiming status confirmation.
+After reconciliation, a confirmed pending row without metadata can be resumed explicitly through the RPC using the same submission ID and a newly selected file. Missing metadata does not prove that no object exists. Upload may have succeeded before metadata registration or response delivery failed. No speculative deletion, rollback, replacement or automatic retry occurs; another attempt uses a unique object name and can leave an orphan private file. Existing registered documents remain read-only.
 
-No automatic object/row deletion, replacement, metadata retry or new submission is invented. Failures/termination after insert can leave a submission without an attachment; failures after upload can leave a private orphan object. These require a future supported backend recovery policy. Closing during an already-sent operation cannot cancel that remote write.
+`uq_tier2_single_open_or_approved_per_user` enforces one pending/under_review/approved Tier 2 application per user. The RPC serializes starts and preserves historical rejected rows. Local synchronous guards, fresh reads and generation/identity checks prevent ordinary duplicate writes and stale account responses; unique-index/backend errors require read reconciliation. Cross-client attachment registration still is not atomic or uniquely constrained: pre-upload/pre-metadata checks reduce but cannot eliminate that race. There is no upload-finalization/readiness RPC; Admin visibility of incomplete pending rows is unchanged. Tier 3 keeps its existing conservative behavior and separate concurrency limitations.
 
-Local exclusion and fresh preflight reduce duplicates but do not provide cross-device transactional uniqueness. Read-only inspection found only the primary-key unique index plus nonunique status/queue indexes, not a user/property/tier uniqueness constraint. Backend enforcement remains authoritative; no new constraint or recovery policy was invented.
+Closing/unmounting invalidates results and subsequent steps, but cannot undo an operation already sent. No private objects are deleted as compensation.
 
 ## Security and backend evidence
 
@@ -142,7 +142,7 @@ The repository now includes the Admin queue RPC migration. Read-only live inspec
 
 ## Deferred and unresolved
 
-- DEFERRED: non-image Admin viewing, document replacement, rejected/cancelled/revoked resubmission, additional-information requests and property-creation backend integration. Tier 3 submission and Admin compatibility are implemented but await Android testing. Tier 2 rejection is outside this task.
+- DEFERRED: non-image Admin viewing, document replacement, Tier 3 resubmission and Tier 2 cancelled/revoked restart, additional-information requests and property-creation backend integration. Tier 3 submission and Admin compatibility are implemented but await Android testing. Tier 2 correction/recovery is implemented below and remains Android RUNTIME-UNVERIFIED.
 - UNRESOLVED: project-wide upload limits, deletion/replacement/partial-state recovery policy and cache-retention lifecycle. Read-only bucket inspection shows allowed_mime_types and file_size_limit are null (no per-bucket values); it does not establish project-wide limits or native memory capacity. No arbitrary client limits were invented.
 - PREVIEW/LEGACY: `useUserVerificationViewModel`, `Verification.ts` and TierOneVerificationView retain disconnected prototype logic. TierThreeVerificationView has been repurposed for the real property workflow and imports no preview properties. Do not reconnect fake Tier 1, Tier 2 decision simulation or Tier 3 actor promotion.
 - Existing Tier 3 business boundary remains an authenticated Tier 1-verified landlord with an owned property; Tier 2 is not required and Tier 3 grants no role.
@@ -189,12 +189,27 @@ The shared ScreenHeader provides a compact Back chevron with a 48dp target and c
 
 Typecheck passed; full suite 223/223, zero failures/skips/cancellations. Existing Tier 2/Tier 3/private-preview tests remain; new tests cover status presentation and header wiring, not native rendering. Test Android narrow/large-font overview, Tier 2 Back and image preview, Tier 3 property selection/review/Back, pending/rejected/approved status and error recovery using suitable separate records. Submission and native gestures were not exercised by the agent in this pass.
 
-## Tier 2 rejection recovery review (2026-10-22)
+## Stage 2 Tier 2 correction and recovery (2026-10-22)
 
-Frontend resubmission remains DEFERRED. Current workflow blocks creation whenever any existing Tier 2 row is found, including rejection and incomplete attachments; this was not relaxed. Rejected copy now explains that the document was not accepted, displays the real reason, and states that corrected applications are not available in the app yet. A rejected verification decision is not presented as an account ban; authoritative account restrictions remain separate. Status text remains visible when attachment metadata is incomplete.
+Status: **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**. Last Verified Date: 2026-10-22. Last Verified Commit: baseline `4680416` plus uncommitted Stage 2 changes; that commit does not contain this implementation.
 
-Read-only live inspection confirms a new pending Tier 2 INSERT can pass existing column privileges/RLS after rejection, but there is no unique active-application constraint, idempotency/readiness contract or atomic cross-Storage recovery. Owner metadata INSERT currently accepts pending/under_review parents, and Storage ownership checks only the first path segment. Therefore enabling Submit alone would not deliver the requested safe recovery policy. No service/workflow, backend or Storage change was made.
+The earlier [backend review](../implementation-reports/database/2026-10-22-tier-2-rejection-recovery-review.md) remains historical evidence. Stage 1 and subsequent privilege hardening were applied externally. Read-only inspection confirms the no-argument RPC, SECURITY DEFINER, empty restricted search_path, explicit auth/Tier 1 checks, authenticated execution and denied anonymous execution. The earlier SECURITY INVOKER privilege blocker is resolved. Live generated types gained only this RPC definition. The user reports successful backend rejection/resume/denial/uniqueness/history tests; the agent did not invoke write tests or alter backend records.
 
-Separate recommendation: [Tier 2 rejection recovery backend review](../implementation-reports/database/2026-10-22-tier-2-rejection-recovery-review.md). It records exact schema, grants, policies, indexes, triggers and transaction limits; proposed active uniqueness, append-only history, begin/resume/finalize and upload-readiness enforcement all require separate backend approval. No proposed RPC or field is treated as an existing API.
+Rejected status preserves the actual reason, submitted/reviewed PHT timestamps and existing status styling. Local selection and optional zoom preview precede explicit confirmation. Pending without metadata offers controlled completion; pending with metadata, under_review, approved, cancelled and revoked cannot restart. Previous Rejection shows only the most recent rejected record with reason/date where available, not a full history; history-load errors do not hide current status.
 
-Latest targeted status: IMPLEMENTED / AUTOMATED-TESTED / user Android RUNTIME-UNVERIFIED; 2026-10-22, baseline `976d13d` plus uncommitted work. Typecheck and 231/231 tests passed, including palette contrast/status separation and preserved rejected-row no-write behavior. Native tier identity, rejected/incomplete copy and ordinary-user flows still need Android acceptance. No rejection/resubmission or review was executed live by the agent.
+State, confirmation, navigation, async coordination, identity/generation guards and recovery live in `tierTwoVerificationWorkflow.ts` and `useTierTwoVerificationViewModel.ts`. Pure eligibility/presentation mappings live in `TierTwoVerification.ts`; RPC/owner-filtered reads/metadata writes live in `tierTwoVerificationService.ts`. Existing Tier 2 Views bind these actions. The private uploader, picker, fullscreen preview, Admin review and Tier 3 services/workflows are unchanged. Welcome, Discovery, Profile Back and root navigation are preserved. No new dependency, native rebuild requirement or Supabase change was introduced by Stage 2.
+
+Automated checks cover explicit confirmation/no writes on opening, eligible/blocked statuses, returned-ID reuse, rapid taps, unique-index errors, uncertain RPC reconciliation, upload/metadata/final-read failures, concurrent attachments, bounded history and stale account/disposal responses. Existing Admin, Tier 3 and preview/Android Back wiring regressions remain. These are automated model/service/orchestration/source-wiring checks, not native Android or live RLS acceptance.
+
+### Stage 2 Android acceptance still required
+
+- Use a separate authorized rejected Tier 2 test account. Open status: reason/PHT dates appear with no writes. Choose corrected documents; cancel picker, inspect zoom/Back, and cancel confirmation without writes. Confirm once/rapidly: expect one new pending application using the returned ID, one registered document and unchanged rejected history.
+- On a separate incomplete pending application, Check Status then Complete Document Upload, select/review/confirm. Expect reuse of the same ID. Test controlled RPC response loss, upload failure, metadata failure and final reload failure: no fake success, blind retry or private-object deletion. Check Status reconciles before another explicit attempt.
+- Verify pending-with-document, under_review, approved, cancelled and revoked remain read-only. Test offline/expired identity, account switch, closing/reopening during an uncertain request and late responses.
+- As Admin, verify a corrected pending application appears normally, old rejected history stays out of the active queue, private 90-second preview/Start review/Approve/Reject remain intact. Use new records; preserve existing approved/rejected fixtures. After approval, refresh the user profile to inspect backend timestamp/trust. Regression-test Tier 3 selection/review/submission and fullscreen Back.
+
+Upload limits, orphan cleanup, cache retention and cross-client attachment finalization remain unresolved backend/product contracts; they do not prevent this approved explicit recovery flow.
+
+### Stage 2 validation evidence
+
+`npm run typecheck`: PASS. `npm test`: 248 passed, 0 failed/skipped/cancelled. `git diff --check`: PASS. `npx expo install --check`: FAIL due to existing dependency patch drift (expo 57.0.30 versus expected ~57.0.31; expo-location 57.0.21 versus expected ~57.0.22). No dependency files were changed. Automated tests do not establish Android rendering, live RLS or end-to-end Storage success.

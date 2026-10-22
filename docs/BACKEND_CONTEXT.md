@@ -182,7 +182,7 @@ Firebase Cloud Messaging is used only as Expo's Android delivery relay; Firebase
 | Feature | Primary backend contract needed |
 |---|---|
 | Authentication & Profiles | Structural contract present; live Auth/RLS/trigger validation required |
-| User Verification | Structural submissions/status contract present; MIME/size, private access and replacement/resubmission behavior unresolved |
+| User Verification | Structural submissions/status contract present; MIME/size, private access documented; Tier 2 correction/resume integrated, atomic finalization/replacement unresolved |
 | Property & Listing Management | Listing schema, media storage, publishing lifecycle |
 | Search & Discovery | Filters, pagination, PostGIS proximity query |
 | Property Recommendations | Preference and recommendation result contracts |
@@ -218,6 +218,14 @@ Read-only inspection of RentLease on 2026-10-22 confirms properties_create_verif
 
 Baseline: `550275c` plus uncommitted corrections. Typecheck passed; full automated suite passed 213/213, zero failures/skips/cancellations. These checks do not establish Android runtime acceptance.
 
-### Tier 2 rejection recovery contract gap (2026-10-22)
+### Tier 2 Stage 1 contract and Stage 2 integration (2026-10-22)
 
-Read-only current-policy/index/grant inspection confirms that own pending Tier 2 insertion after rejection is permitted with active Tier 1, but no unique active Tier 2 index or idempotent upload-finalization/recovery contract exists. Current frontend conservatively blocks any existing submission. Safe resubmission remains deferred, preserving rejected history/reasons. See [the separate backend recommendation](implementation-reports/database/2026-10-22-tier-2-rejection-recovery-review.md) for exact evidence and changes requiring authorization. No backend work was performed.
+Stage 1 was applied externally after frontend baseline `4680416`. Read-only inspection confirms `begin_tier2_verification_resubmission()` and valid/ready unique index `uq_tier2_single_open_or_approved_per_user`: unique user_id for tier_2_identity statuses pending, under_review and approved. Historical rejected/cancelled/revoked rows are excluded. Live type generation changed only this function definition: Args never, one verification_submissions row, isSetofReturn false.
+
+The earlier SECURITY INVOKER privilege blocker was resolved externally. Current inspection confirms SECURITY DEFINER, empty restricted search_path, qualified identifiers, explicit auth.uid()/Tier 1 checks, authenticated EXECUTE and denied anonymous execution. A per-user transaction advisory lock and latest-row FOR UPDATE serialize starts. No row or latest rejected permits a new pending row; pending without metadata returns the same row. Pending with metadata, under_review, approved, cancelled and revoked are blocked. Older active/approved records also prevent insertion; rejected history is never overwritten.
+
+The user reports passed backend tests for rejected/resume, repeated calls, approved/unauthenticated denial, uniqueness and unchanged history. The agent performed read-only inspection, not these live write tests, and made no database changes.
+
+Stage 2 now uses this RPC instead of direct Tier 2 creation, after explicit local review confirmation and fresh identity/status checks. Reconciliation precedes another explicit attempt after uncertain outcomes. See [User Verification](features/USER_VERIFICATION.md#stage-2-tier-2-correction-and-recovery-2026-10-22).
+
+Storage upload and metadata registration remain non-atomic. Metadata INSERT permits owned pending/under_review parents; Storage ownership uses the user path segment. No attachment uniqueness, atomic finalization, orphan cleanup or readiness contract was added. The frontend rechecks before upload/metadata but cannot guarantee cross-client attachment serialization. Tier 3 behavior is unchanged. The earlier [backend recommendation](implementation-reports/database/2026-10-22-tier-2-rejection-recovery-review.md) remains historical, not the current full schema.

@@ -60,10 +60,10 @@ export function TierTwoVerificationView({
   if (viewModel.screen === 'tier2Review') {
     return (
       <VerificationScaffold
-        description="Check your document before sending it for identity verification."
+        description="Confirm the ID type and selected file. Submitting will start or resume your pending application and upload this document."
         onBack={viewModel.goBack}
         onClose={onClose}
-        title="Review your ID"
+        title="Review and Submit"
       >
         <View style={styles.reviewCard}>
           <DocumentPreviewPicker document={viewModel.selectedDocument} busy={viewModel.busy} />
@@ -73,7 +73,7 @@ export function TierTwoVerificationView({
         <Text style={styles.previewNotice}>{viewModel.isSubmitting ? 'Sending your verification document…' : 'This file stays on your device until you submit.'}</Text>
         <FeedbackNotice tone="error" message={viewModel.error} />
         {viewModel.requiresRefresh ? <AppButton disabled={viewModel.busy} label={viewModel.isLoading ? 'Refreshing…' : 'Check status'} onPress={() => void viewModel.refresh()} variant="secondary" /> : null}
-        <AppButton disabled={!viewModel.canSubmit} label={viewModel.isSubmitting ? 'Submitting…' : 'Submit verification'} onPress={() => void viewModel.submit()} />
+        <AppButton disabled={!viewModel.canSubmit} label={viewModel.isSubmitting ? 'Submitting…' : 'Confirm and Submit'} onPress={() => void viewModel.submit()} />
       </VerificationScaffold>
     );
   }

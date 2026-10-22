@@ -2,7 +2,7 @@
 
 ## Current status and boundary
 
-Date: 2026-10-21. Tier 2 submission/upload/metadata, Admin queue/detail/private image viewing and approval are **USER-REPORTED Android development-build RUNTIME-VERIFIED**. The earlier checkpoint also verified close/reopen, unchanged Pending after viewing, and Philippine Standard Time timestamp display. Tier 3 review compatibility is now **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**. Tier 2 rejection and broader negative cases are not runtime-verified; no new Tier 2 rejection/resubmission work is included. Non-image viewing and other Admin report/enforcement/audit integrations remain DEFERRED or PREVIEW.
+Date: 2026-10-21. Tier 2 submission/upload/metadata, Admin queue/detail/private image viewing and approval are **USER-REPORTED Android development-build RUNTIME-VERIFIED**. The earlier checkpoint also verified close/reopen, unchanged Pending after viewing, and Philippine Standard Time timestamp display. Tier 3 review compatibility is now **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**. Tier 2 rejection and broader negative cases are not runtime-verified; that historical checkpoint did not include Tier 2 resubmission. Stage 2 now integrates user correction/recovery; its Android end-to-end acceptance remains unverified. Non-image viewing and other Admin report/enforcement/audit integrations remain DEFERRED or PREVIEW.
 
 The user explicitly approved the queue migration, which was applied with generated types refreshed. This frontend pass changes no migration or backend function. The existing Tier 2 test submission is now approved by prior user testing; read-only inspection in this pass confirmed that state and made no changes.
 
@@ -134,3 +134,9 @@ AdminScaffold reuses shared ScreenHeader with wrapping titles and 48dp controls;
 Typecheck passed; 223/223 tests passed, zero failures/skips/cancellations. New queue wiring checks complement preserved queue/review/private-document tests. Native pull feedback, offline retry and review recovery still need user Android acceptance. Agent saw the revised dashboard header on emulator, but did not complete authenticated queue or review validation; no review/submission writes occurred.
 
 Manual acceptance: Admin entry -> queue loads automatically -> pull down -> real spinner/data -> filter -> detail -> private image/Close/Back. Test network failure -> visible retry -> recovery; perform Start review/Approve/Reject only on appropriate new test records and confirm authoritative refresh plus duplicate/navigation locks. Preserve previously approved records.
+
+## Tier 2 correction compatibility (2026-10-22)
+
+Stage 2 user correction/resume is IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED, baseline `4680416` plus uncommitted changes. Admin code, private 90-second signed URL lifecycle, queue and review RPC are unchanged. A corrected application is a normal new pending submission with its own ID; an incomplete pending recovery reuses its ID. Earlier rejected rows remain historical and must not reappear as active review items. Incomplete pending visibility is unchanged; no backend finalize/readiness contract was added.
+
+Manual acceptance still requires a new corrected application through queue ? private preview ? Start review ? Approve/Reject and confirmation of unchanged historical rejection plus backend-derived profile timestamp/trust. Preserve earlier approved/rejected fixtures. Earlier user-reported runtime evidence above does not validate this new recovery workflow.

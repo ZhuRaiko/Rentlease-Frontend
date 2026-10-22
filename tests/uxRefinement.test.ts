@@ -88,7 +88,7 @@ test('displayed account statuses capitalize exact generated values without chang
 
 test('verification overview uses actual Tier 2 status and explicitly per-property Tier 3 presentation', () => {
   const overview = read(verification + 'views/VerificationOverviewView.tsx');
-  assert.match(overview, /verificationStatusPresentation\(viewModel.submission.status\)/);
+  assert.match(overview, /tierTwoSubmissionPresentation\(viewModel.submission, viewModel.requiresRefresh\)/);
   assert.match(overview, /Checked per Property/);
   assert.doesNotMatch(overview, /tier3_verified_at|trust_score/);
   const card = read(verification + 'components/VerificationTierCard.tsx');

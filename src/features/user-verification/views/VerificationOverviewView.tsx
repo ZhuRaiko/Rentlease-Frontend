@@ -1,4 +1,3 @@
-import { verificationStatusPresentation } from '../../../shared/models/verificationPresentation';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../../../shared/components/AppButton';
@@ -9,7 +8,7 @@ import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { VerificationScaffold } from '../components/VerificationScaffold';
 import { VerificationTierCard } from '../components/VerificationTierCard';
-import { tierTwoStatusLabels } from '../models/TierTwoVerification';
+import { tierTwoStatusLabels, tierTwoSubmissionPresentation } from '../models/TierTwoVerification';
 import type { TierTwoVerificationViewModel } from '../viewModels/useTierTwoVerificationViewModel';
 
 
@@ -69,18 +68,18 @@ export function VerificationOverviewView({
             title={item.title}
             presentation={item.tier === 1
               ? { label: tierOneVerified ? 'Verified' : 'Required in Onboarding', tone: tierOneVerified ? 'success' : 'info' }
-              : item.tier === 2 ? viewModel.submission ? verificationStatusPresentation(viewModel.submission.status)
+              : item.tier === 2 ? viewModel.submission ? tierTwoSubmissionPresentation(viewModel.submission, viewModel.requiresRefresh)
                 : { label: viewModel.isLoading ? 'Checking Status' : !viewModel.loaded || viewModel.requiresRefresh ? 'Status Unavailable' : 'Not Started', tone: 'info' }
               : { label: tierThreeEligible ? 'Checked per Property' : 'Landlord Access Required', tone: 'info' }}
             onPress={() => item.tier === 3 ? onOpenTierThree() : viewModel.navigate(viewModel.submission ? 'tier2Status' : 'tier2Intro')}
             disabled={item.tier === 3 ? !tierThreeEligible || viewModel.busy : item.tier !== 2 || !viewModel.loaded || viewModel.requiresRefresh || viewModel.busy}
             actionLabel={item.tier === 1 ? tierOneVerified ? 'Tier 1 verified' : 'Managed in onboarding'
               : item.tier === 3 ? tierThreeEligible ? 'Choose property' : 'Requires Tier 1 + Landlord' : viewModel.isLoading ? 'Loading…'
-              : viewModel.submission ? `View ${tierTwoStatusLabels[viewModel.submission.status]}` : 'Verify identity'}
+              : viewModel.submission?.status === 'pending' && !viewModel.submission.hasDocument ? 'View incomplete upload' : viewModel.submission ? `View ${tierTwoStatusLabels[viewModel.submission.status]}` : 'Verify identity'}
           />
       ))}</View>
       <FeedbackNotice tone="error" message={viewModel.error} />
-      {viewModel.submission && !viewModel.submission.hasDocument ? <Text style={styles.notice}>An existing Tier 2 submission has no confirmed document attachment. A new submission is not available.</Text> : null}
+      {viewModel.submission && !viewModel.submission.hasDocument ? <Text style={styles.notice}>This application has no confirmed attachment. Open Tier 2 to check status and resume its upload; a private file may already exist.</Text> : null}
       {viewModel.showRecovery ? <AppButton disabled={viewModel.busy} label={viewModel.isLoading ? 'Checking...' : 'Check status'} onPress={() => void viewModel.refresh()} variant="secondary" /> : null}
     </VerificationScaffold>
   );

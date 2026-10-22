@@ -39,7 +39,7 @@ Profile Verification and the Notifications verification action open `UserVerific
 | --- | --- | --- | --- |
 | Verification levels | `overview` | `VerificationOverviewView` | Tier 1 read-only; Tier 2 available; Tier 3 owned-property entry for eligible landlords |
 | Identity selection/review | `tier2Intro`, `tier2IdType`, `tier2Upload`, `tier2Review` | `TierTwoVerificationView` | Four supported ID types, real file selection and submission |
-| Existing/resulting status | `tier2Status` | `VerificationStatusView` | Exact backend statuses; contextual recovery or reopen to reload; no resubmission |
+| Existing/resulting status | `tier2Status` | `VerificationStatusView` | Exact backend statuses; rejected correction or incomplete pending recovery enters existing ID/file/review steps locally; explicit confirmation calls begin/resume RPC; contextual Check Status reconciles uncertainty |
 | Property verification | Tier 3 `intro`, `property`, `documentType`, `document`, `review`, `status` | `TierThreeVerificationView` | Own properties -> four document types -> local file -> explicit submission confirmation; existing backend workflow; no resubmission |
 
 Feature Back follows the active tier's sequence. Tier 3 intro Back returns to verification levels; Tier 3 status Back returns to owned-property selection. Overview Back/Close returns to Profile. Android Modal Back delegates to guarded feature navigation; picker/submission actions cannot be dismissed through those controls while active. Returning from Tier 3 to overview clears its local draft and invalidates asynchronous results without removing mounted subscriptions. No second navigation framework was added.

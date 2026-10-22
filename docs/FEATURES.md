@@ -5,7 +5,7 @@ Status describes frontend implementation, not live runtime validation. Detailed 
 | Feature | Current status | Living documentation |
 | --- | --- | --- |
 | Authentication & Profiles | IMPLEMENTED baseline and Auth event synchronization; RUNTIME-UNVERIFIED | [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) |
-| User Verification | Tier 2 submission/upload/metadata USER-REPORTED development-build PASS; Tier 3 flow and shared fullscreen zoom IMPLEMENTED/AUTOMATED-TESTED, Android RUNTIME-UNVERIFIED | [User Verification](features/USER_VERIFICATION.md) |
+| User Verification | Tier 2 submission/upload/metadata USER-REPORTED development-build PASS; Tier 2 rejected correction/incomplete-upload recovery, Tier 3 flow and shared fullscreen zoom IMPLEMENTED/AUTOMATED-TESTED, Android RUNTIME-UNVERIFIED | [User Verification](features/USER_VERIFICATION.md) |
 | Property & Listing Management | PREVIEW UI; membership-based workspace navigation IMPLEMENTED, Android RUNTIME-UNVERIFIED; persistence/uploads/maps DEFERRED | [Routes and preview boundary](ROUTES.md#property--listing-management-feature-states) |
 | Search & Discovery | PREVIEW UI; optional account-setup preferences and session-local editing IMPLEMENTED, Android RUNTIME-UNVERIFIED; backend search/recommendations/maps/GPS DEFERRED | [Routes and preview boundary](ROUTES.md#search--discovery-feature-states) |
 | Property Recommendations | Scaffolded | Not yet created |
