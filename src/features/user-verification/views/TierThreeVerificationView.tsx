@@ -1,3 +1,4 @@
+import { DocumentReviewSummary } from '../components/DocumentReviewSummary';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../../../shared/components/AppButton';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
@@ -49,8 +50,15 @@ export function TierThreeVerificationView({ viewModel: vm, onClose, onOverview }
         <AppButton disabled={vm.busy || vm.requiresRefresh || !vm.documentType || !vm.selectedDocument} label="Submit for review" onPress={() => vm.navigate('review')} />
       </> : null}
       {vm.screen === 'review' ? <>
-        <Text style={styles.propertyTitle}>{documentLabel}</Text>
-        <DocumentPreviewPicker document={vm.selectedDocument} busy={vm.busy} />
+        <View style={styles.reviewCard}>
+          <DocumentPreviewPicker
+            document={vm.selectedDocument}
+            busy={vm.busy}
+            documentInformation={vm.selectedDocument ? (
+              <DocumentReviewSummary document={vm.selectedDocument} typeLabel="Document type" typeValue={documentLabel} />
+            ) : undefined}
+          />
+        </View>
         <FeedbackNotice message="Confirm to create a property verification request and upload this private document for Admin review." />
         <AppButton disabled={!vm.canSubmit} label={vm.isSubmitting ? 'Submitting...' : 'Confirm and submit'} onPress={() => void vm.submit()} />
         <AppButton disabled={vm.busy} label="Cancel" onPress={vm.goBack} variant="secondary" />
@@ -73,6 +81,7 @@ export function TierThreeVerificationView({ viewModel: vm, onClose, onOverview }
 }
 
 const styles = StyleSheet.create({
+  reviewCard: { backgroundColor: colors.surface, borderRadius: radius.card, overflow: 'hidden' },
   heading: { color: colors.text, fontFamily: typography.family, fontSize: 20, fontWeight: '700' },
   body: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 15, lineHeight: 22 },
   summary: { backgroundColor: colors.surface, borderRadius: radius.md, gap: spacing.xs, padding: spacing.md },

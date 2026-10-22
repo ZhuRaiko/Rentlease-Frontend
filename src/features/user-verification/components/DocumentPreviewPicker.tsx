@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useEffect, useReducer, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -14,12 +15,14 @@ interface DocumentPreviewPickerProps {
   document: SelectedDocument | null;
   onSelect?: (() => void) | undefined;
   busy?: boolean;
+  documentInformation?: ReactNode;
 }
 
 export function DocumentPreviewPicker({
   document,
   onSelect,
   busy = false,
+  documentInformation,
 }: DocumentPreviewPickerProps) {
   const [failedUri, setFailedUri] = useState<string | null>(null);
   const [expanded, dispatchPreview] = useReducer(localImagePreviewReducer, null);
@@ -46,7 +49,7 @@ export function DocumentPreviewPicker({
       </View>
       {showImage ? <Text style={styles.emptyCopy}>Tap the document to inspect fullscreen and zoom.</Text> : null}
       <FullscreenDocumentImage visible={visible} uri={visible ? expanded?.uri ?? null : null} title="Document preview" description={document?.fileName ?? 'Selected document'} onClose={closePreview} />
-      {document ? <>
+      {document ? documentInformation ?? <>
         <Text style={styles.fileName}>{document.fileName}</Text>
         <Text style={styles.emptyCopy}>{document.mimeType ?? 'File type unavailable'}{document.size !== null ? ` · ${document.size} bytes` : ''}</Text>
       </> : null}

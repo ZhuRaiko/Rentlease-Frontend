@@ -1,3 +1,4 @@
+import { DocumentReviewSummary } from '../components/DocumentReviewSummary';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
@@ -66,9 +67,13 @@ export function TierTwoVerificationView({
         title="Review and Submit"
       >
         <View style={styles.reviewCard}>
-          <DocumentPreviewPicker document={viewModel.selectedDocument} busy={viewModel.busy} />
-          <Text style={styles.reviewLabel}>ID type</Text>
-          <Text style={styles.reviewValue}>{viewModel.selectedIdLabel}</Text>
+          <DocumentPreviewPicker
+            document={viewModel.selectedDocument}
+            busy={viewModel.busy}
+            documentInformation={viewModel.selectedDocument ? (
+              <DocumentReviewSummary document={viewModel.selectedDocument} typeLabel="ID type" typeValue={viewModel.selectedIdLabel} />
+            ) : undefined}
+          />
         </View>
         <Text style={styles.previewNotice}>{viewModel.isSubmitting ? 'Sending your verification document…' : 'This file stays on your device until you submit.'}</Text>
         <FeedbackNotice tone="error" message={viewModel.error} />
@@ -115,10 +120,8 @@ const styles = StyleSheet.create({
   infoBody: { color: colors.trustedText, fontFamily: typography.family, fontSize: 14, lineHeight: 20, textAlign: 'center' },
   guideImage: { alignSelf: 'center', height: 260, width: 210 },
   rows: { borderTopColor: colors.border, borderTopWidth: 1 },
-  reviewCard: { backgroundColor: colors.surface, borderRadius: radius.card, gap: spacing.xs, overflow: 'hidden', paddingBottom: spacing.md },
+  reviewCard: { backgroundColor: colors.surface, borderRadius: radius.card, overflow: 'hidden' },
   reviewImage: { height: 260, width: '100%' },
-  reviewLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 12, paddingHorizontal: spacing.md },
-  reviewValue: { color: colors.text, fontFamily: typography.family, fontSize: 15, fontWeight: '700', paddingHorizontal: spacing.md },
   previewNotice: { backgroundColor: colors.warningSurface, borderRadius: radius.sm, color: colors.warning, fontFamily: typography.family, fontSize: 13, lineHeight: 18, padding: spacing.sm },
   rejectionBanner: { backgroundColor: colors.restrictedSurface, borderRadius: radius.sm, color: colors.restricted, fontFamily: typography.family, fontSize: 14, fontWeight: '700', padding: spacing.sm },
 });
