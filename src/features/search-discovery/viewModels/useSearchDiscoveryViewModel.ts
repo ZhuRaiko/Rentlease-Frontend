@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigationConfirmation';
+import { useMemo, useRef, useState } from 'react';
 
 import {
   defaultDiscoveryFilters,
+  matchingPreferenceFilters,
   locationSuggestions,
   previewDiscoveryProperties,
   recommendedMatchingPreferences,
@@ -52,15 +54,19 @@ function sortProperties(properties: DiscoveryProperty[], sort: SortOption) {
 
 export function useSearchDiscoveryViewModel(
   initialScreen: 'home' | 'matchingPreferences' = 'home',
+  options: { initialPreferences?: MatchingPreferences | undefined; introduction?: boolean; onSavePreferences?: ((value: MatchingPreferences) => void) | undefined; onIntroductionComplete?: (() => void) | undefined } = {},
 ) {
   const [screen, setScreen] = useState<DiscoveryScreen>(initialScreen);
   const [history, setHistory] = useState<DiscoveryScreen[]>([]);
   const [query, setQuery] = useState('');
-  const [filters, setFilters] = useState<DiscoveryFilters>(defaultDiscoveryFilters);
-  const [filterDraft, setFilterDraft] = useState<DiscoveryFilters>(defaultDiscoveryFilters);
+  const [filters, setFilters] = useState<DiscoveryFilters>(() => options.initialPreferences ? matchingPreferenceFilters(options.initialPreferences) : defaultDiscoveryFilters);
+  const [filterDraft, setFilterDraft] = useState<DiscoveryFilters>(() => options.initialPreferences ? matchingPreferenceFilters(options.initialPreferences) : defaultDiscoveryFilters);
   const [matchingPreferences, setMatchingPreferences] = useState<MatchingPreferences>(
-    recommendedMatchingPreferences,
+    options.initialPreferences ?? recommendedMatchingPreferences,
   );
+  const savedPreferences = useRef(matchingPreferences);
+  const [introductionPending, setIntroductionPending] = useState(options.introduction ?? false);
+  const navigation = useNavigationConfirmation(screen === 'matchingPreferences' && JSON.stringify(matchingPreferences) !== JSON.stringify(savedPreferences.current));
   const [sortOption, setSortOption] = useState<SortOption>('Recommended');
   const [selectedPropertyId, setSelectedPropertyId] = useState(
     previewDiscoveryProperties[0]?.id ?? '',
@@ -78,6 +84,7 @@ export function useSearchDiscoveryViewModel(
   };
 
   const goBack = () => {
+    if (screen === 'matchingPreferences') setMatchingPreferences(savedPreferences.current);
     setHistory((current) => {
       const previous = current.at(-1) ?? 'home';
       setScreen(previous);
@@ -198,22 +205,15 @@ export function useSearchDiscoveryViewModel(
   };
 
   const saveMatchingPreferences = () => {
-    const preferenceFilters: DiscoveryFilters = {
-      city: matchingPreferences.city,
-      minimumRent: matchingPreferences.minimumRent,
-      maximumRent: matchingPreferences.maximumRent,
-      propertyKinds: matchingPreferences.propertyKinds,
-      minimumBedrooms: matchingPreferences.minimumBedrooms,
-      minimumBathrooms: matchingPreferences.minimumBathrooms,
-      minimumLandArea: matchingPreferences.minimumLandArea,
-      furnishedOnly: matchingPreferences.furnishedOnly,
-      amenities: matchingPreferences.amenities,
-    };
+    const preferenceFilters = matchingPreferenceFilters(matchingPreferences);
     setFilters(preferenceFilters);
     setQuery('');
     setScreen('home');
     setHistory([]);
-    setNotice('Recommended properties now reflect your matching preferences.');
+    savedPreferences.current = matchingPreferences;
+    options.onSavePreferences?.(matchingPreferences);
+    setNotice('Preferences saved for this session. Only sample listings were filtered; no live recommendations were activated.');
+    if (introductionPending) { setIntroductionPending(false); options.onIntroductionComplete?.(); }
   };
 
   const chooseSort = (nextSort: SortOption) => {
@@ -281,6 +281,8 @@ export function useSearchDiscoveryViewModel(
   };
 
   const openHome = () => {
+    if (screen === 'matchingPreferences') setMatchingPreferences(savedPreferences.current);
+    if (introductionPending) { setIntroductionPending(false); options.onIntroductionComplete?.(); }
     setScreen('home');
     setHistory([]);
   };
@@ -295,7 +297,18 @@ export function useSearchDiscoveryViewModel(
     setHistory([]);
   };
 
+  const closeFromWorkspace = (onClose: () => void) => navigation.requestNavigation(introductionPending ? openHome : onClose);
+
   return {
+    ...navigation,
+    introductionPending,
+    closeFromWorkspace,
+    skipMatchingIntroduction: openHome,
+    backFromWorkspace: (onClose: () => void) => {
+      if (introductionPending) navigation.requestNavigation(openHome);
+      else if (screen === 'home') navigation.requestNavigation(onClose);
+      else navigation.requestNavigation(goBack);
+    },
     screen,
     query,
     filters,

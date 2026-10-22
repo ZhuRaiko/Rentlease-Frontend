@@ -64,7 +64,7 @@ export function PropertyDashboardView({ viewModel }: PropertyDashboardViewProps)
         <View style={styles.header}>
           <View>
             <Text accessibilityRole="header" style={styles.title}>My Listings</Text>
-            <Text style={styles.subtitle}>Samuel Feliciano · Tier 3</Text>
+            <Text style={styles.subtitle}>Listing management preview</Text>
           </View>
           <Pressable
             accessibilityLabel="Listing notifications"

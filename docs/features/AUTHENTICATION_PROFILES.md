@@ -11,7 +11,7 @@ Tier 1 email/phone onboarding belongs here. Tier 2/3 documents and Admin review 
 - IMPLEMENTED: the singleton `SupabaseClient<Database>` persists the session in AsyncStorage and manages token auto-refresh through the existing AppState listener.
 - IMPLEMENTED: `App` mounts one `useAuthProfilesViewModel`; its `account` snapshot owns the current Auth user, profile, full recognized role collection, account status, tier timestamps and trust score.
 - The feature-local `accountSynchronization.ts` coordinates requests, generations and timers only. It does not store a second account/session snapshot.
-- `App` owns workspace selection and the Tenant/Landlord UI preference. The workspace Modal is keyed by account ID so feature-local state is remounted across identity changes.
+- `App` owns workspace selection, the Tenant/Landlord UI preference and saved Matching Preferences in account-scoped process memory. The workspace Modal is keyed by account ID so feature-local state is remounted across identity changes. These local preferences do not persist across restart or change backend membership.
 
 ## Auth event synchronization and lifecycle
 
@@ -45,7 +45,7 @@ Routing uses `models/accountRouting.ts`:
 3. Ordinary unconfirmed email → email confirmation.
 4. Missing Tier 1 timestamp → phone onboarding, or pending synchronization if Auth already confirms a nonempty phone.
 5. Missing Tenant/Landlord role → role selection.
-6. Otherwise → ordinary Profile/Discovery workspace.
+6. Otherwise → ordinary Profile and marketplace eligibility; App selects Discovery or property management according to the permitted mode.
 
 The root opens a workspace when account identity or permitted workspace changes, not on every token refresh. RLS and backend Admin checks remain authoritative.
 
@@ -59,6 +59,18 @@ The root opens a workspace when account identity or permitted workspace changes,
 - Generated `update_my_profile` and `refresh_my_tier1_verification` RPCs are available but unused. Their presence alone does not establish that the current direct-write/refresh paths must change.
 
 ## Current implementation
+
+### Marketplace navigation Phase 2 (2026-10-22)
+
+**IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED.** The existing dual-role Profile switcher now opens Discovery for Tenant mode and property management for Landlord mode. Landlord-only accounts default to property management but can browse Discovery. Dual-role accounts default to Tenant mode on entry. Listings/My Properties use one dashboard entry; Post uses the existing creation preview. All use actual backend-loaded Landlord membership, not the selected mode or Tier 3. Mode switching and navigation invoke no `set_user_roles` operation.
+
+`viewModels/marketplaceIntroduction.ts` stores only the ID returned by a successful signup in this running process. `register` marks that result; `routeAccount` consumes it once only when the unchanged authoritative account routing confirms an active ordinary account, confirmed email, Tier 1 and a Tenant/Landlord role. An account-scoped introduction event then lets App open the existing Matching Preferences screen with an optional explanation. Admin bypass/restriction precedence is unchanged. Existing sign-in, restoration, uncertain signup results and role-button presses alone never create this marker. Sign-out/account changes clear it.
+
+Skip for now saves nothing. Save keeps existing local filter/preference values in App memory for that account; both continue to the mode's ordinary workspace. Profile can reopen the editor. Unsaved edits have a ViewModel-owned navigation confirmation; cancelling keeps edits, discarding restores the saved snapshot. No preference table/API, ranking engine, polling or new storage was introduced. Signup/confirmation/OTP/role service calls, Auth callback synchronization and bootstrap remain unchanged. See [Routes](../ROUTES.md#marketplace-navigation-refinement-phase-2) for Back/Close and preview boundaries.
+
+Limitation: signup provenance and local choices are not persisted. Restarting during onboarding can lose the introductory offer; it is deliberately not inferred from account age, incomplete roles or returning sign-in. Preferences remain available from Profile after eligibility. Existing cold-launch investigation conclusions below remain historical and unresolved.
+
+Manual Android acceptance: finish a newly-created account's real email/Tier 1/roles before expecting the optional screen; Skip once and relaunch/sign in without another offer. Save/reopen through Profile; sign out/switch identity and confirm local preferences do not leak. Test dual-role mode switches, tenant-only denied Listings/Post, landlord-only Discovery, My Properties versus Listings, Post, Chat, draft Stay/Leave and hardware Back. Recheck Admin precedence and Verification entry without changing existing approved records.
 
 ### UI refinement Phase 1 (2026-10-22)
 
@@ -145,11 +157,13 @@ Registration refinement Android checklist (RUNTIME-UNVERIFIED):
 - `src/features/authentication/models/AuthProfile.ts`, `models/accountRouting.ts`
 - `src/features/authentication/viewModels/useAuthProfilesViewModel.ts`, `viewModels/accountSynchronization.ts`
 - `src/features/authentication/viewModels/registrationFlow.ts`
+- `src/features/authentication/viewModels/marketplaceIntroduction.ts`, `src/shared/models/marketplaceNavigation.ts`
 - `src/features/authentication/services/accountService.ts`
 - `src/features/authentication/views/` (existing layouts retained)
 - `src/shared/services/supabase/client.ts`, `database.types.ts`
 - `tests/accountRouting.test.ts`, `tests/accountSynchronization.test.ts`, `scripts/run-tests.cjs`
 - `tests/registrationFlow.test.ts`
+- `tests/marketplaceNavigation.test.ts`, `tests/marketplaceWiring.test.ts`
 
 Structural contract: generated `profiles`, `user_roles`, `app_role`, `account_status`, `set_user_roles`. Auth email/phone confirmation and backend trigger/RLS behavior require the confirmed business contract, not inference from generated Insert/Update fields.
 
@@ -161,7 +175,7 @@ Structural contract: generated `profiles`, `user_roles`, `app_role`, `account_st
 - `cf59ffb`: user-created commit containing Phase 1 Auth stabilization and document foundation.
 - This targeted cold-launch fix is uncommitted; no commit was created automatically.
 
-## Last Verified
+## Last Verified (registration / Phase 1 history)
 
 Date: 2026-10-22.
 
@@ -178,3 +192,11 @@ Android production JS/Hermes export passed (912 modules) to a temporary director
 Last Verified Date: 2026-10-22. Last Verified Commit baseline: `c2a1b9f` plus uncommitted UI refinements; these changes are not in that commit. Verification Status: **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**. `npm run typecheck` passed; `npm test` passed **188/188**, zero failures/skips/cancellations. Eight additional tests cover status/role/applicability mappings, contextual recovery, Tier 3 selection/confirmation cancellation with no writes, and Login/confirmation/recovery source wiring. Existing Auth routing, registration, synchronization, Tier 2/Tier 3 upload, Admin review and private-preview regressions remain. Native rendering/gesture/keyboard/live acceptance is not implied.
 
 Android JS/Hermes export passed to a temporary folder (bundling only, not an APK/runtime test). `npx expo install --check` reports existing installed `expo@57.0.30` versus expected `~57.0.31`, and `expo-location@57.0.21` versus expected `~57.0.22`; no dependencies were added/upgraded. Backend services, schema, RLS, RPCs, Storage operations, Auth synchronization and root `App.tsx` remain unchanged. Source review found no View-level backend access or new MVVM violation. Shared presentation primitives affect button wrapping/disabled feedback across their existing consumers; untested marketplace operations remain unchanged.
+
+## Phase 2 validation record
+
+Last Verified Date: 2026-10-22. Last Verified Commit baseline: `bfe567d` plus uncommitted Phase 2 changes; the commit does not contain this phase. Verification Status: **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**.
+
+`npm run typecheck` passed. `npm test`: 202 passed, 0 failed/skipped/cancelled, including 14 new navigation/provenance/guard/filter-projection/source-wiring tests. Existing Auth routing/synchronization, registration, Tier 2/Tier 3, Admin review, private preview and PHT formatting regressions remain. Tests are Node model/controller/source-wiring checks, not native rendered interaction or live security acceptance.
+
+Android JS/Hermes export passed to a temporary directory (922 modules; not an APK or runtime test). `npx expo install --check` still reports installed `expo@57.0.30` versus expected `~57.0.31` and `expo-location@57.0.21` versus expected `~57.0.22`. No dependency was added/upgraded. Working-tree/staged whitespace checks passed. Final source review found no new View-level data access, cross-feature ViewModel dependency, role mutation or duplicate Auth/client owner. No live account/submission writes or new Android acceptance tests were performed. No commit/merge/push was made.

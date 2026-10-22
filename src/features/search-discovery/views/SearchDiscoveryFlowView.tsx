@@ -1,3 +1,6 @@
+import { useEffect } from 'react';
+import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
+import type { MatchingPreferences } from '../models/SearchDiscovery';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { ScreenContainer } from '../../../shared/components/ScreenContainer';
@@ -13,6 +16,11 @@ import { TenantDiscoveryView } from './TenantDiscoveryView';
 interface SearchDiscoveryFlowViewProps {
   isLandlord: boolean;
   initialScreen?: 'home' | 'matchingPreferences';
+  introduction?: boolean;
+  initialPreferences?: MatchingPreferences | undefined;
+  onSavePreferences?: ((value: MatchingPreferences) => void) | undefined;
+  onIntroductionComplete?: (() => void) | undefined;
+  registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onClose: () => void;
   onCreateListing?: (() => void) | undefined;
   onOpenListings?: (() => void) | undefined;
@@ -34,6 +42,7 @@ const supplementaryScreens = new Set([
 export function SearchDiscoveryFlowView({
   isLandlord,
   initialScreen = 'home',
+  introduction = false, initialPreferences, onSavePreferences, onIntroductionComplete, registerBackAction,
   onClose,
   onCreateListing,
   onOpenListings,
@@ -42,17 +51,22 @@ export function SearchDiscoveryFlowView({
   onOpenMaintenance,
   onStartInquiry,
 }: SearchDiscoveryFlowViewProps) {
-  const viewModel = useSearchDiscoveryViewModel(initialScreen);
+  const viewModel = useSearchDiscoveryViewModel(initialScreen, { introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
+  const close = () => viewModel.closeFromWorkspace(onClose);
+  useEffect(() => {
+    registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
+    return () => registerBackAction?.(null);
+  });
   let content;
 
   if (searchScreens.has(viewModel.screen)) {
     content = <SearchLocationView viewModel={viewModel} />;
   } else if (filterScreens.has(viewModel.screen)) {
-    content = <DiscoveryFilterView onClose={onClose} viewModel={viewModel} />;
+    content = <DiscoveryFilterView onClose={close} viewModel={viewModel} />;
   } else if (viewModel.screen === 'propertyDetails') {
     content = (
       <PropertyDiscoveryDetailView
-        onClose={onClose}
+        onClose={close}
         onOpenPriceEstimate={onOpenPriceEstimate}
         onStartInquiry={onStartInquiry}
         viewModel={viewModel}
@@ -61,34 +75,33 @@ export function SearchDiscoveryFlowView({
   } else if (supplementaryScreens.has(viewModel.screen)) {
     content = <PropertySupplementaryView viewModel={viewModel} />;
   } else {
-    content = <TenantDiscoveryView onClose={onClose} viewModel={viewModel} />;
+    content = <TenantDiscoveryView onClose={close} viewModel={viewModel} />;
   }
 
   return (
     <ScreenContainer includeBottomInset={false} padded={false}>
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
+      <NavigationConfirmation visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
       <RentLeaseBottomNavigation
-        active="discover"
-        onChat={onOpenChat}
-        onDiscover={viewModel.openHome}
+        active={viewModel.screen === 'matchingPreferences' ? null : 'discover'}
+        onChat={() => viewModel.requestNavigation(onOpenChat)}
+        onDiscover={() => viewModel.requestNavigation(viewModel.openHome)}
         onListing={() => {
           if (isLandlord && onOpenListings) {
-            onOpenListings();
+            viewModel.requestNavigation(onOpenListings);
             return;
           }
-          viewModel.setNotice('Listing management unlocks after Tier 3 landlord verification.');
-          viewModel.openHome();
+          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
         }}
         onPost={() => {
           if (isLandlord && onCreateListing) {
-            onCreateListing();
+            viewModel.requestNavigation(onCreateListing);
             return;
           }
-          viewModel.setNotice('Property posting unlocks after Tier 3 landlord verification.');
-          viewModel.openHome();
+          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
         }}
-        onTenancy={onOpenMaintenance}
+        onTenancy={() => viewModel.requestNavigation(onOpenMaintenance)}
       />
     </ScreenContainer>
   );

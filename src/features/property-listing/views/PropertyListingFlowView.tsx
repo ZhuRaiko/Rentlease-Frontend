@@ -1,3 +1,6 @@
+import { useEffect } from 'react';
+import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
+import { AppButton } from '../../../shared/components/AppButton';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
@@ -12,6 +15,7 @@ import { PropertyDashboardView } from './PropertyDashboardView';
 
 interface PropertyListingFlowViewProps {
   initialScreen?: 'dashboard' | 'postingType';
+  registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onClose: () => void;
   onOpenDiscover: () => void;
   onOpenPriceEstimate: () => void;
@@ -47,6 +51,7 @@ const managementScreens = new Set([
 
 export function PropertyListingFlowView({
   initialScreen = 'dashboard',
+  registerBackAction,
   onClose,
   onOpenDiscover,
   onOpenPriceEstimate,
@@ -54,51 +59,54 @@ export function PropertyListingFlowView({
   onOpenMaintenance,
 }: PropertyListingFlowViewProps) {
   const viewModel = usePropertyListingViewModel(initialScreen);
+  const close = () => viewModel.requestNavigation(onClose);
+  useEffect(() => {
+    registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
+    return () => registerBackAction?.(null);
+  });
   let content;
 
   if (viewModel.screen === 'dashboard' || viewModel.screen === 'empty') {
     content = <PropertyDashboardView viewModel={viewModel} />;
   } else if (createScreens.has(viewModel.screen)) {
-    content = <CreateListingView onClose={onClose} viewModel={viewModel} />;
+    content = <CreateListingView onClose={close} viewModel={viewModel} />;
   } else if (previewScreens.has(viewModel.screen)) {
-    content = <ListingPreviewView onClose={onClose} viewModel={viewModel} />;
+    content = <ListingPreviewView onClose={close} viewModel={viewModel} />;
   } else if (managementScreens.has(viewModel.screen)) {
     content = (
       <ListingManagementView
-        onClose={onClose}
-        onOpenPriceEstimate={onOpenPriceEstimate}
+        onClose={close}
+        onOpenPriceEstimate={() => viewModel.requestNavigation(onOpenPriceEstimate)}
         viewModel={viewModel}
       />
     );
   } else {
     content = (
       <ListingDetailView
-        onClose={onClose}
-        onOpenPriceEstimate={onOpenPriceEstimate}
+        onClose={close}
+        onOpenPriceEstimate={() => viewModel.requestNavigation(onOpenPriceEstimate)}
         viewModel={viewModel}
       />
     );
   }
 
-  const activeTab =
-    createScreens.has(viewModel.screen) || previewScreens.has(viewModel.screen)
-      ? 'post'
-      : 'listing';
 
   return (
     <ScreenContainer includeBottomInset={false} padded={false}>
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
+      {viewModel.screen === 'dashboard' || viewModel.screen === 'empty' ? <View style={styles.profileAction}><AppButton label="Back to Profile" variant="secondary" onPress={close} /></View> : null}
       <View style={styles.content}>{content}</View>
+      <NavigationConfirmation visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
       <RentLeaseBottomNavigation
-        active={activeTab}
-        onChat={onOpenChat}
-        onDiscover={onOpenDiscover}
+        active={viewModel.activeTab}
+        onChat={() => viewModel.requestNavigation(onOpenChat)}
+        onDiscover={() => viewModel.requestNavigation(onOpenDiscover)}
         onListing={viewModel.goDashboard}
         onPost={viewModel.startCreate}
-        onTenancy={onOpenMaintenance}
+        onTenancy={() => viewModel.requestNavigation(onOpenMaintenance)}
       />
     </ScreenContainer>
   );
 }
 
-const styles = StyleSheet.create({ content: { flex: 1 } });
+const styles = StyleSheet.create({ profileAction: { paddingHorizontal: 16, paddingVertical: 8 }, content: { flex: 1 } });

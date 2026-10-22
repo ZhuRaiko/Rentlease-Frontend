@@ -1,6 +1,7 @@
 import type { FeedbackTone } from '../../../shared/models/verificationPresentation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { accountVerificationSummary, roleLabel } from '../models/accountPresentation';
+import { createMarketplaceIntroduction } from './marketplaceIntroduction';
 
 import { isSupabaseConfigured } from '../../../config/env';
 import { traceAuthBoot } from '../../../shared/utils/authBootTrace';
@@ -60,6 +61,9 @@ export function useAuthProfilesViewModel() {
   const [history, setHistory] = useState<AuthProfileScreen[]>([]);
   const [draft, setDraft] = useState<RegistrationDraft>(initialRegistrationDraft);
   const [registrationSubmission] = useState(() => createRegistrationSubmission(signUp));
+  const [marketplaceIntroduction] = useState(createMarketplaceIntroduction);
+  const [matchingIntroductionVersion, setMatchingIntroductionVersion] = useState(0);
+  const [matchingIntroductionUserId, setMatchingIntroductionUserId] = useState<string | null>(null);
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [profileName, setProfileName] = useState('');
   const [profileBio, setProfileBio] = useState('');
@@ -100,6 +104,8 @@ export function useAuthProfilesViewModel() {
     setAccount(null);
     setDraft(initialRegistrationDraft);
     registrationSubmission.reset();
+    marketplaceIntroduction.clear();
+    setMatchingIntroductionUserId(null);
     setSignInIdentifier('');
     setSignInPassword('');
     setProfileName('');
@@ -139,6 +145,7 @@ export function useAuthProfilesViewModel() {
     if (enteringWorkspace) {
       setEntryVersion((current) => current + 1);
     }
+    if (marketplaceIntroduction.consume(snapshot)) { setMatchingIntroductionUserId(snapshot.user.id); setMatchingIntroductionVersion(current => current + 1); }
   };
 
   const refreshAccount = async (preservePhoneCode = false) => {
@@ -294,6 +301,7 @@ export function useAuthProfilesViewModel() {
         setAsyncState('error'); setNotice('Account creation could not be confirmed. Check your inbox or sign in before trying to create another account.', 'warning'); return;
       }
       const result = outcome.result;
+        marketplaceIntroduction.markCreated(result.user!.id);
       setDraft((current) => ({ ...current, email, confirmPassword: '' }));
       setHistory([]);
       setScreen('emailConfirmation');
@@ -507,6 +515,8 @@ export function useAuthProfilesViewModel() {
     showSignOutConfirmation,
     resendSeconds,
     entryVersion,
+    matchingIntroductionVersion,
+    matchingIntroductionUserId,
     signedOutVersion,
     bootstrap,
     navigate,

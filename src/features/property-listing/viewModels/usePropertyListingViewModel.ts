@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigationConfirmation';
+import { isListingEditor, leavesListingEditor, listingActiveTab } from '../models/listingNavigation';
 
 import {
   emptyListingDraft,
@@ -20,7 +22,9 @@ type CounterField = 'bedrooms' | 'bathrooms' | 'parkingSpaces';
 export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dashboard') {
   const [screen, setScreen] = useState<ListingScreen>(initialScreen);
   const [history, setHistory] = useState<ListingScreen[]>([]);
-  const [draft, setDraft] = useState<ListingDraft>(figmaPreviewDraft);
+  const [draft, setDraft] = useState<ListingDraft>(initialScreen === 'postingType' ? emptyListingDraft : figmaPreviewDraft);
+  const savedDraft = useRef(draft);
+  const navigation = useNavigationConfirmation(isListingEditor(screen) && JSON.stringify(draft) !== JSON.stringify(savedDraft.current));
   const [listing, setListing] = useState<PropertyListingSummary>(initialPreviewListing);
   const [notice, setNotice] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -49,12 +53,16 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const goBack = () => {
-    setHistory((current) => {
-      const previous = current.at(-1) ?? 'dashboard';
-      setScreen(previous);
-      return current.slice(0, -1);
-    });
-    setNotice(null);
+    const applyBack = () => {
+      setHistory((current) => {
+        const previous = current.at(-1) ?? 'dashboard';
+        setScreen(previous);
+        return current.slice(0, -1);
+      });
+      setNotice(null);
+    };
+    if (leavesListingEditor(screen, history.at(-1) ?? 'dashboard')) navigation.requestNavigation(applyBack);
+    else applyBack();
   };
 
   const goDashboard = () => {
@@ -72,6 +80,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const startCreate = () => {
+    savedDraft.current = emptyListingDraft;
     setDraft(emptyListingDraft);
     setIsEditing(false);
     navigate('postingType');
@@ -140,6 +149,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const saveDraft = () => {
+    savedDraft.current = draft;
     syncListingSummary('draft');
     setHistory([]);
     setScreen('dashboard');
@@ -159,6 +169,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const confirmPublish = () => {
+    savedDraft.current = draft;
     syncListingSummary('published');
     setHistory([]);
     setScreen('published');
@@ -186,6 +197,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const finishEdit = () => {
+    savedDraft.current = draft;
     syncListingSummary(listing.status);
     setHistory([]);
     setScreen('management');
@@ -201,6 +213,13 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   return {
+    ...navigation,
+    activeTab: listingActiveTab(screen),
+    backFromWorkspace: (onClose: () => void) => {
+      if (history.length > 0) goBack();
+      else if (screen !== 'dashboard' && screen !== 'empty') navigation.requestNavigation(goDashboard);
+      else navigation.requestNavigation(onClose);
+    },
     screen,
     draft,
     listing,
@@ -211,9 +230,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     missingRequirements,
     navigate,
     goBack,
-    goDashboard,
+    goDashboard: () => navigation.requestNavigation(goDashboard),
     updateDraft,
-    startCreate,
+    startCreate: () => navigation.requestNavigation(startCreate),
     setListingQuery,
     choosePropertyType,
     toggleFurnished,

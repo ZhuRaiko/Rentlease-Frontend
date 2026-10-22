@@ -17,7 +17,19 @@ No navigation dependency is installed, so `App` is the Expo application root rat
 | Account / Profile Settings | Feature state: `settings` | `SettingsView` | Authentication & Profiles | Yes |
 | Account Restricted / Suspended | Feature state: `restricted` | `RestrictedAccountView` | Authentication & Profiles | Yes, blocked from workspace |
 
-After authoritative checks, ordinary sign-in or completed onboarding opens `SearchDiscoveryFlowView` at Home / For You. Any active account whose role set contains `admin` opens Admin Moderation first, including accounts that also have Tenant or Landlord roles. The authenticated Profile state remains underneath the root-owned workspace. Matching Preferences are optional for ordinary accounts. Sign-out confirmation is rendered as a modal owned by `AuthProfilesFlowView`, and sign-out clears the workspace. See `docs/AUTH_SUPABASE_INTEGRATION.md` for the backend routing contract and unvalidated assumptions.
+After authoritative checks, Tenant-capable accounts (including dual-role accounts) initially open Discovery in Tenant mode; Landlord-only accounts open the existing property dashboard in Landlord mode. An active eligible Admin opens Admin Moderation first, including accounts with other roles. The authenticated Profile state remains underneath the root-owned workspace. A successful signup observed in this running app may first offer optional Matching Preferences, only after email confirmation, Tier 1 and backend-loaded role membership. Returning sign-in/session restoration does not infer a new signup. Sign-out clears the workspace and local preferences. See [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) for the process-local introduction signal and limitations.
+
+### Marketplace navigation refinement Phase 2
+
+Status: **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED** (2026-10-22; baseline `bfe567d` plus uncommitted changes; 202 automated tests and typecheck passed). `App.tsx` retains workspace state and the fullscreen Modal. `shared/models/marketplaceNavigation.ts` contains pure entry/mode mappings, not another router or an authorization layer. `getWorkspaceDestination() === 'discovery'` remains the existing ordinary-marketplace eligibility signal; App chooses its actual workspace from the permitted mode. No Auth routing precedence changed.
+
+The original Listings inconsistency was a source-level mismatch: toolbar consumers received `accountRole === 'landlord'` (selected mode), while Profile My Properties used actual Landlord membership. Thus a dual-role account in default Tenant mode could open My Properties but not Listings. Toolbar fallback text also incorrectly required Tier 3. Consumers now receive `auth.hasLandlordRole`; both entry points use the same root `openProperties('dashboard')`. Post uses `postingType` and the existing creation preview. Listings/Post also select Landlord mode. Tenant-only accounts receive an explanation rather than a landlord transition; Tier 3 grants no role.
+
+Profile's existing dual-role switcher now opens Discovery for Tenant mode and property management for Landlord mode, updating the selected mode without a role RPC. Landlord-only users retain Discover browsing. There is no persistent mode storage. Backend role loss prevents property entry and returns an already-open property workspace to Discovery. Pending forms are protected through the existing feature ViewModels before workspace exit.
+
+Android Modal Back delegates to the registered Verification, Discovery or Listing feature action. Discovery follows its existing feature history, then closes to Profile. Listing follows wizard/detail history, then dashboard, then Profile; the dashboard also has Back to Profile. Unsaved listing edits or Matching Preferences require Stay/Leave confirmation before guarded exits. Back on that dialog cancels navigation. This is one pending intent, not another navigation history. Other preview workspaces retain their existing Close/Back behavior.
+
+The common toolbar has 48dp targets, readable labels and existing safe-area handling. Only the actual selected tab is highlighted; Post is not always marked active. Matching Preferences, Notifications, Ratings/Reports and the separate estimator tool have no falsely selected main tab. Existing Tenancy navigation still opens Maintenance preview.
 
 ## User Verification feature states
 
@@ -38,7 +50,7 @@ Legacy Tier 1/3 prototype route names remain disconnected; the production Tier 3
 
 ## Property & Listing Management feature states
 
-The Profile My Properties action and the Listing tab open `PropertyListingFlowView` in the root-owned full-screen workspace only when the backend-loaded roles include Landlord. Tenant-only accounts see the same universal five-item toolbar, but Listing and Post do not open landlord-only screens. The landlord Post action enters the Figma posting-type selection, while Discover remains available. The shared toolbar remains visible throughout authenticated Discovery and Property/Listing workspace states, including nested creation and preview screens; it is not rendered on Authentication/Profile screens.
+The Profile My Properties action and Listings tab open the same `PropertyListingFlowView` dashboard only for marketplace-eligible Landlord members, independent of selected mode. Post opens the existing posting-type creation preview with an empty local draft. Property dashboard Close returns to Profile. Creation/review selects Post; dashboard/detail/management selects Listings. Leaving an edited draft, including editListing Back to Management, requires explicit discard confirmation; ordinary wizard Back preserves the draft. Local Save/Publish remains preview-only. The shared toolbar remains visible throughout supported marketplace workspaces and is not rendered on Authentication/Profile screens.
 
 | Flow | Feature states | Component | Actor |
 |---|---|---|---|
@@ -55,7 +67,7 @@ These states are frontend-local. Supabase listing persistence, Storage photo upl
 
 ## Search & Discovery feature states
 
-The Profile Discover Properties action opens `SearchDiscoveryFlowView` in a root-owned full-screen modal. Authoritative sign-in/onboarding opens Home / For You. The Profile Matching Preferences action opens the existing presentation-only preference editor; it is not a mandatory registration destination.
+Profile Discover Properties opens `SearchDiscoveryFlowView` at Home. Profile Matching Preferences opens the existing local preference editor. A newly completed, process-observed signup can open this editor with an optional introduction and Skip for now; it does not interrupt email/phone/role onboarding. Save or Skip continues to Discovery for Tenant mode or the property dashboard for Landlord mode. Saved choices remain editable through Profile and are scoped to the account in App memory until sign-out/restart; no preference persistence or recommendation service is connected. Skip/discard does not save edited values. If signup provenance is lost on restart, no introductory prompt is guessed; Profile editing remains available.
 
 | Flow | Feature states | Component | Actor |
 |---|---|---|---|
@@ -63,7 +75,7 @@ The Profile Discover Properties action opens `SearchDiscoveryFlowView` in a root
 | City and location search | `searchLocation` | `SearchLocationView` | Tenant / Landlord-as-tenant |
 | Search results | `resultsList`, `resultsMap` | `TenantDiscoveryView` | Tenant / Landlord-as-tenant |
 | Filters and sorting | `filters`, `sort` | `DiscoveryFilterView` | Tenant / Landlord-as-tenant |
-| Initial and editable matching preferences | `matchingPreferences` | `DiscoveryFilterView` | Tenant / Landlord-as-tenant; recommended after account setup and editable from Profile |
+| Optional introduction and editable matching preferences | `matchingPreferences` | `DiscoveryFilterView` | Eligible newly-created accounts get a process-local optional introduction; all permitted ordinary accounts can edit from Profile; local preview only |
 | Current-location permission presentation | `locationPermission` | `SearchLocationView` | Tenant / Landlord-as-tenant |
 | Property detail | `propertyDetails` | `PropertyDiscoveryDetailView` | Tenant / Landlord-as-tenant |
 | Gallery, amenities, nearby places and location | `photoGallery`, `propertyAmenities`, `nearbyPlaces`, `propertyLocation` | `PropertySupplementaryView` | Tenant / Landlord-as-tenant |

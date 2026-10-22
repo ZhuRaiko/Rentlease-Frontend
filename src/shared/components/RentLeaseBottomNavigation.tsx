@@ -74,7 +74,7 @@ export function RentLeaseBottomNavigation({
   const insets = useSafeAreaInsets();
   const items = [
     { key: 'discover' as const, label: 'Discover', icon: 'home' as const, onPress: onDiscover },
-    { key: 'listing' as const, label: 'Listing', icon: 'listing' as const, onPress: onListing },
+    { key: 'listing' as const, label: 'Listings', icon: 'listing' as const, onPress: onListing },
     { key: 'post' as const, label: 'Post', icon: 'plus' as const, onPress: onPost, primary: true },
     { key: 'tenancy' as const, label: 'Tenancy', icon: 'tenancy' as const, onPress: onTenancy },
     { key: 'chat' as const, label: 'Chat', icon: 'chat' as const, onPress: onChat },
@@ -85,8 +85,8 @@ export function RentLeaseBottomNavigation({
       style={[
         styles.navigation,
         {
-          minHeight: 57 + Math.max(0, insets.bottom - 16),
-          paddingBottom: Math.max(16, insets.bottom),
+          minHeight: 64 + insets.bottom,
+          paddingBottom: Math.max(8, insets.bottom),
         },
       ]}
     >
@@ -100,16 +100,16 @@ export function RentLeaseBottomNavigation({
             onPress={item.onPress}
             style={styles.item}
           >
-            <View style={item.primary ? styles.primaryIcon : styles.standardIcon}>
+            <View style={item.primary && selected ? styles.primaryIcon : styles.standardIcon}>
               <NavigationIcon
-                color={item.primary ? colors.white : selected ? '#2BA47D' : '#B0B0B0'}
+                color={item.primary && selected ? colors.white : selected ? colors.primaryAction : colors.textSecondary}
                 name={item.icon}
               />
             </View>
             <Text
               style={[
                 styles.label,
-                (selected || item.primary) && styles.activeLabel,
+                selected && styles.activeLabel,
               ]}
             >
               {item.label}
@@ -125,30 +125,29 @@ const styles = StyleSheet.create({
   navigation: {
     alignItems: 'flex-start',
     backgroundColor: colors.background,
-    borderTopColor: '#EEEEEE',
-    borderTopWidth: 2,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
     flexDirection: 'row',
     paddingTop: 8,
   },
-  item: { alignItems: 'center', flex: 1, justifyContent: 'flex-start', minHeight: 33 },
-  standardIcon: { alignItems: 'center', height: 20, justifyContent: 'center' },
+  item: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 48 },
+  standardIcon: { alignItems: 'center', height: 26, justifyContent: 'center' },
   primaryIcon: {
     alignItems: 'center',
-    backgroundColor: '#1D9E75',
+    backgroundColor: colors.primaryAction,
     borderRadius: 3,
     height: 26,
     justifyContent: 'center',
-    marginTop: -2,
     width: 26,
   },
   label: {
-    color: '#CCCCCC',
+    color: colors.textSecondary,
     fontFamily: typography.family,
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: 12,
+    lineHeight: 16,
     marginTop: 2,
   },
-  activeLabel: { color: '#2BA47D' },
+  activeLabel: { color: colors.primaryAction, fontWeight: '700' },
   iconBox: { alignItems: 'center', height: 20, justifyContent: 'center', position: 'relative', width: 20 },
   homeBody: { borderTopWidth: 0, borderWidth: 1.8, height: 12, marginTop: 6, position: 'relative', width: 15 },
   homeRoof: { borderBottomWidth: 7, borderLeftColor: 'transparent', borderLeftWidth: 8, borderRightColor: 'transparent', borderRightWidth: 8, height: 0, left: -2, position: 'absolute', top: -8, width: 0 },

@@ -49,7 +49,7 @@ export function ProfileView({ viewModel, activeRole, onSwitchRole, onOpenAdminMo
       <AccountVerificationSummary items={viewModel.verificationSummary} />
       {!viewModel.isAdmin && viewModel.hasTenantRole && viewModel.hasLandlordRole ? <View style={styles.roleSwitch}>
         {(['tenant', 'landlord'] as UserRole[]).map((role) => <Pressable accessibilityRole="button" accessibilityState={{ selected: activeRole === role }} key={role} onPress={() => onSwitchRole(role)} style={[styles.roleOption, activeRole === role && styles.roleOptionActive]}>
-          <Text style={styles.role}>{role === 'tenant' ? 'Tenant view' : 'Landlord view'}</Text>
+          <Text style={styles.role}>{role === 'tenant' ? 'Tenant mode' : 'Landlord mode'}</Text>
         </Pressable>)}
       </View> : null}
       <View style={styles.profileActions}>

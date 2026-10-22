@@ -6,8 +6,8 @@ Status describes frontend implementation, not live runtime validation. Detailed 
 | --- | --- | --- |
 | Authentication & Profiles | IMPLEMENTED baseline and Auth event synchronization; RUNTIME-UNVERIFIED | [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) |
 | User Verification | Tier 2 submission/upload/metadata USER-REPORTED development-build PASS; Tier 3 flow and shared fullscreen zoom IMPLEMENTED/AUTOMATED-TESTED, Android RUNTIME-UNVERIFIED | [User Verification](features/USER_VERIFICATION.md) |
-| Property & Listing Management | PREVIEW UI; persistence, uploads and maps DEFERRED | Not yet created |
-| Search & Discovery | PREVIEW UI; backend search, maps, GPS and proximity integration DEFERRED | Not yet created |
+| Property & Listing Management | PREVIEW UI; membership-based workspace navigation IMPLEMENTED, Android RUNTIME-UNVERIFIED; persistence/uploads/maps DEFERRED | [Routes and preview boundary](ROUTES.md#property--listing-management-feature-states) |
+| Search & Discovery | PREVIEW UI; optional account-setup preferences and session-local editing IMPLEMENTED, Android RUNTIME-UNVERIFIED; backend search/recommendations/maps/GPS DEFERRED | [Routes and preview boundary](ROUTES.md#search--discovery-feature-states) |
 | Property Recommendations | Scaffolded | Not yet created |
 | Rental Price Estimation | PREVIEW UI; FastAPI requests/persistence DEFERRED | Not yet created |
 | Messaging & Viewing Schedules | PREVIEW UI; Realtime, uploads and persistence DEFERRED | Not yet created |

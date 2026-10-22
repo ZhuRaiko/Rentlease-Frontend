@@ -55,7 +55,7 @@ export function RatingsReportsFlowView({
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
       <RentLeaseBottomNavigation
-        active="tenancy"
+        active={null}
         onChat={onOpenChat}
         onDiscover={onOpenDiscover}
         onListing={() => {
@@ -64,7 +64,7 @@ export function RatingsReportsFlowView({
             return;
           }
           viewModel.openHome();
-          viewModel.setNotice('Listing management unlocks after Tier 3 landlord verification.');
+          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
         }}
         onPost={() => {
           if (isLandlord) {
@@ -72,7 +72,7 @@ export function RatingsReportsFlowView({
             return;
           }
           viewModel.openHome();
-          viewModel.setNotice('Property posting unlocks after Tier 3 landlord verification.');
+          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
         }}
         onTenancy={onOpenMaintenance}
       />

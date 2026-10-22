@@ -37,7 +37,7 @@ export function RentalPriceEstimationFlowView({
         <RentalPriceEstimationView onClose={onClose} viewModel={viewModel} />
       </View>
       <RentLeaseBottomNavigation
-        active={actor === 'landlord' ? 'listing' : 'discover'}
+        active={null}
         onChat={onOpenChat}
         onDiscover={onOpenDiscover}
         onListing={() => {
@@ -45,14 +45,14 @@ export function RentalPriceEstimationFlowView({
             onOpenListings();
             return;
           }
-          viewModel.setNotice('Listing management unlocks after Tier 3 landlord verification.');
+          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
         }}
         onPost={() => {
           if (isLandlord) {
             onCreateListing();
             return;
           }
-          viewModel.setNotice('Property posting unlocks after Tier 3 landlord verification.');
+          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
         }}
         onTenancy={onOpenMaintenance}
       />

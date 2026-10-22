@@ -295,3 +295,19 @@ export const previewDiscoveryFeed: DiscoveryFeedPostPreview[] = [
     galleryMoreCount: 7,
   },
 ];
+
+
+// The existing preview filter projection, not a recommendation engine.
+export function matchingPreferenceFilters(preferences: MatchingPreferences): DiscoveryFilters {
+  return {
+      city: preferences.city,
+      minimumRent: preferences.minimumRent,
+      maximumRent: preferences.maximumRent,
+      propertyKinds: preferences.propertyKinds,
+      minimumBedrooms: preferences.minimumBedrooms,
+      minimumBathrooms: preferences.minimumBathrooms,
+      minimumLandArea: preferences.minimumLandArea,
+      furnishedOnly: preferences.furnishedOnly,
+      amenities: preferences.amenities,
+    };
+}

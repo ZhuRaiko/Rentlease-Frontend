@@ -1,3 +1,5 @@
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
+import { AppButton } from '../../../shared/components/AppButton';
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -228,14 +230,14 @@ function MatchingPreferencesContent({
       <View style={styles.personalizeHero}>
         <Text style={styles.personalizeTitle}>Personalize your feed</Text>
         <Text style={styles.personalizeBody}>
-          Tell us what you&apos;re looking for to unlock your matches. Takes 30 seconds. Makes matches way better.
+          Choose what matters to you while browsing the sample listings. Live recommendations are not connected.
         </Text>
         <Text style={styles.personalizeHint}>You can still change this afterwards.</Text>
         <View style={styles.startPill}><Text style={styles.startPillText}>Swipe up to start!</Text></View>
       </View>
 
       <View style={styles.newHereBlock}>
-        <Text style={styles.newHereTitle}>New here?</Text>
+        <Text style={styles.newHereTitle}>{viewModel.introductionPending ? 'Get started' : 'Your preferences'}</Text>
         <Text style={styles.newHereSubtitle}>Tell us what you need</Text>
         <Text style={styles.newHereBody}>
           You are not required to complete every field. These preferences remain editable from your profile.
@@ -289,7 +291,7 @@ function MatchingPreferencesContent({
       <View style={styles.optionalDivider}>
         <Text style={styles.optionalTitle}>Property Preferences (Optional)</Text>
         <Text style={styles.optionalBody}>
-          Narrow down your feed so it shows exactly what you are looking for.
+          Filter sample listings locally. This does not activate live recommendations.
         </Text>
       </View>
 
@@ -429,7 +431,7 @@ function MatchingPreferencesContent({
         </View>
       </Pressable>
 
-      <DiscoveryButton label="Save preferences and discover" onPress={viewModel.saveMatchingPreferences} />
+      <DiscoveryButton label={viewModel.introductionPending ? 'Save preferences and continue' : 'Save preview preferences'} onPress={viewModel.saveMatchingPreferences} />
     </>
   );
 }
@@ -460,6 +462,9 @@ export function DiscoveryFilterView({ viewModel, onClose }: DiscoveryFilterViewP
       <View style={styles.screen}>
         <DiscoveryHeader onClose={onClose} title="Matching Preferences" />
         <ScrollView contentContainerStyle={styles.preferenceContent} showsVerticalScrollIndicator={false}>
+          <FeedbackNotice message={viewModel.introductionPending ? 'Welcome to RentLease. Matching Preferences are optional. These choices filter local sample listings only; live recommendations are not connected.' : 'Preferences are kept locally for this signed-in session. Live recommendations are not connected.'} />
+          {viewModel.introductionPending ? <AppButton label="Skip for now" variant="secondary" onPress={viewModel.skipMatchingIntroduction} /> : null}
+          <FeedbackNotice message={viewModel.notice} />
           <MatchingPreferencesContent preferences={preferences} viewModel={viewModel} />
         </ScrollView>
       </View>

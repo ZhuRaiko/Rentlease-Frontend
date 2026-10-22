@@ -41,7 +41,7 @@ export function NotificationsFlowView({
     else if (target === 'discovery') onOpenDiscover();
     else if (target === 'listings' && isLandlord) onOpenListings();
     else if (target === 'listings') {
-      viewModel.setNotice('Listing management unlocks after Tier 3 landlord verification.');
+      viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
     }
   };
 
@@ -65,7 +65,7 @@ export function NotificationsFlowView({
             return;
           }
           viewModel.openCenter();
-          viewModel.setNotice('Listing management unlocks after Tier 3 landlord verification.');
+          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
         }}
         onPost={() => {
           if (isLandlord) {
@@ -73,7 +73,7 @@ export function NotificationsFlowView({
             return;
           }
           viewModel.openCenter();
-          viewModel.setNotice('Property posting unlocks after Tier 3 landlord verification.');
+          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
         }}
         onTenancy={onOpenMaintenance}
       />

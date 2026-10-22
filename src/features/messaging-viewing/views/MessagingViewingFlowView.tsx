@@ -63,7 +63,7 @@ export function MessagingViewingFlowView({
             return;
           }
           viewModel.openInbox();
-          viewModel.setNotice('Listing management unlocks after Tier 3 landlord verification.');
+          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
         }}
         onPost={() => {
           if (isLandlord) {
@@ -71,7 +71,7 @@ export function MessagingViewingFlowView({
             return;
           }
           viewModel.openInbox();
-          viewModel.setNotice('Property posting unlocks after Tier 3 landlord verification.');
+          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
         }}
         onTenancy={onOpenMaintenance}
       />
