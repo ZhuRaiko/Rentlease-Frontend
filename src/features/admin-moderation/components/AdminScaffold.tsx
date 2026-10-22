@@ -1,9 +1,10 @@
 import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import type { PropsWithChildren } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '../../../shared/theme/colors';
+import { ui } from '../../../shared/theme/ui';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { AdminNavigationSection } from '../models/AdminModeration';
@@ -64,6 +65,8 @@ export function AdminBottomNavigation({
   onAudit: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { width, fontScale } = useWindowDimensions();
+  const largeText = width / fontScale < 280;
   const items = [
     { key: 'dashboard' as const, label: 'Dashboard', onPress: onDashboard },
     { key: 'queues' as const, label: 'Queues', onPress: onQueues },
@@ -71,11 +74,11 @@ export function AdminBottomNavigation({
     { key: 'audit' as const, label: 'Audit', onPress: onAudit },
   ];
   return (
-    <View style={[styles.navigation, { paddingBottom: Math.max(14, insets.bottom) }]}>
+    <View style={[styles.navigation, largeText && styles.wrappedNavigation, { paddingBottom: Math.max(14, insets.bottom) }]}>
       {items.map((item, index) => {
         const selected = active === item.key;
         return (
-          <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={item.key} onPress={item.onPress} style={styles.navItem}>
+          <Pressable accessibilityRole="button" accessibilityState={{ selected }} key={item.key} onPress={item.onPress} style={[styles.navItem, largeText && styles.wrappedItem]}>
             <View style={[styles.navIcon, selected && styles.navIconSelected]}>
               {index === 0 ? <><View style={styles.gridSquare} /><View style={[styles.gridSquare, styles.gridTopRight]} /><View style={[styles.gridSquare, styles.gridBottomLeft]} /><View style={[styles.gridSquare, styles.gridBottomRight]} /></> : null}
               {index === 1 ? <><View style={styles.queueLine} /><View style={[styles.queueLine, styles.queueLineMiddle]} /><View style={[styles.queueLine, styles.queueLineBottom]} /></> : null}
@@ -91,17 +94,19 @@ export function AdminBottomNavigation({
 }
 
 const styles = StyleSheet.create({
+  wrappedNavigation: { flexWrap: 'wrap', rowGap: spacing.xs },
+  wrappedItem: { flexBasis: '45%', flexGrow: 1, flexShrink: 1 },
   headerControl: { justifyContent: 'center', minHeight: 48, minWidth: 48 },
   screen: { backgroundColor: colors.background, flex: 1 },
-  subtitle: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 10, marginTop: 2, textAlign: 'center' },
-  action: { color: colors.primary, fontFamily: typography.family, fontSize: 14, fontWeight: '700' },
+  subtitle: { ...ui.supporting, paddingHorizontal: spacing.lg, marginTop: spacing.xs },
+  action: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '700' },
   content: { flexGrow: 1, paddingBottom: spacing.xl },
   padded: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  navigation: { alignItems: 'flex-start', backgroundColor: '#173C2C', flexDirection: 'row', minHeight: 64, paddingTop: 9 },
-  navItem: { alignItems: 'center', flex: 1, gap: 4 },
+  navigation: { alignItems: 'flex-start', backgroundColor: colors.accountCredentialInk, flexDirection: 'row', minHeight: 64, paddingTop: spacing.xs },
+  navItem: { alignItems: 'center', flex: 1, minHeight: 48, gap: spacing.xxs },
   navIcon: { height: 22, opacity: 0.55, position: 'relative', width: 22 },
   navIconSelected: { opacity: 1 },
-  navLabel: { color: '#A9BCB2', fontFamily: typography.family, fontSize: 9, fontWeight: '700' },
+  navLabel: { color: colors.white, fontFamily: typography.family, fontSize: 12, fontWeight: '600', textAlign: 'center', flexShrink: 1 },
   navLabelSelected: { color: colors.white, fontWeight: '900' },
   gridSquare: { backgroundColor: colors.white, borderRadius: 1, height: 8, left: 1, position: 'absolute', top: 1, width: 8 },
   gridTopRight: { left: 13 },

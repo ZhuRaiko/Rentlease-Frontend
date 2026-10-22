@@ -1,8 +1,10 @@
 import type { ImageSourcePropType } from 'react-native';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
+import { ui } from '../../../shared/theme/ui';
 import { spacing } from '../../../shared/theme/spacing';
+import { radius } from '../../../shared/theme/radius';
 import { typography } from '../../../shared/theme/typography';
 import type { DiscoveryProperty, ImageCrop } from '../models/SearchDiscovery';
 import { DiscoveryIcon } from './DiscoveryIcon';
@@ -10,12 +12,6 @@ import { DiscoveryPropertyImage } from './DiscoveryPropertyImage';
 
 const verificationMark = require('../../../assets/verification/verification-mark.png');
 const propertyBadge = require('../../../assets/verification/property.png');
-
-const galleryCrops: ImageCrop[] = [
-  { x: 14, y: 154, width: 44, height: 33 },
-  { x: 61, y: 154, width: 44, height: 33 },
-  { x: 108, y: 154, width: 44, height: 33 },
-];
 
 interface DiscoveryFeedPostProps {
   avatar: ImageSourcePropType;
@@ -50,6 +46,8 @@ export function DiscoveryFeedPost({
   displayedMatchScore = property.matchScore,
   galleryMoreCount = 4,
 }: DiscoveryFeedPostProps) {
+  const { width, fontScale } = useWindowDimensions();
+  const largeText = width / fontScale < 280;
   return (
     <View style={styles.post}>
       <View style={styles.landlordRow}>
@@ -60,69 +58,48 @@ export function DiscoveryFeedPost({
         )}
         <View style={styles.landlordCopy}>
           <View style={styles.nameRow}>
-            <Text numberOfLines={1} style={styles.landlordName}>{landlordName}</Text>
+            <Text style={styles.landlordName}>{landlordName}</Text>
             <Image resizeMode="contain" source={verificationMark} style={styles.verificationBadge} />
             <Image resizeMode="contain" source={propertyBadge} style={styles.propertyBadge} />
           </View>
           {tierLabel ? <Text style={styles.tierLabel}>{tierLabel}</Text> : null}
         </View>
-        <Pressable accessibilityRole="button" onPress={onViewListing} hitSlop={8}>
+        <Pressable accessibilityRole="button" onPress={onViewListing} style={[styles.viewAction, largeText && styles.wideAction]}>
           <Text style={styles.viewListing}>View listing</Text>
         </Pressable>
       </View>
 
+      <View style={styles.hero}>
+        <Pressable accessibilityLabel={`View ${property.title}`} accessibilityRole="button" onPress={onViewListing}>
+          <DiscoveryPropertyImage crop={heroCrop} />
+        </Pressable>
+        {showGallery ? <Pressable accessibilityLabel={`View ${galleryMoreCount} more images`} accessibilityRole="button" onPress={onViewListing} style={styles.galleryAction}>
+          <DiscoveryIcon color={colors.white} name="gallery" size={20} />
+          <Text style={styles.moreImages}>+{galleryMoreCount}</Text>
+        </Pressable> : null}
+      </View>
       <Pressable accessibilityRole="button" onPress={onViewListing}>
-        <Text style={styles.description}>
-          {description}{' '}
-          <Text style={styles.seeMore}>See more</Text>
-        </Text>
+        <Text style={styles.description}>{description}{' '}<Text style={styles.seeMore}>See more</Text></Text>
       </Pressable>
-
-      <Pressable accessibilityLabel={`View ${property.title}`} accessibilityRole="button" onPress={onViewListing}>
-        <DiscoveryPropertyImage crop={heroCrop} />
-      </Pressable>
-
-      {showGallery ? (
-        <View style={styles.galleryRow}>
-          {galleryCrops.map((crop, index) => (
-            <Pressable
-              accessibilityLabel={index === 2 ? `View ${galleryMoreCount} more images` : `View property image ${index + 1}`}
-              accessibilityRole="button"
-              key={`${crop.x}-${crop.y}`}
-              onPress={onViewListing}
-              style={styles.galleryItem}
-            >
-              <DiscoveryPropertyImage crop={crop} />
-              {index === 2 ? (
-                <View style={styles.galleryOverlay}>
-                  <DiscoveryIcon color={colors.white} name="gallery" size={22} />
-                  <Text style={styles.moreImages}>+{galleryMoreCount}</Text>
-                  <Text style={styles.moreImagesLabel}>Images</Text>
-                </View>
-              ) : null}
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
 
       {showMetrics ? (
         <View style={styles.metricsRow}>
           <View style={styles.rentMetric}>
-            <Text numberOfLines={1} style={styles.rentLine}>
+            <Text style={styles.rentLine}>
               <Text style={styles.currency}>₱{formatRent(property.rent)}</Text>
               <Text style={styles.perMonth}> /mo</Text>
             </Text>
             <View style={styles.locationRow}>
               <DiscoveryIcon color={colors.text} name="location" size={10} />
-              <Text numberOfLines={1} style={styles.location}>{property.city} City, Cavite</Text>
+              <Text style={styles.location}>{property.city} City, Cavite</Text>
             </View>
           </View>
           <View style={styles.matchMetric}>
             <Text style={styles.matchScore}>{displayedMatchScore}%</Text>
-            <Text style={styles.matchLabel}>Pref.{`\n`}Match</Text>
+            <Text style={styles.matchLabel}>Pref. Match</Text>
           </View>
           <View style={styles.ratingMetric}>
-            <DiscoveryIcon color={colors.text} name="rating" size={18} />
+            <DiscoveryIcon color={colors.warning} name="rating" size={18} />
             <Text style={styles.rating}>{property.rating.toFixed(1)}</Text>
           </View>
         </View>
@@ -132,35 +109,35 @@ export function DiscoveryFeedPost({
 }
 
 const styles = StyleSheet.create({
-  post: { backgroundColor: colors.background, borderBottomColor: colors.surfaceStrong, borderBottomWidth: 6, paddingBottom: spacing.sm },
-  landlordRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.xs, paddingTop: spacing.sm },
+  hero: { marginHorizontal: spacing.xs, borderRadius: radius.control, overflow: 'hidden' },
+  galleryAction: { position: 'absolute', bottom: spacing.xs, right: spacing.xs, minHeight: 48, minWidth: 48, padding: spacing.xs, backgroundColor: colors.overlay, borderRadius: radius.control, alignItems: 'center', justifyContent: 'center', gap: spacing.xxs },
+  wideAction: { flexBasis: '100%' },
+  viewAction: { minHeight: 48, minWidth: 48, justifyContent: 'center' },
+  post: { ...ui.panel, paddingBottom: spacing.sm },
+  landlordRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   avatar: { borderRadius: 18, height: 34, width: 34 },
-  avatarFallback: { alignItems: 'center', backgroundColor: '#E4B969', borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },
+  avatarFallback: { alignItems: 'center', backgroundColor: colors.surfaceStrong, borderRadius: 18, minHeight: 36, minWidth: 36, padding: spacing.xxs, justifyContent: 'center' },
   avatarFallbackText: { color: colors.text, fontFamily: typography.family, fontSize: 11, fontWeight: '900' },
-  landlordCopy: { flex: 1, minWidth: 0 },
-  nameRow: { alignItems: 'center', flexDirection: 'row', gap: 3 },
-  landlordName: { color: colors.text, flexShrink: 1, fontFamily: typography.family, fontSize: 12, fontWeight: '800' },
+  landlordCopy: { flexGrow: 1, flexShrink: 1, flexBasis: 130, minWidth: 0 },
+  nameRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xxs },
+  landlordName: { color: colors.ink, fontFamily: typography.family, fontSize: 14, lineHeight: 20, flexShrink: 1, fontWeight: '600' },
   verificationBadge: { height: 14, tintColor: '#67B957', width: 14 },
   propertyBadge: { height: 14, tintColor: '#EF7477', width: 14 },
-  tierLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 9, marginTop: 2 },
-  viewListing: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 10, fontWeight: '800', letterSpacing: 0.2 },
-  description: { color: '#444444', fontFamily: typography.family, fontSize: 10.5, lineHeight: 15, paddingHorizontal: spacing.xs, paddingVertical: spacing.sm },
+  tierLabel: { ...ui.supporting, fontSize: 12, lineHeight: 18 },
+  viewListing: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '700' },
+  description: { ...ui.body, fontSize: 14, lineHeight: 21, paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
   seeMore: { color: colors.text, fontWeight: '700' },
-  galleryRow: { flexDirection: 'row', gap: 4, paddingHorizontal: 4, paddingTop: 4 },
-  galleryItem: { flex: 1, overflow: 'hidden', position: 'relative' },
-  galleryOverlay: { alignItems: 'center', backgroundColor: colors.overlay, bottom: 0, justifyContent: 'center', left: 0, position: 'absolute', right: 0, top: 0 },
-  moreImages: { color: colors.white, fontFamily: typography.family, fontSize: 12, fontWeight: '900', marginTop: 2 },
-  moreImagesLabel: { color: colors.white, fontFamily: typography.family, fontSize: 9 },
-  metricsRow: { alignItems: 'center', flexDirection: 'row', paddingHorizontal: spacing.md, paddingTop: spacing.md },
-  rentMetric: { flex: 1.35, minWidth: 0 },
+  moreImages: { color: colors.white, fontFamily: typography.family, fontSize: 12, fontWeight: '600' },
+  metricsRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingTop: spacing.sm },
+  rentMetric: { flexGrow: 1, flexBasis: 145, minWidth: 0 },
   rentLine: { color: colors.text, fontFamily: typography.family },
-  currency: { fontSize: 20, fontWeight: '900' },
-  perMonth: { fontSize: 10, fontWeight: '800' },
+  currency: { color: colors.ink, fontSize: 21, fontWeight: '700' },
+  perMonth: { fontSize: 12, fontWeight: '400' },
   locationRow: { alignItems: 'center', flexDirection: 'row', gap: 4, marginTop: 4 },
-  location: { color: colors.text, flexShrink: 1, fontFamily: typography.family, fontSize: 8 },
-  matchMetric: { alignItems: 'center', flex: 0.95, flexDirection: 'row', justifyContent: 'center' },
-  matchScore: { color: '#5BB06A', fontFamily: typography.family, fontSize: 35, fontWeight: '700', letterSpacing: -2 },
-  matchLabel: { color: colors.text, fontFamily: typography.family, fontSize: 7, fontWeight: '800', lineHeight: 8, marginLeft: 3 },
-  ratingMetric: { alignItems: 'center', flex: 0.55, flexDirection: 'row', gap: 3, justifyContent: 'flex-end' },
-  rating: { color: colors.text, fontFamily: typography.family, fontSize: 21, fontWeight: '800' },
+  location: { ...ui.supporting, fontSize: 12, flexShrink: 1 },
+  matchMetric: { alignItems: 'center', gap: spacing.xxs, flexShrink: 1 },
+  matchScore: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 20, fontWeight: '700' },
+  matchLabel: { ...ui.supporting, fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  ratingMetric: { alignItems: 'center', flexDirection: 'row', gap: spacing.xxs },
+  rating: { color: colors.ink, fontFamily: typography.family, fontSize: 16, lineHeight: 22, fontWeight: '600' },
 });

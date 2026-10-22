@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+import { ui } from '../theme/ui';
 
 interface ScreenHeaderProps {
   title?: string;
@@ -25,10 +26,10 @@ export function ScreenHeader({ title, onBack, onClose, disabled = false, action 
 }
 
 const styles = StyleSheet.create({
-  header: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, minHeight: 56, paddingHorizontal: spacing.md },
+  header: { ...ui.rule, backgroundColor: colors.background, alignItems: 'center', flexDirection: 'row', gap: spacing.xs, minHeight: 56, paddingHorizontal: spacing.md },
   control: { alignItems: 'center', flexDirection: 'row', gap: spacing.xxs, justifyContent: 'center', minHeight: 48, minWidth: 48 },
   arrow: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 28, fontWeight: '600' },
   label: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '700' },
-  title: { color: colors.text, flex: 1, fontFamily: typography.family, fontSize: 18, fontWeight: '700', paddingVertical: spacing.sm },
+  title: { ...ui.sectionTitle, fontWeight: '700', flex: 1, minWidth: 0, paddingVertical: spacing.sm },
   spacer: { flex: 1 },
 });

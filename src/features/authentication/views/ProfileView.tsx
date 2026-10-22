@@ -5,6 +5,7 @@ import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
+import { ui } from '../../../shared/theme/ui';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
@@ -48,7 +49,7 @@ export function ProfileView({ viewModel, marketplaceNavigation, onOpenAdminModer
           {viewModel.account?.profile.bio ? <Text style={styles.bio}>{viewModel.account.profile.bio}</Text> : null}
             <Pressable accessibilityRole="button" accessibilityLabel="Edit Profile" onPress={() => viewModel.navigate('editProfile')} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
               <Image accessible={false} resizeMode="contain" source={editIcon} style={styles.editIcon} />
-              <Text style={styles.editLabel}>Edit</Text>
+              <Text style={styles.editLabel}>Edit profile</Text>
             </Pressable>
         </View>
         <FeedbackNotice message={viewModel.notice} tone={viewModel.noticeTone} />
@@ -81,22 +82,22 @@ export function ProfileView({ viewModel, marketplaceNavigation, onOpenAdminModer
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   scrollContent: { flexGrow: 1, paddingBottom: spacing.xl },
-  folio: { width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: spacing.lg, gap: spacing.lg },
-  identityStage: { marginTop: spacing.md, paddingTop: spacing.lg, paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.md, backgroundColor: colors.surface, borderColor: colors.accountCredentialInk, borderWidth: 1, borderLeftWidth: 4, borderBottomWidth: 3, borderRadius: radius.firm },
+  folio: { width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: spacing.md, gap: spacing.md },
+  identityStage: { marginTop: spacing.sm, paddingTop: spacing.lg, paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.sm, backgroundColor: colors.primaryPale, borderRadius: radius.panel },
   identityTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   membership: { flex: 1, minWidth: 0, gap: spacing.xs },
-  role: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 15, fontWeight: '600', lineHeight: 22 },
-  name: { color: colors.text, fontFamily: typography.family, fontSize: 24, lineHeight: 30, fontWeight: '800' },
-  bio: { color: colors.text, fontFamily: typography.family, fontSize: 16, lineHeight: 24 },
-  editButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, minHeight: 48, minWidth: 48, padding: spacing.sm, borderColor: colors.primaryAction, borderWidth: 1, borderRadius: radius.firm, backgroundColor: colors.background },
+  role: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 13, lineHeight: 20 },
+  name: { ...ui.pageTitle, fontSize: 20, lineHeight: 26 },
+  bio: { ...ui.body, fontSize: 14, lineHeight: 21 },
+  editButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, minHeight: 48, minWidth: 48, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderColor: colors.controlBorder, borderWidth: 1, borderRadius: radius.control, backgroundColor: colors.background },
   editIcon: { width: 16, height: 16, tintColor: colors.primaryAction },
   editLabel: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '600', flexShrink: 1 },
-  credentials: { borderWidth: 1, borderColor: colors.accountCredentialInk, borderBottomWidth: 3, borderRadius: radius.firm, padding: spacing.md, gap: spacing.sm },
-  sectionHeading: { borderBottomColor: colors.accountCredentialInk, borderBottomWidth: 2, paddingBottom: spacing.xs, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
-  sectionTitle: { color: colors.text, fontFamily: typography.family, fontSize: 18, lineHeight: 25, fontWeight: '800', flexShrink: 1 },
+  credentials: { gap: spacing.xs },
+  sectionHeading: { borderBottomColor: colors.outline, borderBottomWidth: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
+  sectionTitle: { ...ui.sectionTitle, flexShrink: 1 },
   detailsAction: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, minHeight: 48, minWidth: 48, paddingVertical: spacing.xs, paddingHorizontal: spacing.xxs, flexShrink: 1 },
   detailsLabel: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '600', flexShrink: 1 },
   arrow: { color: colors.primaryAction, fontSize: 20 },
-  accountTools: { gap: spacing.sm, borderTopColor: colors.accountCredentialInk, borderTopWidth: 2, paddingTop: spacing.sm },
+  accountTools: { gap: spacing.xs, borderTopColor: colors.outline, borderTopWidth: 1, paddingTop: spacing.sm },
   pressed: { backgroundColor: colors.primaryPale },
 });

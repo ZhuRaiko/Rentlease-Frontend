@@ -10,7 +10,7 @@ Everyday Filipino tenants and landlords, particularly in Imus, Dasmariñas and T
 
 ## Personality and direction
 
-Professional, approachable, grounded and trustworthy. The Profile and Verification redesign requested on 2026-10-23 introduces restrained neo-brutalist influence: confident hierarchy, firm geometry and purposeful green emphasis. This direction applies to these account surfaces; it does not authorize an application-wide redesign.
+Professional, approachable, grounded and trustworthy. The 2026-10-23 Phase 1 refinement follows the supplied RentLease showcase: a friendly property marketplace first, with restrained outlines and confident hierarchy as subtle neo-brutalist influence. Phase 1 applies shared primitives to Discovery, property details, Profile, Verification and the Admin dashboard. Other screen layouts wait for user review before Phase 2.
 
 ## Anti-references
 

@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
@@ -74,6 +74,8 @@ export function RentLeaseBottomNavigation({
   onTenancy,
 }: RentLeaseBottomNavigationProps) {
   const insets = useSafeAreaInsets();
+  const { width, fontScale } = useWindowDimensions();
+  const largeText = width / fontScale < 280;
   const items = [
     { key: 'discover' as const, label: 'Discover', icon: 'home' as const, onPress: onDiscover },
     { key: 'listing' as const, label: 'Listings', icon: 'listing' as const, onPress: onListing },
@@ -86,6 +88,7 @@ export function RentLeaseBottomNavigation({
     <View
       style={[
         styles.navigation,
+        largeText && styles.wrappedNavigation,
         {
           minHeight: 64 + insets.bottom,
           paddingBottom: Math.max(8, insets.bottom),
@@ -101,7 +104,7 @@ export function RentLeaseBottomNavigation({
             disabled={disabled}
             key={item.key}
             onPress={item.onPress}
-            style={styles.item}
+            style={[styles.item, largeText && styles.wrappedItem]}
           >
             <View style={item.primary && selected ? styles.primaryIcon : styles.standardIcon}>
               <NavigationIcon
@@ -125,10 +128,12 @@ export function RentLeaseBottomNavigation({
 }
 
 const styles = StyleSheet.create({
+  wrappedNavigation: { flexWrap: 'wrap', rowGap: 8 },
+  wrappedItem: { flexBasis: '30%', flexGrow: 1, flexShrink: 1 },
   navigation: {
     alignItems: 'flex-start',
     backgroundColor: colors.background,
-    borderTopColor: colors.border,
+    borderTopColor: colors.outline,
     borderTopWidth: 1,
     flexDirection: 'row',
     paddingTop: 8,

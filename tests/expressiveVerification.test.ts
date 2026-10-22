@@ -18,6 +18,16 @@ test('credential identities are unique and all body/header color pairs meet 4.5:
   for (const { ink, surface } of identities) assert.ok((luminance(surface) + 0.05) / (luminance(ink) + 0.05) >= 4.5);
   assert.ok((luminance(colors.white) + 0.05) / (luminance(colors.profileBackdrop) + 0.05) >= 4.5);
   assert.ok((luminance(colors.white) + 0.05) / (luminance(colors.profileBackdropLayer) + 0.05) >= 4.5);
+  for (const [ink, surface] of [
+    [colors.ink, colors.background],
+    [colors.textSecondary, colors.canvas],
+    [colors.textMuted, colors.background],
+    [colors.white, colors.primaryAction],
+    [colors.white, colors.ink],
+  ]) {
+    const values = [luminance(ink!), luminance(surface!)].sort((a, b) => a - b);
+    assert.ok((values[1]! + 0.05) / (values[0]! + 0.05) >= 4.5, `${ink} on ${surface}`);
+  }
 });
 test('Profile tier keys coordinate identity without inferring status or property approval', () => {
   const summary = accountVerificationSummary({ tier1_verified_at: 'date', tier2_verified_at: null, tier3_verified_at: 'date' }, ['landlord']);
@@ -124,9 +134,10 @@ test('Profile and detailed verification share light status indicators without ch
   assert.match(indicator, /\{label\}/);
   assert.doesNotMatch(indicator, /backgroundColor|numberOfLines|allowFontScaling/);
 });
-test('full verification uses firmly framed sections while retaining requirements, feedback and guarded actions', () => {
+test('full verification uses softly separated sections while retaining requirements, feedback and guarded actions', () => {
   const card = read('src/features/user-verification/components/VerificationTierCard.tsx');
-  assert.match(card, /borderBottomWidth: 3/);
+  assert.match(card, /\.\.\.ui.panel/);
+  assert.doesNotMatch(read('src/shared/theme/ui.ts'), /borderBottomWidth: 3/);
   assert.doesNotMatch(card, /styles.statusArea|styles.credential|styles.markText/);
   assert.match(card, /items.map/);
   assert.match(card, /tier === 1 \? null : disabled \|\| !onPress/);

@@ -5,6 +5,7 @@ import type { PropsWithChildren } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
+import { ui } from '../../../shared/theme/ui';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
@@ -18,7 +19,7 @@ import type {
 export function AdminHeading({ eyebrow, title, body }: { eyebrow: string; title: string; body: string }) {
   return (
     <View style={styles.headingBlock}>
-      <Text style={styles.eyebrow}>{eyebrow}</Text>
+      {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
       <Text accessibilityRole="header" style={styles.heading}>{title}</Text>
       <Text style={styles.headingBody}>{body}</Text>
     </View>
@@ -120,19 +121,19 @@ const styles = StyleSheet.create({
   verificationTitle: { color: colors.text, fontFamily: typography.family, fontSize: 19, lineHeight: 25, fontWeight: '700' },
   verificationMeta: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 20, letterSpacing: 0, fontWeight: '400' },
   verificationValue: { fontSize: 15, lineHeight: 22, fontWeight: '500' },
-  headingBlock: { marginBottom: spacing.lg },
-  eyebrow: { color: '#2E7552', fontFamily: typography.family, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  heading: { color: colors.text, fontFamily: typography.family, fontSize: 27, fontWeight: '900', letterSpacing: -0.5, lineHeight: 33, marginTop: spacing.xs },
-  headingBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 19, marginTop: spacing.xs },
-  statCard: { backgroundColor: colors.surface, borderRadius: radius.card, flex: 1, minHeight: 84, padding: spacing.sm },
-  statWarning: { backgroundColor: colors.warningSurface },
-  statDanger: { backgroundColor: colors.restrictedSurface },
-  statPositive: { backgroundColor: colors.primaryPale },
-  statValue: { color: colors.text, fontFamily: typography.family, fontSize: 24, fontWeight: '900' },
-  statLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 8, fontWeight: '900', lineHeight: 12, marginTop: 4 },
+  headingBlock: { marginBottom: spacing.md },
+  eyebrow: { ...ui.supporting, color: colors.primaryAction, fontWeight: '700' },
+  heading: { ...ui.pageTitle, fontSize: 20, lineHeight: 26 },
+  headingBody: { ...ui.supporting, marginTop: spacing.xs },
+  statCard: { ...ui.panel, flexGrow: 1, flexShrink: 1, flexBasis: 135, minWidth: 0, padding: spacing.sm, gap: spacing.xs },
+  statWarning: { backgroundColor: colors.warningSurface, borderColor: colors.warning },
+  statDanger: { backgroundColor: colors.restrictedSurface, borderColor: colors.restricted },
+  statPositive: { backgroundColor: colors.primaryPale, borderColor: colors.controlBorder },
+  statValue: { ...ui.pageTitle, fontSize: 22, lineHeight: 28 },
+  statLabel: { ...ui.supporting, color: colors.ink, fontWeight: '400' },
   textWarning: { color: colors.warning },
   textDanger: { color: colors.restricted },
-  textPositive: { color: colors.primary },
+  textPositive: { color: colors.primaryAction },
   priorityPill: { alignSelf: 'flex-start', backgroundColor: colors.surface, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 5 },
   priorityUrgent: { backgroundColor: colors.restrictedSurface },
   priorityHigh: { backgroundColor: colors.warningSurface },
@@ -167,15 +168,15 @@ const styles = StyleSheet.create({
   evidenceIndex: { color: colors.restricted, fontFamily: typography.family, fontSize: 8, fontWeight: '900' },
   evidenceLabel: { color: colors.text, fontFamily: typography.family, fontSize: 10, fontWeight: '800', marginTop: 3, textAlign: 'center' },
   localOnly: { color: colors.textMuted, fontFamily: typography.family, fontSize: 7, marginTop: 4 },
-  auditCard: { alignItems: 'flex-start', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.md },
+  auditCard: { alignItems: 'flex-start', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingVertical: spacing.md },
   auditDot: { backgroundColor: colors.textMuted, borderRadius: 6, height: 12, marginTop: 3, width: 12 },
   auditWarning: { backgroundColor: colors.warning },
   auditDanger: { backgroundColor: colors.restricted },
   auditPositive: { backgroundColor: colors.primary },
-  auditCopy: { flex: 1 },
-  auditAction: { color: colors.text, fontFamily: typography.family, fontSize: 12, fontWeight: '900' },
-  auditSubject: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 10, marginTop: 3 },
-  auditMeta: { color: colors.textMuted, fontFamily: typography.family, fontSize: 8, marginTop: 5 },
-  auditCase: { color: '#2E7552', fontFamily: typography.family, fontSize: 8, fontWeight: '800', maxWidth: 90, textAlign: 'right' },
+  auditCopy: { flexGrow: 1, flexShrink: 1, flexBasis: 155, minWidth: 0 },
+  auditAction: { ...ui.body, fontWeight: '600' },
+  auditSubject: { ...ui.supporting, marginTop: spacing.xxs },
+  auditMeta: { ...ui.supporting, marginTop: spacing.xxs },
+  auditCase: { ...ui.supporting, color: colors.primaryAction, fontWeight: '700' },
   pressed: { opacity: 0.72 },
 });

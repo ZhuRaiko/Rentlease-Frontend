@@ -6,6 +6,7 @@ import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
+import { ui } from '../../../shared/theme/ui';
 import { VerificationScaffold } from '../components/VerificationScaffold';
 import { tierTwoSubmissionPresentation } from '../models/TierTwoVerification';
 import type { TierTwoVerificationViewModel } from '../viewModels/useTierTwoVerificationViewModel';
@@ -27,18 +28,29 @@ export function VerificationStatusView({ viewModel, onClose }: { viewModel: Tier
     revoked: 'Your identity verification was revoked. Starting another submission is not available in this phase.',
   };
   return (
-    <VerificationScaffold onBack={viewModel.goBack} onClose={onClose} title="Tier 2 verification">
-      <View style={styles.centeredState}>
-        <Image resizeMode="contain" source={status === 'approved' ? approvedIcon : status === 'pending' || status === 'under_review' ? pendingIcon : verificationIcon} style={styles.stateIcon} />
-        <VerificationStatusIndicator {...tierTwoSubmissionPresentation(submission, viewModel.requiresRefresh)} />
-        <Text style={styles.message}>{viewModel.requiresRefresh ? 'The latest application or attachment could not be confirmed. Check status before another attempt.' : status ? messages[status] : 'Check status to load your submission.'}</Text>
+    <VerificationScaffold fill onBack={viewModel.goBack} onClose={onClose} title="Tier 2 verification">
+      <View style={[styles.centeredState, status === 'approved' && !viewModel.requiresRefresh && styles.approvedState]}>
+        <Image accessible={false} resizeMode="contain" source={status === 'approved' ? approvedIcon : status === 'pending' || status === 'under_review' ? pendingIcon : verificationIcon} style={[styles.stateIcon, status === 'approved' && styles.approvedIcon]} />
+        <VerificationStatusIndicator {...tierTwoSubmissionPresentation(submission, viewModel.requiresRefresh)} prominent />
+        <Text style={[styles.message, styles.resultMessage]}>{viewModel.requiresRefresh ? 'The latest application or attachment could not be confirmed. Check status before another attempt.' : status ? messages[status] : 'Check status to load your submission.'}</Text>
         {submission && !submission.hasDocument ? (
           <Text style={styles.message}>Missing metadata does not prove that no file was uploaded. Recovery uses a fresh, non-overwriting file name; earlier private files are not deleted.</Text>
         ) : null}
-        {submission?.review_note ? <Text style={styles.message}>Review note: {submission.review_note}</Text> : null}
-        {submission ? <Text style={styles.message}>Submitted: {formatVerificationDate(submission.submitted_at)}</Text> : null}
-        {submission?.reviewed_at ? <Text style={styles.message}>Reviewed: {formatVerificationDate(submission.reviewed_at)}</Text> : null}
       </View>
+      {submission ? <View style={styles.reviewDetails}>
+        {submission.review_note ? <View style={styles.reviewNote}>
+          <Text style={styles.detailLabel}>Review note</Text>
+          <Text style={styles.message}>{submission.review_note}</Text>
+        </View> : null}
+        <View style={styles.dateRow}>
+          <Text style={styles.detailLabel}>Submitted</Text>
+          <Text style={styles.detailValue}>{formatVerificationDate(submission.submitted_at)}</Text>
+        </View>
+        {submission.reviewed_at ? <View style={styles.dateRow}>
+          <Text style={styles.detailLabel}>Reviewed</Text>
+          <Text style={styles.detailValue}>{formatVerificationDate(submission.reviewed_at)}</Text>
+        </View> : null}
+      </View> : null}
       {status === 'rejected' ? <View style={[styles.decisionCard, styles.rejectionCard]}>
         <Text accessibilityRole="header" style={styles.decisionTitle}>Reason for Rejection</Text>
         <Text style={styles.decisionCopy}>{submission?.rejection_reason || 'No rejection reason provided. Choose a clear, current identity document.'}</Text>
@@ -50,24 +62,27 @@ export function VerificationStatusView({ viewModel, onClose }: { viewModel: Tier
       </View> : null}
       <FeedbackNotice message={viewModel.historyError} />
       <FeedbackNotice tone="error" message={viewModel.error} />
+      <View style={styles.actions}>
       {viewModel.canStartRecovery ? <AppButton disabled={viewModel.busy} label={status === 'rejected' ? 'Submit Corrected Documents' : 'Complete Document Upload'} onPress={viewModel.startRecovery} /> : null}
       {viewModel.showRecovery ? <AppButton disabled={viewModel.busy} label={viewModel.isLoading ? 'Checking...' : 'Check status'} onPress={() => void viewModel.refresh()} /> : null}
-      <AppButton disabled={viewModel.busy} label="Back to verification levels" onPress={() => viewModel.navigate('overview')} variant="secondary" />
+      <AppButton disabled={viewModel.busy} label="Back to verification levels" onPress={() => viewModel.navigate('overview')} variant={status === 'approved' && !viewModel.requiresRefresh ? 'primary' : 'secondary'} />
+      </View>
     </VerificationScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  centeredState: { alignItems: 'flex-start', gap: spacing.md, paddingVertical: spacing.md },
-  stateIcon: { height: 48, width: 48 },
-  title: {
-    color: colors.text,
-    fontFamily: typography.family,
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: -1,
-    textAlign: 'left',
-  },
+  actions: { marginTop: 'auto', paddingTop: spacing.md, gap: spacing.sm },
+  centeredState: { alignItems: 'center', gap: spacing.sm, padding: spacing.lg, backgroundColor: colors.canvas, borderRadius: radius.panel },
+  approvedState: { backgroundColor: colors.primaryPale },
+  stateIcon: { height: 64, width: 64 },
+  approvedIcon: { tintColor: colors.primaryAction },
+  resultMessage: { textAlign: 'center' },
+  reviewDetails: { gap: spacing.sm },
+  reviewNote: { backgroundColor: colors.canvas, borderRadius: radius.control, padding: spacing.md, gap: spacing.xxs },
+  detailLabel: { ...ui.supporting, color: colors.ink, fontWeight: '600' },
+  detailValue: { ...ui.supporting },
+  dateRow: { gap: spacing.xxs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   message: {
     color: colors.text,
     fontFamily: typography.family,

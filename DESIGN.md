@@ -1,29 +1,33 @@
-# RentLease account interface design
+# RentLease experimental interface design
 
-## Scope and source of truth
+## Scope and authority
 
-Profile and Verification presentation, refined 2026-10-23. This records the implementation direction; it does not replace `docs/ARCHITECTURE.md` or prescribe changes to other features. Native visual acceptance remains Android RUNTIME-UNVERIFIED.
+Phase 1 refinement, 2026-10-23, on feature/ui-improvements. The user's RentLease App Showcase is the primary visual direction: a friendly Filipino property marketplace with subtle neo-brutalist character. Refine Discovery, property details, Profile, Verification and Admin dashboard only. Existing architecture, ViewModels, real content and actions remain authoritative. Other screen layouts await Phase 2 approval. Shared primitives reach their existing consumers.
 
-## Visual language
+## Visual balance
 
-Restrained neo-brutalism expressed through firm section framing, near-square corners and confident type. Retain the circular avatar and separated settings rows. Avoid ornamental shadows, gradients, offset decoration and oversized display text.
+Aim for 75-80% approachable marketplace and 20-25% restrained structure. Favor photography, clear prices, readable names and practical next steps. Use confidence through hierarchy, not thick framing. No decorative graphics added to fill space, no hard-offset shadows, no new fonts or libraries.
 
-## Tokens
+## Tokens and shared recipes
 
-Use `src/shared/theme/` exports directly. Existing `primaryAction` (#32743C) carries actions and avatar emphasis; `accountCredentialInk` (#204C34) frames identity and verification panels. Existing neutral background/surface/text tokens remain authoritative. Navigation icons use `textSecondary` (#757575).
+Use src/shared/theme exports. ui.ts retains panel, control, rule, pageTitle, sectionTitle, body and supporting recipes. Panel borders are 1dp in outline (#DCE5DD), with 12dp panel corners and no heavy bottom edge. Controls use 10dp corners, controlBorder (#7D9383), 48dp minimum targets and content-driven heights. Canvas is warm-white #F7F9F5; ink is #172C27. Existing primaryAction green (#32743C) remains the brand/action color. Semantic success, warning and error colors remain distinct. Ordinary navigation icons stay neutral.
 
-`radius.firm` is 4dp for account panels and tier markers. It does not replace existing button radii. Borders are generally 1dp; 2–3dp rules establish section hierarchy, with a 4dp identity edge. Use existing named spacing tokens. Do not apply heavy outlines to every row or control.
+Keep Roboto. Page titles are 22dp/700 with 28dp line height; section headings 17dp/600 with 23dp line height; body 15dp/22dp and supporting copy 13dp/20dp. Prices, property names and important results receive stronger emphasis; routine labels do not compete. Profile name is 20dp/26dp. Default font scaling and text wrapping remain enabled.
 
-## Typography
+## Representative compositions
 
-Keep the existing Roboto family. Profile name is 24dp/800 with 30dp line height; Verification page headings are 22dp/800 with 29dp line height; section headings are 18dp/800 with 25dp line height. Body remains 16dp with 24dp line height. Supporting text stays 14–15dp. Preserve default system font scaling and content-driven heights.
+- Discovery: softly bordered feed cards; compact landlord identity; property photo before caption; more-images overlay replaces the repeated thumbnail strip while retaining its existing View listing destination; unchanged captions, rental values, scores and actions. Price/location/match/rating remain easy to scan.
+- Property details: image-led hero, existing Back/save/Close/gallery controls, rent/title/labels/location/specifications before description, then landlord and match context. Remove the outer content box and heavy section rules. Existing inquiry, saved listing, estimate and supplementary destinations remain.
+- Profile: softly tinted identity area with circular avatar, name/roles/bio and outlined Edit. Verification is an unboxed section with compact tier marks, exact status text and property scope. Settings remain simple divided rows.
+- Verification: softly separated overview panels. Status pages group the result/icon/message, review note and dated metadata; approved return action uses primary green. Other statuses retain their actual labels, reasons, uncertainty and recovery controls. Do not infer status from a tier color or hide backend information.
+- Admin dashboard: one preview disclosure, one overview heading, compact wrapping statistics, restrained semantic tints and simple queue summaries. Preview labels remain visible; live counts are not replaced with fixtures. No new moderation behavior.
 
-## Components and layout
+## Accessibility and preserved behavior
 
-- Profile: framed neutral identity panel, circular avatar/name/roles, bio and outlined Edit; compact framed verification summary; simple settings groups with firm top rules and thin row dividers.
-- Verification overview: separated framed tier panels; outlined 01/02/03 markers; status and required/optional metadata grouped beneath each heading; concise instructions and existing outlined action buttons.
-- Verification flow: shared scaffold uses a bold heading and green baseline; keep existing document selection, review, status and preview components and all Back/Close controls.
-- Tier markers share a white surface and green ink independent of status. Preserve explicit success, warning, error and informational labels/colors in the existing status component.
-- Buttons retain existing filled-green primary and outlined-secondary styles, disabled feedback and action guards. Ordinary navigation icons remain neutral gray.
+Keep existing callbacks, selected/disabled state, Back guards, safe-area handling and ViewModel ownership. At width / fontScale < 280, Discovery listing actions and property price use a full-width row. Marketplace and Admin navigation reflow into two rows to retain complete enlarged labels. Do not cap text scaling or shorten labels.
 
-No decorative motion is added. Keep existing press feedback, 48dp action targets, wrapping layout, scroll containers and ViewModel callbacks. Android review must cover narrow widths, increased fonts, long names/reasons, account roles, actual verification states and document-preview/Back behavior.
+Check default approximately 411dp/100% and 320dp/150% text on Android. Agent observations are separate from user acceptance and full role/status/TalkBack coverage. Verification records and actual before/after captures belong in docs/implementation-reports/ui/.
+
+## Phase 2 boundary
+
+Full Auth/onboarding layouts, landlord creation/management, messaging/scheduling, ratings/reports, notifications, maintenance/tenancy, estimator and detailed Admin review/enforcement/audit layouts remain deferred. This refinement changes no backend, auth/role/tier rule, recommendation calculation, workflow or navigation destination. Leave uncommitted for review.

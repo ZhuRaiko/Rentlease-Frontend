@@ -4,6 +4,7 @@ import { AppButton } from '../../../shared/components/AppButton';
 import { VerificationStatusIndicator } from '../../../shared/components/VerificationStatusIndicator';
 import type { StatusPresentation } from '../../../shared/models/verificationPresentation';
 import { colors } from '../../../shared/theme/colors';
+import { ui } from '../../../shared/theme/ui';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
@@ -35,14 +36,14 @@ export function VerificationTierCard({ tier, title, subtitle, items, onPress, ac
   </View>;
 }
 const styles = StyleSheet.create({
-  section: { padding: spacing.md, backgroundColor: colors.background, borderColor: colors.accountCredentialInk, borderWidth: 1, borderBottomWidth: 3, borderRadius: radius.firm, gap: spacing.md },
+  section: { ...ui.panel, padding: spacing.md, gap: spacing.sm },
   heading: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   headingCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
-  mark: { borderRadius: radius.firm, borderWidth: 1, borderColor: colors.primaryAction, minWidth: 40, minHeight: 40, padding: spacing.xs, alignItems: 'center', justifyContent: 'center' },
-  number: { fontFamily: typography.family, fontSize: 14, fontWeight: '800' },
-  title: { color: colors.text, fontFamily: typography.family, fontSize: 18, lineHeight: 25, fontWeight: '800' },
+  mark: { borderRadius: radius.sm, borderWidth: 1, borderColor: colors.controlBorder, minWidth: 34, minHeight: 34, padding: spacing.xxs, alignItems: 'center', justifyContent: 'center' },
+  number: { fontFamily: typography.family, fontSize: 13, fontWeight: '600' },
+  title: { ...ui.sectionTitle },
   subtitle: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
   items: { gap: spacing.xs },
-  item: { color: colors.text, fontFamily: typography.family, fontSize: 16, lineHeight: 24 },
+  item: { ...ui.body },
   next: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
 });

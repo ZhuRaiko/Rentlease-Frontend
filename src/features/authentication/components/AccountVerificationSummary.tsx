@@ -23,10 +23,10 @@ export function AccountVerificationSummary({ items }: { items: AuthProfilesViewM
 }
 const styles = StyleSheet.create({
   section: { gap: spacing.xxs },
-  scope: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21, marginBottom: spacing.xxs },
-  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: spacing.sm, rowGap: spacing.xs, borderBottomColor: colors.border, borderBottomWidth: 1, paddingVertical: spacing.sm },
-  tierMark: { minWidth: 36, minHeight: 36, padding: spacing.xxs, borderRadius: radius.firm, borderWidth: 1, borderColor: colors.primaryAction, alignItems: 'center', justifyContent: 'center' },
-  number: { fontFamily: typography.family, fontSize: 14, fontWeight: '800' },
-  label: { color: colors.text, flexGrow: 1, flexShrink: 1, flexBasis: 110, fontFamily: typography.family, fontSize: 15, lineHeight: 22, fontWeight: '700' },
-  propertyScope: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21, marginTop: spacing.xs },
+  scope: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 20, marginBottom: spacing.xxs },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: spacing.sm, rowGap: spacing.xs, borderBottomColor: colors.outline, borderBottomWidth: 1, paddingVertical: spacing.sm },
+  tierMark: { minWidth: 32, minHeight: 32, padding: spacing.xxs, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.controlBorder, alignItems: 'center', justifyContent: 'center' },
+  number: { fontFamily: typography.family, fontSize: 13, fontWeight: '600' },
+  label: { color: colors.ink, flexGrow: 1, flexShrink: 1, flexBasis: 110, fontFamily: typography.family, fontSize: 14, lineHeight: 21, fontWeight: '600' },
+  propertyScope: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 20, marginTop: spacing.xs },
 });

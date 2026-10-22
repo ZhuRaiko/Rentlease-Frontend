@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 type DiscoveryIconName =
   | 'search'
@@ -53,7 +53,7 @@ export function DiscoveryIcon({ name, color = '#000000', size = 22 }: DiscoveryI
   }
 
   if (name === 'bookmark') {
-    return <View style={[styles.bookmark, { borderColor: color, height: size, width: size * 0.72 }]} />;
+    return <Text accessible={false} style={{ color, fontSize: size * 1.2, lineHeight: size * 1.4 }}>{'\u2661'}</Text>;
   }
 
   if (name === 'location') {
@@ -110,12 +110,7 @@ export function DiscoveryIcon({ name, color = '#000000', size = 22 }: DiscoveryI
   }
 
   if (name === 'rating') {
-    return (
-      <View style={[styles.iconBox, { height: size, width: size }]}>
-        <View style={[styles.ratingPoint, { backgroundColor: color, height: size * 0.72, width: size * 0.72 }]} />
-        <View style={[styles.ratingBar, { backgroundColor: color, height: size * 0.28, width: size }]} />
-      </View>
-    );
+    return <Text accessible={false} style={{ color, fontSize: size, lineHeight: size * 1.25 }}>{'\u2605'}</Text>;
   }
 
   return (
@@ -133,7 +128,6 @@ const styles = StyleSheet.create({
   filterLine: { borderRadius: 2, height: 2, position: 'absolute' },
   filterKnob: { borderRadius: 5, height: 7, position: 'absolute', top: -2.5, width: 7 },
   listLine: { borderRadius: 2, height: 2 },
-  bookmark: { borderBottomLeftRadius: 3, borderBottomRightRadius: 3, borderWidth: 2 },
   locationPin: { alignItems: 'center', borderBottomLeftRadius: 10, borderBottomRightRadius: 10, borderTopLeftRadius: 10, borderTopRightRadius: 10, borderWidth: 2, justifyContent: 'center', transform: [{ rotate: '45deg' }] },
   locationDot: { borderRadius: 100, transform: [{ rotate: '-45deg' }] },
   homeBody: { alignSelf: 'center', borderTopWidth: 0, borderWidth: 2, position: 'relative' },
@@ -149,6 +143,4 @@ const styles = StyleSheet.create({
   tenantBody: { borderRadius: 100, borderWidth: 1.7, position: 'absolute' },
   chatBubble: { borderRadius: 5, borderWidth: 1.8, marginTop: 1, position: 'relative' },
   chatTail: { borderLeftColor: 'transparent', bottom: -4, height: 0, left: 3, position: 'absolute', width: 0 },
-  ratingPoint: { position: 'absolute', transform: [{ rotate: '45deg' }] },
-  ratingBar: { borderRadius: 2, position: 'absolute' },
 });

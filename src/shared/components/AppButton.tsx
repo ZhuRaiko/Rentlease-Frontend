@@ -5,11 +5,12 @@ import { colors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
+import { ui } from '../theme/ui';
 
 export interface AppButtonProps {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger';
+  variant?: 'primary' | 'secondary' | 'danger' | 'dark';
   disabled?: boolean;
   icon?: ImageSourcePropType;
 }
@@ -42,8 +43,9 @@ export function AppButton({
 
 const styles = StyleSheet.create({
   button: {
+    ...ui.control,
     alignItems: 'center',
-    borderRadius: radius.md,
+    borderRadius: radius.control,
     flexDirection: 'row',
     gap: spacing.xs,
     minHeight: 50,
@@ -53,9 +55,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   primary: { backgroundColor: colors.primaryAction },
+  dark: { backgroundColor: colors.ink },
   secondary: {
     backgroundColor: colors.background,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
     borderWidth: 1,
   },
   danger: { backgroundColor: colors.restricted },

@@ -1,16 +1,16 @@
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
+import { ui } from '../../../shared/theme/ui';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
-import { DiscoveryButton, DiscoveryChip } from '../components/DiscoveryControls';
+import { DiscoveryButton } from '../components/DiscoveryControls';
 import { DiscoveryIcon } from '../components/DiscoveryIcon';
 import { DiscoveryMapPlaceholder } from '../components/DiscoveryMapPlaceholder';
 import { DiscoveryPropertyImage } from '../components/DiscoveryPropertyImage';
 import type { SearchDiscoveryViewModel } from '../viewModels/useSearchDiscoveryViewModel';
 
-const backIcon = require('../../../assets/verification/back.png');
 const landlordAvatar = require('../../../assets/authentication/profile-avatar.png');
 
 interface PropertyDiscoveryDetailViewProps {
@@ -37,7 +37,7 @@ function DetailLink({
 }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.detailLink, pressed && styles.pressed]}>
-      <View style={styles.detailLinkIcon}><DiscoveryIcon color={colors.primary} name={icon} size={21} /></View>
+      <View style={styles.detailLinkIcon}><DiscoveryIcon color={colors.textSecondary} name={icon} size={21} /></View>
       <View style={styles.detailLinkCopy}>
         <Text style={styles.detailLinkTitle}>{title}</Text>
         <Text style={styles.detailLinkBody}>{detail}</Text>
@@ -53,6 +53,8 @@ export function PropertyDiscoveryDetailView({
   onOpenPriceEstimate,
   onStartInquiry,
 }: PropertyDiscoveryDetailViewProps) {
+  const { width, fontScale } = useWindowDimensions();
+  const largeText = width / fontScale < 280;
   const property = viewModel.selectedProperty;
   if (!property) return null;
   const saved = viewModel.isSaved(property.id);
@@ -62,39 +64,48 @@ export function PropertyDiscoveryDetailView({
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           <DiscoveryPropertyImage crop={property.id === 'preview-imus-house' ? { x: 2, y: 2, width: 225, height: 132 } : property.imageCrop} />
+          <View style={styles.heroControls}>
           <Pressable accessibilityLabel="Back to results" accessibilityRole="button" onPress={viewModel.goBack} style={styles.backButton}>
-            <Image resizeMode="contain" source={backIcon} style={styles.backIcon} />
+            <Text accessible={false} style={styles.backIcon}>{'\u2039'}</Text>
           </Pressable>
+          <View style={styles.heroActions}>
           <Pressable accessibilityLabel={saved ? 'Remove saved listing' : 'Save listing'} accessibilityRole="button" accessibilityState={{ selected: saved }} onPress={() => viewModel.toggleSaved(property.id)} style={[styles.saveButton, saved && styles.saveButtonActive]}>
             <DiscoveryIcon color={saved ? colors.white : colors.text} name="bookmark" size={22} />
           </Pressable>
           <Pressable accessibilityRole="button" onPress={onClose} style={styles.closeButton}>
             <Text style={styles.closeLabel}>Close</Text>
           </Pressable>
-        </View>
+          </View>
+          </View>
         <Pressable accessibilityRole="button" onPress={() => viewModel.navigate('photoGallery')} style={styles.galleryAction}>
           <DiscoveryIcon color={colors.text} name="gallery" size={19} />
           <Text style={styles.galleryActionText}>View all photos</Text>
         </Pressable>
+        </View>
         <View style={styles.content}>
           <View style={styles.priceRow}>
-            <View>
+            <View style={[styles.priceCopy, largeText && styles.widePrice]}>
               <Text style={styles.price}>₱{formatRent(property.rent)}<Text style={styles.perMonth}> /mo</Text></Text>
-              <Text style={styles.city}>{property.city}, Cavite</Text>
             </View>
             <View style={styles.ratingCard}>
-              <Text style={styles.rating}>{property.rating.toFixed(1)}</Text>
+              <View style={styles.ratingValue}><DiscoveryIcon color={colors.warning} name="rating" size={16} /><Text style={styles.rating}>{property.rating.toFixed(1)}</Text></View>
               <Text style={styles.reviews}>{property.reviewCount} reviews</Text>
             </View>
           </View>
           <Text accessibilityRole="header" style={styles.title}>{property.title}</Text>
           <View style={styles.chips}>
-            <DiscoveryChip label={property.propertyKind} onPress={() => undefined} selected />
-            <DiscoveryChip label={property.furnished ? 'Furnished' : 'Unfurnished'} onPress={() => undefined} selected={false} />
+            <View style={[styles.propertyTag, styles.selectedTag]}><Text style={[styles.tagLabel, styles.selectedTagLabel]}>{property.propertyKind}</Text></View>
+            <View style={styles.propertyTag}><Text style={styles.tagLabel}>{property.furnished ? 'Furnished' : 'Unfurnished'}</Text></View>
           </View>
-          <Text style={styles.sectionLabel}>DESCRIPTION</Text>
+          <Text style={styles.city}>{property.city}, Cavite</Text>
+          <View style={styles.specGrid}>
+            <View style={styles.specCard}><Text style={styles.specValue}>{property.bedrooms}</Text><Text style={styles.specLabel}>Bedrooms</Text></View>
+            <View style={styles.specCard}><Text style={styles.specValue}>{property.bathrooms}</Text><Text style={styles.specLabel}>Bathrooms</Text></View>
+            <View style={styles.specCard}><Text style={styles.specValue}>{property.landArea}</Text><Text style={styles.specLabel}>sqm</Text></View>
+          </View>
+          <Text style={styles.sectionLabel}>Description</Text>
           <Text style={styles.description}>{property.description}</Text>
-          <Text style={styles.sectionLabel}>LANDLORD</Text>
+          <Text style={styles.sectionLabel}>Landlord</Text>
           <View style={styles.landlordRow}>
             <Image resizeMode="cover" source={landlordAvatar} style={styles.avatar} />
             <View style={styles.landlordCopy}>
@@ -109,11 +120,6 @@ export function PropertyDiscoveryDetailView({
               <Text style={styles.matchTitle}>Strong match for your preferences</Text>
               <Text style={styles.matchMeta}>Budget · Location · Property details · Amenities</Text>
             </View>
-          </View>
-          <View style={styles.specGrid}>
-            <View style={styles.specCard}><Text style={styles.specValue}>{property.bedrooms}</Text><Text style={styles.specLabel}>Bedrooms</Text></View>
-            <View style={styles.specCard}><Text style={styles.specValue}>{property.bathrooms}</Text><Text style={styles.specLabel}>Bathrooms</Text></View>
-            <View style={styles.specCard}><Text style={styles.specValue}>{property.landArea}</Text><Text style={styles.specLabel}>sqm</Text></View>
           </View>
           <Text style={styles.sectionHeading}>Explore this property</Text>
           <View style={styles.detailLinks}>
@@ -146,52 +152,61 @@ export function PropertyDiscoveryDetailView({
 }
 
 const styles = StyleSheet.create({
+  heroActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  propertyTag: { borderColor: colors.outline, borderWidth: 1, borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xxs },
+  selectedTag: { backgroundColor: colors.primaryAction, borderColor: colors.primaryAction },
+  tagLabel: { ...ui.supporting },
+  selectedTagLabel: { color: colors.white },
+  ratingValue: { flexDirection: 'row', alignItems: 'center', gap: spacing.xxs },
+  widePrice: { flexBasis: '100%', flexShrink: 0 },
   screen: { backgroundColor: colors.background, flex: 1 },
   scrollContent: { paddingBottom: spacing.xxl },
+  heroControls: { position: 'absolute', left: spacing.sm, right: spacing.sm, top: spacing.sm, flexDirection: 'row', justifyContent: 'space-between', gap: spacing.xs },
   hero: { position: 'relative' },
-  backButton: { left: spacing.sm, position: 'absolute', top: spacing.sm },
-  backIcon: { height: 42, width: 42 },
-  saveButton: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: radius.pill, height: 42, justifyContent: 'center', position: 'absolute', right: 72, top: spacing.sm, width: 42 },
-  saveButtonActive: { backgroundColor: colors.primary },
-  closeButton: { backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, position: 'absolute', right: spacing.sm, top: spacing.sm },
-  closeLabel: { color: colors.primary, fontFamily: typography.family, fontSize: 12, fontWeight: '800' },
-  galleryAction: { alignItems: 'center', alignSelf: 'flex-end', borderColor: colors.border, borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, marginRight: spacing.lg, marginTop: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
-  galleryActionText: { color: colors.text, fontFamily: typography.family, fontSize: 11, fontWeight: '700' },
-  content: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
-  priceRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  price: { color: colors.text, fontFamily: typography.family, fontSize: 27, fontWeight: '900' },
+  backButton: { alignItems: 'center', backgroundColor: colors.background, borderRadius: radius.pill, justifyContent: 'center', minHeight: 48, width: 48 },
+  backIcon: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 28, fontWeight: '600' },
+  saveButton: { alignItems: 'center', backgroundColor: colors.background, borderRadius: radius.pill, justifyContent: 'center', minHeight: 48, minWidth: 48 },
+  saveButtonActive: { backgroundColor: colors.primaryAction },
+  closeButton: { backgroundColor: colors.background, borderRadius: radius.control, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, justifyContent: 'center', minHeight: 48, minWidth: 48, flexShrink: 1 },
+  closeLabel: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '700', flexShrink: 1 },
+  galleryAction: { position: 'absolute', bottom: spacing.sm, right: spacing.sm, backgroundColor: colors.background, borderRadius: radius.control, alignItems: 'center', flexDirection: 'row', gap: spacing.xs, minHeight: 48, paddingHorizontal: spacing.sm, maxWidth: '90%' },
+  galleryActionText: { ...ui.supporting, color: colors.ink, fontWeight: '700', flexShrink: 1 },
+  content: { gap: spacing.sm, paddingHorizontal: spacing.md, paddingTop: spacing.md },
+  priceRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'space-between' },
+  priceCopy: { flexGrow: 1, flexShrink: 1, flexBasis: 155, minWidth: 0 },
+  price: { ...ui.pageTitle, fontSize: 24, lineHeight: 30 },
   perMonth: { fontSize: 12 },
-  city: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 12 },
-  ratingCard: { alignItems: 'center', borderColor: colors.border, borderRadius: radius.sm, borderWidth: 1, minWidth: 74, padding: spacing.xs },
+  city: { ...ui.supporting },
+  ratingCard: { alignItems: 'center', backgroundColor: colors.canvas, borderRadius: radius.sm, minWidth: 72, padding: spacing.xs },
   rating: { color: colors.text, fontFamily: typography.family, fontSize: 13, fontWeight: '800' },
-  reviews: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 9 },
-  title: { color: colors.text, fontFamily: typography.family, fontSize: 22, fontWeight: '900', lineHeight: 28 },
+  reviews: { ...ui.supporting },
+  title: { ...ui.sectionTitle, fontSize: 20, lineHeight: 26, fontWeight: '700' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  sectionLabel: { color: colors.text, fontFamily: typography.family, fontSize: 10, fontWeight: '900', marginTop: spacing.md },
-  description: { color: colors.text, fontFamily: typography.family, fontSize: 12, lineHeight: 18 },
+  sectionLabel: { ...ui.sectionTitle, marginTop: spacing.md },
+  description: { ...ui.body },
   landlordRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   avatar: { borderRadius: radius.pill, height: 46, width: 46 },
-  landlordCopy: { flex: 1 },
-  landlordName: { color: colors.text, fontFamily: typography.family, fontSize: 14, fontWeight: '800' },
-  landlordMeta: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 10 },
+  landlordCopy: { flex: 1, minWidth: 0 },
+  landlordName: { ...ui.body, fontWeight: '600' },
+  landlordMeta: { ...ui.supporting },
   verifiedDot: { backgroundColor: colors.primarySoft, borderRadius: radius.pill, height: 13, width: 13 },
-  matchCard: { alignItems: 'center', backgroundColor: colors.primaryPale, borderColor: '#70D788', borderRadius: radius.card, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, padding: spacing.md },
-  matchCircle: { alignItems: 'center', borderColor: colors.primary, borderRadius: radius.pill, borderWidth: 3, height: 56, justifyContent: 'center', width: 56 },
-  matchValue: { color: colors.primary, fontFamily: typography.family, fontSize: 13, fontWeight: '900' },
-  matchCopy: { flex: 1 },
-  matchTitle: { color: colors.text, fontFamily: typography.family, fontSize: 12, fontWeight: '800' },
-  matchMeta: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 10, marginTop: spacing.xxs },
-  specGrid: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
-  specCard: { alignItems: 'center', borderColor: colors.border, borderRadius: radius.sm, borderWidth: 1, flex: 1, minHeight: 68, justifyContent: 'center' },
+  matchCard: { alignItems: 'center', backgroundColor: colors.primaryPale, borderRadius: radius.panel, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm, padding: spacing.sm },
+  matchCircle: { alignItems: 'center', borderColor: colors.controlBorder, borderWidth: 1, borderRadius: radius.sm, minHeight: 44, minWidth: 60, padding: spacing.xs, justifyContent: 'center' },
+  matchValue: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 20, fontWeight: '800' },
+  matchCopy: { flexGrow: 1, flexShrink: 1, flexBasis: 145, minWidth: 0 },
+  matchTitle: { ...ui.supporting, color: colors.ink, fontWeight: '600' },
+  matchMeta: { ...ui.supporting, marginTop: spacing.xxs },
+  specGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginVertical: spacing.sm },
+  specCard: { alignItems: 'center', backgroundColor: colors.canvas, borderRadius: radius.control, flexGrow: 1, flexShrink: 1, flexBasis: 85, padding: spacing.sm, minHeight: 68, justifyContent: 'center' },
   specValue: { color: colors.text, fontFamily: typography.family, fontSize: 18, fontWeight: '900' },
-  specLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 10 },
-  sectionHeading: { color: colors.text, fontFamily: typography.family, fontSize: 17, fontWeight: '900', marginTop: spacing.lg },
-  detailLinks: { borderColor: colors.border, borderRadius: radius.card, borderWidth: 1, overflow: 'hidden' },
+  specLabel: { ...ui.supporting },
+  sectionHeading: { ...ui.sectionTitle, marginTop: spacing.md },
+  detailLinks: { borderTopColor: colors.outline, borderTopWidth: 1 },
   detailLink: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', gap: spacing.sm, minHeight: 66, paddingHorizontal: spacing.md },
-  detailLinkIcon: { alignItems: 'center', backgroundColor: colors.primaryPale, borderRadius: radius.pill, height: 40, justifyContent: 'center', width: 40 },
-  detailLinkCopy: { flex: 1 },
-  detailLinkTitle: { color: colors.text, fontFamily: typography.family, fontSize: 13, fontWeight: '800' },
-  detailLinkBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 10, marginTop: spacing.xxs },
+  detailLinkIcon: { alignItems: 'center', minHeight: 40, justifyContent: 'center', width: 32 },
+  detailLinkCopy: { flex: 1, minWidth: 0 },
+  detailLinkTitle: { ...ui.body, fontWeight: '700' },
+  detailLinkBody: { ...ui.supporting, marginTop: spacing.xxs },
   chevron: { borderRightColor: colors.textMuted, borderRightWidth: 2, borderTopColor: colors.textMuted, borderTopWidth: 2, height: 9, transform: [{ rotate: '45deg' }], width: 9 },
   notice: { backgroundColor: colors.primaryPale, borderRadius: radius.sm, color: colors.textSecondary, fontFamily: typography.family, fontSize: 11, lineHeight: 16, padding: spacing.sm },
   pressed: { opacity: 0.72 },

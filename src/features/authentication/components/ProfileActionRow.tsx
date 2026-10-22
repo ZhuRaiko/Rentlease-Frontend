@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontFamily: typography.family,
     fontSize: typography.body,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   detail: {
     color: colors.textSecondary,
