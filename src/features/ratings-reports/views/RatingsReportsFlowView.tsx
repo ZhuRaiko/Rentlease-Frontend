@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
@@ -13,6 +14,7 @@ interface RatingsReportsFlowViewProps {
   actor: RatingsReportsActor;
   isLandlord: boolean;
   onClose: () => void;
+  registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onCreateListing: () => void;
   onOpenChat: () => void;
   onOpenDiscover: () => void;
@@ -35,6 +37,7 @@ export function RatingsReportsFlowView({
   actor,
   isLandlord,
   onClose,
+  registerBackAction,
   onCreateListing,
   onOpenChat,
   onOpenDiscover,
@@ -42,6 +45,10 @@ export function RatingsReportsFlowView({
   onOpenMaintenance,
 }: RatingsReportsFlowViewProps) {
   const viewModel = useRatingsReportsViewModel(actor);
+  useEffect(() => {
+    registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
+    return () => registerBackAction?.(null);
+  });
   const content = viewModel.screen === 'home' ? (
     <RatingsReportsHomeView onClose={onClose} viewModel={viewModel} />
   ) : reviewScreens.has(viewModel.screen) ? (

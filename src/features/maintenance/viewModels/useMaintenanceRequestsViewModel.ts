@@ -178,6 +178,7 @@ export function useMaintenanceRequestsViewModel(actor: MaintenanceActor) {
   };
 
   return {
+    backFromWorkspace: (onClose: () => void) => { if (screen === 'requests' || screen === 'empty') onClose(); else goBack(); },
     actor,
     screen,
     requests,

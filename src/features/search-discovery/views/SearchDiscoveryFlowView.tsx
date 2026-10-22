@@ -22,6 +22,7 @@ interface SearchDiscoveryFlowViewProps {
   onIntroductionComplete?: (() => Promise<boolean>) | undefined;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onClose: () => void;
+  onRootBack: () => void;
   onCreateListing?: (() => void) | undefined;
   onOpenListings?: (() => void) | undefined;
   onOpenPriceEstimate: () => void;
@@ -45,6 +46,7 @@ export function SearchDiscoveryFlowView({
   initialScreen = 'home',
   introduction = false, initialPreferences, onSavePreferences, onIntroductionComplete, registerBackAction,
   onClose,
+  onRootBack,
   onCreateListing,
   onOpenListings,
   onOpenPriceEstimate,
@@ -55,7 +57,7 @@ export function SearchDiscoveryFlowView({
   const viewModel = useSearchDiscoveryViewModel(initialScreen, { introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
   const close = () => viewModel.closeFromWorkspace(onClose);
   useEffect(() => {
-    registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
+    registerBackAction?.(() => viewModel.backFromWorkspace(onClose, onRootBack));
     return () => registerBackAction?.(null);
   });
   let content;

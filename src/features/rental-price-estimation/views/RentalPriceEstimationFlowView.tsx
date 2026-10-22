@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
@@ -11,6 +12,7 @@ interface RentalPriceEstimationFlowViewProps {
   actor: EstimateActor;
   isLandlord: boolean;
   onClose: () => void;
+  registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onCreateListing: () => void;
   onOpenChat: () => void;
   onOpenDiscover: () => void;
@@ -22,6 +24,7 @@ export function RentalPriceEstimationFlowView({
   actor,
   isLandlord,
   onClose,
+  registerBackAction,
   onCreateListing,
   onOpenChat,
   onOpenDiscover,
@@ -29,6 +32,10 @@ export function RentalPriceEstimationFlowView({
   onOpenMaintenance,
 }: RentalPriceEstimationFlowViewProps) {
   const viewModel = useRentalPriceEstimationViewModel(actor);
+  useEffect(() => {
+    registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
+    return () => registerBackAction?.(null);
+  });
 
   return (
     <ScreenContainer includeBottomInset={false} padded={false}>

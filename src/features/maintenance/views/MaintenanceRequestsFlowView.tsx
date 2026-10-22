@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
@@ -13,6 +14,8 @@ interface MaintenanceRequestsFlowViewProps {
   actor: MaintenanceActor;
   isLandlord: boolean;
   onClose: () => void;
+  onRootBack: () => void;
+  registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onCreateListing: () => void;
   onOpenChat: () => void;
   onOpenDiscover: () => void;
@@ -26,12 +29,18 @@ export function MaintenanceRequestsFlowView({
   actor,
   isLandlord,
   onClose,
+  onRootBack,
+  registerBackAction,
   onCreateListing,
   onOpenChat,
   onOpenDiscover,
   onOpenListings,
 }: MaintenanceRequestsFlowViewProps) {
   const viewModel = useMaintenanceRequestsViewModel(actor);
+  useEffect(() => {
+    registerBackAction?.(() => viewModel.backFromWorkspace(onRootBack));
+    return () => registerBackAction?.(null);
+  });
   const content = listScreens.has(viewModel.screen) ? (
     <MaintenanceListView onClose={onClose} viewModel={viewModel} />
   ) : formScreens.has(viewModel.screen) ? (

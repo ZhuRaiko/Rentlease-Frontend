@@ -322,10 +322,11 @@ export function useSearchDiscoveryViewModel(
     skipMatchingIntroduction,
     introductionError,
     isCompletingIntroduction,
-    backFromWorkspace: (onClose: () => void) => {
+    backFromWorkspace: (onClose: () => void, onRootBack: () => void) => {
       if (completionInFlight.current) return;
       if (introductionPending) navigation.requestNavigation(() => { void skipMatchingIntroduction(); });
-      else if (screen === 'home') navigation.requestNavigation(onClose);
+      else if (screen === 'home') navigation.requestNavigation(onRootBack);
+      else if (initialScreen === 'matchingPreferences' && screen === 'matchingPreferences' && history.length === 0) navigation.requestNavigation(onClose);
       else navigation.requestNavigation(goBack);
     },
     screen,

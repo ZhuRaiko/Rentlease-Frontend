@@ -79,6 +79,7 @@ export function useNotificationsViewModel() {
   };
 
   return {
+    backFromWorkspace: (onClose: () => void) => { if (screen === 'center' || screen === 'empty') onClose(); else goBack(); },
     screen,
     notifications,
     filteredNotifications,

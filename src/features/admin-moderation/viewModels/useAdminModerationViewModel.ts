@@ -178,6 +178,7 @@ export function useAdminModerationViewModel() {
   }
 
   return {
+    backFromWorkspace: (onClose: () => void) => { if (screen === 'dashboard') onClose(); else goBack(); },
     screen,
     verification,
     dashboardNeedsRecovery: !verification.reviewBusy && (verification.status === 'error' || verification.reviewNeedsRefresh),

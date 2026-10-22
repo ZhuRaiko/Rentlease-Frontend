@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { ScreenContainer } from '../../../shared/components/ScreenContainer';
@@ -14,6 +15,7 @@ import { VerificationModerationView } from './VerificationModerationView';
 
 interface AdminModerationFlowViewProps {
   onClose: () => void;
+  registerBackAction?: ((action: (() => void) | null) => void) | undefined;
 }
 
 const queueScreens = new Set(['reviewQueues', 'verificationQueue', 'reportsQueue']);
@@ -22,8 +24,12 @@ const reportScreens = new Set(['reportDetails', 'evidenceViewer', 'reportedUserD
 const enforcementScreens = new Set(['moderationAction', 'warnUser', 'restrictAccount', 'suspendAccount', 'removeListing', 'permanentRemoval', 'moderationConfirmation', 'activeRestrictions', 'restoreAccount']);
 const auditScreens = new Set(['auditHistory', 'caseHistory']);
 
-export function AdminModerationFlowView({ onClose }: AdminModerationFlowViewProps) {
+export function AdminModerationFlowView({ onClose, registerBackAction }: AdminModerationFlowViewProps) {
   const viewModel = useAdminModerationViewModel();
+  useEffect(() => {
+    registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
+    return () => registerBackAction?.(null);
+  });
   let content;
 
   if (viewModel.screen === 'dashboard') {

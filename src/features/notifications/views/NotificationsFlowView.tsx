@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
@@ -11,6 +12,7 @@ import { NotificationPermissionView } from './NotificationPermissionView';
 interface NotificationsFlowViewProps {
   isLandlord: boolean;
   onClose: () => void;
+  registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onCreateListing: () => void;
   onOpenChat: () => void;
   onOpenDiscover: () => void;
@@ -23,6 +25,7 @@ interface NotificationsFlowViewProps {
 export function NotificationsFlowView({
   isLandlord,
   onClose,
+  registerBackAction,
   onCreateListing,
   onOpenChat,
   onOpenDiscover,
@@ -32,6 +35,10 @@ export function NotificationsFlowView({
   onOpenVerification,
 }: NotificationsFlowViewProps) {
   const viewModel = useNotificationsViewModel();
+  useEffect(() => {
+    registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
+    return () => registerBackAction?.(null);
+  });
 
   const openTarget = (target: NotificationTarget) => {
     if (target === 'messages') onOpenChat();

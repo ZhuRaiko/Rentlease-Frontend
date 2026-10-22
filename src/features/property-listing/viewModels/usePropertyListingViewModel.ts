@@ -216,7 +216,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     ...navigation,
     activeTab: listingActiveTab(screen),
     backFromWorkspace: (onClose: () => void) => {
-      if (history.length > 0) goBack();
+      if (screen === 'postingType') navigation.requestNavigation(onClose);
+      else if (history.length > 0) goBack();
       else if (screen !== 'dashboard' && screen !== 'empty') navigation.requestNavigation(goDashboard);
       else navigation.requestNavigation(onClose);
     },

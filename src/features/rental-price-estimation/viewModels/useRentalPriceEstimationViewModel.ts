@@ -122,6 +122,7 @@ export function useRentalPriceEstimationViewModel(actor: EstimateActor) {
   const showUnavailablePreview = () => navigate('unavailable');
 
   return {
+    backFromWorkspace: (onClose: () => void) => { if (screen === 'introduction') onClose(); else goBack(); },
     actor,
     screen,
     estimateState,

@@ -233,7 +233,7 @@ UX compatibility checks: Android Metro/Hermes export passed (924 modules) to a t
 
 IMPLEMENTED / AUTOMATED-TESTED / user Android RUNTIME-UNVERIFIED. Baseline `976d13d` plus earlier uncommitted UX work and these targeted corrections. Existing local work is preserved.
 
-Confirmed root cause: workspace-to-Profile callbacks discarded workspace state, and root Profile had neither an onBack callback nor a hardwareBackPress handler. Android therefore handled Back outside internal navigation. App now captures a single owner-scoped AppWorkspace entry plus permitted actor mode. `shared/models/profileReturn.ts` validates it against current identity, marketplace eligibility, Admin precedence and role membership before use; logout, identity changes or lost eligibility clear/invalidate it. Profile's visible header Back and root Android Back invoke the same return function. The handler runs only on Profile with a valid target, no workspace and no sign-out dialog, and removes its subscription on cleanup. Modal Back continues to delegate to existing feature actions; draft exit confirmation stays feature-owned.
+Historical first correction added a single owner-scoped Profile return target and native Back handling. The later navigation audit below supersedes its capture-every-workspace behavior: a dismissed child is not a valid Profile predecessor. Earlier agent-observed Admin exit/return evidence remains historical and does not validate the current navigation corrections.
 
 Return restores the supported workspace entry, not every nested feature screen or discarded draft. No persistent route stack or second navigation framework is introduced. No target means no invented unauthorized return. Profile edit/settings and onboarding actions remain owned by the Auth ViewModel.
 
@@ -246,3 +246,13 @@ Typecheck and full suite passed 231/231 (0 failed/skipped/cancelled), including 
 Targeted compatibility: Expo install --check reports the same pre-existing expo 57.0.30/~57.0.31 and expo-location 57.0.21/~57.0.22 patch drift, with no dependency changes. Git working-tree/index whitespace checks pass. FEATURES.md remains an accurate concise index; FRONTEND_CONTEXT.md and AUTH_SUPABASE_INTEGRATION.md retain accurate stack/Auth contract boundaries and were intentionally unchanged. No commit/merge/push occurred.
 
 Final targeted bundle validation: Android Metro/Hermes export passed (926 modules) to a temporary directory. Agent also repeated Admin Exit -> Profile -> visible header Back -> Admin Dashboard successfully. Both native Back observations are limited to that existing development-build Admin session; user acceptance and ordinary-user return flows remain RUNTIME-UNVERIFIED.
+
+## Navigation Back correction (2026-10-22)
+
+IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED. Baseline `9d9e9c9` plus uncommitted changes. Root composition and pure `shared/models/profileReturn.ts` now retain only an authorized top-level Profile predecessor; dismissed child flows preserve it rather than replacing it. Profile Back falls back to the current authorized landing when needed. Visible/hardware Back share this policy. Hardware Back in Edit Profile/Settings invokes the existing guarded Auth goBack; loading consumes Back and the sign-out dialog retains priority. Auth bootstrap, onboarding, account synchronization, persistence and backend calls are unchanged.
+
+Identity/restriction/role changes invalidate stale workspace/return targets; no ordinary destination is restored for an Admin. Root Modal callbacks are scoped to account/workspace and removed on feature cleanup. See [Routes](../ROUTES.md#navigation-back-audit-correction-2026-10-22) for complete parent/tab/Close policy and Android checklist. Typecheck and 267/267 automated tests pass; native Back, sign-out, account switching and role/restriction transitions require Android acceptance. No new runtime verification is claimed.
+
+### Bottom-tab Back distinction (2026-10-22)
+
+Root hardware Back no longer uses Profile as a generic marketplace fallback. Discovery Home requests Android exit confirmation; Listings/Post, Chat and Tenancy roots return to Discovery after existing feature/draft guards. Explicit Profile entry and account-scoped Profile return handling remain intact. Exit does not sign out; Auth/onboarding/session contracts are unchanged. See Routes for native confirmation lifecycle and Android tests. IMPLEMENTED / AUTOMATED-TESTED (274/274 suite) / Android RUNTIME-UNVERIFIED; baseline `9d9e9c9` plus uncommitted navigation changes.

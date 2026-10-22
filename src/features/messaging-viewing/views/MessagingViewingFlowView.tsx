@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
@@ -14,6 +15,8 @@ interface MessagingViewingFlowViewProps {
   initialScreen?: 'inbox' | 'newInquiry';
   isLandlord: boolean;
   onClose: () => void;
+  onRootBack: () => void;
+  registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onCreateListing: () => void;
   onOpenDiscover: () => void;
   onOpenListings: () => void;
@@ -33,12 +36,18 @@ export function MessagingViewingFlowView({
   initialScreen = 'inbox',
   isLandlord,
   onClose,
+  onRootBack,
+  registerBackAction,
   onCreateListing,
   onOpenDiscover,
   onOpenListings,
   onOpenMaintenance,
 }: MessagingViewingFlowViewProps) {
   const viewModel = useMessagingViewingViewModel(actor, initialScreen);
+  useEffect(() => {
+    registerBackAction?.(() => viewModel.backFromWorkspace(onRootBack));
+    return () => registerBackAction?.(null);
+  });
   let content;
 
   if (inboxScreens.has(viewModel.screen)) {

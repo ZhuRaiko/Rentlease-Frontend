@@ -26,7 +26,7 @@ export function NotificationCenterView({
       <NotificationScaffold
         actionLabel="Restore"
         onAction={viewModel.restorePreviewNotifications}
-        onClose={onClose}
+        onBack={onClose}
         title="Notifications"
       >
         <View style={styles.emptyState}>
@@ -54,7 +54,7 @@ export function NotificationCenterView({
     <NotificationScaffold
       actionLabel={viewModel.unreadCount > 0 ? 'Mark all read' : 'All read'}
       onAction={viewModel.markAllRead}
-      onClose={onClose}
+      onBack={onClose}
       title="Notifications"
       subtitle={`${viewModel.unreadCount} unread`}
       contentPadded={false}

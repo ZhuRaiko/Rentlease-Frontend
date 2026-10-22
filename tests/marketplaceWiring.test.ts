@@ -23,7 +23,7 @@ test('all root toolbar consumers receive Landlord membership, not preferred UI m
   assert.match(functionBody(file, 'openProperties'), /propertiesWorkspace\(access, initialScreen\)/);
 });
 test('root Android Back delegates to feature actions, and listing Close/tab exits use the ViewModel guard', () => {
-  const app = source('App.tsx'); assert.ok(attributes(app, 'onRequestClose').some(value => value.includes('workspaceBackAction.current()')));
+  const app = source('App.tsx'); assert.ok(attributes(app, 'onRequestClose').some(value => value.includes('registered.action()')));
   const listing = source('src/features/property-listing/views/PropertyListingFlowView.tsx');
   for (const name of ['onChat', 'onDiscover', 'onTenancy']) assert.ok(attributes(listing, name).some(value => value.includes('viewModel.requestNavigation(')));
   assert.match(functionBody(listing, 'close'), /viewModel.requestNavigation\(onClose\)/);

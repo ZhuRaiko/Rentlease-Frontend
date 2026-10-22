@@ -10,11 +10,11 @@ const read = (path: string) => readFileSync(path, 'utf8');
 test('visible Profile Back and Android Back share one guarded root return action', () => {
   const app = read('App.tsx');
   assert.match(app, /onProfileBack=\{!workspace && allowedProfileReturn \? returnFromProfile : undefined\}/);
-  assert.match(app, /BackHandler.addEventListener\('hardwareBackPress', \(\) => \{\s*returnFromProfile\(\);\s*return true;/);
-  assert.match(app, /workspace \|\| auth.screen !== 'profile' \|\| !allowedProfileReturn \|\| auth.showSignOutConfirmation/);
+  assert.match(app, /if \(auth.screen === 'profile'\) returnFromProfile\(\)/);
+  assert.match(app, /\['profile', 'editProfile', 'settings'\]\.includes\(auth.screen\)/);
   assert.match(app, /return \(\) => subscription.remove\(\)/);
-  assert.match(app, /if \(profileReturnTarget && !allowedProfileReturn\) setProfileReturnTarget\(null\)/);
-  assert.match(app, /workspaceBackAction.current\(\)/);
+  assert.match(app, /if \(profileReturnTarget && !validProfileReturn\) setProfileReturnTarget\(null\)/);
+  assert.match(app, /registered.action\(\)/);
   const profile = read('src/features/authentication/views/ProfileView.tsx');
   assert.match(profile, /<ScreenHeader title="Profile" onBack=\{onBack\}/);
 });

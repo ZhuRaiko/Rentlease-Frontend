@@ -1,4 +1,5 @@
-import { captureProfileReturn, resolveProfileReturn, type ProfileReturnTarget } from './src/shared/models/profileReturn';
+import { useMarketplaceExitConfirmation } from './src/shared/viewModels/useMarketplaceExitConfirmation';
+import { profileAfterDismissal, profileBackTarget, resolveProfileReturn, type ProfileReturnTarget } from './src/shared/models/profileReturn';
 import { RentLeaseBottomNavigation } from './src/shared/components/RentLeaseBottomNavigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Modal } from 'react-native';
@@ -31,12 +32,16 @@ export default function App() {
   const [profileReturnTarget, setProfileReturnTarget] = useState<ProfileReturnTarget | null>(null);
   const [savedPreferences, setSavedPreferences] = useState<{ userId: string; value: MatchingPreferences } | null>(null);
   const handledIntroduction = useRef(0);
-  const workspaceBackAction = useRef<(() => void) | null>(null);
-  const registerWorkspaceBack = useCallback((action: (() => void) | null) => { workspaceBackAction.current = action; }, []);
+  const workspaceBackAction = useRef<{ workspace: AppWorkspace; userId: string | null; action: () => void } | null>(null);
+  const registerWorkspaceBack = useCallback((action: (() => void) | null) => {
+    if (action) workspaceBackAction.current = { workspace, userId: auth.account?.user.id ?? null, action };
+    else if (workspaceBackAction.current?.workspace === workspace) workspaceBackAction.current = null;
+  }, [workspace, auth.account?.user.id]);
   const workspaceDestination = auth.account ? getWorkspaceDestination(auth.account) : null;
   const canEnterAdmin = workspaceDestination === 'adminModeration';
   const canEnterMarketplace = workspaceDestination === 'discovery' && !auth.matchingIntroductionGate;
   const access = { marketplace: canEnterMarketplace, admin: canEnterAdmin, tenant: auth.hasTenantRole, landlord: auth.hasLandlordRole };
+  const requestMarketplaceExit = useMarketplaceExitConfirmation(workspace, auth.account?.user.id ?? null, canEnterMarketplace && !canEnterAdmin);
   useEffect(() => {
     traceAuthBoot('APP_MOUNT', { initialMetricsPresent: initialWindowMetrics !== null });
     return () => traceAuthBoot('APP_UNMOUNT');
@@ -46,9 +51,10 @@ export default function App() {
       accountPresent: auth.account !== null, destination: workspaceDestination, workspace: workspace?.type ?? null,
       modalVisible: workspace !== null && (workspace.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace) });
   }, [auth.screen, auth.asyncState, auth.account, workspaceDestination, workspace, canEnterAdmin, canEnterMarketplace]);
-  const allowedProfileReturn = resolveProfileReturn(profileReturnTarget, auth.account?.user.id ?? null, access);
+  const validProfileReturn = resolveProfileReturn(profileReturnTarget, auth.account?.user.id ?? null, access);
+  const allowedProfileReturn = profileBackTarget(profileReturnTarget, auth.account?.user.id ?? null, accountRole, access);
   const openProfile = () => {
-    setProfileReturnTarget(captureProfileReturn(auth.account?.user.id ?? null, workspace, accountRole, access));
+    setProfileReturnTarget(profileAfterDismissal(profileReturnTarget, auth.account?.user.id ?? null, workspace, accountRole, access));
     setWorkspace(null);
   };
   const returnFromProfile = () => {
@@ -58,16 +64,29 @@ export default function App() {
     setProfileReturnTarget(null);
   };
   useEffect(() => {
-    if (profileReturnTarget && !allowedProfileReturn) setProfileReturnTarget(null);
+    if (profileReturnTarget && !validProfileReturn) setProfileReturnTarget(null);
   }, [auth.account?.user.id, canEnterMarketplace, canEnterAdmin, auth.hasLandlordRole, auth.hasTenantRole, profileReturnTarget]);
   useEffect(() => {
-    if (workspace || auth.screen !== 'profile' || !allowedProfileReturn || auth.showSignOutConfirmation) return;
+    if (workspace || !['profile', 'editProfile', 'settings'].includes(auth.screen) || auth.showSignOutConfirmation) return;
+    if (auth.screen === 'profile' && !allowedProfileReturn) return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      returnFromProfile();
+      if (auth.screen === 'profile') returnFromProfile();
+      else if (auth.asyncState !== 'loading') auth.goBack();
       return true;
     });
     return () => subscription.remove();
   }, [workspace, auth.screen, allowedProfileReturn, auth.showSignOutConfirmation]);
+
+  const workspaceOwner = useRef(auth.account?.user.id ?? null);
+  useEffect(() => {
+    const userId = auth.account?.user.id ?? null;
+    if (workspaceOwner.current !== userId || (!canEnterMarketplace && !canEnterAdmin)) {
+      setWorkspace(null);
+      setProfileReturnTarget(null);
+      workspaceBackAction.current = null;
+    }
+    workspaceOwner.current = userId;
+  }, [auth.account?.user.id, canEnterMarketplace, canEnterAdmin]);
 
   const openProperties = (initialScreen: 'dashboard' | 'postingType') => {
     const next = propertiesWorkspace(access, initialScreen);
@@ -108,8 +127,10 @@ export default function App() {
   }, [auth.signedOutVersion]);
 
   useEffect(() => {
-    if (canEnterMarketplace && workspace?.type === 'properties' && !auth.hasLandlordRole) setWorkspace({ type: 'discovery', initialScreen: 'home' });
-  }, [canEnterMarketplace, auth.hasLandlordRole, workspace?.type]);
+    if (!workspace) return;
+    if ((workspace.type === 'adminModeration' && !canEnterAdmin) || (workspace.type !== 'adminModeration' && !canEnterMarketplace)) { setWorkspace(null); return; }
+    if (canEnterMarketplace && !auth.hasLandlordRole && (workspace.type === 'properties' || (workspace.type === 'priceEstimate' && workspace.actor === 'landlord'))) setWorkspace({ type: 'discovery', initialScreen: 'home' });
+  }, [canEnterMarketplace, canEnterAdmin, auth.hasLandlordRole, workspace]);
 
   return (
     <SafeAreaProvider>
@@ -132,8 +153,9 @@ export default function App() {
         key={auth.account?.user.id ?? 'signed-out'}
         animationType="slide"
         onRequestClose={() => {
-          if (workspaceBackAction.current) workspaceBackAction.current();
-          else openProfile();
+          const registered = workspaceBackAction.current;
+          if (registered?.workspace === workspace && registered?.userId === auth.account?.user.id) registered.action();
+          // Every mounted workspace registers its own Back action; never bypass its guard.
         }}
         presentationStyle="fullScreen"
         statusBarTranslucent
@@ -144,6 +166,7 @@ export default function App() {
         ) : null}
         {workspace?.type === 'discovery' ? (
           <SearchDiscoveryFlowView
+            onRootBack={requestMarketplaceExit}
             initialScreen={workspace.initialScreen}
             introduction={workspace.introduction ?? false}
             initialPreferences={savedPreferences && savedPreferences.userId === auth.account?.user.id ? savedPreferences.value : undefined}
@@ -171,6 +194,7 @@ export default function App() {
         ) : null}
         {workspace?.type === 'properties' && auth.hasLandlordRole ? (
           <PropertyListingFlowView
+            onRootBack={openDiscovery}
             registerBackAction={registerWorkspaceBack}
             initialScreen={workspace.initialScreen}
             onClose={openProfile}
@@ -184,6 +208,7 @@ export default function App() {
         ) : null}
         {workspace?.type === 'priceEstimate' ? (
           <RentalPriceEstimationFlowView
+            registerBackAction={registerWorkspaceBack}
             actor={workspace.actor}
             isLandlord={auth.hasLandlordRole}
             onClose={() =>
@@ -206,6 +231,8 @@ export default function App() {
         ) : null}
         {workspace?.type === 'messages' ? (
           <MessagingViewingFlowView
+            onRootBack={openDiscovery}
+            registerBackAction={registerWorkspaceBack}
             actor={accountRole}
             initialScreen={workspace.initialScreen}
             isLandlord={auth.hasLandlordRole}
@@ -222,6 +249,8 @@ export default function App() {
         ) : null}
         {workspace?.type === 'maintenance' ? (
           <MaintenanceRequestsFlowView
+            onRootBack={openDiscovery}
+            registerBackAction={registerWorkspaceBack}
             actor={accountRole}
             isLandlord={auth.hasLandlordRole}
             onClose={openProfile}
@@ -237,6 +266,7 @@ export default function App() {
         ) : null}
         {workspace?.type === 'ratingsReports' ? (
           <RatingsReportsFlowView
+            registerBackAction={registerWorkspaceBack}
             actor={accountRole}
             isLandlord={auth.hasLandlordRole}
             onClose={openProfile}
@@ -252,12 +282,13 @@ export default function App() {
           />
         ) : null}
         {workspace?.type === 'adminModeration' && auth.isAdmin ? (
-          <AdminModerationFlowView onClose={openProfile} />
+          <AdminModerationFlowView registerBackAction={registerWorkspaceBack} onClose={openProfile} />
         ) : null}
         {workspace?.type === 'notifications' ? (
           <NotificationsFlowView
+            registerBackAction={registerWorkspaceBack}
             isLandlord={auth.hasLandlordRole}
-            onClose={openProfile}
+            onClose={openDiscovery}
             onCreateListing={() =>
               openProperties('postingType')
             }

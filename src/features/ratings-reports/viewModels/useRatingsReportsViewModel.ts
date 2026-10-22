@@ -137,6 +137,7 @@ export function useRatingsReportsViewModel(actor: RatingsReportsActor) {
   };
 
   return {
+    backFromWorkspace: (onClose: () => void) => { if (screen === 'home') onClose(); else goBack(); },
     actor,
     screen,
     reviewSubject,

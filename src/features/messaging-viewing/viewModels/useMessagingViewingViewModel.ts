@@ -198,6 +198,7 @@ export function useMessagingViewingViewModel(
   };
 
   return {
+    backFromWorkspace: (onClose: () => void) => { if (screen === 'inbox' || screen === 'emptyInbox') onClose(); else goBack(); },
     actor,
     screen,
     selectedConversation,

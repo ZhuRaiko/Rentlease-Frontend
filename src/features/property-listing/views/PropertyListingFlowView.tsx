@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
-import { AppButton } from '../../../shared/components/AppButton';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
@@ -17,6 +16,7 @@ interface PropertyListingFlowViewProps {
   initialScreen?: 'dashboard' | 'postingType';
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onClose: () => void;
+  onRootBack: () => void;
   onOpenDiscover: () => void;
   onOpenPriceEstimate: () => void;
   onOpenChat: () => void;
@@ -53,6 +53,7 @@ export function PropertyListingFlowView({
   initialScreen = 'dashboard',
   registerBackAction,
   onClose,
+  onRootBack,
   onOpenDiscover,
   onOpenPriceEstimate,
   onOpenChat,
@@ -61,7 +62,7 @@ export function PropertyListingFlowView({
   const viewModel = usePropertyListingViewModel(initialScreen);
   const close = () => viewModel.requestNavigation(onClose);
   useEffect(() => {
-    registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
+    registerBackAction?.(() => viewModel.backFromWorkspace(onRootBack));
     return () => registerBackAction?.(null);
   });
   let content;
@@ -94,7 +95,6 @@ export function PropertyListingFlowView({
   return (
     <ScreenContainer includeBottomInset={false} padded={false}>
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
-      {viewModel.screen === 'dashboard' || viewModel.screen === 'empty' ? <View style={styles.profileAction}><AppButton label="Back to Profile" variant="secondary" onPress={close} /></View> : null}
       <View style={styles.content}>{content}</View>
       <NavigationConfirmation visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
       <RentLeaseBottomNavigation
@@ -109,4 +109,4 @@ export function PropertyListingFlowView({
   );
 }
 
-const styles = StyleSheet.create({ profileAction: { paddingHorizontal: 16, paddingVertical: 8 }, content: { flex: 1 } });
+const styles = StyleSheet.create({ content: { flex: 1 } });
