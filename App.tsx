@@ -1,5 +1,7 @@
+import { captureProfileReturn, resolveProfileReturn, type ProfileReturnTarget } from './src/shared/models/profileReturn';
+import { RentLeaseBottomNavigation } from './src/shared/components/RentLeaseBottomNavigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal } from 'react-native';
+import { BackHandler, Modal } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { traceAuthBoot } from './src/shared/utils/authBootTrace';
 
@@ -14,7 +16,7 @@ import { MaintenanceRequestsFlowView } from './src/features/maintenance/views/Ma
 import { NotificationsFlowView } from './src/features/notifications/views/NotificationsFlowView';
 import { PropertyListingFlowView } from './src/features/property-listing/views/PropertyListingFlowView';
 import { RatingsReportsFlowView } from './src/features/ratings-reports/views/RatingsReportsFlowView';
-import { initialMarketplaceWorkspace, propertiesWorkspace, switchMarketplaceMode, type AppWorkspace } from './src/shared/models/marketplaceNavigation';
+import { initialMarketplaceWorkspace, propertiesWorkspace, type AppWorkspace } from './src/shared/models/marketplaceNavigation';
 import type { MatchingPreferences } from './src/features/search-discovery/models/SearchDiscovery';
 import { RentalPriceEstimationFlowView } from './src/features/rental-price-estimation/views/RentalPriceEstimationFlowView';
 import { SearchDiscoveryFlowView } from './src/features/search-discovery/views/SearchDiscoveryFlowView';
@@ -26,6 +28,7 @@ export default function App() {
   const [preferredRole, setPreferredRole] = useState<UserRole>('tenant');
   const accountRole: UserRole = auth.hasLandlordRole && (!auth.hasTenantRole || preferredRole === 'landlord') ? 'landlord' : 'tenant';
   const [workspace, setWorkspace] = useState<AppWorkspace>(null);
+  const [profileReturnTarget, setProfileReturnTarget] = useState<ProfileReturnTarget | null>(null);
   const [savedPreferences, setSavedPreferences] = useState<{ userId: string; value: MatchingPreferences } | null>(null);
   const handledIntroduction = useRef(0);
   const workspaceBackAction = useRef<(() => void) | null>(null);
@@ -43,14 +46,39 @@ export default function App() {
       accountPresent: auth.account !== null, destination: workspaceDestination, workspace: workspace?.type ?? null,
       modalVisible: workspace !== null && (workspace.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace) });
   }, [auth.screen, auth.asyncState, auth.account, workspaceDestination, workspace, canEnterAdmin, canEnterMarketplace]);
+  const allowedProfileReturn = resolveProfileReturn(profileReturnTarget, auth.account?.user.id ?? null, access);
+  const openProfile = () => {
+    setProfileReturnTarget(captureProfileReturn(auth.account?.user.id ?? null, workspace, accountRole, access));
+    setWorkspace(null);
+  };
+  const returnFromProfile = () => {
+    if (!allowedProfileReturn) return;
+    setPreferredRole(allowedProfileReturn.mode);
+    setWorkspace(allowedProfileReturn.workspace);
+    setProfileReturnTarget(null);
+  };
+  useEffect(() => {
+    if (profileReturnTarget && !allowedProfileReturn) setProfileReturnTarget(null);
+  }, [auth.account?.user.id, canEnterMarketplace, canEnterAdmin, auth.hasLandlordRole, auth.hasTenantRole, profileReturnTarget]);
+  useEffect(() => {
+    if (workspace || auth.screen !== 'profile' || !allowedProfileReturn || auth.showSignOutConfirmation) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      returnFromProfile();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [workspace, auth.screen, allowedProfileReturn, auth.showSignOutConfirmation]);
+
   const openProperties = (initialScreen: 'dashboard' | 'postingType') => {
     const next = propertiesWorkspace(access, initialScreen);
     if (next) { setPreferredRole('landlord'); setWorkspace(next); }
+    else if (canEnterMarketplace) auth.setNotice('Listings and posting require the Landlord role. You can browse homes in Discover.');
   };
 
-  const switchMode = (mode: UserRole) => {
-    const next = switchMarketplaceMode(access, mode);
-    if (next) { setPreferredRole(next.mode); setWorkspace(next.workspace); }
+  const openDiscovery = () => {
+    if (!canEnterMarketplace) return;
+    setPreferredRole(auth.hasTenantRole ? 'tenant' : 'landlord');
+    setWorkspace({ type: 'discovery', initialScreen: 'home' });
   };
   const finishMatchingIntroduction = async () => {
     if (!await auth.completeMatchingIntroduction()) return false;
@@ -72,6 +100,7 @@ export default function App() {
   useEffect(() => {
     if (auth.signedOutVersion > 0) {
       setWorkspace(null);
+      setProfileReturnTarget(null);
       setPreferredRole('tenant');
       setSavedPreferences(null);
       handledIntroduction.current = 0;
@@ -86,13 +115,15 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProfilesFlowView
         viewModel={auth}
-        activeRole={accountRole}
-        onSwitchRole={switchMode}
+        onProfileBack={!workspace && allowedProfileReturn ? returnFromProfile : undefined}
+        marketplaceNavigation={canEnterMarketplace ? <RentLeaseBottomNavigation active={null}
+          onDiscover={openDiscovery}
+          onListing={() => openProperties('dashboard')}
+          onPost={() => openProperties('postingType')}
+          onTenancy={() => setWorkspace({ type: 'maintenance' })}
+          onChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })} /> : undefined}
         onOpenAdminModeration={() => { if (canEnterAdmin) setWorkspace({ type: 'adminModeration' }); }}
-        onOpenDiscovery={() => { if (canEnterMarketplace) setWorkspace({ type: 'discovery', initialScreen: 'home' }); }}
         onOpenMatchingPreferences={() => { if (canEnterMarketplace) setWorkspace({ type: 'discovery', initialScreen: 'matchingPreferences' }); }}
-        onOpenNotifications={() => { if (canEnterMarketplace) setWorkspace({ type: 'notifications' }); }}
-        onOpenProperties={() => openProperties('dashboard')}
         onOpenRatingsReports={() => { if (canEnterMarketplace) setWorkspace({ type: 'ratingsReports' }); }}
         onOpenVerification={() => { if (canEnterMarketplace) setWorkspace({ type: 'verification' }); }}
       />
@@ -102,14 +133,14 @@ export default function App() {
         animationType="slide"
         onRequestClose={() => {
           if (workspaceBackAction.current) workspaceBackAction.current();
-          else setWorkspace(null);
+          else openProfile();
         }}
         presentationStyle="fullScreen"
         statusBarTranslucent
         visible={workspace !== null && (workspace?.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace)}
       >
         {workspace?.type === 'verification' && canEnterMarketplace ? (
-          <UserVerificationFlowView tierOneVerified={!!auth.account?.profile.tier1_verified_at} hasLandlordRole={auth.hasLandlordRole} onClose={() => setWorkspace(null)} registerBackAction={registerWorkspaceBack} />
+          <UserVerificationFlowView tierOneVerified={!!auth.account?.profile.tier1_verified_at} hasLandlordRole={auth.hasLandlordRole} onClose={openProfile} registerBackAction={registerWorkspaceBack} />
         ) : null}
         {workspace?.type === 'discovery' ? (
           <SearchDiscoveryFlowView
@@ -120,7 +151,7 @@ export default function App() {
             onIntroductionComplete={finishMatchingIntroduction}
             registerBackAction={registerWorkspaceBack}
             isLandlord={auth.hasLandlordRole}
-            onClose={() => setWorkspace(null)}
+            onClose={openProfile}
             onCreateListing={() =>
               openProperties('postingType')
             }
@@ -132,6 +163,7 @@ export default function App() {
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
             onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
+            onOpenNotifications={() => { if (canEnterMarketplace) setWorkspace({ type: 'notifications' }); }}
             onStartInquiry={() =>
               setWorkspace({ type: 'messages', initialScreen: 'newInquiry' })
             }
@@ -141,8 +173,8 @@ export default function App() {
           <PropertyListingFlowView
             registerBackAction={registerWorkspaceBack}
             initialScreen={workspace.initialScreen}
-            onClose={() => setWorkspace(null)}
-            onOpenDiscover={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
+            onClose={openProfile}
+            onOpenDiscover={openDiscovery}
             onOpenPriceEstimate={() =>
               setWorkspace({ type: 'priceEstimate', actor: 'landlord', returnTo: 'properties' })
             }
@@ -165,7 +197,7 @@ export default function App() {
               openProperties('postingType')
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
-            onOpenDiscover={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
+            onOpenDiscover={openDiscovery}
             onOpenListings={() =>
               openProperties('dashboard')
             }
@@ -177,11 +209,11 @@ export default function App() {
             actor={accountRole}
             initialScreen={workspace.initialScreen}
             isLandlord={auth.hasLandlordRole}
-            onClose={() => setWorkspace(null)}
+            onClose={openProfile}
             onCreateListing={() =>
               openProperties('postingType')
             }
-            onOpenDiscover={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
+            onOpenDiscover={openDiscovery}
             onOpenListings={() =>
               openProperties('dashboard')
             }
@@ -192,12 +224,12 @@ export default function App() {
           <MaintenanceRequestsFlowView
             actor={accountRole}
             isLandlord={auth.hasLandlordRole}
-            onClose={() => setWorkspace(null)}
+            onClose={openProfile}
             onCreateListing={() =>
               openProperties('postingType')
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
-            onOpenDiscover={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
+            onOpenDiscover={openDiscovery}
             onOpenListings={() =>
               openProperties('dashboard')
             }
@@ -207,12 +239,12 @@ export default function App() {
           <RatingsReportsFlowView
             actor={accountRole}
             isLandlord={auth.hasLandlordRole}
-            onClose={() => setWorkspace(null)}
+            onClose={openProfile}
             onCreateListing={() =>
               openProperties('postingType')
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
-            onOpenDiscover={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
+            onOpenDiscover={openDiscovery}
             onOpenListings={() =>
               openProperties('dashboard')
             }
@@ -220,17 +252,17 @@ export default function App() {
           />
         ) : null}
         {workspace?.type === 'adminModeration' && auth.isAdmin ? (
-          <AdminModerationFlowView onClose={() => setWorkspace(null)} />
+          <AdminModerationFlowView onClose={openProfile} />
         ) : null}
         {workspace?.type === 'notifications' ? (
           <NotificationsFlowView
             isLandlord={auth.hasLandlordRole}
-            onClose={() => setWorkspace(null)}
+            onClose={openProfile}
             onCreateListing={() =>
               openProperties('postingType')
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
-            onOpenDiscover={() => setWorkspace({ type: 'discovery', initialScreen: 'home' })}
+            onOpenDiscover={openDiscovery}
             onOpenListings={() =>
               openProperties('dashboard')
             }

@@ -1,7 +1,9 @@
+import { AppState } from 'react-native';
+import { createOnboardingStatusCheck } from './onboardingStatusCheck';
 import { marketplaceIntroductionStorage } from '../services/marketplaceIntroductionStorage';
 import type { FeedbackTone } from '../../../shared/models/verificationPresentation';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { accountVerificationSummary, roleLabel } from '../models/accountPresentation';
+import { accountStatusLabel, accountVerificationSummary, roleLabel } from '../models/accountPresentation';
 import { createMarketplaceIntroduction } from './marketplaceIntroduction';
 
 import { isSupabaseConfigured } from '../../../config/env';
@@ -81,6 +83,8 @@ export function useAuthProfilesViewModel() {
   const [signedOutVersion, setSignedOutVersion] = useState(0);
   const accountRef = useRef(account);
   const screenRef = useRef(screen);
+  const operationBusyRef = useRef(false);
+  operationBusyRef.current = asyncState === 'loading';
   const mountedRef = useRef(false);
   const syncRef = useRef<ReturnType<typeof createAccountSynchronization<AccountSnapshot>> | null>(null);
   accountRef.current = account;
@@ -146,6 +150,22 @@ export function useAuthProfilesViewModel() {
     }
     void marketplaceIntroduction.check(snapshot);
   };
+
+  // Foreground checks are lifecycle-driven, not polling. A single pending-state
+  // recheck allows the existing backend trigger to settle after OTP confirmation.
+  useEffect(() => {
+    const checker = createOnboardingStatusCheck(() => syncRef.current?.refresh('background') ?? Promise.resolve(null));
+    const eligible = () => !operationBusyRef.current && !!accountRef.current && ['registrationPhone', 'mobileConfirmation', 'verificationPending'].includes(screenRef.current);
+    let previous = AppState.currentState;
+    const subscription = AppState.addEventListener('change', next => {
+      if (next === 'active' && previous !== 'active') void checker.check(eligible());
+      previous = next;
+    });
+    const timer = screen === 'verificationPending' ? setTimeout(() => {
+      if (AppState.currentState === 'active') void checker.check(eligible());
+    }, 2000) : null;
+    return () => { if (timer) clearTimeout(timer); subscription.remove(); checker.dispose(); };
+  }, [screen, account?.user.id]);
 
   const refreshAccount = async (preservePhoneCode = false) => {
     preservePhoneCodeRef.current = preservePhoneCode;
@@ -549,6 +569,8 @@ export function useAuthProfilesViewModel() {
     resendPhoneOtp,
     verifyPhoneOtp,
     refreshVerificationState,
+    showVerificationRecovery: asyncState === 'error' || screen === 'verificationPending',
+    accountStatusLabel: account ? accountStatusLabel(account.profile.account_status) : 'Unknown',
     toggleRole,
     submitRoles,
     saveProfile,

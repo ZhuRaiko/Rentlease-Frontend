@@ -1,12 +1,10 @@
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-
+import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { AuthBrand } from '../components/AuthBrand';
-
-const arrowForward = require('../../../assets/authentication/arrow-forward.png');
 
 interface WelcomeViewProps {
   onSignIn: () => void;
@@ -14,87 +12,41 @@ interface WelcomeViewProps {
   notice?: string | null;
 }
 
-interface ChoiceCardProps {
-  title: string;
-  description?: string;
-  accent?: boolean;
-  onPress: () => void;
-}
-
-function ChoiceCard({ title, description, accent = false, onPress }: ChoiceCardProps) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.choiceCard,
-        accent && styles.accentCard,
-        pressed && styles.pressed,
-      ]}
-    >
-      <View style={styles.choiceText}>
-        <Text style={styles.choiceTitle}>{title}</Text>
-        {description ? <Text style={styles.choiceDescription}>{description}</Text> : null}
-      </View>
-      <Image resizeMode="contain" source={arrowForward} style={styles.arrow} />
-    </Pressable>
-  );
-}
-
 export function WelcomeView({ onSignIn, onCreateAccount, notice }: WelcomeViewProps) {
-  return (
-    <ScrollView contentContainerStyle={styles.screen}>
-      <View style={styles.brandArea}>
-        <AuthBrand />
-      </View>
-      <View style={styles.choices}>
-        <ChoiceCard
-          description="Click here to log-in"
-          onPress={onSignIn}
-          title="Already have an account?"
-        />
-        <ChoiceCard accent onPress={onCreateAccount} title="Let’s Make an Account!" />
-      </View>
-      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
-    </ScrollView>
-  );
+  const { width, fontScale } = useWindowDimensions();
+  return <ScrollView contentContainerStyle={styles.screen}>
+    <View style={styles.brand}><AuthBrand compact={width < 380 || fontScale > 1.2} /><Text style={styles.location}>Rental homes in Cavite</Text></View>
+    <View style={styles.introduction}>
+      <Text accessibilityRole="header" style={styles.title}>Your next chapter starts at home.</Text>
+      <Text style={styles.body}>Find your place or make room for someone new.</Text>
+    </View>
+    <View style={styles.actions}>
+      <Pressable accessibilityRole="button" onPress={onSignIn} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+        <View style={styles.copy}><Text style={styles.cardTitle}>Sign in</Text><Text style={styles.body}>Already part of RentLease? Welcome back.</Text></View>
+        <Image accessible={false} resizeMode="contain" source={require('../../../assets/authentication/arrow-forward.png')} style={styles.arrow} />
+      </Pressable>
+      <Pressable accessibilityRole="button" onPress={onCreateAccount} style={({ pressed }) => [styles.card, styles.createCard, pressed && styles.pressed]}>
+        <View style={styles.copy}><Text style={[styles.cardTitle, styles.createText]}>Create account</Text><Text style={[styles.body, styles.createText]}>Get started as a Tenant, Landlord, or both.</Text></View>
+        <Text accessible={false} style={styles.createArrow}>{'\u203a'}</Text>
+      </Pressable>
+    </View>
+    <FeedbackNotice message={notice} />
+  </ScrollView>;
 }
-
 const styles = StyleSheet.create({
-  screen: {
-    alignSelf: 'center',
-    flexGrow: 1,
-    maxWidth: 412,
-    paddingHorizontal: 21,
-    paddingBottom: spacing.xl,
-    width: '100%',
-  },
-  brandArea: { alignItems: 'center', marginTop: 184 },
-  choices: { gap: spacing.lg, marginTop: 96 },
-  choiceCard: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(147, 147, 147, 0.18)',
-    borderRadius: radius.sm,
-    flexDirection: 'row',
-    minHeight: 170,
-    paddingHorizontal: 20,
-  },
-  accentCard: { backgroundColor: colors.primarySoft },
-  choiceText: { flex: 1, gap: spacing.sm },
-  choiceTitle: {
-    color: colors.text,
-    fontFamily: typography.family,
-    fontSize: 24,
-    fontWeight: '800',
-    letterSpacing: -0.7,
-  },
-  choiceDescription: {
-    color: colors.text,
-    fontFamily: typography.family,
-    fontSize: 20,
-    fontWeight: '300',
-  },
-  arrow: { height: 48, width: 28 },
-  pressed: { opacity: 0.78 },
-  notice: { backgroundColor: colors.primaryPale, color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 18, marginTop: spacing.lg, padding: spacing.sm },
+  screen: { alignSelf: 'center', flexGrow: 1, justifyContent: 'center', gap: spacing.xl, maxWidth: 460, paddingHorizontal: spacing.lg, paddingVertical: spacing.xl, width: '100%' },
+  brand: { gap: spacing.md, alignItems: 'center' },
+  location: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '700' },
+  introduction: { gap: spacing.sm },
+  title: { color: colors.text, fontFamily: typography.family, fontSize: 30, fontWeight: '800', lineHeight: 38 },
+  body: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 15, lineHeight: 22 },
+  actions: { gap: spacing.md },
+  card: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, borderColor: colors.border, borderWidth: 1, backgroundColor: colors.surface, borderRadius: radius.card, minHeight: 112, padding: spacing.lg },
+  copy: { flex: 1, gap: spacing.xs, minWidth: 0 },
+  cardTitle: { color: colors.text, fontFamily: typography.family, fontSize: 21, fontWeight: '700' },
+  arrow: { width: 20, height: 28 },
+  createCard: { backgroundColor: colors.primaryAction, borderColor: colors.primaryAction },
+  createText: { color: colors.white },
+  createArrow: { color: colors.white, fontSize: 36 },
+  pressed: { opacity: 0.8 },
 });

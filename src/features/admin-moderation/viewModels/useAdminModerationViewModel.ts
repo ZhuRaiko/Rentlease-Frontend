@@ -183,7 +183,12 @@ export function useAdminModerationViewModel() {
     dashboardNeedsRecovery: !verification.reviewBusy && (verification.status === 'error' || verification.reviewNeedsRefresh),
     verificationSubmissions: verification.queue.filter((item) => verificationFilter === 'All' || item.tier === (verificationFilter === 'Tier 2' ? 'tier_2_identity' : 'tier_3_property')),
     verificationFilter, setVerificationFilter,
-    refreshVerification: verificationQueue.refresh,
+    queueRefreshing: verification.status === 'loading',
+    refreshVerification: () => {
+      const current = verificationQueue.getSnapshot();
+      if (current.status === 'loading' || current.reviewBusy) return Promise.resolve();
+      return verificationQueue.refresh();
+    },
     returnToVerificationQueue: async () => {
       if (verificationQueue.getSnapshot().reviewBusy) return;
       openSection('verificationQueue');

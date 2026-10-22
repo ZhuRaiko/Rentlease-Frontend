@@ -1,13 +1,12 @@
+import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import type { PropsWithChildren } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import type { AdminNavigationSection } from '../models/AdminModeration';
-
-const backIcon = require('../../../assets/verification/back.png');
 
 interface AdminScaffoldProps extends PropsWithChildren {
   title: string;
@@ -17,6 +16,9 @@ interface AdminScaffoldProps extends PropsWithChildren {
   actionLabel?: string | undefined;
   onAction?: (() => void) | undefined;
   contentPadded?: boolean;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+  refreshEnabled?: boolean;
 }
 
 export function AdminScaffold({
@@ -28,35 +30,17 @@ export function AdminScaffold({
   actionLabel,
   onAction,
   contentPadded = true,
+  onRefresh, refreshing = false, refreshEnabled = true,
 }: AdminScaffoldProps) {
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <View style={styles.headerSide}>
-          {onBack ? (
-            <Pressable accessibilityLabel="Back" accessibilityRole="button" onPress={onBack}>
-              <Image resizeMode="contain" source={backIcon} style={styles.backIcon} />
-            </Pressable>
-          ) : <View style={styles.adminMark}><Text style={styles.adminMarkText}>A</Text></View>}
-        </View>
-        <View style={styles.headerCopy}>
-          <Text accessibilityRole="header" numberOfLines={1} style={styles.title}>{title}</Text>
-          {subtitle ? <Text numberOfLines={1} style={styles.subtitle}>{subtitle}</Text> : null}
-        </View>
-        <View style={[styles.headerSide, styles.headerSideRight]}>
-          {actionLabel && onAction ? (
-            <Pressable accessibilityRole="button" hitSlop={10} onPress={onAction}>
-              <Text style={styles.action}>{actionLabel}</Text>
-            </Pressable>
-          ) : onExit ? (
-            <Pressable accessibilityRole="button" hitSlop={10} onPress={onExit}>
-              <Text style={styles.exit}>Exit</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
+      <ScreenHeader title={title} onBack={onBack} action={actionLabel && onAction ?
+        <Pressable accessibilityRole="button" onPress={onAction} style={styles.headerControl}><Text style={styles.action}>{actionLabel}</Text></Pressable>
+        : onExit ? <Pressable accessibilityRole="button" onPress={onExit} style={styles.headerControl}><Text style={styles.action}>Exit</Text></Pressable> : undefined} />
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       <ScrollView
         contentContainerStyle={[styles.content, contentPadded && styles.padded]}
+        refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} enabled={refreshEnabled} colors={[colors.primaryAction]} tintColor={colors.primaryAction} /> : undefined}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -107,18 +91,10 @@ export function AdminBottomNavigation({
 }
 
 const styles = StyleSheet.create({
+  headerControl: { justifyContent: 'center', minHeight: 48, minWidth: 48 },
   screen: { backgroundColor: colors.background, flex: 1 },
-  header: { alignItems: 'center', borderBottomColor: '#E9EEEB', borderBottomWidth: 1, flexDirection: 'row', minHeight: 62, paddingHorizontal: spacing.md },
-  headerSide: { alignItems: 'flex-start', minWidth: 52 },
-  headerSideRight: { alignItems: 'flex-end' },
-  headerCopy: { alignItems: 'center', flex: 1 },
-  backIcon: { height: 38, width: 38 },
-  adminMark: { alignItems: 'center', backgroundColor: '#173C2C', borderRadius: 16, height: 32, justifyContent: 'center', width: 32 },
-  adminMarkText: { color: colors.white, fontFamily: typography.family, fontSize: 13, fontWeight: '900' },
-  title: { color: colors.text, fontFamily: typography.family, fontSize: 18, fontWeight: '900', textAlign: 'center' },
   subtitle: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 10, marginTop: 2, textAlign: 'center' },
-  action: { color: colors.primary, fontFamily: typography.family, fontSize: 12, fontWeight: '800' },
-  exit: { color: colors.restricted, fontFamily: typography.family, fontSize: 11, fontWeight: '900' },
+  action: { color: colors.primary, fontFamily: typography.family, fontSize: 14, fontWeight: '700' },
   content: { flexGrow: 1, paddingBottom: spacing.xl },
   padded: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   navigation: { alignItems: 'flex-start', backgroundColor: '#173C2C', flexDirection: 'row', minHeight: 64, paddingTop: 9 },

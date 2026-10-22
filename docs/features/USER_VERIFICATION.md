@@ -26,7 +26,7 @@ Profile ? Verification opens the existing root workspace/Modal and verification 
 
 The existing overview, Tier 2 Views, cards/scaffold and DocumentPreviewPicker are reused. Tier 1 remains a read-only indication of the root account timestamp. Tier 3's card opens a separate property workflow for Tier 1-verified landlords, including accounts with both Tenant and Landlord roles regardless of their current UI mode. Tier 2 is not a prerequisite. Root Auth supplies presentation eligibility; the Tier 3 service independently checks Auth, own active profile/Tier 1 and landlord role. No legacy Tier 1 OTP/completion or local approval/role-promotion path is connected.
 
-Back follows the Tier 2 screen sequence; overview Back/Close returns to Profile. Both visible controls and Android Modal Back are guarded during selection/submission. Unmount invalidates asynchronous results and prevents subsequent workflow steps, but cannot abort an operation already sent. Development effect cleanup/setup can reload without accepting an obsolete mount's result.
+Back follows the Tier 2 screen sequence; overview Back returns to Profile. Both visible controls and Android Modal Back are guarded during selection/submission. Unmount invalidates asynchronous results and prevents subsequent workflow steps, but cannot abort an operation already sent. Development effect cleanup/setup can reload without accepting an obsolete mount's result.
 
 ## Tier 3 landlord property verification
 
@@ -178,3 +178,23 @@ Android JS/Hermes export passed to a temporary folder (bundling only, not an APK
 Tier 1 Landlords can enter the local draft preview without Tier 3. It creates no backend property ID; real Tier 3 still requires an existing owned property. Future publication must check qualifying approved Tier 3 for the particular property, rather than account tier3_verified_at or trust. Read-only backend inspection on 2026-10-22 found no such check in the current listing policies/validation trigger: ownership, draft-first activation and completeness are enforced. Real publication and closing this backend gap remain DEFERRED; no submission, Storage, review or backend behavior changed in this correction.
 
 Baseline: `550275c` plus uncommitted corrections. Typecheck passed; full automated suite passed 213/213, zero failures/skips/cancellations. These checks do not establish Android runtime acceptance.
+
+## Designer-led UX refinement (2026-10-22)
+
+Status: IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED. Last Verified Commit baseline: `976d13d` plus uncommitted changes.
+
+Verification overview now separates Account Verification (Tier 1 read-only summary), Identity Verification (optional Tier 2 with the actual loaded submission status), and Property Verification (optional eligible Landlords, status checked per property). Neutral bordered surfaces replace saturated gray/green/red blocks. Tier identity uses restrained green Account, blue Identity and warm gold Property labels plus tier numbers/text; actual status remains a separate semantic badge, never inferred from tier color. Locked/read-only/busy actions appear as explanatory text instead of giant disabled buttons; actionable Tier 2/3 entries use existing secondary buttons. Loading/unavailable status is not labelled verified. Tier 3 does not infer each property's approval from the account timestamp or trust score.
+
+The shared ScreenHeader provides a compact Back chevron with a 48dp target and consistent Close. Overview has one Back control; deeper screens preserve distinct Back/Close actions and existing workflow guards. Document picker, uploads, confirmation, selected state, statuses, PHT dates, fullscreen zoom/pan/reset/Back and service contracts are unchanged. No new dependency/rebuild is required for this pass.
+
+Typecheck passed; full suite 223/223, zero failures/skips/cancellations. Existing Tier 2/Tier 3/private-preview tests remain; new tests cover status presentation and header wiring, not native rendering. Test Android narrow/large-font overview, Tier 2 Back and image preview, Tier 3 property selection/review/Back, pending/rejected/approved status and error recovery using suitable separate records. Submission and native gestures were not exercised by the agent in this pass.
+
+## Tier 2 rejection recovery review (2026-10-22)
+
+Frontend resubmission remains DEFERRED. Current workflow blocks creation whenever any existing Tier 2 row is found, including rejection and incomplete attachments; this was not relaxed. Rejected copy now explains that the document was not accepted, displays the real reason, and states that corrected applications are not available in the app yet. A rejected verification decision is not presented as an account ban; authoritative account restrictions remain separate. Status text remains visible when attachment metadata is incomplete.
+
+Read-only live inspection confirms a new pending Tier 2 INSERT can pass existing column privileges/RLS after rejection, but there is no unique active-application constraint, idempotency/readiness contract or atomic cross-Storage recovery. Owner metadata INSERT currently accepts pending/under_review parents, and Storage ownership checks only the first path segment. Therefore enabling Submit alone would not deliver the requested safe recovery policy. No service/workflow, backend or Storage change was made.
+
+Separate recommendation: [Tier 2 rejection recovery backend review](../implementation-reports/database/2026-10-22-tier-2-rejection-recovery-review.md). It records exact schema, grants, policies, indexes, triggers and transaction limits; proposed active uniqueness, append-only history, begin/resume/finalize and upload-readiness enforcement all require separate backend approval. No proposed RPC or field is treated as an existing API.
+
+Latest targeted status: IMPLEMENTED / AUTOMATED-TESTED / user Android RUNTIME-UNVERIFIED; 2026-10-22, baseline `976d13d` plus uncommitted work. Typecheck and 231/231 tests passed, including palette contrast/status separation and preserved rejected-row no-write behavior. Native tier identity, rejected/incomplete copy and ordinary-user flows still need Android acceptance. No rejection/resubmission or review was executed live by the agent.

@@ -1,3 +1,4 @@
+import { verificationStatusPresentation } from '../../../shared/models/verificationPresentation';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../../../shared/components/AppButton';
@@ -11,9 +12,6 @@ import { VerificationTierCard } from '../components/VerificationTierCard';
 import { tierTwoStatusLabels } from '../models/TierTwoVerification';
 import type { TierTwoVerificationViewModel } from '../viewModels/useTierTwoVerificationViewModel';
 
-const tierOneIcon = require('../../../assets/verification/verification-mark.png');
-const tierTwoIcon = require('../../../assets/verification/trusted-badge.png');
-const tierThreeIcon = require('../../../assets/verification/premium-badge.png');
 
 interface VerificationOverviewViewProps {
   viewModel: TierTwoVerificationViewModel;
@@ -26,29 +24,23 @@ interface VerificationOverviewViewProps {
 const tierDefinitions = [
   {
     tier: 1 as const,
-    title: 'Tier 1 verification',
+    title: 'Account Verification',
     subtitle: 'Managed in account onboarding',
-    badge: 'Required',
-    icon: tierOneIcon,
     items: ['Email confirmation', 'Philippine mobile number via SMS OTP', 'Unlocks: Application access'],
   },
   {
     tier: 2 as const,
     title: 'Tier 2 — Trusted',
     subtitle: 'Optional · all users',
-    badge: 'Trusted',
-    icon: tierTwoIcon,
     items: [
       'Government-issued ID (passport, driver’s license, UMID, PhilSys)',
-      'Identity verification reviewed by admin',
+      'Identity verification reviewed by Admin',
     ],
   },
   {
     tier: 3 as const,
     title: 'Tier 3 — Premium',
     subtitle: 'Optional - Tier 1-verified landlords',
-    badge: 'Premium',
-    icon: tierThreeIcon,
     items: [
       'Proof of ownership or authorization to lease',
       'Choose an existing property you own',
@@ -66,26 +58,25 @@ export function VerificationOverviewView({
   return (
     <VerificationScaffold
       compact
-      description="Complete tiers to unlock platform features and build trust with other users."
+      description="Your account, identity and property documents have separate verification requirements."
       onBack={onClose}
-      onClose={onClose}
-      title="Verification level"
+      title="Verification"
     >
       <View style={styles.tierList}>{tierDefinitions.map(item => (
           <VerificationTierCard
             key={item.tier}
             {...item}
-            title={
-              item.tier === 1 && tierOneVerified
-                ? 'Tier 1 — Verified'
-                : item.title
-            }
+            title={item.title}
+            presentation={item.tier === 1
+              ? { label: tierOneVerified ? 'Verified' : 'Required in Onboarding', tone: tierOneVerified ? 'success' : 'info' }
+              : item.tier === 2 ? viewModel.submission ? verificationStatusPresentation(viewModel.submission.status)
+                : { label: viewModel.isLoading ? 'Checking Status' : !viewModel.loaded || viewModel.requiresRefresh ? 'Status Unavailable' : 'Not Started', tone: 'info' }
+              : { label: tierThreeEligible ? 'Checked per Property' : 'Landlord Access Required', tone: 'info' }}
             onPress={() => item.tier === 3 ? onOpenTierThree() : viewModel.navigate(viewModel.submission ? 'tier2Status' : 'tier2Intro')}
             disabled={item.tier === 3 ? !tierThreeEligible || viewModel.busy : item.tier !== 2 || !viewModel.loaded || viewModel.requiresRefresh || viewModel.busy}
             actionLabel={item.tier === 1 ? tierOneVerified ? 'Tier 1 verified' : 'Managed in onboarding'
-              : item.tier === 3 ? tierThreeEligible ? 'Verify property / view status' : 'Requires Tier 1 + Landlord' : viewModel.isLoading ? 'Loading…'
-              : viewModel.submission ? `View ${tierTwoStatusLabels[viewModel.submission.status]}` : 'Verify'}
-            status={item.tier === 1 && tierOneVerified ? 'approved' : item.tier === 3 && !tierThreeEligible ? 'locked' : 'notStarted'}
+              : item.tier === 3 ? tierThreeEligible ? 'Choose property' : 'Requires Tier 1 + Landlord' : viewModel.isLoading ? 'Loading…'
+              : viewModel.submission ? `View ${tierTwoStatusLabels[viewModel.submission.status]}` : 'Verify identity'}
           />
       ))}</View>
       <FeedbackNotice tone="error" message={viewModel.error} />
@@ -97,14 +88,6 @@ export function VerificationOverviewView({
 
 const styles = StyleSheet.create({
   tierList: { gap: spacing.md, paddingHorizontal: spacing.lg },
-  swipeHint: {
-    color: colors.textMuted,
-    fontFamily: typography.family,
-    fontSize: 14,
-    fontWeight: '700',
-    opacity: 0.5,
-    textAlign: 'center',
-  },
   notice: {
     alignSelf: 'center',
     backgroundColor: colors.warningSurface,

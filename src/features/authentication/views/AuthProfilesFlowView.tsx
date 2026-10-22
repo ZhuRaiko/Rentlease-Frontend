@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { useEffect } from 'react';
 import { Modal, StatusBar, StyleSheet, Text, View } from 'react-native';
@@ -9,7 +10,6 @@ import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { AuthButton } from '../components/AuthButton';
-import type { UserRole } from '../models/AuthProfile';
 import type { AuthProfilesViewModel } from '../viewModels/useAuthProfilesViewModel';
 import { EditProfileView } from './EditProfileView';
 import { ProfileView } from './ProfileView';
@@ -26,20 +26,17 @@ const registrationScreens = new Set([
 
 interface AuthProfilesFlowViewProps {
   viewModel: AuthProfilesViewModel;
-  activeRole: UserRole;
-  onSwitchRole: (role: UserRole) => void;
+  marketplaceNavigation?: ReactNode;
   onOpenAdminModeration?: () => void;
-  onOpenDiscovery?: () => void;
   onOpenMatchingPreferences?: () => void;
-  onOpenNotifications?: () => void;
-  onOpenProperties?: () => void;
+  onProfileBack?: (() => void) | undefined;
   onOpenRatingsReports?: () => void;
   onOpenVerification?: () => void;
 }
 
 export function AuthProfilesFlowView({
-  viewModel, onOpenAdminModeration, onOpenDiscovery, onOpenMatchingPreferences,
-  onOpenNotifications, onOpenProperties, onOpenRatingsReports, onOpenVerification, activeRole, onSwitchRole,
+  viewModel, onOpenAdminModeration, onOpenMatchingPreferences,
+  onProfileBack, onOpenRatingsReports, onOpenVerification, marketplaceNavigation,
 }: AuthProfilesFlowViewProps) {
   useEffect(() => {
     traceAuthBoot('AUTH_VIEW_MOUNT');
@@ -71,7 +68,7 @@ export function AuthProfilesFlowView({
       <AuthButton variant="secondary" disabled={viewModel.asyncState === 'loading'} label="Sign out / use another account" onPress={() => void viewModel.switchAccount()} />
     </View>;
   } else if (viewModel.screen === 'profile') {
-    content = <ProfileView viewModel={viewModel} activeRole={activeRole} onSwitchRole={onSwitchRole} onOpenAdminModeration={onOpenAdminModeration} onOpenDiscovery={onOpenDiscovery} onOpenMatchingPreferences={onOpenMatchingPreferences} onOpenNotifications={onOpenNotifications} onOpenProperties={viewModel.hasLandlordRole ? onOpenProperties : undefined} onOpenRatingsReports={onOpenRatingsReports} onOpenVerification={onOpenVerification} />;
+    content = <ProfileView viewModel={viewModel} marketplaceNavigation={marketplaceNavigation} onOpenAdminModeration={onOpenAdminModeration} onOpenMatchingPreferences={onOpenMatchingPreferences} onBack={onProfileBack} onOpenRatingsReports={onOpenRatingsReports} onOpenVerification={onOpenVerification} />;
   } else if (viewModel.screen === 'editProfile') {
     content = <EditProfileView viewModel={viewModel} />;
   } else if (viewModel.screen === 'settings') {
@@ -80,7 +77,7 @@ export function AuthProfilesFlowView({
     content = <RestrictedAccountView viewModel={viewModel} />;
   }
 
-  return <ScreenContainer padded={false}>
+  return <ScreenContainer includeBottomInset={viewModel.screen !== 'profile' || viewModel.isAdmin} padded={false}>
     <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
     {content}
     <Modal animationType="fade" onRequestClose={() => viewModel.setShowSignOutConfirmation(false)} transparent visible={viewModel.showSignOutConfirmation}>

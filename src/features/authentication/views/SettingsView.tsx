@@ -10,15 +10,15 @@ import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import type { AuthProfilesViewModel } from '../viewModels/useAuthProfilesViewModel';
 
 export function SettingsView({ viewModel }: { viewModel: AuthProfilesViewModel }) {
-  return <AuthScaffold formLayout description="Manage your account and sign-in details." onBack={viewModel.goBack} title="Account settings">
+  return <AuthScaffold formLayout description="Manage your account and sign-in details." onBack={viewModel.goBack} title="Account Settings">
     <View style={styles.summaryCard}>
       <Text style={styles.summaryName}>{viewModel.displayName}</Text>
       <Text style={styles.detail}>Email: {viewModel.account?.user.email || 'Not available'}</Text>
       <Text style={styles.detail}>Phone: {viewModel.account?.user.phone || 'Not available'}</Text>
       <Text style={styles.detail}>Roles: {viewModel.roleLabels.join(', ') || 'None selected'}</Text>
-      <Text style={styles.detail}>Account status: {viewModel.account?.profile.account_status || 'Unknown'}</Text>
+      <Text style={styles.detail}>Account Status: {viewModel.accountStatusLabel}</Text>
     </View>
-    <AuthButton label="Edit profile" onPress={() => viewModel.navigate('editProfile')} variant="secondary" />
+    <AuthButton label="Edit Profile" onPress={() => viewModel.navigate('editProfile')} variant="secondary" />
     <AuthButton label="Sign out" onPress={() => viewModel.setShowSignOutConfirmation(true)} variant="secondary" />
     <FeedbackNotice message={viewModel.notice} tone={viewModel.noticeTone} />
   </AuthScaffold>;

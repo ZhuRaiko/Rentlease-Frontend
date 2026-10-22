@@ -12,3 +12,5 @@ export function accountVerificationSummary(profile: Pick<AccountProfile, 'tier1_
     { label: 'Tier 3 · Property', status: status(profile?.tier3_verified_at, roles.includes('landlord')), detail: 'Account-level indication. Check each individual property in Verification.' },
   ];
 }
+
+export const accountStatusLabel = (status: AccountProfile['account_status']) => status ? ({ active: 'Active', restricted: 'Restricted', suspended: 'Suspended', deleted: 'Deleted' })[status] : 'Unknown';

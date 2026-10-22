@@ -17,7 +17,7 @@ import type { AdminModerationViewModel } from '../viewModels/useAdminModerationV
 export function VerificationModerationView({ viewModel }: { viewModel: AdminModerationViewModel }) {
   const detail = viewModel.selectedVerification;
   if (!detail) return (
-    <AdminScaffold onBack={viewModel.goBack} title="Verification submission">
+    <AdminScaffold onBack={viewModel.goBack} title="Verification Submission">
       <Text style={styles.viewerNoteBody}>{viewModel.verification.reviewBusy ? 'Review saved. Refreshing backend state...' : viewModel.verification.detailStatus === 'loading' ? 'Loading submission...' : viewModel.verification.detailError ?? 'Select a submission from the current queue.'}</Text>
       <AppButton disabled={viewModel.verification.reviewBusy} label="Back to verification queue" onPress={() => void viewModel.returnToVerificationQueue()} />
     </AdminScaffold>
@@ -27,7 +27,7 @@ export function VerificationModerationView({ viewModel }: { viewModel: AdminMode
   const review = viewModel.verification;
   const reviewTier = item.tier === 'tier_3_property' ? 'Tier 3 property' : 'Tier 2';
   return (
-    <AdminScaffold onBack={viewModel.goBack} title={viewModel.screen === 'verificationDocument' ? 'Verification documents' : 'Verification submission'}>
+    <AdminScaffold onBack={viewModel.goBack} title={viewModel.screen === 'verificationDocument' ? 'Verification Documents' : 'Verification Submission'}>
 
       <Text accessibilityRole="header" style={styles.applicantName}>{item.displayName}</Text>
       <Text style={styles.caseSubtitle}>{verificationTierLabel(item.tier)} | {formatVerificationDate(item.submittedAt)}</Text>
@@ -69,7 +69,7 @@ export function VerificationModerationView({ viewModel }: { viewModel: AdminMode
         {review.reviewBusy ? <ActivityIndicator accessibilityLabel="Saving review and refreshing" color={colors.primary} /> : null}
         <FeedbackNotice tone="error" message={review.reviewError} />
         <FeedbackNotice tone="success" message={review.reviewNotice} />
-        <AppButton disabled={review.reviewBusy} label="Refresh queue" variant="secondary" onPress={() => void viewModel.returnToVerificationQueue()} />
+        {review.reviewNeedsRefresh ? <AppButton disabled={review.reviewBusy} label="Reload verification queue" variant="secondary" onPress={() => void viewModel.returnToVerificationQueue()} /> : null}
       </View>
       <Modal visible={!!review.reviewDialog} onRequestClose={viewModel.cancelReview} animationType="fade" presentationStyle="fullScreen">
         <ScreenContainer>

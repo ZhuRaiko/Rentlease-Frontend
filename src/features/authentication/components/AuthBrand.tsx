@@ -15,7 +15,7 @@ export function AuthBrand({ compact = false, showTagline = true }: AuthBrandProp
   return (
     <View style={styles.wrapper}>
       <View style={styles.brandRow}>
-        <Text style={[styles.wordmark, compact && styles.compactWordmark]}>RentLease</Text>
+        <Text maxFontSizeMultiplier={1.2} style={[styles.wordmark, compact && styles.compactWordmark]}>RentLease</Text>
         <Image
           accessibilityIgnoresInvertColors
           resizeMode="contain"
@@ -30,8 +30,9 @@ export function AuthBrand({ compact = false, showTagline = true }: AuthBrandProp
 
 const styles = StyleSheet.create({
   wrapper: { alignItems: 'center', gap: spacing.xs },
-  brandRow: { alignItems: 'center', flexDirection: 'row' },
+  brandRow: { alignItems: 'center', flexDirection: 'row', maxWidth: '100%' },
   wordmark: {
+    flexShrink: 1,
     color: colors.text,
     fontFamily: typography.family,
     fontSize: 56,

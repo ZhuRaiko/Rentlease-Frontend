@@ -36,7 +36,7 @@ Each cohort has a directory under `src/features`. When implemented, it owns `mod
 
 The common async convention is `idle | loading | success | error`; ViewModels normalize errors to `AppError` before exposing them to Views. There is no global feature-state store. React Context is reserved for genuine cross-cutting state such as an authenticated session.
 
-The root Authentication ViewModel owns one authoritative account snapshot. Its service-owned Auth subscription forwards synchronous notifications; the ViewModel defers/coalesces refreshes, invalidates stale results and unsubscribes on cleanup. Background refresh does not reset same-destination presentation state. See [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) for event and routing details. Auth currently retains its existing friendly string error mapper; document services use the lightweight shared AppError shape with safe messages and internal causes.
+The root Authentication ViewModel owns one authoritative account snapshot. Its service-owned Auth subscription forwards synchronous notifications; the ViewModel defers/coalesces refreshes, invalidates stale results and unsubscribes on cleanup. Background refresh does not reset same-destination presentation state. The Auth ViewModel also owns bounded onboarding foreground and one delayed pending-state check through that coordinator; lifecycle cleanup and explicit-operation guards stay in the ViewModel. Shared ScreenHeader owns only compact visual navigation. See [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) for event and routing details. Auth currently retains its existing friendly string error mapper; document services use the lightweight shared AppError shape with safe messages and internal causes.
 
 ## Integration boundaries
 
@@ -48,7 +48,7 @@ The root Authentication ViewModel owns one authoritative account snapshot. Its s
 - Amenities: the Overpass service is the only POI boundary and is limited to schools, hospitals, malls and transport terminals.
 - ML: the generic price-estimation client calls the configured FastAPI host using `fetch`. Its endpoint and request/response types remain caller-supplied until the backend contract is confirmed. Python, XGBoost, training, scraping, Colab and Render deployment do not belong here.
 - Notifications: the notification service requests permission and obtains an Expo token. A future confirmed backend service must register that token. FCM is only Expo's Android delivery relay.
-- Navigation: no navigation library is installed. Existing routing uses root-owned workspace state/Modal and feature screen state. Preserve that approach and backend-derived role gates; do not add a router merely for integration.
+- Navigation: no navigation library is installed. Existing routing uses root-owned workspace state/Modal and feature screen state. Preserve that approach and backend-derived role gates; do not add a router merely for integration. Root Profile return uses one in-memory owner-scoped workspace entry validated by shared/models/profileReturn.ts. Visible and hardware Back share it; identity/eligibility changes invalidate it. This is not persistent nested-screen restoration.
 
 ## Environment
 

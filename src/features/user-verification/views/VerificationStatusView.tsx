@@ -23,7 +23,7 @@ export function VerificationStatusView({ viewModel, onClose }: { viewModel: Tier
     pending: 'Your identity verification is pending review.',
     under_review: 'Your identity verification is under review.',
     approved: 'Your Tier 2 identity verification has been approved.',
-    rejected: 'Your identity verification was rejected. Resubmission is not available in this phase.',
+    rejected: 'This document was not accepted. Your rejection reason is shown below. Corrected applications are not available in the app yet; this decision does not by itself restrict your account.',
     cancelled: 'Your identity verification was cancelled. Starting another submission is not available in this phase.',
     revoked: 'Your identity verification was revoked. Starting another submission is not available in this phase.',
   };
@@ -32,9 +32,10 @@ export function VerificationStatusView({ viewModel, onClose }: { viewModel: Tier
       <View style={styles.centeredState}>
         <Image resizeMode="contain" source={status === 'approved' ? approvedIcon : status === 'pending' || status === 'under_review' ? pendingIcon : verificationIcon} style={styles.stateIcon} />
         {status ? <VerificationStatusBadge {...verificationStatusPresentation(status)} /> : <Text style={styles.title}>Status unavailable</Text>}
+        <Text style={styles.message}>{status ? messages[status] : 'Check status to load your submission.'}</Text>
         {submission && !submission.hasDocument ? (
           <Text style={styles.message}>No document attachment could be confirmed for this submission. It may be incomplete. Creating another submission or replacing the document is not available here.</Text>
-        ) : <Text style={styles.message}>{status ? messages[status] : 'Refresh to check your submission.'}</Text>}
+        ) : null}
         {submission?.rejection_reason ? <Text style={styles.message}>Rejection reason: {submission.rejection_reason}</Text> : null}
         {submission?.review_note ? <Text style={styles.message}>Review note: {submission.review_note}</Text> : null}
         {submission ? <Text style={styles.message}>Submitted: {formatVerificationDate(submission.submitted_at)}</Text> : null}
@@ -62,7 +63,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontFamily: typography.family,
     fontSize: 15,
-    fontWeight: '300',
+    fontWeight: '400',
     lineHeight: 21,
     textAlign: 'center',
   },

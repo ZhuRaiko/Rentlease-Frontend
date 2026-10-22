@@ -17,7 +17,9 @@ function functionBody(file: ts.SourceFile, name: string) {
 test('all root toolbar consumers receive Landlord membership, not preferred UI mode', () => {
   const file = source('App.tsx'); const values = attributes(file, 'isLandlord');
   assert.equal(values.length, 6); assert.ok(values.every(value => value === '{auth.hasLandlordRole}'));
-  assert.ok(attributes(file, 'onSwitchRole').includes('{switchMode}'));
+  assert.equal(attributes(file, 'onSwitchRole').length, 0);
+  assert.match(file.text, /marketplaceNavigation=/);
+  assert.match(functionBody(file, 'openDiscovery'), /setPreferredRole\(auth.hasTenantRole \? 'tenant' : 'landlord'\)/);
   assert.match(functionBody(file, 'openProperties'), /propertiesWorkspace\(access, initialScreen\)/);
 });
 test('root Android Back delegates to feature actions, and listing Close/tab exits use the ViewModel guard', () => {

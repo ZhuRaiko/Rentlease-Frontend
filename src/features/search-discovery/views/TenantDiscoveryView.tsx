@@ -1,3 +1,4 @@
+import { InterfaceIcon } from '../../../shared/components/InterfaceIcon';
 import { FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
@@ -18,6 +19,7 @@ const rentLeaseHome = require('../../../assets/authentication/rentlease-home.png
 interface TenantDiscoveryViewProps {
   viewModel: SearchDiscoveryViewModel;
   onClose: () => void;
+  onOpenNotifications: () => void;
 }
 
 function ResultsToolbar({ viewModel }: { viewModel: SearchDiscoveryViewModel }) {
@@ -87,7 +89,7 @@ function EmptyState({
   );
 }
 
-export function TenantDiscoveryView({ viewModel, onClose }: TenantDiscoveryViewProps) {
+export function TenantDiscoveryView({ viewModel, onClose, onOpenNotifications }: TenantDiscoveryViewProps) {
   if (viewModel.screen === 'noResults' || viewModel.screen === 'searchError') {
     return (
       <View style={styles.screen}>
@@ -201,16 +203,21 @@ export function TenantDiscoveryView({ viewModel, onClose }: TenantDiscoveryViewP
             <Text accessibilityRole="header" style={styles.wordmarkText}>RentLease</Text>
             <Image resizeMode="contain" source={rentLeaseHome} style={styles.wordmarkIcon} />
           </View>
-          <Pressable accessibilityLabel="Open profile" accessibilityRole="button" onPress={onClose}>
-            <Image resizeMode="cover" source={profileAvatar} style={styles.headerAvatar} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable accessibilityLabel="Open Notifications" accessibilityRole="button" onPress={onOpenNotifications} style={styles.headerAction}>
+              <InterfaceIcon name="notifications" color={colors.text} />
+            </Pressable>
+            <Pressable accessibilityLabel="Open Profile" accessibilityRole="button" onPress={onClose} style={styles.headerAction}>
+              <Image resizeMode="cover" source={profileAvatar} style={styles.headerAvatar} />
+            </Pressable>
+          </View>
         </View>
         <View style={styles.feedTabs}>
-          <Pressable accessibilityRole="tab" onPress={() => viewModel.navigate('searchLocation')}>
+          <Pressable accessibilityRole="tab" accessibilityState={{ selected: false }} style={styles.feedTabTarget} onPress={() => viewModel.navigate('searchLocation')}>
             <Text style={styles.feedTabMuted}>Discover</Text>
           </Pressable>
           <View style={styles.tabDivider} />
-          <Pressable accessibilityRole="tab" accessibilityState={{ selected: true }} onPress={viewModel.openHome}>
+          <Pressable accessibilityRole="tab" accessibilityState={{ selected: true }} style={styles.feedTabTarget} onPress={viewModel.openHome}>
             <Text style={styles.feedTabActive}>For You</Text>
           </Pressable>
         </View>
@@ -246,13 +253,16 @@ export function TenantDiscoveryView({ viewModel, onClose }: TenantDiscoveryViewP
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
-  feedHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 48, paddingHorizontal: spacing.xs, paddingTop: 2 },
-  wordmark: { alignItems: 'center', flexDirection: 'row', gap: 3 },
-  wordmarkText: { color: colors.text, fontFamily: typography.family, fontSize: 17, fontWeight: '900', letterSpacing: -0.7 },
-  wordmarkIcon: { height: 18, width: 18 },
-  headerAvatar: { borderColor: '#D69A21', borderRadius: 18, borderWidth: 1, height: 33, width: 33 },
+  feedHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 72, gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  wordmark: { alignItems: 'center', flexDirection: 'row', gap: spacing.xxs, flex: 1, minWidth: 0 },
+  wordmarkText: { color: colors.text, fontFamily: typography.family, fontSize: 25, fontWeight: '800', letterSpacing: -0.7, flexShrink: 1 },
+  wordmarkIcon: { height: 26, width: 26 },
+  headerActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
+  headerAction: { alignItems: 'center', justifyContent: 'center', minHeight: 48, minWidth: 48 },
+  headerAvatar: { borderColor: colors.border, borderRadius: 18, borderWidth: 1, height: 33, width: 33 },
   feedTabs: { alignItems: 'center', flexDirection: 'row', gap: 21, height: 50, justifyContent: 'center' },
-  feedTabMuted: { color: '#B8B8B8', fontFamily: typography.family, fontSize: 14, letterSpacing: 0.4 },
+  feedTabTarget: { minHeight: 48, justifyContent: 'center', paddingHorizontal: spacing.sm },
+  feedTabMuted: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, letterSpacing: 0.4 },
   feedTabActive: { color: colors.text, fontFamily: typography.family, fontSize: 14, fontWeight: '900' },
   tabDivider: { backgroundColor: colors.text, height: 18, width: 1 },
   feedNotice: { backgroundColor: colors.primaryPale, color: colors.textSecondary, fontFamily: typography.family, fontSize: 10, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, textAlign: 'center' },

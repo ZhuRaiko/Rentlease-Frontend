@@ -16,10 +16,10 @@ export function RestrictedAccountView({ viewModel }: RestrictedAccountViewProps)
   return (
     <AuthScaffold
       description="Your account status is set by RENTLEASE moderation. Marketplace access is unavailable."
-      title="Account access limited"
+      title="Account Access Limited"
     >
       <View style={styles.statusCard}>
-        <Text style={styles.statusLabel}>{(viewModel.account?.profile.account_status || 'UNAVAILABLE').toUpperCase()}</Text>
+        <Text style={styles.statusLabel}>{viewModel.accountStatusLabel}</Text>
         <Text style={styles.statusTitle}>Your RENTLEASE access is limited</Text>
         <Text style={styles.statusBody}>
           You can still review your profile and account information, but marketplace actions are

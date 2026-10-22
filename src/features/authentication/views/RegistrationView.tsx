@@ -1,3 +1,4 @@
+import { OnboardingAccountOptions } from '../components/OnboardingAccountOptions';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -20,10 +21,9 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
   const [emailBlurred, setEmailBlurred] = useState(false);
   const scaffold = { progress: viewModel.registrationProgress, backDisabled: busy };
   const notice = <FeedbackNotice message={viewModel.notice} tone={viewModel.noticeTone} />;
-  const accountActions = viewModel.account ? <View style={styles.accountActions}>
-    <Text style={styles.body}>Signed in as {viewModel.account.user.email || viewModel.displayName}</Text>
-    <AuthButton disabled={busy} label="Sign out / use another account" onPress={() => void viewModel.switchAccount()} variant="secondary" />
-  </View> : null;
+  const accountActions = viewModel.account ? <OnboardingAccountOptions
+    identity={viewModel.account.user.email || viewModel.displayName} disabled={busy}
+    onSwitch={() => void viewModel.switchAccount()} /> : null;
 
   if (screen === 'registrationName') return (
     <AuthScaffold {...scaffold} largeTitle onBack={viewModel.goBack} title="What's your name?" description="Start with your first and last name.">
@@ -78,7 +78,7 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
     <AuthScaffold {...scaffold} description="We'll send an SMS code to confirm your Philippine mobile number." footer={accountActions} title="What's your mobile number?">
       <AuthField editable={!busy} inputMode="tel" keyboardType="phone-pad" label="Mobile number" maxLength={10} onChangeText={(value) => viewModel.updateDraft('phone', value.replace(/\D/g, ''))} placeholder="9XXXXXXXXX" prefix="+63" value={draft.phone} />
       <AuthButton disabled={busy || !/^9\d{9}$/.test(draft.phone)} label={busy ? 'Sending code…' : 'Send SMS code'} onPress={() => void viewModel.requestPhoneOtp()} />
-      <AuthButton disabled={busy} label="Already verified? Refresh status" onPress={() => void viewModel.refreshVerificationState()} variant="secondary" />
+      {viewModel.showVerificationRecovery ? <AuthButton disabled={busy} label="Check verification status" onPress={() => void viewModel.refreshVerificationState()} variant="secondary" /> : null}
       {notice}
     </AuthScaffold>
   );
@@ -88,7 +88,7 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
       <AuthField editable={!busy} keyboardType="number-pad" autoComplete="sms-otp" label="Six-digit code" maxLength={6} onChangeText={(value) => viewModel.updateDraft('mobileCode', value.replace(/\D/g, ''))} placeholder="000000" value={draft.mobileCode} />
       <AuthButton disabled={busy || !/^\d{6}$/.test(draft.mobileCode)} label={busy ? 'Verifying…' : 'Verify phone'} onPress={() => void viewModel.verifyPhoneOtp()} />
       <AuthButton disabled={busy || viewModel.resendSeconds > 0} label={viewModel.resendSeconds ? `Resend in ${viewModel.resendSeconds}s` : 'Resend SMS code'} onPress={() => void viewModel.resendPhoneOtp()} variant="secondary" />
-      <AuthButton disabled={busy} label="Refresh Tier 1 status" onPress={() => void viewModel.refreshVerificationState()} variant="secondary" />
+      {viewModel.showVerificationRecovery ? <AuthButton disabled={busy} label="Check verification status" onPress={() => void viewModel.refreshVerificationState()} variant="secondary" /> : null}
       <AuthButton disabled={busy} label="Change phone number" onPress={() => viewModel.navigate('registrationPhone')} variant="secondary" />
       {notice}
     </AuthScaffold>
@@ -96,8 +96,8 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
 
   if (screen === 'verificationPending') return (
     <AuthScaffold {...scaffold} description="Your email and phone are confirmed. Your account verification has not finished updating yet." footer={accountActions} title="Checking account verification">
-      <Text style={styles.body}>You don't need to request another SMS code. Refresh your status to continue. If it stays pending, contact RENTLEASE support to check your account.</Text>
-      <AuthButton disabled={busy} label={busy ? 'Checking…' : 'Refresh verification status'} onPress={() => void viewModel.refreshVerificationState()} />
+      <Text style={styles.body}>Your account will be checked automatically. You do not need another SMS code. If verification remains delayed, check again or contact RENTLEASE support.</Text>
+      <AuthButton disabled={busy} label={busy ? 'Checking…' : 'Check again'} onPress={() => void viewModel.refreshVerificationState()} />
       {notice}
     </AuthScaffold>
   );

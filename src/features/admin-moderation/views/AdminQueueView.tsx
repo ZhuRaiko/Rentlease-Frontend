@@ -17,7 +17,7 @@ import type { AdminModerationViewModel } from '../viewModels/useAdminModerationV
 export function AdminQueueView({ viewModel }: { viewModel: AdminModerationViewModel }) {
   if (viewModel.screen === 'reviewQueues') {
     return (
-      <AdminScaffold onBack={viewModel.goBack} title="Admin review queues">
+      <AdminScaffold onBack={viewModel.goBack} title="Admin Review Queues">
         <AdminHeading
           body="Prioritize verification and safety work by age, risk, and required action."
           eyebrow="QUEUE OVERVIEW"
@@ -49,14 +49,15 @@ export function AdminQueueView({ viewModel }: { viewModel: AdminModerationViewMo
 
   if (viewModel.screen === 'verificationQueue') {
     return (
-      <AdminScaffold onBack={viewModel.goBack} title="Verification queue">
+      <AdminScaffold onBack={viewModel.goBack} title="Verification Queue" onRefresh={() => void viewModel.refreshVerification()} refreshing={viewModel.queueRefreshing} refreshEnabled={!viewModel.verification.reviewBusy}>
         <AdminHeading
           body="Review submitted identity and property-authorization materials."
           eyebrow={viewModel.verification.status === 'success' ? `${viewModel.verification.queue.length} WAITING FOR REVIEW` : 'VERIFICATION QUEUE'}
           title="Verification submissions"
         />
         <FilterRow accessibleSelection labels={['All', 'Tier 2', 'Tier 3']} selected={viewModel.verificationFilter} onSelect={viewModel.setVerificationFilter} />
-        <AppButton disabled={viewModel.verification.status === 'loading'} label={viewModel.verification.status === 'loading' ? 'Loading verification...' : 'Refresh queue'} onPress={() => void viewModel.refreshVerification()} variant="secondary" />
+        {viewModel.queueRefreshing ? <Text accessibilityLiveRegion="polite" style={styles.guidanceBody}>Loading verification submissions...</Text> : <Text style={styles.guidanceBody}>Pull down to refresh.</Text>}
+        {viewModel.dashboardNeedsRecovery ? <AppButton disabled={viewModel.queueRefreshing} label="Retry verification queue" onPress={() => void viewModel.refreshVerification()} variant="secondary" /> : null}
         <FeedbackNotice tone="error" message={viewModel.verification.error} />
         <FeedbackNotice tone="error" message={viewModel.verification.reviewError} />
         <FeedbackNotice tone="success" message={viewModel.verification.reviewNotice} />
@@ -117,15 +118,15 @@ const styles = StyleSheet.create({
   warning: { color: colors.warning },
   danger: { color: colors.restricted },
   overviewLabel: { color: colors.text, fontFamily: typography.family, fontSize: 14, fontWeight: '900', marginTop: 3 },
-  overviewMeta: { color: colors.textMuted, fontFamily: typography.family, fontSize: 9, marginTop: 3 },
-  openQueue: { color: '#2E7552', fontFamily: typography.family, fontSize: 9, fontWeight: '900', marginTop: spacing.md },
+  overviewMeta: { color: colors.textMuted, fontFamily: typography.family, fontSize: 13, marginTop: 3 },
+  openQueue: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 13, fontWeight: '900', marginTop: spacing.md },
   guidanceCard: { backgroundColor: '#EAF1ED', borderRadius: radius.card, gap: 5, marginTop: spacing.lg, padding: spacing.md },
   guidanceTitle: { color: '#173C2C', fontFamily: typography.family, fontSize: 12, fontWeight: '900' },
-  guidanceBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 10, lineHeight: 16 },
+  guidanceBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: spacing.md },
   filter: { backgroundColor: colors.surface, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 7 },
-  filterActive: { backgroundColor: '#173C2C' },
-  filterLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 9, fontWeight: '800' },
+  filterActive: { backgroundColor: colors.primaryAction },
+  filterLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, fontWeight: '800' },
   filterLabelActive: { color: colors.white },
   queueList: { gap: spacing.sm },
 });

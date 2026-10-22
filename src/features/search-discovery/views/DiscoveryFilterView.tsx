@@ -1,7 +1,8 @@
+import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { AppButton } from '../../../shared/components/AppButton';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -227,21 +228,9 @@ function MatchingPreferencesContent({
 }) {
   return (
     <>
-      <View style={styles.personalizeHero}>
-        <Text style={styles.personalizeTitle}>Personalize your feed</Text>
-        <Text style={styles.personalizeBody}>
-          Choose what matters to you while browsing the sample listings. Live recommendations are not connected.
-        </Text>
-        <Text style={styles.personalizeHint}>You can still change this afterwards.</Text>
-        <View style={styles.startPill}><Text style={styles.startPillText}>Swipe up to start!</Text></View>
-      </View>
-
       <View style={styles.newHereBlock}>
-        <Text style={styles.newHereTitle}>{viewModel.introductionPending ? 'Get started' : 'Your preferences'}</Text>
-        <Text style={styles.newHereSubtitle}>Tell us what you need</Text>
-        <Text style={styles.newHereBody}>
-          You are not required to complete every field. These preferences remain editable from your profile.
-        </Text>
+        <Text style={styles.newHereSubtitle}>A place that fits your needs</Text>
+        <Text style={styles.newHereBody}>Every choice is optional. Edit these preferences later from Profile. They filter sample listings for this session; live recommendations are not connected.</Text>
       </View>
 
       <PreferenceSection title="What type of renter are you?">
@@ -431,7 +420,6 @@ function MatchingPreferencesContent({
         </View>
       </Pressable>
 
-      <DiscoveryButton label={viewModel.introductionPending ? 'Save preferences and continue' : 'Save preview preferences'} disabled={viewModel.isCompletingIntroduction} onPress={() => void viewModel.saveMatchingPreferences()} />
     </>
   );
 }
@@ -459,16 +447,18 @@ export function DiscoveryFilterView({ viewModel, onClose }: DiscoveryFilterViewP
   if (viewModel.screen === 'matchingPreferences') {
     const preferences = viewModel.matchingPreferences;
     return (
-      <View style={styles.screen}>
-        <DiscoveryHeader onClose={onClose} title="Matching Preferences" />
-        <ScrollView contentContainerStyle={styles.preferenceContent} showsVerticalScrollIndicator={false}>
-          <FeedbackNotice message={viewModel.introductionPending ? 'Welcome to RentLease. Matching Preferences are optional. These choices filter local sample listings only; live recommendations are not connected.' : 'Preferences are kept locally for this signed-in session. Live recommendations are not connected.'} />
-          {viewModel.introductionPending ? <AppButton label="Skip for now" variant="secondary" disabled={viewModel.isCompletingIntroduction} onPress={() => void viewModel.skipMatchingIntroduction()} /> : null}
+      <KeyboardAvoidingView behavior={Platform.OS === 'android' ? 'height' : 'padding'} style={styles.screen}>
+        <ScreenHeader onClose={onClose} title="Matching Preferences" disabled={viewModel.isCompletingIntroduction} />
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.preferenceContent} showsVerticalScrollIndicator={false}>
           <FeedbackNotice message={viewModel.notice} />
-          <FeedbackNotice tone="error" message={viewModel.introductionError} />
           <MatchingPreferencesContent preferences={preferences} viewModel={viewModel} />
         </ScrollView>
-      </View>
+        <View style={styles.preferenceFooter}>
+          <FeedbackNotice tone="error" message={viewModel.introductionError} />
+          <AppButton label={viewModel.isCompletingIntroduction ? 'Saving...' : viewModel.introductionPending ? 'Save and continue' : 'Save preferences'} disabled={viewModel.isCompletingIntroduction} onPress={() => void viewModel.saveMatchingPreferences()} />
+          {viewModel.introductionPending ? <Pressable accessibilityRole="button" accessibilityState={{ disabled: viewModel.isCompletingIntroduction }} disabled={viewModel.isCompletingIntroduction} style={styles.skipAction} onPress={() => void viewModel.skipMatchingIntroduction()}><Text style={styles.skipLabel}>Skip for now</Text></Pressable> : null}
+        </View>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -498,31 +488,27 @@ export function DiscoveryFilterView({ viewModel, onClose }: DiscoveryFilterViewP
 const styles = StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
   content: { gap: spacing.md, padding: spacing.lg, paddingBottom: spacing.xxl },
-  preferenceContent: { paddingBottom: spacing.xxl },
-  personalizeHero: { alignItems: 'center', gap: spacing.sm, minHeight: 375, paddingHorizontal: spacing.lg, paddingTop: 86 },
-  personalizeTitle: { color: colors.text, fontFamily: typography.family, fontSize: 32, fontWeight: '900', letterSpacing: -1, textAlign: 'center' },
-  personalizeBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 20, maxWidth: 360, textAlign: 'center' },
-  personalizeHint: { color: colors.text, fontFamily: typography.family, fontSize: 11, marginTop: spacing.xs, textAlign: 'center' },
-  startPill: { alignItems: 'center', backgroundColor: '#31A654', borderRadius: radius.pill, justifyContent: 'center', marginTop: spacing.sm, minHeight: 48, paddingHorizontal: spacing.xl },
-  startPillText: { color: colors.white, fontFamily: typography.family, fontSize: 14, fontWeight: '700' },
+  preferenceContent: { alignSelf: 'center', maxWidth: 460, paddingBottom: spacing.lg, width: '100%' },
+  preferenceFooter: { alignSelf: 'center', borderTopColor: colors.border, borderTopWidth: 1, gap: spacing.xs, maxWidth: 460, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xs, width: '100%' },
+  skipAction: { alignItems: 'center', justifyContent: 'center', minHeight: 48 },
+  skipLabel: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '700' },
   newHereBlock: { gap: spacing.xxs, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
-  newHereTitle: { color: colors.text, fontFamily: typography.family, fontSize: 40, fontWeight: '900', letterSpacing: -1.2 },
-  newHereSubtitle: { color: colors.text, fontFamily: typography.family, fontSize: 24, fontWeight: '700' },
+  newHereSubtitle: { color: colors.text, fontFamily: typography.family, fontSize: 22, fontWeight: '700' },
   newHereBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 20, maxWidth: 340 },
   preferenceSection: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.lg },
-  preferenceSectionTitle: { color: colors.text, fontFamily: typography.family, fontSize: 22, fontWeight: '900', letterSpacing: -0.6, lineHeight: 28 },
+  preferenceSectionTitle: { color: colors.text, fontFamily: typography.family, fontSize: 18, fontWeight: '700', lineHeight: 25 },
   preferenceSectionBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 19 },
   preferenceChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  preferenceChoice: { alignItems: 'center', borderRadius: radius.pill, justifyContent: 'center', minHeight: 42, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  preferenceChoice: { alignItems: 'center', borderRadius: radius.pill, justifyContent: 'center', minHeight: 48, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
   preferenceChoiceWide: { flexBasis: '100%' },
-  greenChoice: { backgroundColor: '#16652E' },
-  orangeChoice: { backgroundColor: '#D0861E' },
-  purpleChoice: { backgroundColor: '#80479A' },
-  darkChoice: { backgroundColor: '#1D1D1D' },
+  greenChoice: { backgroundColor: colors.primaryAction },
+  orangeChoice: { backgroundColor: colors.primaryAction },
+  purpleChoice: { backgroundColor: colors.primaryAction },
+  darkChoice: { backgroundColor: colors.primaryAction },
   preferenceChoiceIdle: { backgroundColor: colors.surfaceStrong, borderColor: colors.border, borderWidth: 1 },
   preferenceChoiceLabel: { color: colors.white, fontFamily: typography.family, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   preferenceChoiceLabelIdle: { color: colors.textSecondary },
-  optionalDivider: { alignItems: 'center', backgroundColor: colors.surface, gap: spacing.xs, marginVertical: spacing.lg, paddingHorizontal: spacing.xl, paddingVertical: spacing.xl },
+  optionalDivider: { alignItems: 'center', backgroundColor: colors.surface, gap: spacing.xs, marginVertical: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   optionalTitle: { color: colors.text, fontFamily: typography.family, fontSize: 20, fontWeight: '800', textAlign: 'center' },
   optionalBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   specificationCard: { borderColor: colors.border, borderRadius: 26, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
@@ -531,9 +517,9 @@ const styles = StyleSheet.create({
   rankingNumber: { alignItems: 'center', backgroundColor: colors.text, borderRadius: radius.pill, height: 28, justifyContent: 'center', width: 28 },
   rankingNumberText: { color: colors.white, fontFamily: typography.family, fontSize: 12, fontWeight: '900' },
   rankingLabel: { color: colors.text, flex: 1, fontFamily: typography.family, fontSize: 13, fontWeight: '700' },
-  rankButton: { alignItems: 'center', borderColor: colors.border, borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center', minHeight: 32, minWidth: 45, paddingHorizontal: spacing.xs },
+  rankButton: { alignItems: 'center', borderColor: colors.border, borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center', minHeight: 48, minWidth: 48, paddingHorizontal: spacing.xs },
   rankButtonDisabled: { opacity: 0.28 },
-  rankButtonLabel: { color: colors.text, fontFamily: typography.family, fontSize: 10, fontWeight: '700' },
+  rankButtonLabel: { color: colors.text, fontFamily: typography.family, fontSize: 12, fontWeight: '700' },
   budgetModeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   budgetRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },

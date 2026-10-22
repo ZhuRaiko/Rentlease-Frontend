@@ -1,8 +1,8 @@
+import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import type { PropsWithChildren, ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -44,13 +44,7 @@ export function AuthScaffold({
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.topBar}>
-          {onBack ? (
-            <Pressable accessibilityRole="button" accessibilityState={{ disabled: backDisabled }} disabled={backDisabled} hitSlop={12} onPress={onBack} style={styles.backTarget}>
-              <Text style={styles.back}>Back</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        <ScreenHeader onBack={onBack} disabled={backDisabled} />
         <View style={[styles.content, (!!progress || formLayout) && styles.registrationContent]}>
           {progress ? <View style={styles.progress} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: progress.total, now: progress.completed, text: `Step ${progress.step} of ${progress.total}` }}>
             <Text style={styles.progressLabel}>Step {progress.step} of {progress.total}</Text>
@@ -73,25 +67,17 @@ export function AuthScaffold({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: spacing.xl },
-  topBar: { height: 52, justifyContent: 'center', paddingHorizontal: spacing.lg },
-  backTarget: { minHeight: 48, minWidth: 48, alignSelf: 'flex-start', justifyContent: 'center' },
   registrationContent: { paddingTop: spacing.lg },
   progress: { gap: spacing.xs, marginBottom: spacing.lg },
   progressLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: typography.caption },
   progressTrack: { height: 3, borderRadius: 2, backgroundColor: colors.surfaceStrong, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: colors.primary },
-  back: {
-    color: colors.primary,
-    fontFamily: typography.family,
-    fontSize: typography.body,
-    fontWeight: '700',
-  },
   content: {
     alignSelf: 'center',
     flex: 1,
     maxWidth: 412,
     paddingHorizontal: 26,
-    paddingTop: 82,
+    paddingTop: spacing.lg,
     width: '100%',
   },
   headingBlock: { gap: spacing.sm },
@@ -103,12 +89,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.9,
     lineHeight: 39,
   },
-  largeTitle: { fontSize: typography.display, letterSpacing: -1.4, lineHeight: 54 },
+  largeTitle: { fontSize: 32, letterSpacing: -0.7, lineHeight: 40 },
   description: {
     color: colors.textSecondary,
     fontFamily: typography.family,
     fontSize: 14,
-    fontWeight: '300',
+    fontWeight: '400',
     lineHeight: 20,
   },
   body: { gap: spacing.md, marginTop: spacing.xl },

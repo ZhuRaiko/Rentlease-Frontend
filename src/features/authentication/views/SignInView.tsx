@@ -5,7 +5,6 @@ import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { colors } from '../../../shared/theme/colors';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
-import { AuthBrand } from '../components/AuthBrand';
 import { AuthButton } from '../components/AuthButton';
 import { AuthField } from '../components/AuthField';
 import { AuthScaffold } from '../components/AuthScaffold';
@@ -16,7 +15,6 @@ export function SignInView({ viewModel }: { viewModel: AuthProfilesViewModel }) 
   const passwordInput = useRef<TextInput>(null);
   return (
     <AuthScaffold formLayout backDisabled={busy} description="Welcome back to RentLease." onBack={viewModel.goBack} title="Sign in">
-      <AuthBrand compact />
       <AuthField
         autoCapitalize="none"
         autoCorrect={false}
@@ -68,6 +66,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     padding: spacing.sm,
   },
-  signUpText: { color: colors.textMuted, fontFamily: typography.family, fontSize: 15, textAlign: 'center' },
+  signUpText: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 15, textAlign: 'center' },
   signUpLink: { color: colors.text, fontWeight: '700', textDecorationLine: 'underline' },
 });

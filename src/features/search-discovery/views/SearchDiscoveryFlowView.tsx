@@ -28,6 +28,7 @@ interface SearchDiscoveryFlowViewProps {
   onOpenChat: () => void;
   onOpenMaintenance: () => void;
   onStartInquiry: () => void;
+  onOpenNotifications: () => void;
 }
 
 const searchScreens = new Set(['searchLocation', 'locationPermission']);
@@ -49,7 +50,7 @@ export function SearchDiscoveryFlowView({
   onOpenPriceEstimate,
   onOpenChat,
   onOpenMaintenance,
-  onStartInquiry,
+  onStartInquiry, onOpenNotifications,
 }: SearchDiscoveryFlowViewProps) {
   const viewModel = useSearchDiscoveryViewModel(initialScreen, { introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
   const close = () => viewModel.closeFromWorkspace(onClose);
@@ -75,7 +76,7 @@ export function SearchDiscoveryFlowView({
   } else if (supplementaryScreens.has(viewModel.screen)) {
     content = <PropertySupplementaryView viewModel={viewModel} />;
   } else {
-    content = <TenantDiscoveryView onClose={close} viewModel={viewModel} />;
+    content = <TenantDiscoveryView onClose={close} onOpenNotifications={() => viewModel.requestNavigation(onOpenNotifications)} viewModel={viewModel} />;
   }
 
   return (
