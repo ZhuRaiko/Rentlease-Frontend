@@ -54,7 +54,7 @@ function sortProperties(properties: DiscoveryProperty[], sort: SortOption) {
 
 export function useSearchDiscoveryViewModel(
   initialScreen: 'home' | 'matchingPreferences' = 'home',
-  options: { initialPreferences?: MatchingPreferences | undefined; introduction?: boolean; onSavePreferences?: ((value: MatchingPreferences) => void) | undefined; onIntroductionComplete?: (() => void) | undefined } = {},
+  options: { initialPreferences?: MatchingPreferences | undefined; introduction?: boolean; onSavePreferences?: ((value: MatchingPreferences) => void) | undefined; onIntroductionComplete?: (() => Promise<boolean>) | undefined } = {},
 ) {
   const [screen, setScreen] = useState<DiscoveryScreen>(initialScreen);
   const [history, setHistory] = useState<DiscoveryScreen[]>([]);
@@ -66,6 +66,9 @@ export function useSearchDiscoveryViewModel(
   );
   const savedPreferences = useRef(matchingPreferences);
   const [introductionPending, setIntroductionPending] = useState(options.introduction ?? false);
+  const [introductionError, setIntroductionError] = useState<string | null>(null);
+  const [isCompletingIntroduction, setIsCompletingIntroduction] = useState(false);
+  const completionInFlight = useRef(false);
   const navigation = useNavigationConfirmation(screen === 'matchingPreferences' && JSON.stringify(matchingPreferences) !== JSON.stringify(savedPreferences.current));
   const [sortOption, setSortOption] = useState<SortOption>('Recommended');
   const [selectedPropertyId, setSelectedPropertyId] = useState(
@@ -204,16 +207,29 @@ export function useSearchDiscoveryViewModel(
     }));
   };
 
-  const saveMatchingPreferences = () => {
+  const finishIntroduction = async () => {
+    if (!introductionPending) return true;
+    if (completionInFlight.current) return false;
+    completionInFlight.current = true; setIsCompletingIntroduction(true); setIntroductionError(null);
+    try {
+      const complete = await options.onIntroductionComplete?.();
+      if (!complete) { setIntroductionError('Could not remember your choice on this device. Please try Save or Skip again.'); return false; }
+      setIntroductionPending(false); return true;
+    } catch { setIntroductionError('Could not remember your choice on this device. Please try Save or Skip again.'); return false; }
+    finally { completionInFlight.current = false; setIsCompletingIntroduction(false); }
+  };
+  const saveMatchingPreferences = async () => {
+    if (completionInFlight.current) return;
     const preferenceFilters = matchingPreferenceFilters(matchingPreferences);
-    setFilters(preferenceFilters);
-    setQuery('');
-    setScreen('home');
-    setHistory([]);
     savedPreferences.current = matchingPreferences;
     options.onSavePreferences?.(matchingPreferences);
+    if (!await finishIntroduction()) return;
+    setFilters(preferenceFilters); setQuery(''); setScreen('home'); setHistory([]);
     setNotice('Preferences saved for this session. Only sample listings were filtered; no live recommendations were activated.');
-    if (introductionPending) { setIntroductionPending(false); options.onIntroductionComplete?.(); }
+  };
+  const skipMatchingIntroduction = async () => {
+    if (!await finishIntroduction()) return;
+    setMatchingPreferences(savedPreferences.current); setScreen('home'); setHistory([]);
   };
 
   const chooseSort = (nextSort: SortOption) => {
@@ -282,7 +298,7 @@ export function useSearchDiscoveryViewModel(
 
   const openHome = () => {
     if (screen === 'matchingPreferences') setMatchingPreferences(savedPreferences.current);
-    if (introductionPending) { setIntroductionPending(false); options.onIntroductionComplete?.(); }
+    if (introductionPending) setIntroductionPending(false);
     setScreen('home');
     setHistory([]);
   };
@@ -297,15 +313,18 @@ export function useSearchDiscoveryViewModel(
     setHistory([]);
   };
 
-  const closeFromWorkspace = (onClose: () => void) => navigation.requestNavigation(introductionPending ? openHome : onClose);
+  const closeFromWorkspace = (onClose: () => void) => { if (!completionInFlight.current) navigation.requestNavigation(introductionPending ? () => { void skipMatchingIntroduction(); } : onClose); };
 
   return {
     ...navigation,
     introductionPending,
     closeFromWorkspace,
-    skipMatchingIntroduction: openHome,
+    skipMatchingIntroduction,
+    introductionError,
+    isCompletingIntroduction,
     backFromWorkspace: (onClose: () => void) => {
-      if (introductionPending) navigation.requestNavigation(openHome);
+      if (completionInFlight.current) return;
+      if (introductionPending) navigation.requestNavigation(() => { void skipMatchingIntroduction(); });
       else if (screen === 'home') navigation.requestNavigation(onClose);
       else navigation.requestNavigation(goBack);
     },

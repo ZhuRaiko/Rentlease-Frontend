@@ -17,7 +17,7 @@ No navigation dependency is installed, so `App` is the Expo application root rat
 | Account / Profile Settings | Feature state: `settings` | `SettingsView` | Authentication & Profiles | Yes |
 | Account Restricted / Suspended | Feature state: `restricted` | `RestrictedAccountView` | Authentication & Profiles | Yes, blocked from workspace |
 
-After authoritative checks, Tenant-capable accounts (including dual-role accounts) initially open Discovery in Tenant mode; Landlord-only accounts open the existing property dashboard in Landlord mode. An active eligible Admin opens Admin Moderation first, including accounts with other roles. The authenticated Profile state remains underneath the root-owned workspace. A successful signup observed in this running app may first offer optional Matching Preferences, only after email confirmation, Tier 1 and backend-loaded role membership. Returning sign-in/session restoration does not infer a new signup. Sign-out clears the workspace and local preferences. See [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) for the process-local introduction signal and limitations.
+After authoritative checks, Tenant-capable accounts (including dual-role accounts) initially open Discovery in Tenant mode; Landlord-only accounts open the existing property dashboard in Landlord mode. An active eligible Admin opens Admin Moderation first, including accounts with other roles. The authenticated Profile state remains underneath the root-owned workspace. A confirmed signup records a device-local, account-scoped pending introduction marker. Optional Matching Preferences is offered only after email confirmation, Tier 1 and backend-loaded role membership, including after restart. Workspace entry waits for the marker read, with contextual Retry on failure. Explicit Save/Skip records done; merely opening or leaving via another tab does not. Returning accounts without a marker are not inferred to be new. Sign-out clears workspace/preference contents but retains this minimal marker. See [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) for continuity limits.
 
 ### Marketplace navigation refinement Phase 2
 
@@ -67,7 +67,7 @@ These states are frontend-local. Supabase listing persistence, Storage photo upl
 
 ## Search & Discovery feature states
 
-Profile Discover Properties opens `SearchDiscoveryFlowView` at Home. Profile Matching Preferences opens the existing local preference editor. A newly completed, process-observed signup can open this editor with an optional introduction and Skip for now; it does not interrupt email/phone/role onboarding. Save or Skip continues to Discovery for Tenant mode or the property dashboard for Landlord mode. Saved choices remain editable through Profile and are scoped to the account in App memory until sign-out/restart; no preference persistence or recommendation service is connected. Skip/discard does not save edited values. If signup provenance is lost on restart, no introductory prompt is guessed; Profile editing remains available.
+Profile Discover Properties opens `SearchDiscoveryFlowView` at Home. Profile Matching Preferences opens the existing local preference editor. An eligible account with a pending device-local signup marker can open this editor with an optional introduction and Skip for now; it does not interrupt email/phone/role onboarding. Save or Skip continues to Discovery for Tenant mode or the property dashboard for Landlord mode. Saved choices remain editable through Profile and are scoped to the account in App memory until sign-out/restart; no preference persistence or recommendation service is connected. Skip/discard does not save edited values. The introduction marker survives restart; preference contents do not. Older accounts without a marker are not guessed new; Profile editing remains available.
 
 | Flow | Feature states | Component | Actor |
 |---|---|---|---|
@@ -75,7 +75,7 @@ Profile Discover Properties opens `SearchDiscoveryFlowView` at Home. Profile Mat
 | City and location search | `searchLocation` | `SearchLocationView` | Tenant / Landlord-as-tenant |
 | Search results | `resultsList`, `resultsMap` | `TenantDiscoveryView` | Tenant / Landlord-as-tenant |
 | Filters and sorting | `filters`, `sort` | `DiscoveryFilterView` | Tenant / Landlord-as-tenant |
-| Optional introduction and editable matching preferences | `matchingPreferences` | `DiscoveryFilterView` | Eligible newly-created accounts get a process-local optional introduction; all permitted ordinary accounts can edit from Profile; local preview only |
+| Optional introduction and editable matching preferences | `matchingPreferences` | `DiscoveryFilterView` | Eligible accounts with a device-local pending marker get an optional introduction; all permitted ordinary accounts can edit from Profile; local preview only |
 | Current-location permission presentation | `locationPermission` | `SearchLocationView` | Tenant / Landlord-as-tenant |
 | Property detail | `propertyDetails` | `PropertyDiscoveryDetailView` | Tenant / Landlord-as-tenant |
 | Gallery, amenities, nearby places and location | `photoGallery`, `propertyAmenities`, `nearbyPlaces`, `propertyLocation` | `PropertySupplementaryView` | Tenant / Landlord-as-tenant |
@@ -187,3 +187,7 @@ The Notifications Profile action opens `NotificationsFlowView` in the root-owned
 | Android push-notification presentation reference | `androidExample` | `NotificationPermissionView` | Tenant / Landlord |
 
 All notification items, unread counts, category groupings and permission outcomes are local frontend previews. Device permission requests, Expo push-token generation, backend token registration, push delivery through FCM, notification persistence and deep-link payload contracts remain disconnected.
+
+## Phase 2 corrections: draft and publication boundary
+
+A Tier 1 Landlord may enter the existing local listing draft preview without Tier 3. This preview creates no persisted property ID; Tier 3 requires an existing owned backend property. Future real publication must require qualifying approved Tier 3 for that specific property, in addition to other requirements. An account tier3_verified_at/trust indication is insufficient. Local preview `published` is not backend listing `active`. Publication remains disconnected. Read-only inspection on 2026-10-22 found that current listing policies/triggers enforce ownership, draft-first activation and completeness, but not this property-specific Tier 3 rule. That backend enforcement gap must be resolved before real publication integration; no backend changes were made.

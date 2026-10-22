@@ -431,7 +431,7 @@ function MatchingPreferencesContent({
         </View>
       </Pressable>
 
-      <DiscoveryButton label={viewModel.introductionPending ? 'Save preferences and continue' : 'Save preview preferences'} onPress={viewModel.saveMatchingPreferences} />
+      <DiscoveryButton label={viewModel.introductionPending ? 'Save preferences and continue' : 'Save preview preferences'} disabled={viewModel.isCompletingIntroduction} onPress={() => void viewModel.saveMatchingPreferences()} />
     </>
   );
 }
@@ -463,8 +463,9 @@ export function DiscoveryFilterView({ viewModel, onClose }: DiscoveryFilterViewP
         <DiscoveryHeader onClose={onClose} title="Matching Preferences" />
         <ScrollView contentContainerStyle={styles.preferenceContent} showsVerticalScrollIndicator={false}>
           <FeedbackNotice message={viewModel.introductionPending ? 'Welcome to RentLease. Matching Preferences are optional. These choices filter local sample listings only; live recommendations are not connected.' : 'Preferences are kept locally for this signed-in session. Live recommendations are not connected.'} />
-          {viewModel.introductionPending ? <AppButton label="Skip for now" variant="secondary" onPress={viewModel.skipMatchingIntroduction} /> : null}
+          {viewModel.introductionPending ? <AppButton label="Skip for now" variant="secondary" disabled={viewModel.isCompletingIntroduction} onPress={() => void viewModel.skipMatchingIntroduction()} /> : null}
           <FeedbackNotice message={viewModel.notice} />
+          <FeedbackNotice tone="error" message={viewModel.introductionError} />
           <MatchingPreferencesContent preferences={preferences} viewModel={viewModel} />
         </ScrollView>
       </View>

@@ -211,3 +211,9 @@ Firebase Cloud Messaging is used only as Expo's Android delivery relay; Firebase
 - `docs/ARCHITECTURE.md` — MVVM rules and integration boundaries
 - `docs/FEATURES.md` — feature cohort status
 - `docs/ROUTES.md` — screens/routes that currently exist
+
+### Phase 2 corrections checkpoint (2026-10-22)
+
+Read-only inspection of RentLease on 2026-10-22 confirms properties_create_verified_landlord requires own landlord_id, Landlord membership and Tier 1, without Tier 3. Tier 3 submission validation requires an existing property owned by the submitting Landlord. listings_create_owner checks ownership/Tier 1/Landlord; listings_update_owner_admin allows owner/Admin. validate_listing_owner verifies property ownership and requires draft-first activation with completeness >= 0.80, but contains no property-specific Tier 3 approval check. The only other noninternal listing trigger updates updated_at. This conflicts with the agreed future publication requirement for qualifying approved Tier 3 on that particular property. Publication is not connected in the frontend. Backend enforcement is REQUIRED before connecting it; authorization must not be substituted with an account timestamp or client-only gate. No policy/function/schema changes were made.
+
+Baseline: `550275c` plus uncommitted corrections. Typecheck passed; full automated suite passed 213/213, zero failures/skips/cancellations. These checks do not establish Android runtime acceptance.

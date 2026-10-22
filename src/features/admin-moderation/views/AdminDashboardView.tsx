@@ -12,7 +12,7 @@ import type { AdminModerationViewModel } from '../viewModels/useAdminModerationV
 
 export function AdminDashboardView({ onExit, viewModel }: { onExit: () => void; viewModel: AdminModerationViewModel }) {
   return (
-    <AdminScaffold onExit={onExit} subtitle="Admin moderation workspace" title="Admin dashboard">
+    <AdminScaffold onExit={onExit} subtitle="Admin moderation workspace" title="Admin Dashboard">
       <View style={styles.previewBanner}>
         <View style={styles.previewDot} />
         <View style={styles.previewCopy}>
@@ -22,11 +22,12 @@ export function AdminDashboardView({ onExit, viewModel }: { onExit: () => void; 
       </View>
       <AdminHeading
         body="Review trust, safety, and enforcement work that needs attention today."
-        eyebrow={new Date().toLocaleDateString()}
-        title="Good morning, Admin"
+        eyebrow="Verification workspace"
+        title="Admin overview"
       />
-      <AppButton disabled={viewModel.verification.status === 'loading'} label={viewModel.verification.status === 'loading' ? 'Loading verifications...' : 'Refresh verifications'} onPress={() => void viewModel.refreshVerification()} variant="secondary" />
-      <FeedbackNotice tone="error" message={viewModel.verification.error} />
+      {viewModel.dashboardNeedsRecovery ? <AppButton label="Retry verification queue" onPress={() => void viewModel.refreshVerification()} variant="secondary" /> : null}
+      {viewModel.verification.status === 'loading' ? <Text accessibilityLiveRegion="polite" style={styles.previewBody}>Loading verification queue...</Text> : null}
+      <FeedbackNotice tone="error" message={viewModel.verification.error ?? viewModel.verification.reviewError} />
       <View style={styles.statsGrid}>
         <AdminStatCard label="PENDING VERIFICATIONS" tone="warning" value={viewModel.verification.status === 'success' ? viewModel.pendingVerificationCount : '--'} />
         <AdminStatCard label="OPEN REPORTS (PREVIEW)" tone="danger" value={viewModel.openReportCount} />

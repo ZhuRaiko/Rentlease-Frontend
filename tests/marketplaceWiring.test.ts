@@ -28,7 +28,8 @@ test('root Android Back delegates to feature actions, and listing Close/tab exit
   const discovery = source('src/features/search-discovery/views/SearchDiscoveryFlowView.tsx');
   assert.match(functionBody(discovery, 'close'), /viewModel.closeFromWorkspace\(onClose\)/);
   const vm = source('src/features/search-discovery/viewModels/useSearchDiscoveryViewModel.ts');
-  assert.match(functionBody(vm, 'closeFromWorkspace'), /navigation.requestNavigation\(introductionPending \? openHome : onClose\)/);
+  assert.match(functionBody(vm, 'closeFromWorkspace'), /navigation.requestNavigation\(introductionPending/);
+  assert.match(functionBody(vm, 'closeFromWorkspace'), /skipMatchingIntroduction\(\)/);
 });
 test('preference Skip and discarded internal Back restore the saved snapshot without saving or external calls', () => {
   const file = source('src/features/search-discovery/viewModels/useSearchDiscoveryViewModel.ts');

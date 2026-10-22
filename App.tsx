@@ -32,7 +32,7 @@ export default function App() {
   const registerWorkspaceBack = useCallback((action: (() => void) | null) => { workspaceBackAction.current = action; }, []);
   const workspaceDestination = auth.account ? getWorkspaceDestination(auth.account) : null;
   const canEnterAdmin = workspaceDestination === 'adminModeration';
-  const canEnterMarketplace = workspaceDestination === 'discovery';
+  const canEnterMarketplace = workspaceDestination === 'discovery' && !auth.matchingIntroductionGate;
   const access = { marketplace: canEnterMarketplace, admin: canEnterAdmin, tenant: auth.hasTenantRole, landlord: auth.hasLandlordRole };
   useEffect(() => {
     traceAuthBoot('APP_MOUNT', { initialMetricsPresent: initialWindowMetrics !== null });
@@ -52,24 +52,29 @@ export default function App() {
     const next = switchMarketplaceMode(access, mode);
     if (next) { setPreferredRole(next.mode); setWorkspace(next.workspace); }
   };
-  const finishMatchingIntroduction = () => setWorkspace(initialMarketplaceWorkspace(access, accountRole));
+  const finishMatchingIntroduction = async () => {
+    if (!await auth.completeMatchingIntroduction()) return false;
+    setWorkspace(initialMarketplaceWorkspace(access, accountRole));
+    return true;
+  };
 
   useEffect(() => {
-    if (auth.entryVersion === 0 || !workspaceDestination) return;
+    if (auth.entryVersion === 0 || !workspaceDestination || (workspaceDestination === 'discovery' && !canEnterMarketplace)) return;
+    if (handledIntroduction.current === auth.entryVersion) return;
+    handledIntroduction.current = auth.entryVersion;
     const mode = auth.hasTenantRole ? 'tenant' : 'landlord';
-    const offer = canEnterMarketplace && auth.matchingIntroductionUserId === auth.account?.user.id && auth.matchingIntroductionVersion > handledIntroduction.current;
-    handledIntroduction.current = auth.matchingIntroductionVersion;
+    const offer = canEnterMarketplace && auth.matchingIntroductionRequired;
     setPreferredRole(mode);
     setSavedPreferences(current => current?.userId === auth.account?.user.id ? current : null);
     setWorkspace(offer ? { type: 'discovery', initialScreen: 'matchingPreferences', introduction: true } : initialMarketplaceWorkspace(access, mode));
-  }, [auth.entryVersion, workspaceDestination, auth.matchingIntroductionVersion]);
+  }, [auth.entryVersion, workspaceDestination, auth.matchingIntroductionRequired, canEnterMarketplace]);
 
   useEffect(() => {
     if (auth.signedOutVersion > 0) {
       setWorkspace(null);
       setPreferredRole('tenant');
       setSavedPreferences(null);
-      handledIntroduction.current = auth.matchingIntroductionVersion;
+      handledIntroduction.current = 0;
     }
   }, [auth.signedOutVersion]);
 

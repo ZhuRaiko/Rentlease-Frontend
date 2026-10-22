@@ -1,5 +1,6 @@
+import { marketplaceIntroductionStorage } from '../services/marketplaceIntroductionStorage';
 import type { FeedbackTone } from '../../../shared/models/verificationPresentation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { accountVerificationSummary, roleLabel } from '../models/accountPresentation';
 import { createMarketplaceIntroduction } from './marketplaceIntroduction';
 
@@ -61,9 +62,8 @@ export function useAuthProfilesViewModel() {
   const [history, setHistory] = useState<AuthProfileScreen[]>([]);
   const [draft, setDraft] = useState<RegistrationDraft>(initialRegistrationDraft);
   const [registrationSubmission] = useState(() => createRegistrationSubmission(signUp));
-  const [marketplaceIntroduction] = useState(createMarketplaceIntroduction);
-  const [matchingIntroductionVersion, setMatchingIntroductionVersion] = useState(0);
-  const [matchingIntroductionUserId, setMatchingIntroductionUserId] = useState<string | null>(null);
+  const [marketplaceIntroduction] = useState(() => createMarketplaceIntroduction(marketplaceIntroductionStorage));
+  const introduction = useSyncExternalStore(marketplaceIntroduction.subscribe, marketplaceIntroduction.getSnapshot);
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [profileName, setProfileName] = useState('');
   const [profileBio, setProfileBio] = useState('');
@@ -105,7 +105,6 @@ export function useAuthProfilesViewModel() {
     setDraft(initialRegistrationDraft);
     registrationSubmission.reset();
     marketplaceIntroduction.clear();
-    setMatchingIntroductionUserId(null);
     setSignInIdentifier('');
     setSignInPassword('');
     setProfileName('');
@@ -145,7 +144,7 @@ export function useAuthProfilesViewModel() {
     if (enteringWorkspace) {
       setEntryVersion((current) => current + 1);
     }
-    if (marketplaceIntroduction.consume(snapshot)) { setMatchingIntroductionUserId(snapshot.user.id); setMatchingIntroductionVersion(current => current + 1); }
+    void marketplaceIntroduction.check(snapshot);
   };
 
   const refreshAccount = async (preservePhoneCode = false) => {
@@ -180,6 +179,7 @@ export function useAuthProfilesViewModel() {
 
   useEffect(() => {
     traceAuthBoot('VM_MOUNT');
+    marketplaceIntroduction.activate();
     mountedRef.current = true;
     const sync = createAccountSynchronization<AccountSnapshot>({
       load: loadAccount,
@@ -199,6 +199,7 @@ export function useAuthProfilesViewModel() {
     syncRef.current = sync;
     const unsubscribe = isSupabaseConfigured() ? subscribeToAccountAuthChanges((event, userId) => {
       if (event === 'SIGNED_IN' && accountRef.current && userId !== accountRef.current.user.id) {
+        marketplaceIntroduction.clear();
         // Hide the prior account immediately while loading the new identity.
         accountRef.current = null;
         setAccount(null);
@@ -213,6 +214,7 @@ export function useAuthProfilesViewModel() {
     void bootstrap();
     return () => {
       traceAuthBoot('VM_UNMOUNT');
+      marketplaceIntroduction.dispose();
       mountedRef.current = false;
       unsubscribe();
       sync.dispose();
@@ -301,7 +303,7 @@ export function useAuthProfilesViewModel() {
         setAsyncState('error'); setNotice('Account creation could not be confirmed. Check your inbox or sign in before trying to create another account.', 'warning'); return;
       }
       const result = outcome.result;
-        marketplaceIntroduction.markCreated(result.user!.id);
+        await marketplaceIntroduction.markCreated(result.user!.id);
       setDraft((current) => ({ ...current, email, confirmPassword: '' }));
       setHistory([]);
       setScreen('emailConfirmation');
@@ -515,8 +517,16 @@ export function useAuthProfilesViewModel() {
     showSignOutConfirmation,
     resendSeconds,
     entryVersion,
-    matchingIntroductionVersion,
-    matchingIntroductionUserId,
+    matchingIntroductionRequired: introduction.userId === account?.user.id && introduction.status === 'required',
+    matchingIntroductionGate: !!account && getWorkspaceDestination(account) === 'discovery' && (introduction.userId !== account.user.id || ['idle', 'checking', 'error'].includes(introduction.status)),
+    matchingIntroductionError: introduction.error,
+    matchingIntroductionChecking: introduction.status === 'checking',
+    retryMatchingIntroduction: () => { if (accountRef.current) void marketplaceIntroduction.check(accountRef.current, true); },
+    completeMatchingIntroduction: async () => {
+      const current = accountRef.current;
+      if (!current || getWorkspaceDestination(current) !== 'discovery') return false;
+      return marketplaceIntroduction.complete(current.user.id);
+    },
     signedOutVersion,
     bootstrap,
     navigate,

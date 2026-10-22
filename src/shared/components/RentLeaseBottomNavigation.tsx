@@ -8,6 +8,7 @@ export type RentLeaseNavigationTab = 'discover' | 'listing' | 'post' | 'tenancy'
 
 interface RentLeaseBottomNavigationProps {
   active: RentLeaseNavigationTab | null;
+  disabled?: boolean;
   onChat: () => void;
   onDiscover: () => void;
   onListing: () => void;
@@ -65,6 +66,7 @@ function NavigationIcon({ name, color }: { name: NavigationIconName; color: stri
 
 export function RentLeaseBottomNavigation({
   active,
+  disabled = false,
   onChat,
   onDiscover,
   onListing,
@@ -95,7 +97,8 @@ export function RentLeaseBottomNavigation({
         return (
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ selected }}
+            accessibilityState={{ selected, disabled }}
+            disabled={disabled}
             key={item.key}
             onPress={item.onPress}
             style={styles.item}

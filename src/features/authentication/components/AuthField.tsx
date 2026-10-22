@@ -6,6 +6,7 @@ import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
+import { authInputIdentity } from '../models/authInputPresentation';
 
 interface AuthFieldProps extends Omit<TextInputProps, 'style'> {
   label?: string;
@@ -29,7 +30,9 @@ export function AuthField({ label, prefix, inputRef, allowVisibilityToggle = fal
         ) : null}
         <TextInput
           {...inputProps}
+          key={authInputIdentity(label, !!inputProps.secureTextEntry)}
           ref={inputRef}
+          keyboardType={inputProps.secureTextEntry ? 'default' : inputProps.keyboardType}
           accessibilityLabel={inputProps.accessibilityLabel ?? label}
           secureTextEntry={!!inputProps.secureTextEntry && !visible}
           placeholderTextColor={colors.textMuted}

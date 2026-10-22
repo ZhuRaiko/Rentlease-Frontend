@@ -1,3 +1,4 @@
+import { createMarketplaceIntroductionService } from '../src/features/authentication/services/marketplaceIntroductionService';
 /// <reference types="node" />
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -31,20 +32,25 @@ test('Admin and restricted routing take precedence over ordinary modes', () => {
   assert.equal(propertiesWorkspace({ ...dual, admin: true }, 'dashboard'), null);
   assert.equal(initialMarketplaceWorkspace({ ...dual, marketplace: false }, 'tenant'), null);
 });
-test('only a successful signup marker and authoritative completion offer preferences once', () => {
-  const intro = createMarketplaceIntroduction(); const snapshot = account();
-  assert.equal(intro.consume(snapshot), false); intro.markCreated('new');
-  delete snapshot.user.email_confirmed_at; assert.equal(intro.consume(snapshot), false);
-  snapshot.user.email_confirmed_at = 'date'; snapshot.profile.tier1_verified_at = null; assert.equal(intro.consume(snapshot), false);
-  snapshot.profile.tier1_verified_at = 'date'; snapshot.roles = []; assert.equal(intro.consume(snapshot), false);
-  snapshot.roles = ['tenant']; assert.equal(intro.consume(snapshot), true); assert.equal(intro.consume(snapshot), false);
+test('persistent signup marker waits for authoritative completion and remains pending when merely opened', async () => {
+  const values = new Map<string, string>();
+  const service = createMarketplaceIntroductionService({ getItem: async key => values.get(key) ?? null, setItem: async (key, value) => { values.set(key, value); } });
+  const intro = createMarketplaceIntroduction(service); const snapshot = account();
+  await intro.check(snapshot); assert.equal(intro.getSnapshot().status, 'notRequired');
+  await intro.markCreated('new'); intro.clear();
+  delete snapshot.user.email_confirmed_at; await intro.check(snapshot); assert.equal(intro.getSnapshot().status, 'idle');
+  snapshot.user.email_confirmed_at = 'date'; snapshot.profile.tier1_verified_at = null; await intro.check(snapshot); assert.equal(intro.getSnapshot().status, 'idle');
+  snapshot.profile.tier1_verified_at = 'date'; snapshot.roles = []; await intro.check(snapshot); assert.equal(intro.getSnapshot().status, 'idle');
+  snapshot.roles = ['tenant']; await intro.check(snapshot); assert.equal(intro.getSnapshot().status, 'required');
+  assert.equal(await service.read('new'), 'pending');
 });
-test('returning users, restart, sign-out, other identities and Admin never receive the new-account offer', () => {
-  const snapshot = account(); const intro = createMarketplaceIntroduction();
-  intro.markCreated('new'); intro.clear(); assert.equal(intro.consume(snapshot), false);
-  intro.markCreated('other'); assert.equal(intro.consume(snapshot), false);
-  intro.markCreated('new'); snapshot.roles = ['admin', 'landlord']; assert.equal(intro.consume(snapshot), false);
-  assert.equal(createMarketplaceIntroduction().consume(account()), false);
+test('completed users and Admin bypass do not receive a repeated introduction', async () => {
+  const values = new Map<string, string>();
+  const service = createMarketplaceIntroductionService({ getItem: async key => values.get(key) ?? null, setItem: async (key, value) => { values.set(key, value); } });
+  const intro = createMarketplaceIntroduction(service); const snapshot = account();
+  await intro.markCreated('new'); await intro.check(snapshot); await intro.complete('new');
+  const restarted = createMarketplaceIntroduction(service); await restarted.check(snapshot); assert.equal(restarted.getSnapshot().status, 'complete');
+  restarted.clear(); snapshot.roles = ['admin', 'landlord']; await restarted.check(snapshot); assert.equal(restarted.getSnapshot().status, 'idle');
 });
 test('Skip and completion return to the eligible mode destination without changing roles or making a write', () => {
   assert.deepEqual(initialMarketplaceWorkspace(tenant, 'tenant'), { type: 'discovery', initialScreen: 'home' });

@@ -19,7 +19,7 @@ interface SearchDiscoveryFlowViewProps {
   introduction?: boolean;
   initialPreferences?: MatchingPreferences | undefined;
   onSavePreferences?: ((value: MatchingPreferences) => void) | undefined;
-  onIntroductionComplete?: (() => void) | undefined;
+  onIntroductionComplete?: (() => Promise<boolean>) | undefined;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onClose: () => void;
   onCreateListing?: (() => void) | undefined;
@@ -84,6 +84,7 @@ export function SearchDiscoveryFlowView({
       <View style={styles.content}>{content}</View>
       <NavigationConfirmation visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
       <RentLeaseBottomNavigation
+        disabled={viewModel.isCompletingIntroduction}
         active={viewModel.screen === 'matchingPreferences' ? null : 'discover'}
         onChat={() => viewModel.requestNavigation(onOpenChat)}
         onDiscover={() => viewModel.requestNavigation(viewModel.openHome)}

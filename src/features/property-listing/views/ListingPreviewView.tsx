@@ -55,6 +55,7 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
           <Text style={styles.confirmCopy}>
             Your listing will appear as Published in this frontend preview. No Supabase record,
             Storage upload, notification, or moderation request will be created.
+            Real publication is not connected. It must check qualifying Tier 3 approval for this specific property and all other publication requirements.
           </Text>
           <View style={styles.confirmFacts}>
             <Text style={styles.fact}>₱{draft.askingRent} / month</Text>

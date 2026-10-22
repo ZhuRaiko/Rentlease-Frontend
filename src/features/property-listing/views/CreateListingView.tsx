@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -35,6 +36,7 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
   if (screen === 'postingType') {
     return (
       <ScrollView contentContainerStyle={styles.postingScreen} showsVerticalScrollIndicator={false}>
+        <FeedbackNotice message="Local draft preview only. This does not create a backend property ID. Real Tier 3 verification needs a saved property record." />
         <Pressable
           accessibilityLabel="Close posting selection"
           accessibilityRole="button"

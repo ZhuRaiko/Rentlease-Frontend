@@ -53,3 +53,9 @@ The root Authentication ViewModel owns one authoritative account snapshot. Its s
 ## Environment
 
 Copy `.env.example` to an untracked `.env` and provide client-safe values. Expo inlines `EXPO_PUBLIC_*` variables in the application bundle; they must never contain private server secrets.
+
+### Phase 2 corrections checkpoint (2026-10-22)
+
+Auth onboarding continuity now uses an existing AsyncStorage-backed service for account-scoped pending/done Matching Preferences introduction markers. The Auth ViewModel coordinates reads/completion and the root retains workspace composition. This stores no credentials, snapshots or preference contents; matching preference values remain process-local. No new state library, navigation framework, client or account owner was introduced.
+
+Baseline: `550275c` plus uncommitted corrections. Typecheck passed; full automated suite passed 213/213, zero failures/skips/cancellations. These checks do not establish Android runtime acceptance.

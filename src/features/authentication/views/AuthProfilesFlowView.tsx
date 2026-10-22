@@ -1,3 +1,4 @@
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { useEffect } from 'react';
 import { Modal, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { traceAuthBoot } from '../../../shared/utils/authBootTrace';
@@ -61,6 +62,14 @@ export function AuthProfilesFlowView({
     content = <SignInView viewModel={viewModel} />;
   } else if (registrationScreens.has(viewModel.screen)) {
     content = <RegistrationView viewModel={viewModel} />;
+  } else if (viewModel.screen === 'profile' && viewModel.matchingIntroductionGate) {
+    content = <View style={styles.bootstrap}>
+      <Text accessibilityRole="header" style={styles.title}>Preparing your workspace</Text>
+      <Text style={styles.body}>Checking optional account setup on this device.</Text>
+      <FeedbackNotice tone="error" message={viewModel.matchingIntroductionError} />
+      {viewModel.matchingIntroductionError ? <AuthButton label="Retry setup check" onPress={viewModel.retryMatchingIntroduction} /> : null}
+      <AuthButton variant="secondary" disabled={viewModel.asyncState === 'loading'} label="Sign out / use another account" onPress={() => void viewModel.switchAccount()} />
+    </View>;
   } else if (viewModel.screen === 'profile') {
     content = <ProfileView viewModel={viewModel} activeRole={activeRole} onSwitchRole={onSwitchRole} onOpenAdminModeration={onOpenAdminModeration} onOpenDiscovery={onOpenDiscovery} onOpenMatchingPreferences={onOpenMatchingPreferences} onOpenNotifications={onOpenNotifications} onOpenProperties={viewModel.hasLandlordRole ? onOpenProperties : undefined} onOpenRatingsReports={onOpenRatingsReports} onOpenVerification={onOpenVerification} />;
   } else if (viewModel.screen === 'editProfile') {

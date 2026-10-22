@@ -180,6 +180,7 @@ export function useAdminModerationViewModel() {
   return {
     screen,
     verification,
+    dashboardNeedsRecovery: !verification.reviewBusy && (verification.status === 'error' || verification.reviewNeedsRefresh),
     verificationSubmissions: verification.queue.filter((item) => verificationFilter === 'All' || item.tier === (verificationFilter === 'Tier 2' ? 'tier_2_identity' : 'tier_3_property')),
     verificationFilter, setVerificationFilter,
     refreshVerification: verificationQueue.refresh,
