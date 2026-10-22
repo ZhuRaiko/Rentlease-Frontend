@@ -1,3 +1,4 @@
+import { ProfileAvatar } from '../components/ProfileAvatar';
 import { InterfaceIcon } from '../../../shared/components/InterfaceIcon';
 import type { ReactNode } from 'react';
 import { ScreenHeader } from '../../../shared/components/ScreenHeader';
@@ -31,53 +32,71 @@ export function ProfileView({ viewModel, marketplaceNavigation, onOpenAdminModer
   const roles = viewModel.isAdmin
     ? 'Admin'
     : viewModel.roleLabels.join(' · ');
-  return <View style={styles.screen}><ScreenHeader title="Profile" onBack={onBack} /><ScrollView contentContainerStyle={styles.scrollContent}>
-    <View style={styles.profileCard}>
-      <View style={styles.identityRow}>
-        <View style={styles.avatar}><Text style={styles.initials}>{initials || '?'}</Text></View>
-        <View style={styles.identityCopy}>
-          <Text accessibilityRole="header" style={styles.name}>{viewModel.displayName}</Text>
-          <Text style={styles.role}>{roles || 'Role not selected'}</Text>
+  return <View style={styles.screen}>
+    <ScreenHeader title="Profile" onBack={onBack} />
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      <View style={styles.folio}>
+        <View style={styles.identityStage}>
+          <View style={styles.identityTop}>
+            <ProfileAvatar initials={initials} />
+            <View style={styles.membership}>
+              <Text accessibilityRole="header" style={styles.name}>{viewModel.displayName}</Text>
+              <Text style={styles.role}>{roles || 'Role not selected'}</Text>
+            </View>
+
+          </View>
+          {viewModel.account?.profile.bio ? <Text style={styles.bio}>{viewModel.account.profile.bio}</Text> : null}
+            <Pressable accessibilityRole="button" accessibilityLabel="Edit Profile" onPress={() => viewModel.navigate('editProfile')} style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}>
+              <Image accessible={false} resizeMode="contain" source={editIcon} style={styles.editIcon} />
+              <Text style={styles.editLabel}>Edit</Text>
+            </Pressable>
+        </View>
+        <FeedbackNotice message={viewModel.notice} tone={viewModel.noticeTone} />
+        <View style={styles.credentials}>
+          <View style={styles.sectionHeading}>
+            <Text accessibilityRole="header" style={styles.sectionTitle}>Verification</Text>
+            {!viewModel.isAdmin ? <Pressable accessibilityRole="button" accessibilityLabel="View verification details" onPress={() => onOpenVerification?.()} style={({ pressed }) => [styles.detailsAction, pressed && styles.pressed]}>
+              <InterfaceIcon name="verification" size={18} />
+              <Text style={styles.detailsLabel}>View details</Text>
+              <Text accessible={false} style={styles.arrow}>{'\u2197'}</Text>
+            </Pressable> : null}
+          </View>
+          <AccountVerificationSummary items={viewModel.verificationSummary} />
+        </View>
+        <View style={styles.accountTools}>
+          <Text accessibilityRole="header" style={styles.sectionTitle}>{viewModel.isAdmin ? 'Administration' : 'Preferences'}</Text>
+          {!viewModel.isAdmin ? <ProfileActionRow icon={preferencesIcon} label="Matching Preferences" onPress={() => onOpenMatchingPreferences?.()} /> : <ProfileActionRow icon={settingsIcon} label="Admin Moderation" onPress={() => onOpenAdminModeration?.()} />}
+        </View>
+        <View style={styles.accountTools}>
+          <Text accessibilityRole="header" style={styles.sectionTitle}>Account & safety</Text>
+          {!viewModel.isAdmin ? <ProfileActionRow leading={<InterfaceIcon name="reviews" color={colors.textSecondary} />} label="Ratings & Reports" onPress={() => onOpenRatingsReports?.()} /> : null}
+          <ProfileActionRow icon={settingsIcon} label="Account Settings" onPress={() => viewModel.navigate('settings')} />
         </View>
       </View>
-      {viewModel.account?.profile.bio ? <Text style={styles.bio}>{viewModel.account.profile.bio}</Text> : null}
-      <AccountVerificationSummary items={viewModel.verificationSummary} />
-      <View style={styles.profileActions}>
-        <Pressable accessibilityRole="button" onPress={() => viewModel.navigate('editProfile')} style={styles.editButton}>
-          <Image resizeMode="contain" source={editIcon} style={styles.editIcon} /><Text style={styles.editLabel}>Edit Profile</Text>
-        </Pressable>
-      </View>
-    </View>
-    <FeedbackNotice message={viewModel.notice} tone={viewModel.noticeTone} />
-    <View style={styles.menu}>
-      {viewModel.isAdmin ? (
-        <ProfileActionRow icon={settingsIcon} label="Admin Moderation" onPress={() => onOpenAdminModeration?.()} />
-      ) : (
-        <>
-          <ProfileActionRow detail="Set your search preferences" icon={preferencesIcon} label="Matching Preferences" onPress={() => onOpenMatchingPreferences?.()} />
-          <ProfileActionRow detail="Identity and property submission details" leading={<InterfaceIcon name="verification" />} label="Verification" onPress={() => onOpenVerification?.()} />
-          <ProfileActionRow detail="Reviews and safety" leading={<InterfaceIcon name="reviews" />} label="Ratings & Reports" onPress={() => onOpenRatingsReports?.()} />
-        </>
-      )}
-      <ProfileActionRow icon={settingsIcon} detail="Sign-in details and account access" label="Account Settings" onPress={() => viewModel.navigate('settings')} />
-    </View>
-  </ScrollView>{marketplaceNavigation}</View>;
+    </ScrollView>
+    {marketplaceNavigation}
+  </View>;
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  scrollContent: { backgroundColor: colors.background, flexGrow: 1, paddingBottom: spacing.xxl },
-  profileCard: { alignSelf: 'center', backgroundColor: colors.background, borderRadius: radius.card, marginTop: 0, maxWidth: 412, padding: spacing.lg, width: '100%' },
-  identityRow: { alignItems: 'center', flexDirection: 'row', gap: 14 },
-  avatar: { alignItems: 'center', backgroundColor: colors.primaryPale, borderRadius: 26, height: 52, justifyContent: 'center', width: 52 },
-  initials: { color: colors.primary, fontFamily: typography.family, fontSize: 18, fontWeight: '800' },
-  identityCopy: { flex: 1, gap: spacing.xxs },
-  name: { color: colors.text, fontFamily: typography.family, fontSize: 22, fontWeight: '700' },
-  role: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14 },
-  bio: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 19, marginTop: spacing.md },
-  profileActions: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.md },
-  editButton: { alignItems: 'center', borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flex: 1, flexDirection: 'row', gap: spacing.xs, minHeight: 48, justifyContent: 'center' },
-  editIcon: { height: 14, width: 14 },
-  editLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, fontWeight: '700' },
-  menu: { marginTop: spacing.md },
+  screen: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { flexGrow: 1, paddingBottom: spacing.xl },
+  folio: { width: '100%', maxWidth: 520, alignSelf: 'center', paddingHorizontal: spacing.lg, gap: spacing.lg },
+  identityStage: { marginTop: spacing.md, paddingTop: spacing.lg, paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.md, backgroundColor: colors.surface, borderColor: colors.accountCredentialInk, borderWidth: 1, borderLeftWidth: 4, borderBottomWidth: 3, borderRadius: radius.firm },
+  identityTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  membership: { flex: 1, minWidth: 0, gap: spacing.xs },
+  role: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 15, fontWeight: '600', lineHeight: 22 },
+  name: { color: colors.text, fontFamily: typography.family, fontSize: 24, lineHeight: 30, fontWeight: '800' },
+  bio: { color: colors.text, fontFamily: typography.family, fontSize: 16, lineHeight: 24 },
+  editButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, minHeight: 48, minWidth: 48, padding: spacing.sm, borderColor: colors.primaryAction, borderWidth: 1, borderRadius: radius.firm, backgroundColor: colors.background },
+  editIcon: { width: 16, height: 16, tintColor: colors.primaryAction },
+  editLabel: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  credentials: { borderWidth: 1, borderColor: colors.accountCredentialInk, borderBottomWidth: 3, borderRadius: radius.firm, padding: spacing.md, gap: spacing.sm },
+  sectionHeading: { borderBottomColor: colors.accountCredentialInk, borderBottomWidth: 2, paddingBottom: spacing.xs, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs },
+  sectionTitle: { color: colors.text, fontFamily: typography.family, fontSize: 18, lineHeight: 25, fontWeight: '800', flexShrink: 1 },
+  detailsAction: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, minHeight: 48, minWidth: 48, paddingVertical: spacing.xs, paddingHorizontal: spacing.xxs, flexShrink: 1 },
+  detailsLabel: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  arrow: { color: colors.primaryAction, fontSize: 20 },
+  accountTools: { gap: spacing.sm, borderTopColor: colors.accountCredentialInk, borderTopWidth: 2, paddingTop: spacing.sm },
+  pressed: { backgroundColor: colors.primaryPale },
 });

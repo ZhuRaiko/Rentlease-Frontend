@@ -1,5 +1,5 @@
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
-import { VerificationStatusBadge } from '../../../shared/components/VerificationStatusBadge';
+import { VerificationStatusIndicator } from '../../../shared/components/VerificationStatusIndicator';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../../../shared/components/AppButton';
 import { colors } from '../../../shared/theme/colors';
@@ -30,7 +30,7 @@ export function VerificationStatusView({ viewModel, onClose }: { viewModel: Tier
     <VerificationScaffold onBack={viewModel.goBack} onClose={onClose} title="Tier 2 verification">
       <View style={styles.centeredState}>
         <Image resizeMode="contain" source={status === 'approved' ? approvedIcon : status === 'pending' || status === 'under_review' ? pendingIcon : verificationIcon} style={styles.stateIcon} />
-        <VerificationStatusBadge {...tierTwoSubmissionPresentation(submission, viewModel.requiresRefresh)} />
+        <VerificationStatusIndicator {...tierTwoSubmissionPresentation(submission, viewModel.requiresRefresh)} />
         <Text style={styles.message}>{viewModel.requiresRefresh ? 'The latest application or attachment could not be confirmed. Check status before another attempt.' : status ? messages[status] : 'Check status to load your submission.'}</Text>
         {submission && !submission.hasDocument ? (
           <Text style={styles.message}>Missing metadata does not prove that no file was uploaded. Recovery uses a fresh, non-overwriting file name; earlier private files are not deleted.</Text>
@@ -58,15 +58,15 @@ export function VerificationStatusView({ viewModel, onClose }: { viewModel: Tier
 }
 
 const styles = StyleSheet.create({
-  centeredState: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
-  stateIcon: { height: 80, width: 80 },
+  centeredState: { alignItems: 'flex-start', gap: spacing.md, paddingVertical: spacing.md },
+  stateIcon: { height: 48, width: 48 },
   title: {
     color: colors.text,
     fontFamily: typography.family,
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: -1,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   message: {
     color: colors.text,
@@ -74,10 +74,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '400',
     lineHeight: 21,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   decisionCard: { backgroundColor: colors.surface, borderRadius: radius.card, gap: spacing.sm, padding: spacing.md },
   rejectionCard: { backgroundColor: colors.restrictedSurface },
-  decisionTitle: { color: colors.text, fontFamily: typography.family, fontSize: 17, fontWeight: '800' },
+  decisionTitle: { color: colors.text, fontFamily: typography.family, fontSize: 18, fontWeight: '600' },
   decisionCopy: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
 });

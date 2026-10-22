@@ -33,8 +33,9 @@ test('Discovery Notifications follows the guarded feature callback to the existi
 
 test('Verification and Ratings actions use distinct decorative icons with accessible row labels', () => {
   const profile = read('src/features/authentication/views/ProfileView.tsx');
-  assert.match(profile, /leading=\{<InterfaceIcon name="verification" \/>\} label="Verification"/);
-  assert.match(profile, /leading=\{<InterfaceIcon name="reviews" \/>\} label="Ratings & Reports"/);
+  assert.match(profile, /accessibilityLabel="View verification details" onPress=\{\(\) => onOpenVerification\?\.\(\)\}/);
+  assert.match(profile, /<InterfaceIcon name="verification" size=\{18\}/);
+  assert.match(profile, /leading=\{<InterfaceIcon name="reviews" color=\{colors.textSecondary\} \/>\} label="Ratings & Reports"/);
   assert.match(read('src/features/authentication/components/ProfileActionRow.tsx'), /accessibilityLabel=\{detail \? `\$\{label\}. \$\{detail\}` : label\}/);
 });
 
@@ -47,8 +48,8 @@ test('tier identity pairs maintain readable contrast and do not replace semantic
   for (const [ink, surface] of pairs) assert.ok((luminance(surface!) + 0.05) / (luminance(ink!) + 0.05) >= 4.5);
   assert.deepEqual((['pending', 'under_review', 'approved', 'rejected', 'cancelled', 'revoked'] as const).map(status => verificationStatusPresentation(status).label), ['Pending', 'Under Review', 'Verified', 'Rejected', 'Cancelled', 'Revoked']);
   const card = read('src/features/user-verification/components/VerificationTierCard.tsx');
-  assert.match(card, /Tier \{tier\} \/ \{identity.name\}/);
-  assert.match(card, /<VerificationStatusBadge \{\.\.\.presentation\}/);
+  assert.match(card, /accessibilityLabel=\{`Tier \$\{tier\}: \$\{title\}`\}/);
+  assert.match(card, /<VerificationStatusIndicator \{\.\.\.presentation\}/);
 });
 
 test('rejected Tier 2 action binds only local recovery selection, without direct backend writes', () => {

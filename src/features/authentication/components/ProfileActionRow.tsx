@@ -29,7 +29,7 @@ export function ProfileActionRow({
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
-      {leading ? <View style={styles.iconSlot}>{leading}</View> : icon ? <Image resizeMode="contain" source={icon} style={styles.icon} /> : null}
+      {leading ? <View style={styles.iconSlot}>{leading}</View> : icon ? <View style={styles.iconSlot}><Image resizeMode="contain" source={icon} style={styles.icon} /></View> : null}
       <View style={styles.copy}><Text style={[styles.label, destructive && styles.destructive]}>{label}</Text>
         {detail ? <Text style={styles.detail}>{detail}</Text> : null}</View>
       <Text accessible={false} style={styles.chevron}>›</Text>
@@ -44,18 +44,18 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     borderBottomWidth: 1,
     flexDirection: 'row',
-    minHeight: 72,
-    paddingVertical: spacing.md,
+    minHeight: 56,
+    paddingVertical: spacing.sm,
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 0,
   },
   pressed: { backgroundColor: colors.surface },
-  iconSlot: { alignItems: 'center', justifyContent: 'center', width: 30, height: 30, marginRight: spacing.md },
-  icon: { height: 30, marginRight: spacing.md, opacity: 0.65, width: 30 },
+  iconSlot: { alignItems: 'center', justifyContent: 'center', width: 30, height: 30, marginRight: 0 },
+  icon: { height: 24, tintColor: colors.textSecondary, width: 24 },
   copy: { flex: 1, minWidth: 0, gap: spacing.xxs },
   chevron: { color: colors.textSecondary, fontSize: 24 },
   label: {
-    color: colors.textSecondary,
+    color: colors.text,
     flexShrink: 1,
     fontFamily: typography.family,
     fontSize: typography.body,

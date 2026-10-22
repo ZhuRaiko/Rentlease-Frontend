@@ -93,7 +93,7 @@ test('verification overview uses actual Tier 2 status and explicitly per-propert
   assert.doesNotMatch(overview, /tier3_verified_at|trust_score/);
   const card = read(verification + 'components/VerificationTierCard.tsx');
   assert.doesNotMatch(card, /premiumSurface|trustedSurface|paletteByTier/);
-  assert.match(card, /tier === 1 \|\| disabled \|\| !onPress/);
+  assert.match(card, /tier === 1 \? null : disabled \|\| !onPress/);
 });
 
 test('shared navigation has wrapping titles and compact visuals with Android touch targets', () => {

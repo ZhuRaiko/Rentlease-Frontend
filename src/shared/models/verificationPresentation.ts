@@ -9,3 +9,11 @@ const statuses: Record<Enums<'verification_status'>, StatusPresentation> = {
 };
 export const verificationStatusPresentation = (status: Enums<'verification_status'>) => statuses[status];
 export const needsVerificationRecovery = (state: { loaded: boolean; requiresRefresh: boolean; error: string | null }) => !state.loaded || state.requiresRefresh || !!state.error;
+
+/** Visual indicator only; never changes the supplied authoritative status label. */
+export function verificationIndicatorKind(status: StatusPresentation) {
+  if (status.tone === 'success') return 'check';
+  if (status.label === 'Pending' || status.label === 'Under Review') return 'pending';
+  if (status.tone === 'error') return 'error';
+  return status.label === 'Not Applicable' ? 'unavailable' : 'unverified';
+}

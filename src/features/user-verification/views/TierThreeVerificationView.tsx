@@ -2,7 +2,7 @@ import { DocumentReviewSummary } from '../components/DocumentReviewSummary';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../../../shared/components/AppButton';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
-import { VerificationStatusBadge } from '../../../shared/components/VerificationStatusBadge';
+import { VerificationStatusIndicator } from '../../../shared/components/VerificationStatusIndicator';
 import { verificationStatusPresentation } from '../../../shared/models/verificationPresentation';
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -64,7 +64,7 @@ export function TierThreeVerificationView({ viewModel: vm, onClose, onOverview }
         <AppButton disabled={vm.busy} label="Cancel" onPress={vm.goBack} variant="secondary" />
       </> : null}
       {vm.screen === 'status' ? <>
-        {submission ? <VerificationStatusBadge {...verificationStatusPresentation(submission.status)} /> : <Text style={styles.heading}>Status unavailable</Text>}
+        {submission ? <VerificationStatusIndicator {...verificationStatusPresentation(submission.status)} /> : <Text style={styles.heading}>Status unavailable</Text>}
         <Text style={styles.body}>{submission?.status === 'approved' ? 'This property verification was approved. Approval applies to this property.' : 'New submissions or replacement documents for this property are not available here.'}</Text>
         {submission && !submission.hasDocument ? <FeedbackNotice tone="warning" message="No document attachment could be confirmed. This request may be incomplete. No automatic upload retry or cleanup was performed." /> : null}
         {submission?.rejection_reason ? <FeedbackNotice tone="error" message={`Rejection reason: ${submission.rejection_reason}`} /> : null}

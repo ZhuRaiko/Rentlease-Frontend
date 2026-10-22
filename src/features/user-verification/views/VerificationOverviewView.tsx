@@ -8,7 +8,7 @@ import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { VerificationScaffold } from '../components/VerificationScaffold';
 import { VerificationTierCard } from '../components/VerificationTierCard';
-import { tierTwoStatusLabels, tierTwoSubmissionPresentation } from '../models/TierTwoVerification';
+import { tierTwoSubmissionPresentation } from '../models/TierTwoVerification';
 import type { TierTwoVerificationViewModel } from '../viewModels/useTierTwoVerificationViewModel';
 
 
@@ -24,25 +24,24 @@ const tierDefinitions = [
   {
     tier: 1 as const,
     title: 'Account Verification',
-    subtitle: 'Managed in account onboarding',
-    items: ['Email confirmation', 'Philippine mobile number via SMS OTP', 'Unlocks: Application access'],
+    subtitle: 'Required for ordinary accounts',
+    items: ['Email and Philippine mobile number, confirmed during account setup.'],
   },
   {
     tier: 2 as const,
-    title: 'Tier 2 — Trusted',
+    title: 'Identity Verification',
     subtitle: 'Optional · all users',
     items: [
-      'Government-issued ID (passport, driver’s license, UMID, PhilSys)',
-      'Identity verification reviewed by Admin',
+      'Submit one government-issued ID for Admin review.',
     ],
   },
   {
     tier: 3 as const,
-    title: 'Tier 3 — Premium',
+    title: 'Property Verification',
     subtitle: 'Optional - Tier 1-verified landlords',
     items: [
-      'Proof of ownership or authorization to lease',
-      'Choose an existing property you own',
+      'Provide ownership or leasing authority for a property you own.',
+      'Approval applies to the selected property only.',
     ],
   },
 ];
@@ -57,7 +56,7 @@ export function VerificationOverviewView({
   return (
     <VerificationScaffold
       compact
-      description="Your account, identity and property documents have separate verification requirements."
+      description="Check your status or submit documents for review."
       onBack={onClose}
       title="Verification"
     >
@@ -73,9 +72,9 @@ export function VerificationOverviewView({
               : { label: tierThreeEligible ? 'Checked per Property' : 'Landlord Access Required', tone: 'info' }}
             onPress={() => item.tier === 3 ? onOpenTierThree() : viewModel.navigate(viewModel.submission ? 'tier2Status' : 'tier2Intro')}
             disabled={item.tier === 3 ? !tierThreeEligible || viewModel.busy : item.tier !== 2 || !viewModel.loaded || viewModel.requiresRefresh || viewModel.busy}
-            actionLabel={item.tier === 1 ? tierOneVerified ? 'Tier 1 verified' : 'Managed in onboarding'
+            actionLabel={item.tier === 1 ? ''
               : item.tier === 3 ? tierThreeEligible ? 'Choose property' : 'Requires Tier 1 + Landlord' : viewModel.isLoading ? 'Loading…'
-              : viewModel.submission?.status === 'pending' && !viewModel.submission.hasDocument ? 'View incomplete upload' : viewModel.submission ? `View ${tierTwoStatusLabels[viewModel.submission.status]}` : 'Verify identity'}
+              : viewModel.submission?.status === 'pending' && !viewModel.submission.hasDocument ? 'View incomplete upload' : viewModel.submission ? 'View submission' : 'Verify identity'}
           />
       ))}</View>
       <FeedbackNotice tone="error" message={viewModel.error} />
@@ -86,7 +85,7 @@ export function VerificationOverviewView({
 }
 
 const styles = StyleSheet.create({
-  tierList: { gap: spacing.md, paddingHorizontal: spacing.lg },
+  tierList: { gap: spacing.md, paddingHorizontal: spacing.md },
   notice: {
     alignSelf: 'center',
     backgroundColor: colors.warningSurface,

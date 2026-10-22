@@ -1,6 +1,7 @@
+import { verificationTierIdentities } from '../../../shared/models/verificationTierIdentity';
 import { StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../../../shared/components/AppButton';
-import { VerificationStatusBadge } from '../../../shared/components/VerificationStatusBadge';
+import { VerificationStatusIndicator } from '../../../shared/components/VerificationStatusIndicator';
 import type { StatusPresentation } from '../../../shared/models/verificationPresentation';
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -19,27 +20,29 @@ interface VerificationTierCardProps {
 }
 
 export function VerificationTierCard({ tier, title, subtitle, items, onPress, actionLabel, disabled = false, presentation }: VerificationTierCardProps) {
-  const identity = tier === 1 ? { name: 'Account', surface: colors.primaryPale, ink: colors.primaryAction }
-    : tier === 2 ? { name: 'Identity', surface: colors.identitySurface, ink: colors.identityInk }
-    : { name: 'Property', surface: colors.propertyProofSurface, ink: colors.propertyProofInk };
-  return <View style={styles.card}>
-    <View style={[styles.tierIdentity, { backgroundColor: identity.surface }]}><Text style={[styles.eyebrow, { color: identity.ink }]}>Tier {tier} / {identity.name}</Text></View>
-    <Text accessibilityRole="header" style={styles.title}>{title}</Text>
-    <Text style={styles.statusLabel}>{tier === 1 ? 'Account status' : tier === 2 ? 'Submission status' : 'Property status'}</Text>
-    <VerificationStatusBadge {...presentation} />
-    <Text style={styles.subtitle}>{subtitle}</Text>
+  const identity = verificationTierIdentities[tier];
+  return <View style={styles.section}>
+    <View style={styles.heading}>
+      <View accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.mark, { backgroundColor: identity.surface }]}><Text style={[styles.number, { color: identity.ink }]}>{identity.number}</Text></View>
+      <View style={styles.headingCopy}>
+        <Text accessibilityRole="header" accessibilityLabel={`Tier ${tier}: ${title}`} style={styles.title}>{title}</Text>
+        <Text style={styles.subtitle}>{subtitle}</Text>
+        <VerificationStatusIndicator {...presentation} />
+      </View>
+    </View>
     <View style={styles.items}>{items.map(item => <Text key={item} style={styles.item}>{item}</Text>)}</View>
-    {tier === 1 || disabled || !onPress ? <Text style={styles.next}>{actionLabel}</Text> : <AppButton variant="secondary" label={actionLabel} onPress={onPress} />}
+    {tier === 1 ? null : disabled || !onPress ? <Text style={styles.next}>{actionLabel}</Text> : <AppButton variant="secondary" label={actionLabel} onPress={onPress} />}
   </View>;
 }
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.background, borderColor: colors.border, borderRadius: radius.card, borderWidth: 1, gap: spacing.sm, padding: spacing.lg },
-  tierIdentity: { alignSelf: 'flex-start', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
-  statusLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 12, marginTop: spacing.xs },
-  eyebrow: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, fontWeight: '700' },
-  title: { color: colors.text, fontFamily: typography.family, fontSize: 21, fontWeight: '700' },
+  section: { padding: spacing.md, backgroundColor: colors.background, borderColor: colors.accountCredentialInk, borderWidth: 1, borderBottomWidth: 3, borderRadius: radius.firm, gap: spacing.md },
+  heading: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  headingCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
+  mark: { borderRadius: radius.firm, borderWidth: 1, borderColor: colors.primaryAction, minWidth: 40, minHeight: 40, padding: spacing.xs, alignItems: 'center', justifyContent: 'center' },
+  number: { fontFamily: typography.family, fontSize: 14, fontWeight: '800' },
+  title: { color: colors.text, fontFamily: typography.family, fontSize: 18, lineHeight: 25, fontWeight: '800' },
   subtitle: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
   items: { gap: spacing.xs },
-  item: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
+  item: { color: colors.text, fontFamily: typography.family, fontSize: 16, lineHeight: 24 },
   next: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
 });
