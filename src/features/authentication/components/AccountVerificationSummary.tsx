@@ -14,6 +14,18 @@ const profileTierAccents = {
   3: { rgb: '230, 172, 55', ink: '#77531E' },
 } as const;
 
+// Same plateau rhythm as the overview bloom, condensed and softened for Profile.
+const profileBloom = {
+  intensity: 0.32,
+  bands: [
+    { strength: 1, start: '0%', end: '24%' },
+    { strength: 0.65, start: '30%', end: '35%' },
+    { strength: 0.3, start: '41%', end: '46%' },
+    { strength: 0.08, start: '52%', end: '55%' },
+    { strength: 0, start: '61%', end: '100%' },
+  ],
+} as const;
+
 export function AccountVerificationSummary({ items }: { items: AuthProfilesViewModel['verificationSummary'] }) {
   const { fontScale } = useWindowDimensions();
   return <View style={styles.section}>
@@ -23,13 +35,13 @@ export function AccountVerificationSummary({ items }: { items: AuthProfilesViewM
       const accent = profileTierAccents[item.tier];
       return <View accessible accessibilityLabel={`${item.label}: ${item.status.label}`} key={item.label} style={[styles.row, {
         experimental_backgroundImage: [{
-          type: 'linear-gradient', direction: 'to right',
-          colorStops: [
-            { color: `rgba(${accent.rgb}, 0.18)`, positions: ['0%', '20%'] },
-            { color: `rgba(${accent.rgb}, 0.10)`, positions: ['24%', '27%'] },
-            { color: `rgba(${accent.rgb}, 0.04)`, positions: ['31%', '34%'] },
-            { color: `rgba(${accent.rgb}, 0)`, positions: ['40%', '100%'] },
-          ],
+          type: 'radial-gradient', shape: 'ellipse',
+          size: { x: '70%', y: '180%' },
+          position: { left: 0, top: '35%' },
+          colorStops: profileBloom.bands.map(({ strength, start, end }) => ({
+            color: `rgba(${accent.rgb}, ${profileBloom.intensity * strength})`,
+            positions: [start, end],
+          })),
         }],
       }]}>
         <View accessible={false} importantForAccessibility="no-hide-descendants" style={[styles.tierMark, { width: 36 * Math.max(1, fontScale) }]}><Text style={[styles.number, { color: accent.ink }]}>{identity.number}</Text></View>
