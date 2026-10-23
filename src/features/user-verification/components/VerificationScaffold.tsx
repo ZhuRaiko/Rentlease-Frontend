@@ -26,29 +26,33 @@ export function VerificationScaffold({
   children,
 }: VerificationScaffoldProps) {
   return (
-    <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+    <View style={styles.screen}>
       <ScreenHeader onBack={onBack} onClose={onClose} />
-      <View style={[styles.content, compact && styles.compactContent, fill && styles.fill]}>
-        <View style={[styles.headingFrame, compact && styles.compactHeadingFrame]}>
-          <Text accessibilityRole="header" style={styles.title}>
-            {title}
-          </Text>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={[styles.content, compact && styles.compactContent, fill && styles.fill]}>
+          <View style={[styles.headingFrame, compact && styles.compactHeadingFrame]}>
+            <Text accessibilityRole="header" style={styles.title}>
+              {title}
+            </Text>
+          </View>
+          {description ? (
+            <Text style={[styles.description, compact && styles.compactDescription]}>{description}</Text>
+          ) : null}
+          <View style={[styles.body, fill && styles.fill]}>{children}</View>
         </View>
-        {description ? (
-          <Text style={[styles.description, compact && styles.compactDescription]}>{description}</Text>
-        ) : null}
-        <View style={[styles.body, fill && styles.fill]}>{children}</View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  scroll: { flex: 1 },
   fill: { flexGrow: 1 },
   scrollContent: { flexGrow: 1, paddingBottom: spacing.xl },
   content: { alignSelf: 'center', maxWidth: 412, paddingHorizontal: spacing.lg, width: '100%' },
   compactContent: { paddingHorizontal: 0 },
-  headingFrame: { paddingBottom: spacing.xxs },
+  headingFrame: { paddingTop: spacing.lg, paddingBottom: spacing.xxs },
   compactHeadingFrame: { marginHorizontal: spacing.lg },
   title: { ...ui.pageTitle },
   description: {

@@ -40,11 +40,12 @@ export function AuthScaffold({
       behavior={Platform.OS === 'ios' ? 'padding' : progress || formLayout ? 'height' : undefined}
       style={styles.flex}
     >
+      <ScreenHeader onBack={onBack} disabled={backDisabled} />
       <ScrollView
+        style={styles.flex}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <ScreenHeader onBack={onBack} disabled={backDisabled} />
         <View style={[styles.content, (!!progress || formLayout) && styles.registrationContent]}>
           {progress ? <View style={styles.progress} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: progress.total, now: progress.completed, text: `Step ${progress.step} of ${progress.total}` }}>
             <Text style={styles.progressLabel}>Step {progress.step} of {progress.total}</Text>

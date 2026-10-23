@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   preferenceFooter: { alignSelf: 'center', borderTopColor: colors.border, borderTopWidth: 1, gap: spacing.xs, maxWidth: 460, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xs, width: '100%' },
   skipAction: { alignItems: 'center', justifyContent: 'center', minHeight: 48 },
   skipLabel: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '700' },
-  newHereBlock: { gap: spacing.xxs, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  newHereBlock: { gap: spacing.xxs, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xl },
   newHereSubtitle: { color: colors.text, fontFamily: typography.family, fontSize: 22, fontWeight: '700' },
   newHereBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 20, maxWidth: 340 },
   preferenceSection: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.lg },

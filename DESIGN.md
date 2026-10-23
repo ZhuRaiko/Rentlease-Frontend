@@ -6,7 +6,7 @@ Phase 1 refinement, 2026-10-23, on feature/ui-improvements. The user's RentLease
 
 ## Visual balance
 
-Aim for 75-80% approachable marketplace and 20-25% restrained structure. Favor photography, clear prices, readable names and practical next steps. Use confidence through hierarchy, not thick framing. No decorative graphics added to fill space, no hard-offset shadows, no new fonts or libraries.
+Aim for 75-80% approachable marketplace and 20-25% restrained structure. Favor photography, clear prices, readable names and practical next steps. Use confidence through hierarchy, not thick framing. No decorative graphics added to fill space, no hard-offset shadows, no new fonts or libraries. A scoped verification-overview experiment permits a right-origin curved stepped gradient per tier (emerald/cyan-teal/golden amber), keeping the left reading area white and anchoring rich color in an off-edge right bloom. Curved tonal plateaus have softened joins; text uses deep ink, and status text and buttons retain white surfaces. All other surfaces retain the established treatment.
 
 ## Tokens and shared recipes
 
