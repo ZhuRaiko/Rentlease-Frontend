@@ -1,3 +1,4 @@
+import { PropertyPhotosView } from './PropertyPhotosView';
 import { PropertySetupView } from './PropertySetupView';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
@@ -18,15 +19,6 @@ interface CreateListingViewProps {
   onClose: () => void;
 }
 
-function CameraMark() {
-  return (
-    <View style={styles.camera}>
-      <View style={styles.cameraTop} />
-      <View style={styles.cameraLens} />
-    </View>
-  );
-}
-
 function SaveDraftAction({ viewModel }: { viewModel: PropertyListingViewModel }) {
   return <ListingButton label="Keep local progress" onPress={viewModel.saveDraft} tone="outline" />;
 }
@@ -39,7 +31,7 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
   if (screen === 'postingType') {
     return (
       <ScrollView contentContainerStyle={styles.postingScreen} showsVerticalScrollIndicator={false}>
-        <FeedbackNotice message="Set up a physical property separately from its rental listing. Confirm the property location before saving; location integration is pending, and photos and publication are not connected." />
+        <FeedbackNotice message="Set up a physical property separately from its rental listing. Confirm the property location before saving; location integration is pending. Photos require a saved property; publication remains a preview." />
         <Pressable
           accessibilityLabel="Close posting selection"
           accessibilityRole="button"
@@ -77,85 +69,7 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
     );
   }
 
-  if (screen === 'photoUpload') {
-    return (
-      <ListingWizardScaffold
-        onBack={viewModel.goBack}
-        onClose={onClose}
-        onNext={() => viewModel.navigate('photoManager')}
-        step={1}
-        stepLabel="Photos"
-        title="Add Photos or videos to your listing."
-      >
-        <Pressable
-          accessibilityRole="button"
-          onPress={viewModel.selectSamplePhotos}
-          style={({ pressed }) => [styles.photoPicker, pressed && styles.pressed]}
-        >
-          <CameraMark />
-          <Text style={styles.photoPickerLabel}>
-            {draft.photoCount > 0 ? `${draft.photoCount} local samples selected` : 'Add Photos/videos'}
-          </Text>
-          <Text style={styles.localOnly}>Local preview only · no upload</Text>
-        </Pressable>
-        {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
-        <ListingButton
-          label={draft.photoCount > 0 ? 'Manage selected photos' : 'Continue without photos'}
-          onPress={() => viewModel.navigate('photoManager')}
-          tone="dark"
-        />
-        <SaveDraftAction viewModel={viewModel} />
-      </ListingWizardScaffold>
-    );
-  }
-
-  if (screen === 'photoManager') {
-    const crops = [
-      { x: 14, y: 154, width: 44, height: 33 },
-      { x: 61, y: 154, width: 44, height: 33 },
-      { x: 108, y: 154, width: 44, height: 33 },
-      { x: 155, y: 154, width: 44, height: 33 },
-    ];
-    return (
-      <ListingWizardScaffold
-        onBack={viewModel.goBack}
-        onClose={onClose}
-        onNext={() => viewModel.navigate('basicInfo')}
-        step={1}
-        stepLabel="Photos"
-        title="Choose your cover photo"
-        description="The cover photo appears first in search results and listing details."
-      >
-        {draft.photoCount > 0 ? (
-          <>
-            <FigmaReferenceCrop borderRadius={radius.md} crop={{ x: 2, y: 2, width: 225, height: 132 }} />
-            <View style={styles.thumbnailRow}>
-              {crops.map((crop, index) => (
-                <Pressable
-                  accessibilityLabel={`Select photo ${index + 1} as cover`}
-                  key={`${crop.x}-${crop.y}`}
-                  onPress={() => viewModel.selectCoverPhoto(index)}
-                  style={[styles.thumbnail, draft.coverPhotoIndex === index && styles.thumbnailSelected]}
-                >
-                  <FigmaReferenceCrop crop={crop} />
-                  {draft.coverPhotoIndex === index ? <Text style={styles.coverLabel}>Cover</Text> : null}
-                </Pressable>
-              ))}
-            </View>
-            <ListingButton label="Remove local samples" onPress={viewModel.removeSamplePhotos} tone="outline" />
-          </>
-        ) : (
-          <SectionCard>
-            <Text style={styles.sectionTitle}>No photos selected</Text>
-            <Text style={styles.sectionCopy}>You can continue and resolve this requirement before publishing.</Text>
-            <ListingButton label="Select Figma samples" onPress={viewModel.selectSamplePhotos} />
-          </SectionCard>
-        )}
-        <ListingButton label="Continue to property details" onPress={() => viewModel.navigate('basicInfo')} tone="dark" />
-        <SaveDraftAction viewModel={viewModel} />
-      </ListingWizardScaffold>
-    );
-  }
+  if (screen === 'photoUpload' || screen === 'photoManager') return <PropertyPhotosView viewModel={viewModel} onClose={onClose} />;
 
   if (screen === 'basicInfo') {
     return (
@@ -484,17 +398,8 @@ const styles = StyleSheet.create({
   homeBody: { alignSelf: 'center', borderColor: colors.border, borderWidth: 3, height: 30, width: 38 },
   peopleMark: { flexDirection: 'row', gap: spacing.xxs, marginTop: 46 },
   personDot: { backgroundColor: colors.border, borderRadius: radius.pill, height: 22, width: 22 },
-  photoPicker: { alignItems: 'center', borderColor: colors.border, borderRadius: radius.sm, borderWidth: 1.5, height: 270, justifyContent: 'center' },
-  camera: { borderColor: colors.textMuted, borderRadius: 3, borderWidth: 2, height: 34, justifyContent: 'center', width: 44 },
-  cameraTop: { alignSelf: 'center', borderColor: colors.textMuted, borderBottomWidth: 2, height: 5, marginTop: -8, width: 16 },
-  cameraLens: { alignSelf: 'center', borderColor: colors.textMuted, borderRadius: radius.pill, borderWidth: 2, height: 12, width: 12 },
-  photoPickerLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, marginTop: spacing.md },
   localOnly: { color: colors.textMuted, fontFamily: typography.family, fontSize: 11, lineHeight: 16, textAlign: 'center' },
   notice: { backgroundColor: colors.primaryPale, borderRadius: radius.sm, color: colors.textSecondary, fontFamily: typography.family, fontSize: 12, lineHeight: 17, padding: spacing.sm },
-  thumbnailRow: { flexDirection: 'row', gap: spacing.xs },
-  thumbnail: { borderColor: colors.border, borderRadius: radius.sm, borderWidth: 2, flex: 1, overflow: 'hidden', position: 'relative' },
-  thumbnailSelected: { borderColor: colors.primary },
-  coverLabel: { backgroundColor: colors.primary, bottom: 0, color: colors.white, fontFamily: typography.family, fontSize: 8, fontWeight: '700', left: 0, paddingHorizontal: spacing.xs, paddingVertical: 2, position: 'absolute' },
   sectionTitle: { color: colors.text, fontFamily: typography.family, fontSize: 16, fontWeight: '800' },
   sectionCopy: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 19 },
   fieldGroup: { gap: spacing.sm },

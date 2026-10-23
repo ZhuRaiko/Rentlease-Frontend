@@ -112,6 +112,6 @@ Do not add the following unless already established in the repository or explici
 - Apollo
 - Socket.IO
 
-### Physical property setup checkpoint (2026-10-23)
+### Property & Listing checkpoint (2026-10-23)
 
-Property & Listing now has a typed create_property_setup service, testable creation workflow, structured physical-property form behind MVVM. Four required coordinate service inputs remain distinct; saving is blocked with a non-error notice until the separately owned MapTiler/location workflow supplies confirmed exact and approved generalized public coordinates. This branch adds no Maps/GPS/geocoding or manual coordinate-entry UX. Listings/media/publication remain previews/deferred. No new stack or navigation library is added. See [Phase 1 property boundary](ROUTES.md#phase-1-physical-property-creation-2026-10-23) for authoritative current behavior, validation and runtime limitations.
+Physical-property creation and ordinary property photos are IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED. Saving remains blocked until the separately owned location integration supplies confirmed exact/public coordinates; photos require the returned real property UUID. Listings/publication/lifecycle and 360 remain deferred. See [Property & Listing Management](features/PROPERTY_LISTING_MANAGEMENT.md) for authoritative behavior, [phase plan](implementation-reports/phases/PROPERTY_LISTING_MANAGEMENT_IMPLEMENTATION.md) for evidence/roadmap and [backend ledger](implementation-reports/database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md) for live/external actions. This branch adds no Maps/GPS/geocoding implementation or new stack.

@@ -112,7 +112,7 @@ The generic Storage boundary remains reusable. Verification has a private upload
 Other bucket and RLS contracts remain necessary for expected uses such as:
 
 - Profile avatars
-- Property images
+- Other media uses; ordinary property images now have the confirmed contract linked below
 - Verification documents
 - Permitted message attachments
 
@@ -183,7 +183,7 @@ Firebase Cloud Messaging is used only as Expo's Android delivery relay; Firebase
 |---|---|
 | Authentication & Profiles | Structural contract present; live Auth/RLS/trigger validation required |
 | User Verification | Structural submissions/status contract present; MIME/size, private access documented; Tier 2 correction/resume integrated, atomic finalization/replacement unresolved |
-| Property & Listing Management | Listing schema, media storage, publishing lifecycle |
+| Property & Listing Management | Listing persistence/publication lifecycle remains disconnected; physical-property RPC and ordinary photo contracts are documented below |
 | Search & Discovery | Filters, pagination, PostGIS proximity query |
 | Property Recommendations | Preference and recommendation result contracts |
 | Rental Price Estimation | FastAPI request/response contract |
@@ -230,8 +230,8 @@ Stage 2 now uses this RPC instead of direct Tier 2 creation, after explicit loca
 
 Storage upload and metadata registration remain non-atomic. Metadata INSERT permits owned pending/under_review parents; Storage ownership uses the user path segment. No attachment uniqueness, atomic finalization, orphan cleanup or readiness contract was added. The frontend rechecks before upload/metadata but cannot guarantee cross-client attachment serialization. Tier 3 behavior is unchanged. The earlier [backend recommendation](implementation-reports/database/2026-10-22-tier-2-rejection-recovery-review.md) remains historical, not the current full schema.
 
-### Physical property setup contract (2026-10-23)
+### Property & Listing backend boundary (2026-10-23)
 
-Read-only inspection confirms existing public.create_property_setup is SECURITY DEFINER with pg_catalog search_path and qualified identifiers. It requires auth.uid(), active profile, Landlord membership and Tier 1, without Tier 3. It validates required address/coordinates and active amenity IDs, derives landlord_id internally, and transactionally inserts properties, property_private_locations and distinct property_amenities. Its JSON result is {property_id: UUID, status:'created'}. Current generated Args/Json return match the live signature; no generated-type edit was necessary. Authenticated table-level INSERT is false for all three tables; the frontend uses only the RPC. This supersedes using historical direct-table INSERT policies as a frontend creation path. No backend mutation or agent live create test occurred.
+Physical-property creation uses existing create_property_setup, deriving ownership and requiring active authenticated Tier 1 Landlord membership without Tier 3. Direct property-table INSERT is not the frontend path. Ordinary photos use public property-media, property_photos and set_property_cover_photo. Both frontend phases are implemented/automated-tested but Android RUNTIME-UNVERIFIED; app creation remains dependent on separately owned location integration.
 
-The user reports a successful backend test by a Tier 1, non-Tier 3 landlord. Frontend service/workflow integration is automated-tested, but the user chose to block app saving until the separately developed MapTiler/location workflow supplies exactLatitude, exactLongitude, publicLatitude and publicLongitude. These are required service inputs; the draft may leave them unset. This branch implements no Maps/GPS workflow or manual coordinate entry. Public and private exact points remain distinct; no approximation formula or exact-as-public copy was added. Cross-device duplicate prevention/idempotent create is not supplied by this RPC. The account-scoped receipt journal prevents blind local retries but cannot make a network call exactly-once. See Routes Phase 1 for the current UI and recovery boundary. Listing creation/publication and Tier 3 submission remain separate; this phase changes neither authorization nor infrastructure.
+Current behavior/contracts and owner/RLS boundaries live in [Property & Listing Management](features/PROPERTY_LISTING_MANAGEMENT.md#current-backend-authorization). Live action provenance, external RPC test/inactive fixture, exact external DELETE grant, column-scoped UPDATE permissions, rollback tests and pre-existing advisor warnings are recorded in the [backend ledger](implementation-reports/database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md). Codex's earlier implementation inspections were read-only; external changes must not be described as Codex-performed or omitted as though no backend changes existed. No live action or backend mutation was performed in the documentation-governance pass. Listing publication/lifecycle and teammate-owned integrations remain separate; see the [phase plan](implementation-reports/phases/PROPERTY_LISTING_MANAGEMENT_IMPLEMENTATION.md).

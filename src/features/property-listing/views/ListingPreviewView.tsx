@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -77,7 +77,9 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
       title="Listing preview"
     >
       <View style={styles.previewCard}>
-        {draft.photoCount > 0 ? (
+        {viewModel.propertyState.propertyId ? (
+          viewModel.photoState.photos.length ? <Image accessibilityLabel="Saved property photo" source={{ uri: (viewModel.photoState.photos.find(photo => photo.is_cover) ?? viewModel.photoState.photos[0])!.publicUrl }} style={{ width: '100%', aspectRatio: 225 / 132 }} /> : <View style={styles.photoMissing}><Text style={styles.photoMissingText}>No saved photos</Text></View>
+        ) : draft.photoCount > 0 ? (
           <FigmaReferenceCrop crop={{ x: 2, y: 2, width: 225, height: 132 }} />
         ) : (
           <View style={styles.photoMissing}><Text style={styles.photoMissingText}>Photo required</Text></View>

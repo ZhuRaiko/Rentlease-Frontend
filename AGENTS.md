@@ -23,3 +23,11 @@ Non-negotiable rules:
 - Use `.tsx` for React Native UI components and Views.
 - Use `.ts` for ViewModels, Models, services, hooks, utilities, and configuration.
 - Do not create `.jsx` application source files.
+
+## Codex skill protocol
+
+Before implementing a RENTLEASE feature, read `.codex/skills/rentlease-feature-implementation/SKILL.md` and the relevant concern-specific SKILL.md files it references. Do not start implementation from a raw prompt without applying these repository-local instructions.
+
+- For Supabase-integrated work, also read `rentlease-supabase-contract-guard`, `rentlease-implementation-ledger`, `rentlease-documentation-maintainer` and `rentlease-test-runtime-verification` under `.codex/skills/<skill-name>/SKILL.md`.
+- For ownership, private data, Storage, verification or privileged actions, also read `rentlease-security-review`.
+- Keep the dedicated living feature document and backend interaction ledger current; report which skill files were actually read. Recording requirements do not authorize backend mutations.

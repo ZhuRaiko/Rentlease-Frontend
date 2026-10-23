@@ -117,7 +117,7 @@ export function ListingManagementView({
       >
         <View style={styles.editList}>
           <EditDestination detail="Title, property type, furnishing" label="Basic information" onPress={viewModel.editDetails} />
-          <EditDestination detail={`${viewModel.draft.photoCount} selected photos`} label="Photos and cover" onPress={() => viewModel.navigate('photoManager')} />
+          <EditDestination detail={viewModel.propertyState.propertyId ? `${viewModel.photoState.photos.length} saved property photos` : 'Requires a saved property'} label="Photos and cover" onPress={() => viewModel.navigate('photoManager')} />
           <EditDestination detail="Area, bedrooms, bathrooms, parking" label="Specifications" onPress={() => viewModel.navigate('specifications')} />
           <EditDestination detail={viewModel.draft.address} label="Address and map pin" onPress={() => viewModel.navigate('address')} />
           <EditDestination detail={`₱${viewModel.draft.askingRent} per month`} label="Rent and terms" onPress={() => viewModel.navigate('rentTerms')} />

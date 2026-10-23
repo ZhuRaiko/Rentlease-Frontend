@@ -34,7 +34,7 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
       <ListingField label="Maximum occupants (optional)" placeholder="Number of people" keyboardType="numeric" value={d.maxOccupants} onChangeText={v => flow.updateField('maxOccupants', v)} />
       <Text accessibilityRole="header" style={styles.heading}>Furnishing</Text>
       <View style={styles.choices}>{furnishingOptions.map(o => <ChoiceChip key={o.value} label={o.label} selected={d.furnishingStatus === o.value} onPress={() => flow.updateField('furnishingStatus', o.value)} />)}</View>
-      <FeedbackNotice message="Amenities and photos are not saved in this phase. No rental listing will be created." />
+      <FeedbackNotice message="Amenities are not saved in this phase. Photos can be managed after the property is saved. No rental listing will be created." />
       <ListingButton disabled={!state.loaded || state.busy} label="Continue to address" onPress={flow.next} />
     </> : null}
     {state.step === 'address' ? <>
@@ -71,8 +71,9 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
       <FeedbackNotice tone="success" message="The physical property is confirmed in Supabase. No listing was created or published." />
       <Text selectable style={styles.copy}>Property ID: {state.propertyId}</Text>
       <Text style={styles.copy}>Open Profile ? Verification ? Tier 3 to select this owned property when you are ready. Nothing is submitted automatically.</Text>
+      <ListingButton label="Manage property photos" onPress={() => vm.navigate('photoManager')} />
       <ListingButton label="Continue to listing preview" onPress={vm.continueListingPreview} />
-      <FeedbackNotice message="Listing terms remain a local preview. No listing details, photos or amenities will be saved." />
+      <FeedbackNotice message="Listing terms remain a local preview. Listing details and amenities remain local. Property photos are managed separately." />
       <ListingButton disabled={state.busy} label="Set up another property" tone="outline" onPress={() => void flow.startNew()} />
     </> : null}
   </ListingWizardScaffold>;

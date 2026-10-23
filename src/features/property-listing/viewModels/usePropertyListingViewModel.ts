@@ -1,3 +1,5 @@
+import { createPropertyPhotoWorkflow } from './propertyPhotoWorkflow';
+import { propertyPhotoService, selectPropertyPhoto } from '../services/propertyPhotoDependencies';
 import { createPropertyCreationWorkflow } from './propertyCreationWorkflow';
 import { propertyCreationService } from '../services/propertyCreationDependencies';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -30,15 +32,22 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const propertyState = useSyncExternalStore(propertyCreation.subscribe, propertyCreation.getSnapshot);
   useEffect(() => { propertyCreation.activate(); return () => propertyCreation.dispose(); }, [propertyCreation]);
   useEffect(() => { if (screen === 'propertySetup' && !propertyState.loaded && !propertyState.uncertain) void propertyCreation.initialize(); }, [propertyCreation, screen]);
-  const navigation = useNavigationConfirmation(isListingEditor(screen) && JSON.stringify(draft) !== JSON.stringify(savedDraft.current) || propertyCreation.dirty());
+  const [propertyPhotos] = useState(() => createPropertyPhotoWorkflow(propertyPhotoService, selectPropertyPhoto));
+  const photoState = useSyncExternalStore(propertyPhotos.subscribe, propertyPhotos.getSnapshot);
+  useEffect(() => { propertyPhotos.activate(); return () => propertyPhotos.dispose(); }, [propertyPhotos]);
+  useEffect(() => { propertyPhotos.setProperty(propertyState.propertyId); }, [propertyPhotos, propertyState.propertyId]);
+  useEffect(() => { if ((screen === 'photoUpload' || screen === 'photoManager') && propertyState.propertyId) void propertyPhotos.load(); }, [propertyPhotos, screen, propertyState.propertyId]);
+  const operationBusy = () => propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy;
+  const displayDraft = propertyState.propertyId ? { ...draft, photoCount: photoState.photos.length, coverPhotoIndex: Math.max(0, photoState.photos.findIndex(p => p.is_cover)) } : draft;
+  const navigation = useNavigationConfirmation(isListingEditor(screen) && JSON.stringify(draft) !== JSON.stringify(savedDraft.current) || propertyCreation.dirty() || propertyPhotos.dirty());
   const [listing, setListing] = useState<PropertyListingSummary>(initialPreviewListing);
   const [notice, setNotice] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [listingQuery, setListingQuery] = useState('');
 
   const missingRequirements = useMemo(
-    () => requiredListingFields.filter((requirement) => requirement.isMissing(draft)),
-    [draft],
+    () => requiredListingFields.filter((requirement) => requirement.isMissing(displayDraft)),
+    [draft, propertyState.propertyId, photoState.photos],
   );
 
   const filteredListingPreviews = useMemo(() => {
@@ -53,14 +62,15 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   }, [listingQuery]);
 
   const navigate = (nextScreen: ListingScreen) => {
-    if (propertyCreation.getSnapshot().busy) return;
+    if (operationBusy()) return;
     setHistory((current) => [...current, screen]);
     setScreen(nextScreen);
     setNotice(null);
   };
 
   const goBack = () => {
-    if (propertyCreation.getSnapshot().busy) return;
+    if (operationBusy()) return;
+    if ((screen === 'photoUpload' || screen === 'photoManager') && propertyPhotos.back()) return;
     if (screen === 'propertySetup' && propertyCreation.back()) return;
     const applyBack = () => {
       setHistory((current) => {
@@ -121,20 +131,6 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     }));
   };
 
-  const selectSamplePhotos = () => {
-    setDraft((current) => ({ ...current, photoCount: 4, coverPhotoIndex: 0 }));
-    setNotice('Four Figma sample photos selected locally. Nothing was uploaded.');
-  };
-
-  const removeSamplePhotos = () => {
-    setDraft((current) => ({ ...current, photoCount: 0, coverPhotoIndex: 0 }));
-    setNotice('Local photo selection cleared.');
-  };
-
-  const selectCoverPhoto = (coverPhotoIndex: number) => {
-    setDraft((current) => ({ ...current, coverPhotoIndex }));
-  };
-
   const confirmPin = () => {
     setDraft((current) => ({
       ...current,
@@ -158,7 +154,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const saveDraft = () => {
-    if (propertyCreation.getSnapshot().busy) return;
+    if (operationBusy()) return;
     savedDraft.current = draft;
     syncListingSummary('draft');
     setHistory([]);
@@ -224,13 +220,15 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
 
   return {
     ...navigation,
-    requestNavigation: (action: () => void) => { if (!propertyCreation.getSnapshot().busy) navigation.requestNavigation(action); },
+    requestNavigation: (action: () => void) => { if (!operationBusy()) navigation.requestNavigation(action); },
     propertyCreation,
     propertyState,
+    propertyPhotos,
+    photoState,
     continueListingPreview: () => { if (propertyCreation.getSnapshot().propertyId) navigate('rentTerms'); },
     activeTab: listingActiveTab(screen),
     backFromWorkspace: (onClose: () => void) => {
-      if (propertyCreation.getSnapshot().busy) return;
+      if (operationBusy()) return;
       if (screen === 'propertySetup') { goBack(); return; }
       if (screen === 'postingType') navigation.requestNavigation(onClose);
       else if (history.length > 0) goBack();
@@ -238,7 +236,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       else navigation.requestNavigation(onClose);
     },
     screen,
-    draft,
+    draft: displayDraft,
     listing,
     listingQuery,
     filteredListingPreviews,
@@ -247,18 +245,15 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     missingRequirements,
     navigate,
     goBack,
-    goDashboard: () => { if (!propertyCreation.getSnapshot().busy) navigation.requestNavigation(goDashboard); },
+    goDashboard: () => { if (!operationBusy()) navigation.requestNavigation(goDashboard); },
     updateDraft,
-    startCreate: () => { if (!propertyCreation.getSnapshot().busy) navigation.requestNavigation(startCreate); },
+    startCreate: () => { if (!operationBusy()) navigation.requestNavigation(startCreate); },
     setListingQuery,
     choosePropertyType,
     toggleFurnished,
     changeCounter,
     toggleAmenity,
     toggleRule,
-    selectSamplePhotos,
-    removeSamplePhotos,
-    selectCoverPhoto,
     confirmPin,
     saveDraft,
     requestPublish,
