@@ -111,3 +111,7 @@ Do not add the following unless already established in the repository or explici
 - GraphQL
 - Apollo
 - Socket.IO
+
+### Physical property setup checkpoint (2026-10-23)
+
+Property & Listing now has a typed create_property_setup service, testable creation workflow, structured physical-property form behind MVVM. Four required coordinate service inputs remain distinct; saving is blocked with a non-error notice until the separately owned MapTiler/location workflow supplies confirmed exact and approved generalized public coordinates. This branch adds no Maps/GPS/geocoding or manual coordinate-entry UX. Listings/media/publication remain previews/deferred. No new stack or navigation library is added. See [Phase 1 property boundary](ROUTES.md#phase-1-physical-property-creation-2026-10-23) for authoritative current behavior, validation and runtime limitations.

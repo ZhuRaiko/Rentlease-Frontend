@@ -1,3 +1,4 @@
+import { PropertySetupView } from './PropertySetupView';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 
@@ -27,16 +28,18 @@ function CameraMark() {
 }
 
 function SaveDraftAction({ viewModel }: { viewModel: PropertyListingViewModel }) {
-  return <ListingButton label="Save as draft" onPress={viewModel.saveDraft} tone="outline" />;
+  return <ListingButton label="Keep local progress" onPress={viewModel.saveDraft} tone="outline" />;
 }
 
 export function CreateListingView({ viewModel, onClose }: CreateListingViewProps) {
   const { screen, draft } = viewModel;
 
+  if (screen === 'propertySetup') return <PropertySetupView viewModel={viewModel} onClose={onClose} />;
+
   if (screen === 'postingType') {
     return (
       <ScrollView contentContainerStyle={styles.postingScreen} showsVerticalScrollIndicator={false}>
-        <FeedbackNotice message="Local draft preview only. This does not create a backend property ID. Real Tier 3 verification needs a saved property record." />
+        <FeedbackNotice message="Set up a physical property separately from its rental listing. Confirm the property location before saving; location integration is pending, and photos and publication are not connected." />
         <Pressable
           accessibilityLabel="Close posting selection"
           accessibilityRole="button"
@@ -47,14 +50,14 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
           <View style={[styles.postingCloseLine, styles.postingCloseLineOne]} />
           <View style={[styles.postingCloseLine, styles.postingCloseLineTwo]} />
         </Pressable>
-        <Text accessibilityRole="header" style={styles.postingTitle}>What are you posting?</Text>
+        <Text accessibilityRole="header" style={styles.postingTitle}>What would you like to add?</Text>
         <View style={styles.postingChoices}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => viewModel.navigate('photoUpload')}
+            onPress={() => viewModel.navigate('propertySetup')}
             style={({ pressed }) => [styles.postingChoice, pressed && styles.pressed]}
           >
-            <Text style={styles.postingLabel}>A Listing</Text>
+            <Text style={styles.postingLabel}>A physical property</Text>
             <View style={styles.homeMark}>
               <View style={styles.homeRoof} />
               <View style={styles.homeBody} />

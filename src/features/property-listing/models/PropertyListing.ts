@@ -1,7 +1,9 @@
+// Physical-property persistence uses DraftProperty.ts. Types below describe listing previews only.
 export type ListingScreen =
   | 'dashboard'
   | 'empty'
   | 'postingType'
+  | 'propertySetup'
   | 'photoUpload'
   | 'photoManager'
   | 'basicInfo'

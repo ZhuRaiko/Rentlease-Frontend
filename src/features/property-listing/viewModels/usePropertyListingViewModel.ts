@@ -1,4 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { createPropertyCreationWorkflow } from './propertyCreationWorkflow';
+import { propertyCreationService } from '../services/propertyCreationDependencies';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigationConfirmation';
 import { isListingEditor, leavesListingEditor, listingActiveTab } from '../models/listingNavigation';
 
@@ -24,7 +26,11 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const [history, setHistory] = useState<ListingScreen[]>([]);
   const [draft, setDraft] = useState<ListingDraft>(initialScreen === 'postingType' ? emptyListingDraft : figmaPreviewDraft);
   const savedDraft = useRef(draft);
-  const navigation = useNavigationConfirmation(isListingEditor(screen) && JSON.stringify(draft) !== JSON.stringify(savedDraft.current));
+  const [propertyCreation] = useState(() => createPropertyCreationWorkflow(propertyCreationService));
+  const propertyState = useSyncExternalStore(propertyCreation.subscribe, propertyCreation.getSnapshot);
+  useEffect(() => { propertyCreation.activate(); return () => propertyCreation.dispose(); }, [propertyCreation]);
+  useEffect(() => { if (screen === 'propertySetup' && !propertyState.loaded && !propertyState.uncertain) void propertyCreation.initialize(); }, [propertyCreation, screen]);
+  const navigation = useNavigationConfirmation(isListingEditor(screen) && JSON.stringify(draft) !== JSON.stringify(savedDraft.current) || propertyCreation.dirty());
   const [listing, setListing] = useState<PropertyListingSummary>(initialPreviewListing);
   const [notice, setNotice] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -47,12 +53,15 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   }, [listingQuery]);
 
   const navigate = (nextScreen: ListingScreen) => {
+    if (propertyCreation.getSnapshot().busy) return;
     setHistory((current) => [...current, screen]);
     setScreen(nextScreen);
     setNotice(null);
   };
 
   const goBack = () => {
+    if (propertyCreation.getSnapshot().busy) return;
+    if (screen === 'propertySetup' && propertyCreation.back()) return;
     const applyBack = () => {
       setHistory((current) => {
         const previous = current.at(-1) ?? 'dashboard';
@@ -149,12 +158,13 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const saveDraft = () => {
+    if (propertyCreation.getSnapshot().busy) return;
     savedDraft.current = draft;
     syncListingSummary('draft');
     setHistory([]);
     setScreen('dashboard');
     setIsEditing(false);
-    setNotice('Listing saved only in local preview state. No Supabase record was created.');
+    setNotice('Wizard progress is local to this session, not saved to Supabase. Use property setup to save a physical property.');
   };
 
   const requestPublish = () => {
@@ -214,8 +224,14 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
 
   return {
     ...navigation,
+    requestNavigation: (action: () => void) => { if (!propertyCreation.getSnapshot().busy) navigation.requestNavigation(action); },
+    propertyCreation,
+    propertyState,
+    continueListingPreview: () => { if (propertyCreation.getSnapshot().propertyId) navigate('rentTerms'); },
     activeTab: listingActiveTab(screen),
     backFromWorkspace: (onClose: () => void) => {
+      if (propertyCreation.getSnapshot().busy) return;
+      if (screen === 'propertySetup') { goBack(); return; }
       if (screen === 'postingType') navigation.requestNavigation(onClose);
       else if (history.length > 0) goBack();
       else if (screen !== 'dashboard' && screen !== 'empty') navigation.requestNavigation(goDashboard);
@@ -231,9 +247,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     missingRequirements,
     navigate,
     goBack,
-    goDashboard: () => navigation.requestNavigation(goDashboard),
+    goDashboard: () => { if (!propertyCreation.getSnapshot().busy) navigation.requestNavigation(goDashboard); },
     updateDraft,
-    startCreate: () => navigation.requestNavigation(startCreate),
+    startCreate: () => { if (!propertyCreation.getSnapshot().busy) navigation.requestNavigation(startCreate); },
     setListingQuery,
     choosePropertyType,
     toggleFurnished,

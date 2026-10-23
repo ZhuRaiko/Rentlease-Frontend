@@ -25,6 +25,7 @@ interface PropertyListingFlowViewProps {
 
 const createScreens = new Set([
   'postingType',
+  'propertySetup',
   'photoUpload',
   'photoManager',
   'basicInfo',

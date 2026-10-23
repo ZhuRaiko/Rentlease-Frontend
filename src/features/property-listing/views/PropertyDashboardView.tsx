@@ -48,7 +48,7 @@ export function PropertyDashboardView({ viewModel }: PropertyDashboardViewProps)
           </View>
           <Text accessibilityRole="header" style={styles.emptyTitle}>No listings yet</Text>
           <Text style={styles.emptyCopy}>
-            Add your first property, complete its listing details, and publish when everything is ready.
+            Add your physical property first. Listing creation and publication are not connected yet.
           </Text>
           <View style={styles.emptyButton}>
             <ListingButton label="Add your first property" onPress={viewModel.startCreate} />

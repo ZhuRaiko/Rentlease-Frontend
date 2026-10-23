@@ -104,7 +104,7 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
       </View>
       {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
       <ListingButton label="Publish listing" onPress={viewModel.requestPublish} />
-      <ListingButton label="Save as draft" onPress={viewModel.saveDraft} tone="outline" />
+      <ListingButton label="Keep local progress" onPress={viewModel.saveDraft} tone="outline" />
     </ListingWizardScaffold>
   );
 }
