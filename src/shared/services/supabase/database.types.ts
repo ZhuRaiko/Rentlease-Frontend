@@ -2334,6 +2334,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      save_listing_draft: {
+        Args: {
+          p_advance_rent_months?: number
+          p_asking_rent_monthly: number
+          p_available_from?: string
+          p_description: string
+          p_house_rules?: string
+          p_minimum_stay_months?: number
+          p_property_id: string
+          p_rental_term?: Database["public"]["Enums"]["rental_term_type"]
+          p_security_deposit_months?: number
+          p_title: string
+        }
+        Returns: {
+          completeness_score: number
+          created_at: string
+          listing_id: string
+          listing_status: Database["public"]["Enums"]["listing_status"]
+          updated_at: string
+        }[]
+      }
       set_property_cover_photo: {
         Args: { p_photo_id: string }
         Returns: undefined

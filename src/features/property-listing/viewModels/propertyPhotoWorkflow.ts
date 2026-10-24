@@ -72,6 +72,10 @@ export function createPropertyPhotoWorkflow(service: PropertyPhotoService, pick:
       const g = generation; await load(true);
       if (alive(g) && !state.needsReconcile && state.loaded) update({ selected: null, altText: '', notice: 'Photo status refreshed. Check the saved photos before selecting another.' });
     },
+    discardLocalEdits() {
+      if (disposed || state.busy) return;
+      update({ selected: null, altText: '', removeId: null, altDrafts: Object.fromEntries(state.photos.map(photo => [photo.id, photo.alt_text ?? ''])) });
+    },
     dirty: () => !!state.selected || Object.entries(state.altDrafts).some(([id, value]) => value !== (state.photos.find(p => p.id === id)?.alt_text ?? '')),
     async select() {
       if (disposed || state.busy || !context || !state.loaded || state.needsReconcile || state.photos.length >= MAX_PROPERTY_PHOTOS) return;

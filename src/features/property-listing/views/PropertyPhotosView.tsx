@@ -51,7 +51,7 @@ export function PropertyPhotosView({ viewModel: vm, onClose }: { viewModel: Prop
         <ListingButton disabled={state.busy} label="Discard selection" tone="outline" onPress={flow.cancelSelection} />
       </View> : <ListingButton disabled={disabled || state.photos.length >= 10} label={state.photos.length >= 10 ? '10-photo limit reached' : 'Choose photo'} onPress={() => void flow.select()} />}
       <Text style={styles.copy}>The first saved photo is assigned as cover through the backend. You can change it later. Changes here are saved to the property; no rental listing is published.</Text>
-      <ListingButton disabled={state.busy} label="Continue to listing preview" tone="outline" onPress={vm.continueListingPreview} />
+      <ListingButton disabled={state.busy} label="Continue to listing draft" tone="outline" onPress={vm.continueListingPreview} />
     </>}
   </ListingWizardScaffold>;
 }

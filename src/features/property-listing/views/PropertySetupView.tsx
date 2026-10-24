@@ -72,8 +72,8 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
       <Text selectable style={styles.copy}>Property ID: {state.propertyId}</Text>
       <Text style={styles.copy}>Open Profile ? Verification ? Tier 3 to select this owned property when you are ready. Nothing is submitted automatically.</Text>
       <ListingButton label="Manage property photos" onPress={() => vm.navigate('photoManager')} />
-      <ListingButton label="Continue to listing preview" onPress={vm.continueListingPreview} />
-      <FeedbackNotice message="Listing terms remain a local preview. Listing details and amenities remain local. Property photos are managed separately." />
+      <ListingButton label="Continue to listing draft" onPress={vm.continueListingPreview} />
+      <FeedbackNotice message="Listing details stay local until title, description and rent are ready and you explicitly save the listing draft to your account. Amenities remain local; property photos are managed separately." />
       <ListingButton disabled={state.busy} label="Set up another property" tone="outline" onPress={() => void flow.startNew()} />
     </> : null}
   </ListingWizardScaffold>;

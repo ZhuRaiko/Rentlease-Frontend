@@ -1,4 +1,6 @@
-// Physical-property persistence uses DraftProperty.ts. Types below describe listing previews only.
+import type { Enums } from '../../../shared/services/supabase/database.types';
+
+// Physical properties use DraftProperty.ts. Listing summaries/physical preview fields remain local; PersistedListingDraft.ts maps the supported listing fields.
 export type ListingScreen =
   | 'dashboard'
   | 'empty'
@@ -58,6 +60,11 @@ export interface ListingDraft {
   pinConfirmed: boolean;
   photoCount: number;
   coverPhotoIndex: number;
+  houseRules: string;
+  rentalTerm: Enums<'rental_term_type'>;
+  securityDepositMonths: string;
+  advanceRentMonths: string;
+  minimumStayMonths: string;
   advancePayment: string;
   securityDeposit: string;
   askingRent: string;
@@ -120,6 +127,7 @@ export const emptyListingDraft: ListingDraft = {
   pinConfirmed: false,
   photoCount: 0,
   coverPhotoIndex: 0,
+  houseRules: '', rentalTerm: 'long_term', securityDepositMonths: '1', advanceRentMonths: '1', minimumStayMonths: '',
   advancePayment: '',
   securityDeposit: '',
   askingRent: '',
@@ -142,6 +150,7 @@ export const figmaPreviewDraft: ListingDraft = {
   pinConfirmed: true,
   photoCount: 4,
   coverPhotoIndex: 0,
+  houseRules: 'No smoking\nPets allowed\nVisitors allowed', rentalTerm: 'long_term', securityDepositMonths: '2', advanceRentMonths: '1', minimumStayMonths: '',
   advancePayment: '1 month advance + 2 months deposit',
   securityDeposit: '2 months',
   askingRent: '60,800',

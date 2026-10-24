@@ -173,3 +173,115 @@ This statement applies only to the current documentation-governance phase. Histo
 - Original external RPC payload, deactivation SQL, rollback-test SQL/arguments, execution dates and advisor output are unavailable. Attach authorized original receipts if later supplied; do not reconstruct them as historical facts.
 - No source-controlled backend file for the external DELETE grant was supplied. Recording its SQL does not apply or migrate it elsewhere.
 - Android creation/photo operations, live client Storage cleanup and broader negative authorization cases remain unverified. The external backend tests do not resolve the teammate-owned location dependency.
+
+
+## Phase 3 - Listing draft persistence (recorded 2026-10-24)
+
+The following entries extend this existing ledger. External actions were supplied by the user with the Phase 3 request; their exact execution timestamps and full test payloads/DDL transcripts were not supplied. Recording dates do not prove execution dates. Codex performed only P3-01's read-only inspection, not the external writes/tests. No live save RPC or test-data mutation was executed by Codex in this phase.
+
+### P3-01: Codex live draft contract inspection
+
+- **Date/feature/phase:** 2026-10-24, Property & Listing Phase 3.
+- **Actor/tool:** Codex, Supabase connector execute_sql.
+- **Environment/project:** live RentLease, `cxfsbwbwmwmgtqfonqth`.
+- **Classification:** READ_ONLY_INSPECTION.
+- **Target/action:** function definition for public.save_listing_draft, authenticated/anon listings table grants, and listings policies. Exact executed SELECT:
+
+```sql
+select json_build_object('function',(select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='save_listing_draft'),'grants',(select json_agg(row_to_json(g)) from (select grantee,privilege_type from information_schema.role_table_grants where table_schema='public' and table_name='listings' and grantee in ('authenticated','anon')) g),'policies',(select json_agg(row_to_json(q)) from (select policyname,cmd,qual,with_check from pg_policies where schemaname='public' and tablename='listings') q)) as draft_contract;
+```
+
+- **Purpose/result:** confirmed the supplied ten-argument/row-array contract; SECURITY DEFINER and pg_catalog search_path; auth.uid(), active Tier 1, Landlord and owned-active-property checks; nonblank title/description, positive rent, nonnegative deposit/advance and positive optional minimum stay. Per-property advisory transaction lock, latest own draft selection FOR UPDATE, insert-or-update, forced draft and server-derived owner/status/timestamps/completeness. No Tier 3 prerequisite. Authenticated listings table grants returned SELECT only; RLS owner read remains present. Old INSERT/UPDATE/DELETE policy definitions do not confer table privileges.
+- **Durable effect:** none.
+- **Rollback/cleanup:** not applicable, read-only.
+- **Security/RLS:** inspected function/policy/grant definitions, not live denied-client cases. EXECUTE ACL outcomes/advisor tests below are user-confirmed external evidence, not part of this SELECT.
+- **Source-controlled backend file:** no Phase 3 backend migration/source supplied; only the missing generated frontend function entry was added from the user-supplied generated contract. No backend migration was created.
+- **Android/client runtime:** not performed; RUNTIME-UNVERIFIED, blocked by persisted-property/location prerequisite.
+
+### P3-02: External permanent draft RPC creation
+
+- **Date/feature/phase:** exact external execution date unavailable; recorded 2026-10-24, Property & Listing Phase 3.
+- **Actor/tool:** external ChatGPT/Supabase integration, not Codex; user-confirmed.
+- **Environment/project:** live RentLease, `cxfsbwbwmwmgtqfonqth`.
+- **Classification:** EXTERNAL_BACKEND_CHANGE + FUNCTION_CHANGE.
+- **Target/action:** permanent creation of public.save_listing_draft with the contract below. Exact original CREATE FUNCTION/GRANT/REVOKE transaction text was not provided. The signature/security settings and function definition were confirmed as described in P3-01; this is not a fabricated executed DDL transcript.
+
+```text
+save_listing_draft(
+  p_property_id uuid, p_title text, p_description text,
+  p_asking_rent_monthly numeric, p_house_rules text DEFAULT NULL,
+  p_rental_term rental_term_type DEFAULT long_term,
+  p_security_deposit_months numeric DEFAULT 1,
+  p_advance_rent_months numeric DEFAULT 1,
+  p_minimum_stay_months smallint DEFAULT NULL,
+  p_available_from date DEFAULT NULL
+)
+RETURNS TABLE(listing_id uuid, listing_status listing_status,
+  completeness_score numeric, created_at timestamptz, updated_at timestamptz)
+SECURITY DEFINER; search_path = pg_catalog
+EXECUTE: authenticated yes; anon no; PUBLIC no
+```
+
+- **Purpose/result:** provide narrow authenticated create-or-update draft persistence, without broad listings writes/publication. Derives identity from auth.uid(); caller cannot supply landlord, status, timestamps or completeness. Saves are serialized for the same property and reuse an existing own draft.
+- **Durable effect:** the live function and controlled EXECUTE permissions remain. **No direct INSERT/UPDATE/DELETE grant was added to listings.** SELECT remains available subject to RLS.
+- **Rollback/cleanup:** function creation was permanent, not undone by test rollback. No function removal requested/performed.
+- **Security/RLS:** explicit authenticated active Tier 1 Landlord, owned active property, fixed search_path, no Tier 3 requirement; user reports denied anon/PUBLIC execution. No authorization rule was moved to the frontend.
+- **Source-controlled backend file:** none supplied/found for this external function creation. Generated types/this ledger are not migrations or replay authorization. Obtain the original authorized DDL if exact migration provenance is needed.
+- **Android/client runtime:** no Android save reported; RUNTIME-UNVERIFIED.
+
+### P3-03: External authenticated create/update rollback test
+
+- **Date/feature/phase:** external execution date not supplied; recorded 2026-10-24, Phase 3.
+- **Actor/tool:** external ChatGPT/Supabase integration, not Codex; user-confirmed.
+- **Environment/project:** live RentLease, `cxfsbwbwmwmgtqfonqth`.
+- **Classification:** RPC_TEST + ROLLBACK_TEST.
+- **Target/action:** save_listing_draft against active owned property `c0e382d1-6693-493e-8ee6-f591bd8905bc`, without approved property-specific Tier 3. First save created a draft; second save updated it. Exact title/description/payment payloads, identity simulation SQL and transaction transcript not supplied.
+- **Purpose/result:** returned listing ID `a91d4de0-af56-4cbb-bfc9-a431591f605e` on repeated save; reused_same_draft=true, status=draft. Confirms no Tier 3 requirement for this tested draft path.
+- **Durable effect:** none from test data; the listing row does not persist.
+- **Rollback/cleanup:** transaction rolled back; post-test listings count reported as 0. The permanent RPC in P3-02 remains.
+- **Security/RLS:** positive active-owner/Tier 1 case externally tested; not proof of all role/account restrictions or client behavior.
+- **Source-controlled backend file:** no test script/receipt supplied.
+- **Android/client runtime:** backend integration test only, not Android acceptance.
+
+### P3-04: External foreign-property denial test
+
+- **Date/feature/phase:** external execution date not supplied; recorded 2026-10-24, Phase 3.
+- **Actor/tool:** external ChatGPT/Supabase integration, not Codex; user-confirmed.
+- **Environment/project:** live RentLease, `cxfsbwbwmwmgtqfonqth`.
+- **Classification:** RPC_TEST.
+- **Target/action:** unrelated authenticated Landlord called save_listing_draft against `c0e382d1-6693-493e-8ee6-f591bd8905bc`. Exact remaining arguments/identity setup/transaction transcript not supplied.
+- **Purpose/result/security:** foreign-property denial PASS, SQLSTATE 42501, `Owned active property required`.
+- **Durable effect:** no listing mutation reported; call rejected.
+- **Rollback/cleanup:** no row cleanup required for denied call; a specific transaction wrapper was not supplied.
+- **Source-controlled backend file:** no test script supplied.
+- **Android/client runtime:** not performed; RUNTIME-UNVERIFIED.
+
+### P3-05: External inactive-own-property denial test
+
+- **Date/feature/phase:** external execution date not supplied; recorded 2026-10-24, Phase 3.
+- **Actor/tool:** external ChatGPT/Supabase integration, not Codex; user-confirmed.
+- **Environment/project:** live RentLease, `cxfsbwbwmwmgtqfonqth`.
+- **Classification:** RPC_TEST.
+- **Target/action:** owner called save_listing_draft for inactive test property `1bfa99ee-1e3a-459e-bcf9-676ff97b3987`. Exact remaining arguments/identity setup/transaction transcript not supplied.
+- **Purpose/result/security:** inactive-own-property denial PASS, SQLSTATE 42501, `Owned active property required`.
+- **Durable effect:** none from denied call; previously inactive property remains as recorded in P1-03.
+- **Rollback/cleanup:** no new listing cleanup needed; a specific transaction wrapper was not supplied. Post-test listings count reported as 0.
+- **Source-controlled backend file:** no test script supplied.
+- **Android/client runtime:** not performed; RUNTIME-UNVERIFIED.
+
+### P3-06: External post-change advisor inspection
+
+- **Date/feature/phase:** external execution date not supplied; recorded 2026-10-24, Phase 3.
+- **Actor/tool:** external ChatGPT/Supabase integration, security advisor; not Codex, user-confirmed.
+- **Environment/project:** live RentLease, `cxfsbwbwmwmgtqfonqth`.
+- **Classification:** READ_ONLY_INSPECTION.
+- **Target/action:** post-function-change security-advisor run; original invocation/raw receipt not supplied.
+- **Purpose/result/security:** existing broader warnings remain; the new function appears under `authenticated_security_definer_function_executable`. Authenticated invocation is intentional and restricted by the explicit ownership/account/role/input checks, denied anon/PUBLIC EXECUTE and fixed search_path. Do not resolve the finding by exposing direct table writes. Unlike the old warnings, this function-specific advisory reflects the new intentionally executable RPC; no blanket clean security result is claimed.
+- **Durable effect:** none from advisor run.
+- **Rollback/cleanup:** not applicable, read-only; unrelated warnings outside scope.
+- **Source-controlled backend file:** no advisor report/remediation file supplied.
+- **Android/client runtime:** not performed; RUNTIME-UNVERIFIED.
+
+### Phase 3 frontend-pass boundary
+
+Codex performed the single read-only P3-01 SQL inspection and local/mocked tests; no live draft save, backend mutation, grant, function change or test-data creation was performed by Codex. The external permanent function in P3-02 is explicitly recorded, so this is not a claim that the overall Phase 3 backend contract was unchanged. Original external DDL/test payloads remain an evidence gap; do not invent them for PDF traceability. No source-controlled backend file was added.

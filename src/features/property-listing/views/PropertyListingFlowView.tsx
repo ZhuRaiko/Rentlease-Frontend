@@ -1,3 +1,5 @@
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
+import { ListingButton } from '../components/ListingButton';
 import { useEffect } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
 import { StatusBar, StyleSheet, View } from 'react-native';
@@ -96,6 +98,8 @@ export function PropertyListingFlowView({
   return (
     <ScreenContainer includeBottomInset={false} padded={false}>
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
+      <FeedbackNotice message={viewModel.listingDraftState.busy ? 'Checking or saving your listing draft...' : viewModel.listingDraftState.error} tone={viewModel.listingDraftState.busy ? 'info' : 'error'} />
+      {viewModel.propertyState.propertyId && !viewModel.listingDraftState.busy && (viewModel.listingDraftState.error || viewModel.listingDraftState.uncertain) ? <ListingButton label={viewModel.listingDraftState.uncertain ? 'Load current backend draft to reconcile' : 'Retry loading listing draft'} tone="outline" onPress={() => void (viewModel.listingDraftState.uncertain ? viewModel.listingDraftPersistence.reconcile() : viewModel.listingDraftPersistence.load())} /> : null}
       <View style={styles.content}>{content}</View>
       <NavigationConfirmation visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
       <RentLeaseBottomNavigation

@@ -1,3 +1,4 @@
+import { rentalTermOptions } from '../models/PersistedListingDraft';
 import { PropertyPhotosView } from './PropertyPhotosView';
 import { PropertySetupView } from './PropertySetupView';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -20,7 +21,7 @@ interface CreateListingViewProps {
 }
 
 function SaveDraftAction({ viewModel }: { viewModel: PropertyListingViewModel }) {
-  return <ListingButton label="Keep local progress" onPress={viewModel.saveDraft} tone="outline" />;
+  return <ListingButton label={viewModel.saveDraftLabel} disabled={viewModel.listingDraftState.busy} onPress={() => void viewModel.saveDraft()} tone="outline" />;
 }
 
 export function CreateListingView({ viewModel, onClose }: CreateListingViewProps) {
@@ -264,29 +265,17 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
         stepLabel="Pricing"
         title="Payment terms"
       >
-        <ListingField
-          label="Advance payment and deposit"
-          onChangeText={(value) => viewModel.updateDraft('advancePayment', value)}
-          placeholder="e.g. 1 month advance + 2 months deposit"
-          value={draft.advancePayment}
-        />
-        <View style={styles.priceEstimate}>
-          <Text style={styles.estimateEyebrow}>Suggested rent range price</Text>
-          <Text style={styles.estimateRange}>₱28,000 – ₱38,000 / mo</Text>
-          <Text style={styles.estimateLabel}>Suggested Exact Price</Text>
-          <Text style={styles.estimatePrice}>₱32,000 / mo</Text>
-          <Text style={styles.estimateSource}>Suggestion by RentLease</Text>
-        </View>
-        <ListingButton
-          label="Yes, use suggested price"
-          onPress={() => viewModel.updateDraft('askingRent', '32,000')}
-          tone="dark"
-        />
-        <ListingButton label="No thanks, I have my own" onPress={() => undefined} tone="dark" />
+        <ListingField label="Listing title" placeholder="Describe the rental space" value={draft.title} onChangeText={value => viewModel.updateDraft('title', value)} />
+        <Text style={styles.fieldTitle}>Rental term</Text>
+        <View style={styles.chips}>{rentalTermOptions.map(option => <ChoiceChip key={option.value} label={option.label} selected={draft.rentalTerm === option.value} onPress={() => viewModel.updateDraft('rentalTerm', option.value)} />)}</View>
+        <ListingField label="Security deposit (months)" placeholder="1" keyboardType="numeric" value={draft.securityDepositMonths} onChangeText={value => viewModel.updateDraft('securityDepositMonths', value)} />
+        <ListingField label="Advance rent (months)" placeholder="1" keyboardType="numeric" value={draft.advanceRentMonths} onChangeText={value => viewModel.updateDraft('advanceRentMonths', value)} />
+        <ListingField label="Minimum stay (months, optional)" placeholder="Leave blank if not specified" keyboardType="numeric" value={draft.minimumStayMonths} onChangeText={value => viewModel.updateDraft('minimumStayMonths', value)} />
+        <FeedbackNotice message="Price estimates are not connected here. Enter your own monthly asking rent." />
         <ListingField
           keyboardType="numeric"
           label="Asking Rent"
-          onChangeText={(value) => viewModel.updateDraft('askingRent', value.replace(/[^0-9,]/g, ''))}
+          onChangeText={(value) => viewModel.updateDraft('askingRent', value)}
           placeholder="Enter amount"
           prefix="₱"
           value={draft.askingRent}
@@ -345,6 +334,7 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
             </Pressable>
           ))}
         </View>
+        <ListingField label="House rules (optional)" placeholder="Add any rules for the rental" multiline value={draft.houseRules} onChangeText={value => viewModel.updateDraft('houseRules', value)} />
         <ListingButton label="Continue to availability" onPress={() => viewModel.navigate('availability')} tone="dark" />
         <SaveDraftAction viewModel={viewModel} />
       </ListingWizardScaffold>
@@ -358,12 +348,12 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
       step={5}
       stepLabel="Availability"
       title="When is the property available?"
-      description="Use a readable date for this frontend preview. A native date picker can replace this boundary later."
+      description="Use YYYY-MM-DD, or leave the date blank until it is known."
     >
       <ListingField
         label="Availability date"
         onChangeText={(value) => viewModel.updateDraft('availableDate', value)}
-        placeholder="e.g. September 15, 2026"
+        placeholder="e.g. 2026-11-01"
         value={draft.availableDate}
       />
       <ListingButton label="Preview listing" onPress={() => viewModel.navigate('preview')} tone="dark" />

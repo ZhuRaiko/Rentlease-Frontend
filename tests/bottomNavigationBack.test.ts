@@ -43,8 +43,8 @@ test('draft Stay/Leave is resolved before root Back callback and only Leave navi
   guard.request(() => discovery++); guard.cancel(); assert.equal(discovery, 0);
   guard.request(() => discovery++); guard.confirm(); guard.confirm(); assert.equal(discovery, 1);
   const listing = read('src/features/property-listing/viewModels/usePropertyListingViewModel.ts');
-  assert.match(listing, /if \(screen === 'postingType'\) navigation.requestNavigation\(onClose\);\s*else if \(history.length > 0\) goBack\(\)/);
-  assert.match(listing, /else navigation.requestNavigation\(onClose\)/);
+  assert.match(listing, /if \(screen === 'postingType'\) requestNavigation\(onClose\);\s*else if \(history.length > 0\) goBack\(\)/);
+  assert.match(listing, /else requestNavigation\(onClose\)/);
 });
 test('Discovery nested and Profile-origin preferences Back precede marketplace exit', () => {
   const vm = read('src/features/search-discovery/viewModels/useSearchDiscoveryViewModel.ts');

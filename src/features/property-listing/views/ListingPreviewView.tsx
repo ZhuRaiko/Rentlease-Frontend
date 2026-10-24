@@ -40,8 +40,8 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
             </Pressable>
           ))}
         </View>
-        <ListingButton label="Save incomplete draft" onPress={viewModel.saveDraft} tone="outline" />
-        <ListingButton label="Load complete Figma sample" onPress={viewModel.loadFigmaSample} />
+        <ListingButton label={viewModel.saveDraftLabel} disabled={viewModel.listingDraftState.busy} onPress={() => void viewModel.saveDraft()} tone="outline" />
+        <ListingButton label="Load complete Figma sample" disabled={!!viewModel.propertyState.propertyId} onPress={viewModel.loadFigmaSample} />
         <Text style={styles.localOnly}>The sample button changes local frontend state only.</Text>
       </ListingWizardScaffold>
     );
@@ -105,8 +105,8 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
         </View>
       </View>
       {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
-      <ListingButton label="Publish listing" onPress={viewModel.requestPublish} />
-      <ListingButton label="Keep local progress" onPress={viewModel.saveDraft} tone="outline" />
+      <ListingButton label="Open publication preview" onPress={viewModel.requestPublish} />
+      <ListingButton label={viewModel.saveDraftLabel} disabled={viewModel.listingDraftState.busy} onPress={() => void viewModel.saveDraft()} tone="outline" />
     </ListingWizardScaffold>
   );
 }

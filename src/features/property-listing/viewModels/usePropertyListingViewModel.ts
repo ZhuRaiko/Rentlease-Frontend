@@ -1,3 +1,6 @@
+import { createListingDraftWorkflow } from './listingDraftWorkflow';
+import { listingDraftService } from '../services/listingDraftDependencies';
+import { applySavedListing, hasListingMinimum } from '../models/PersistedListingDraft';
 import { createPropertyPhotoWorkflow } from './propertyPhotoWorkflow';
 import { propertyPhotoService, selectPropertyPhoto } from '../services/propertyPhotoDependencies';
 import { createPropertyCreationWorkflow } from './propertyCreationWorkflow';
@@ -37,9 +40,25 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   useEffect(() => { propertyPhotos.activate(); return () => propertyPhotos.dispose(); }, [propertyPhotos]);
   useEffect(() => { propertyPhotos.setProperty(propertyState.propertyId); }, [propertyPhotos, propertyState.propertyId]);
   useEffect(() => { if ((screen === 'photoUpload' || screen === 'photoManager') && propertyState.propertyId) void propertyPhotos.load(); }, [propertyPhotos, screen, propertyState.propertyId]);
-  const operationBusy = () => propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy;
+  const [listingDraftPersistence] = useState(() => createListingDraftWorkflow(listingDraftService, row => {
+    setDraft(current => { const next = applySavedListing(current, row); savedDraft.current = next; return next; });
+  }));
+  const listingDraftState = useSyncExternalStore(listingDraftPersistence.subscribe, listingDraftPersistence.getSnapshot);
+  const previousProperty = useRef<string | null>(null);
+  useEffect(() => { listingDraftPersistence.activate(); return () => listingDraftPersistence.dispose(); }, [listingDraftPersistence]);
+  useEffect(() => {
+    if (previousProperty.current && previousProperty.current !== propertyState.propertyId) {
+      setDraft(current => { const next = { ...current, title: '', description: '', askingRent: '', houseRules: '', rentalTerm: emptyListingDraft.rentalTerm, securityDepositMonths: '1', advanceRentMonths: '1', minimumStayMonths: '', availableDate: '', rules: [] }; savedDraft.current = next; return next; });
+    }
+    previousProperty.current = propertyState.propertyId;
+    listingDraftPersistence.setProperty(propertyState.propertyId);
+    if (propertyState.propertyId) void listingDraftPersistence.load();
+  }, [listingDraftPersistence, propertyState.propertyId]);
+  const active = useRef(true);
+  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
+  const operationBusy = () => !active.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy;
   const displayDraft = propertyState.propertyId ? { ...draft, photoCount: photoState.photos.length, coverPhotoIndex: Math.max(0, photoState.photos.findIndex(p => p.is_cover)) } : draft;
-  const navigation = useNavigationConfirmation(isListingEditor(screen) && JSON.stringify(draft) !== JSON.stringify(savedDraft.current) || propertyCreation.dirty() || propertyPhotos.dirty());
+  const navigation = useNavigationConfirmation(() => isListingEditor(screen) && JSON.stringify(draft) !== JSON.stringify(savedDraft.current) || propertyCreation.dirty() || propertyPhotos.dirty());
   const [listing, setListing] = useState<PropertyListingSummary>(initialPreviewListing);
   const [notice, setNotice] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -61,6 +80,18 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     );
   }, [listingQuery]);
 
+  // Query workflow dirty state at the exit event, not only at the last React render.
+  const requestNavigation = (action: () => void) => {
+    if (operationBusy()) return;
+    navigation.requestNavigation(() => {
+      if (operationBusy()) return;
+      propertyCreation.discardLocalEdits();
+      propertyPhotos.discardLocalEdits();
+      setDraft(savedDraft.current);
+      action();
+    });
+  };
+
   const navigate = (nextScreen: ListingScreen) => {
     if (operationBusy()) return;
     setHistory((current) => [...current, screen]);
@@ -80,7 +111,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       });
       setNotice(null);
     };
-    if (leavesListingEditor(screen, history.at(-1) ?? 'dashboard')) navigation.requestNavigation(applyBack);
+    if (leavesListingEditor(screen, history.at(-1) ?? 'dashboard')) requestNavigation(applyBack);
     else applyBack();
   };
 
@@ -95,6 +126,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     field: TField,
     value: ListingDraft[TField],
   ) => {
+    if (operationBusy()) return;
     setDraft((current) => ({ ...current, [field]: value }));
   };
 
@@ -123,12 +155,12 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const toggleRule = (rule: PropertyRule) => {
-    setDraft((current) => ({
-      ...current,
-      rules: current.rules.includes(rule)
-        ? current.rules.filter((item) => item !== rule)
-        : [...current.rules, rule],
-    }));
+    if (operationBusy()) return;
+    setDraft(current => {
+      const lines = current.houseRules.split('\n').map(line => line.trim()).filter(Boolean);
+      const houseRules = (lines.includes(rule) ? lines.filter(line => line !== rule) : [...lines, rule]).join('\n');
+      return { ...current, houseRules, rules: houseRules.split('\n').filter(line => ['No smoking', 'Pets allowed', 'No loud parties', 'Visitors allowed'].includes(line)) as PropertyRule[] };
+    });
   };
 
   const confirmPin = () => {
@@ -153,14 +185,17 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     }));
   };
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     if (operationBusy()) return;
-    savedDraft.current = draft;
+    const outcome = await listingDraftPersistence.save(draft);
+    if (!active.current) return;
+    if (outcome === 'blocked') return;
+    if (outcome === 'local') savedDraft.current = draft;
     syncListingSummary('draft');
     setHistory([]);
     setScreen('dashboard');
     setIsEditing(false);
-    setNotice('Wizard progress is local to this session, not saved to Supabase. Use property setup to save a physical property.');
+    setNotice(outcome === 'saved' ? 'Listing draft saved to your account. It is not published.' : 'Progress is local to this session, not saved to your account. A saved property, title, description and positive monthly rent are required.');
   };
 
   const requestPublish = () => {
@@ -168,6 +203,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const loadFigmaSample = () => {
+    if (propertyCreation.getSnapshot().propertyId || operationBusy()) return;
     setDraft(figmaPreviewDraft);
     setHistory((current) => [...current, screen]);
     setScreen('preview');
@@ -220,20 +256,25 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
 
   return {
     ...navigation,
-    requestNavigation: (action: () => void) => { if (!operationBusy()) navigation.requestNavigation(action); },
+    requestNavigation,
     propertyCreation,
     propertyState,
     propertyPhotos,
     photoState,
+    listingDraftPersistence,
+    listingDraftState,
+    canPersistListing: hasListingMinimum(propertyState.propertyId, draft),
+    saveDraftLabel: hasListingMinimum(propertyState.propertyId, draft) ? 'Save listing draft to account' : 'Keep local progress',
+    editSavedListingDraft: () => { if (propertyCreation.getSnapshot().propertyId) navigate('rentTerms'); },
     continueListingPreview: () => { if (propertyCreation.getSnapshot().propertyId) navigate('rentTerms'); },
     activeTab: listingActiveTab(screen),
     backFromWorkspace: (onClose: () => void) => {
       if (operationBusy()) return;
       if (screen === 'propertySetup') { goBack(); return; }
-      if (screen === 'postingType') navigation.requestNavigation(onClose);
+      if (screen === 'postingType') requestNavigation(onClose);
       else if (history.length > 0) goBack();
-      else if (screen !== 'dashboard' && screen !== 'empty') navigation.requestNavigation(goDashboard);
-      else navigation.requestNavigation(onClose);
+      else if (screen !== 'dashboard' && screen !== 'empty') requestNavigation(goDashboard);
+      else requestNavigation(onClose);
     },
     screen,
     draft: displayDraft,
@@ -245,9 +286,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     missingRequirements,
     navigate,
     goBack,
-    goDashboard: () => { if (!operationBusy()) navigation.requestNavigation(goDashboard); },
+    goDashboard: () => { if (!operationBusy()) requestNavigation(goDashboard); },
     updateDraft,
-    startCreate: () => { if (!operationBusy()) navigation.requestNavigation(startCreate); },
+    startCreate: () => { if (!operationBusy()) requestNavigation(startCreate); },
     setListingQuery,
     choosePropertyType,
     toggleFurnished,

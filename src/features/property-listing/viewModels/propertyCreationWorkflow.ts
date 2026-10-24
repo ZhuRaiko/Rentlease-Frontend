@@ -37,6 +37,13 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
     locationReady: () => hasConfirmedPropertyLocation(state.draft),
     activate() { if (disposed) { disposed = false; update({ busy: false }); } },
     dispose() { disposed = true; epoch++; listeners.clear(); },
+    discardLocalEdits() {
+      if (disposed || state.busy) return;
+      // Local discard never clears the durable receipt/uncertain-operation journal.
+      epoch++;
+      if (state.propertyId) update({ draft: emptyDraftProperty(), error: null });
+      else { owner = null; update(initial()); }
+    },
     dirty: () => !state.propertyId && JSON.stringify(state.draft) !== JSON.stringify(emptyDraftProperty()),
     updateField<K extends Exclude<keyof DraftProperty, keyof PropertyLocationInput>>(field: K, value: DraftProperty[K]) {
       if (state.busy || state.propertyId || state.uncertain) return;
