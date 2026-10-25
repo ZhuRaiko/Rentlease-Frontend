@@ -20,6 +20,7 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
   const accept = (row: SavedListingDraft) => { onConfirmed(row); update({ listingId: row.id, lastConfirmed: row, loaded: true }); };
   const load = async (reconcile = false) => {
     if (disposed || state.busy || !state.propertyId) return false;
+    if (state.lastConfirmed && state.lastConfirmed.status !== 'draft') return true;
     const g = generation; update({ busy: true, error: null, notice: null });
     try {
       const next = await service.context(state.propertyId); if (!alive(g)) return false;
@@ -37,10 +38,15 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
     getSnapshot: () => state, subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
     activate() { disposed = false; }, dispose() { disposed = true; generation++; context = null; state = initial(); listeners.clear(); },
     setProperty(id: string | null) { if (state.propertyId === id) return; generation++; context = null; update(initial(isPropertyUuid(id) ? id : null)); },
+    adoptBackendListing(row: SavedListingDraft) {
+      if (disposed || row.property_id !== state.propertyId || !['draft', 'active'].includes(row.status)) return;
+      accept(row); update({ uncertain: false, error: null, notice: null });
+    },
     load, reconcile: () => load(true),
     clearNotice() { if (!state.busy) update({ notice: null, error: null }); },
     async save(form: ListingDraftFields): Promise<'local' | 'saved' | 'blocked'> {
       if (disposed || state.busy || state.uncertain) return 'blocked';
+      if (state.lastConfirmed && state.lastConfirmed.status !== 'draft') { update({ error: 'This listing is published. Draft saving is unavailable.' }); return 'blocked'; }
       if (!hasListingMinimum(state.propertyId, form)) { update({ notice: 'Progress is local to this session, not saved to your account. A saved property, title, description and positive monthly rent are required.' }); return 'local'; }
       const error = listingDraftValidation(state.propertyId, form); if (error) { update({ error, notice: null }); return 'blocked'; }
       if (!state.loaded || !context) { update({ error: 'Load the current property draft before saving.' }); return 'blocked'; }

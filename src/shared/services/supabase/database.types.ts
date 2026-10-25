@@ -2334,6 +2334,18 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      publish_listing: {
+        Args: {
+          p_listing_id: string
+        }
+        Returns: {
+          completeness_score: number
+          listing_id: string
+          listing_status: Database["public"]["Enums"]["listing_status"]
+          published_at: string
+          updated_at: string
+        }[]
+      }
       save_listing_draft: {
         Args: {
           p_advance_rent_months?: number

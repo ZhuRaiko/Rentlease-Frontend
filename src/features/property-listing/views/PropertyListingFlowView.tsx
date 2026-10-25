@@ -1,3 +1,4 @@
+import { PublishedListingStatusView } from './PublishedListingStatusView';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { ListingButton } from '../components/ListingButton';
 import { useEffect } from 'react';
@@ -72,6 +73,8 @@ export function PropertyListingFlowView({
 
   if (viewModel.screen === 'dashboard' || viewModel.screen === 'empty') {
     content = <PropertyDashboardView viewModel={viewModel} />;
+  } else if (viewModel.screen === 'published' && viewModel.showRealPublication && viewModel.publicationState.publishedListingId) {
+    content = <PublishedListingStatusView viewModel={viewModel} onClose={close} />;
   } else if (createScreens.has(viewModel.screen)) {
     content = <CreateListingView onClose={close} viewModel={viewModel} />;
   } else if (previewScreens.has(viewModel.screen)) {
@@ -98,8 +101,10 @@ export function PropertyListingFlowView({
   return (
     <ScreenContainer includeBottomInset={false} padded={false}>
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
+      <FeedbackNotice message={viewModel.publicationState.busy ? 'Checking publication...' : viewModel.publicationState.error} tone={viewModel.publicationState.busy ? 'info' : 'error'} />
+      {viewModel.propertyState.propertyId && !viewModel.publicationState.busy && (viewModel.publicationState.error || viewModel.publicationState.uncertain) ? <ListingButton label="Check publication status" tone="outline" onPress={() => void viewModel.checkPublication()} /> : null}
       <FeedbackNotice message={viewModel.listingDraftState.busy ? 'Checking or saving your listing draft...' : viewModel.listingDraftState.error} tone={viewModel.listingDraftState.busy ? 'info' : 'error'} />
-      {viewModel.propertyState.propertyId && !viewModel.listingDraftState.busy && (viewModel.listingDraftState.error || viewModel.listingDraftState.uncertain) ? <ListingButton label={viewModel.listingDraftState.uncertain ? 'Load current backend draft to reconcile' : 'Retry loading listing draft'} tone="outline" onPress={() => void (viewModel.listingDraftState.uncertain ? viewModel.listingDraftPersistence.reconcile() : viewModel.listingDraftPersistence.load())} /> : null}
+      {viewModel.propertyState.propertyId && !viewModel.publicationState.uncertain && viewModel.publicationState.status !== "active" && !viewModel.listingDraftState.busy && (viewModel.listingDraftState.error || viewModel.listingDraftState.uncertain) ? <ListingButton label={viewModel.listingDraftState.uncertain ? 'Load current backend draft to reconcile' : 'Retry loading listing draft'} tone="outline" onPress={() => void (viewModel.listingDraftState.uncertain ? viewModel.listingDraftPersistence.reconcile() : viewModel.listingDraftPersistence.load())} /> : null}
       <View style={styles.content}>{content}</View>
       <NavigationConfirmation title="Leave Property & Listing Management?" body="You have unsaved property, photo, or listing changes. Stay to continue editing, or leave without saving." visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
       <RentLeaseBottomNavigation

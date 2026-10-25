@@ -48,7 +48,7 @@ export function PropertyDashboardView({ viewModel }: PropertyDashboardViewProps)
           </View>
           <Text accessibilityRole="header" style={styles.emptyTitle}>No listings yet</Text>
           <Text style={styles.emptyCopy}>
-            Add your physical property first. Listing drafts require a saved property. Publication is not connected yet.
+            Add your physical property first. Listing drafts require a saved property. Publication requires a saved draft and approved ownership verification for the property.
           </Text>
           <View style={styles.emptyButton}>
             <ListingButton label="Add your first property" onPress={viewModel.startCreate} />
@@ -62,8 +62,8 @@ export function PropertyDashboardView({ viewModel }: PropertyDashboardViewProps)
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {viewModel.propertyState.propertyId ? <View>
-          <Text style={styles.subtitle}>{viewModel.listingDraftState.listingId ? `Account draft: ${viewModel.listingDraftState.listingId}` : 'Create listing details for your saved property'}</Text>
-          <ListingButton label={viewModel.listingDraftState.listingId ? 'Edit account listing draft' : 'Continue listing draft'} disabled={viewModel.listingDraftState.busy} onPress={viewModel.editSavedListingDraft} />
+          <Text style={styles.subtitle}>{viewModel.publicationState.publishedListingId ? `Published listing: ${viewModel.publicationState.publishedListingId}` : viewModel.listingDraftState.listingId ? `Account draft: ${viewModel.listingDraftState.listingId}` : 'Create listing details for your saved property'}</Text>
+          <ListingButton label={viewModel.publicationState.publishedListingId ? 'View published listing' : viewModel.listingDraftState.listingId ? 'Edit account listing draft' : 'Continue listing draft'} disabled={viewModel.listingDraftState.busy || (!viewModel.publicationState.publishedListingId && viewModel.listingDraftReadOnly)} onPress={viewModel.publicationState.publishedListingId ? viewModel.openPublishedListing : viewModel.editSavedListingDraft} />
         </View> : null}
         <View style={styles.header}>
           <View>

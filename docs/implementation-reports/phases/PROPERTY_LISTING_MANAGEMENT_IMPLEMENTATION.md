@@ -11,7 +11,7 @@ Authoritative current behavior: [PROPERTY_LISTING_MANAGEMENT.md](../../features/
 | Phase 1 - Physical property creation | IMPLEMENTED / AUTOMATED-TESTED; blocked-location Android path RUNTIME-VERIFIED; successful save RUNTIME-UNVERIFIED | Teammate-owned location integration for actual app save |
 | Phase 2 - Ordinary property photos | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Actual saved property UUID is required for Android runtime upload |
 | Phase 3 - Listing draft persistence | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Persisted property UUID/location prerequisite blocks new-property Android save |
-| Phase 4 - Publication workflow | NOT STARTED | Requires exact publication/eligibility/backend enforcement contract |
+| Phase 4 - Publication workflow | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | New-property runtime publication awaits external location/persisted-property integration |
 | Phase 5 - Listing lifecycle | NOT STARTED | Requires exact lifecycle transitions and authorization contract |
 | External integration phase | DEFERRED | Separately owned features, explicit later integration scope |
 
@@ -239,3 +239,20 @@ No permanent live backend mutation was performed in this correction pass. Phase 
 Applied the user's phase3_final_correction.patch to usePropertyListingViewModel.ts and propertyExitGuard.test.ts: removed savedDraft.current=draft from confirmPublish and finishEdit. These local preview actions no longer hide unsaved listing edits from the workspace-exit guard. The two supplied regressions failed before the fix; afterward Stay preserves edits, Leave restores the last backend-confirmed values and the originally requested destination executes once, with no extra backend save.
 
 Updated this existing history and PROPERTY_LISTING_MANAGEMENT.md; no new report was created. npm run typecheck PASS; npm test **378 total, 378 passed, 0 failed, 0 skipped, 0 cancelled**; git diff --check and local documentation-link validation PASS. Existing tests and Phase 1/2/3 behavior remain preserved. Android exit behavior is RUNTIME-UNVERIFIED AFTER FIX; property/photo/listing persistence runtime dependencies remain unchanged. No live Supabase action, backend mutation, Phase 4/lifecycle implementation or teammate-owned feature was performed. Backend ledger deliberately unchanged. No commit, push or merge occurred.
+
+
+## Phase 4 - Listing publication (2026-10-25)
+
+Baseline fbb0878; working tree was clean at phase start. No earlier uncommitted work was discarded. Scope is saved-draft publication only, not lifecycle or separately owned integrations.
+
+Added ListingPublication model, listingPublicationService/dependencies, listingPublicationWorkflow, PublishedListingStatusView and listingPublication tests. Modified the composed ViewModel, draft workflow, confirmation/flow/dashboard Views, generated database types and actual hook/wiring tests. Updated the living feature document, this history, existing backend ledger and concise generic context/index/routing statements. Exact paths are available in the final Git diff; no phase-specific report was created.
+
+The single generated-type addition is publish_listing(p_listing_id: string), returning an array of completeness_score:number, listing_id:string, listing_status:listing_status, published_at:string and updated_at:string. The typed service sends only p_listing_id. No direct listing INSERT/UPDATE or lifecycle RPC was added.
+
+Real publication requires a confirmed unchanged backend draft and explicit confirmation; legacy preview requirements do not gate it. Backend property-specific Tier 3, weighted 80% completeness and duplicate-live-listing rules remain authoritative. Validated receipt plus scoped reload establishes active -> Published. Durable pre-call pending markers and account/property/listing pointers support explicit reconciliation; no blind retries, fake success or replacement drafts after active. Generational/identity checks prevent stale results. Sample publication stays local. See the living feature document for current behavior and the ledger for exact backend evidence/provenance.
+
+Validation: npm run typecheck PASS; npm test **408 total / 408 passed / 0 failed / 0 skipped / 0 cancelled** (30 additional test cases over 378). Focused tests cover receipt validation, payload/enum boundaries, safe backend errors, concurrency, stale results, unknown outcomes, durable reopen/reconciliation, active draft protection and actual ViewModel confirmation/dirty/sample behavior. git diff --check PASS; local documentation-link validation PASS (49 links/anchors checked, zero errors). MVVM review found no View backend access, duplicate client, cross-feature ViewModel dependency or navigation/state framework change.
+
+Android successful publication is **RUNTIME-UNVERIFIED**. MapTiler/location remains separately owned; no fake property/listing identifiers or coordinates were introduced. Retest real publication and backend denials, unsaved edits, rapid taps, uncertain network/restart/reconciliation, account switching and prior exit/photo/draft behavior after the prerequisite is available. Phase 5 and all seven teammate-owned features remain unimplemented.
+
+No permanent live backend mutation was performed in this phase by Codex. One read-only contract/ACL inspection was performed and recorded in the existing ledger. The externally created publish_listing RPC and external rolled-back positive/negative tests are attributed separately. No backend migration was fabricated or replayed. No commit, push or merge was performed.

@@ -40,7 +40,7 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
             </Pressable>
           ))}
         </View>
-        <ListingButton label={viewModel.saveDraftLabel} disabled={viewModel.listingDraftState.busy} onPress={() => void viewModel.saveDraft()} tone="outline" />
+        <ListingButton label={viewModel.saveDraftLabel} disabled={viewModel.listingDraftState.busy || viewModel.listingDraftReadOnly} onPress={() => void viewModel.saveDraft()} tone="outline" />
         <ListingButton label="Load complete Figma sample" disabled={!!viewModel.propertyState.propertyId} onPress={viewModel.loadFigmaSample} />
         <Text style={styles.localOnly}>The sample button changes local frontend state only.</Text>
       </ListingWizardScaffold>
@@ -53,9 +53,9 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
         <SectionCard>
           <Text style={styles.confirmTitle}>{draft.title}</Text>
           <Text style={styles.confirmCopy}>
-            Your listing will appear as Published in this frontend preview. No Supabase record,
+            {viewModel.propertyState.propertyId ? 'Publish this saved listing? RentLease will check ownership verification for this property and its publication requirements. This does not publish unsaved changes.' : <>Your listing will appear as Published in this frontend preview. No Supabase record,
             Storage upload, notification, or moderation request will be created.
-            Real publication is not connected. It must check qualifying Tier 3 approval for this specific property and all other publication requirements.
+            Real publication is not connected. It must check qualifying Tier 3 approval for this specific property and all other publication requirements.</>}
           </Text>
           <View style={styles.confirmFacts}>
             <Text style={styles.fact}>₱{draft.askingRent} / month</Text>
@@ -63,7 +63,7 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
             <Text style={styles.fact}>{draft.address}</Text>
           </View>
         </SectionCard>
-        <ListingButton label="Publish listing preview" onPress={viewModel.confirmPublish} />
+        <ListingButton label={viewModel.propertyState.propertyId ? (viewModel.publicationState.busy ? "Publishing..." : "Publish listing") : "Publish listing preview"} disabled={viewModel.publicationState.busy || viewModel.listingDraftReadOnly} onPress={() => void viewModel.confirmPublish()} />
         <ListingButton label="Keep editing" onPress={viewModel.goBack} tone="outline" />
       </ListingWizardScaffold>
     );
@@ -105,8 +105,8 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
         </View>
       </View>
       {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
-      <ListingButton label="Open publication preview" onPress={viewModel.requestPublish} />
-      <ListingButton label={viewModel.saveDraftLabel} disabled={viewModel.listingDraftState.busy} onPress={() => void viewModel.saveDraft()} tone="outline" />
+      <ListingButton label={viewModel.propertyState.propertyId ? "Review publication" : "Open publication preview"} onPress={viewModel.requestPublish} />
+      <ListingButton label={viewModel.saveDraftLabel} disabled={viewModel.listingDraftState.busy || viewModel.listingDraftReadOnly} onPress={() => void viewModel.saveDraft()} tone="outline" />
     </ListingWizardScaffold>
   );
 }

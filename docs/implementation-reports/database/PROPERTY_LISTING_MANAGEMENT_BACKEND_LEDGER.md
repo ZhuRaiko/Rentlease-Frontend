@@ -455,3 +455,178 @@ Codex performed the single read-only P3-01 SQL inspection and local/mocked tests
 ### Phase 3 correction-pass provenance (2026-10-25)
 
 Documentation provenance update only: the exact external function/privilege SQL is now included above. No live Supabase inspection, RPC, mutation, permission change or advisor action was performed in this correction pass. No new migration was created. The historical external permanent function change remains attributed to ChatGPT/Supabase; existing grants and RLS were not altered. No permanent live backend mutation was performed in this correction pass.
+
+
+## Phase 4 - Publication contract and external evidence (2026-10-25)
+
+### P4-01: External permanent publication API
+
+- Date/phase: external execution timestamp unavailable; recorded 2026-10-25, Property & Listing Phase 4.
+- Actor/tool: external ChatGPT/Supabase integration, as reported by the user; NOT Codex.
+- Environment: live RentLease, project cxfsbwbwmwmgtqfonqth.
+- Classification: EXTERNAL_BACKEND_CHANGE / FUNCTION_CHANGE.
+- Target/action: public.publish_listing(p_listing_id uuid), SECURITY DEFINER with restricted pg_catalog search_path; controlled authenticated EXECUTE, no PUBLIC/anon EXECUTE. No direct authenticated listing mutation privileges.
+- Purpose/result: explicit owned-draft publication with property-specific approved Tier 3, serialized property access, no other active/paused/rented listing and trigger-owned weighted completeness >= 0.80. Returns authoritative publication receipt.
+- Durable effect: external function/controlled API remains live. Exact original CREATE/REVOKE/GRANT execution transcript was not supplied. The canonical exported definition below records current SQL, not a claim that Codex executed it. No original grant SQL is invented.
+- Cleanup: no rollback of permanent external API requested/performed.
+- Security: backend owns eligibility; no frontend authorization substitution.
+- Migration/source: no Phase 4 backend migration created in this frontend repository; exported function below is documentation evidence.
+- Android/client runtime: not performed; RUNTIME-UNVERIFIED.
+
+Canonical live definition obtained by the read-only P4-03 inspection (not executed):
+
+```sql
+CREATE OR REPLACE FUNCTION public.publish_listing(p_listing_id uuid)
+ RETURNS TABLE(listing_id uuid, listing_status listing_status, completeness_score numeric, published_at timestamp with time zone, updated_at timestamp with time zone)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog'
+AS $function$
+declare
+  v_user_id uuid := auth.uid();
+  v_probe public.listings%rowtype;
+  v_listing public.listings%rowtype;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  if not public.is_tier1_verified(v_user_id) then
+    raise exception 'Tier 1 verified active account required' using errcode = '42501';
+  end if;
+
+  if not public.has_app_role('landlord'::public.app_role, v_user_id) then
+    raise exception 'Landlord role required' using errcode = '42501';
+  end if;
+
+  if p_listing_id is null then
+    raise exception 'Listing is required' using errcode = '22023';
+  end if;
+
+  select l.*
+  into v_probe
+  from public.listings l
+  where l.id = p_listing_id
+    and l.landlord_id = v_user_id;
+
+  if v_probe.id is null then
+    raise exception 'Owned listing required' using errcode = '42501';
+  end if;
+
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(v_probe.property_id::text, 0)
+  );
+
+  select l.*
+  into v_listing
+  from public.listings l
+  where l.id = p_listing_id
+    and l.landlord_id = v_user_id
+  for update;
+
+  if v_listing.id is null then
+    raise exception 'Owned listing required' using errcode = '42501';
+  end if;
+
+  if v_listing.status <> 'draft'::public.listing_status then
+    raise exception 'Only a draft listing can be published' using errcode = '22023';
+  end if;
+
+  if not exists (
+    select 1
+    from public.properties p
+    where p.id = v_listing.property_id
+      and p.landlord_id = v_user_id
+      and p.is_active = true
+  ) then
+    raise exception 'Owned active property required' using errcode = '42501';
+  end if;
+
+  if not exists (
+    select 1
+    from public.verification_submissions vs
+    where vs.user_id = v_user_id
+      and vs.property_id = v_listing.property_id
+      and vs.tier = 'tier_3_property'::public.verification_tier
+      and vs.status = 'approved'::public.verification_status
+  ) then
+    raise exception 'Approved Tier 3 verification for this property is required before publishing'
+      using errcode = '42501';
+  end if;
+
+  if exists (
+    select 1
+    from public.listings other
+    where other.property_id = v_listing.property_id
+      and other.id <> v_listing.id
+      and other.status in (
+        'active'::public.listing_status,
+        'paused'::public.listing_status,
+        'rented'::public.listing_status
+      )
+  ) then
+    raise exception 'This property already has a live listing'
+      using errcode = '23505';
+  end if;
+
+  update public.listings l
+  set status = 'active'::public.listing_status
+  where l.id = v_listing.id
+    and l.landlord_id = v_user_id
+    and l.status = 'draft'::public.listing_status
+  returning l.* into v_listing;
+
+  if v_listing.id is null then
+    raise exception 'Listing changed before publication could complete'
+      using errcode = '40001';
+  end if;
+
+  return query
+  select
+    v_listing.id,
+    v_listing.status,
+    v_listing.completeness_score,
+    v_listing.published_at,
+    v_listing.updated_at;
+end;
+$function$
+
+```
+
+### P4-02: User-reported external rollback and denied-case tests
+
+- Date/phase: original external execution times unavailable; recorded 2026-10-25, Phase 4.
+- Actor/tool/environment: external ChatGPT/Supabase integration, live RentLease cxfsbwbwmwmgtqfonqth; NOT Codex and NOT Android.
+- Classification: RPC_TEST / ROLLBACK_TEST / TEST_DATA_MUTATION (rolled back).
+- Exact action contract: publish_listing(p_listing_id uuid); original full test SQL/argument transcripts unavailable. UUIDs below retained only as supplied evidence identifiers; they are not client fixtures or debug bypasses.
+- Purpose/results:
+  1. Positive rollback: property 79f7b794-aa40-4996-8eb9-5d4e988e1734; listing 0127669f-d8d2-4a32-8c05-95637720cfa6 returned active, completeness .8000 and published_at. Rolled back; no listing retained.
+  2. Pending Tier 3 property c0e382d1-6693-493e-8ee6-f591bd8905bc denied with 42501: Approved Tier 3 verification for this property is required before publishing. Temporary draft rolled back.
+  3. Approved Tier 3 but low completeness property 52897654-d4f8-405e-b11e-44e57b4b4007 denied with P0001 and 80% completeness requirement. Rolled back.
+  4. Unrelated landlord denied with 42501 / Owned listing required. Rolled back.
+  5. Duplicate live listing: first publication succeeded; second same-property draft publication denied with 23505 / This property already has a live listing. Entire test rolled back.
+- Durable test-data effect/cleanup: none reported; post-test listings count was zero. Existing property/verification records unchanged according to external test report.
+- Security/RLS: these are external backend test results, not independently repeated live tests by Codex. No direct table write grant was added.
+- Advisor: external post-change report identified authenticated_security_definer_function_executable for the new RPC. It is an intentionally exposed controlled authenticated API. Other pre-existing warnings remain out of scope; no advisor fix attempted.
+- Migration/source: none supplied/created; current function definition and privilege inspection retained above/below.
+- Android/client runtime: not performed.
+
+### P4-03: Codex read-only publication inspection
+
+- Date/phase: 2026-10-25, Property & Listing Phase 4.
+- Actor/tool: Codex / Supabase execute_sql connector.
+- Environment: live RentLease cxfsbwbwmwmgtqfonqth.
+- Classification: READ_ONLY_INSPECTION.
+- Targets: publish_listing, validate_listing_owner, function EXECUTE ACL, authenticated listings table privileges.
+- Exact inspection SQL:
+
+```sql
+select json_build_object('publication',(select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='publish_listing'),'trigger',(select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='validate_listing_owner'),'execute',(select json_build_object('authenticated',has_function_privilege('authenticated',p.oid,'EXECUTE'),'anon',has_function_privilege('anon',p.oid,'EXECUTE'),'public_execute',exists(select 1 from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a where a.grantee=0 and a.privilege_type='EXECUTE')) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='publish_listing'),'table_access',json_build_object('select',has_table_privilege('authenticated','public.listings','SELECT'),'insert',has_table_privilege('authenticated','public.listings','INSERT'),'update',has_table_privilege('authenticated','public.listings','UPDATE'),'delete',has_table_privilege('authenticated','public.listings','DELETE'))) as contract;
+```
+
+- Purpose/result: confirm current function and trigger contracts without invoking publication. SECURITY DEFINER restricted search_path, owner/property-specific Tier 3 and duplicate-live gate confirmed. Trigger recomputes score and published_at. Function EXECUTE: authenticated true, anon false, PUBLIC false. Authenticated listings SELECT true; INSERT/UPDATE/DELETE false.
+- Durable effect: none. Cleanup/rollback: not applicable, read-only.
+- Security/RLS result: definition/ACL inspection only; no denied-case or publication RPC executed by Codex.
+- Migration/source: no backend file changed. Frontend generated structural contract was amended only for the user-approved exact publication signature; no full schema regeneration claimed.
+- Android/client runtime: not performed. Successful property/listing/publication app persistence awaits external location integration.
+- **No permanent live backend mutation was performed in this phase by Codex.** No live RPC test, schema/RLS/Storage change, test-data mutation or backend grant was executed by Codex.

@@ -10,7 +10,7 @@ import type { PropertyListingViewModel } from '../src/features/property-listing/
 // Executes the actual hook + actual property/photo workflows + shared navigation guard.
 // Only React's scheduling hooks and native/backend dependency composition are replaced.
 // Explicit flush models the interval before React commits an external-store update.
-function mountProperty(persistedProperty: string | null = null, draftService: any = {}) {
+function mountProperty(persistedProperty: string | null = null, draftService: any = {}, publicationService: any = { restore: async () => null }) {
   let cursor = 0, current: PropertyListingViewModel, mounted = true;
   const slots: any[] = [], effects: (() => void)[] = [], cache = new Map<string, any>();
   let writes = 0, tree: any, realHook: any, backAction: (() => void) | null = null;
@@ -35,9 +35,10 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
       if (name === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
       if (name === 'react-native') return { StyleSheet: { create: (styles: any) => styles }, View: 'View', Text: 'Text', Modal: 'Modal', StatusBar: 'StatusBar' };
       if (name.endsWith('/usePropertyListingViewModel')) return { usePropertyListingViewModel: (...args: any[]) => { current = realHook(...args); return current; } };
-      const presentation = ['AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView'];
+      const presentation = ['AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView'];
       const component = presentation.find(value => name.endsWith('/' + value));
       if (component) return { [component]: component };
+      if (name.endsWith('/listingPublicationDependencies')) return { listingPublicationService: publicationService };
       if (name.endsWith('/listingDraftDependencies')) return { listingDraftService: draftService };
       if (name.endsWith('/propertyCreationDependencies')) return { propertyCreationService: service };
       if (name.endsWith('/propertyPhotoDependencies')) return { propertyPhotoService: {}, selectPropertyPhoto: async () => { writes++; throw Error('No picker during navigation'); } };
@@ -196,4 +197,30 @@ test('Property Flow supplies contextual confirmation copy without changing share
   const defaults = render(); assert.deepEqual(text(defaults), ['Leave this preview?', 'You have unsaved changes. Stay to continue editing, or leave without saving.']);
   const contextual = render({ title: h.dialog().title, body: h.dialog().body }); assert.equal(text(contextual)[0], h.dialog().title);
   contextual.props.onRequestClose(); assert.equal(cancels, 1); h.unmount();
+});
+
+
+test('real publication requires explicit confirmation, ignores preview checklist, and retains published ID without replacement save', async () => {
+  const backend = backendDraftService(true); let publishes = 0;
+  const row = await backend.service.read();
+  const pub = { restore: async () => null, context: async () => ({ userId: 'test-owner', propertyId: backend.propertyId, listingId: backend.listingId }), assertContext: async () => {}, publish: async () => { publishes++; return { ...row, status: 'active', completeness_score: .8, published_at: '2026-10-25T00:00:00Z' }; } };
+  const h = mountProperty(backend.propertyId, backend.service, pub); await h.setup();
+  h.vm().requestPublish(); h.flush(); assert.equal(h.vm().screen, 'publishConfirmation'); assert.equal(publishes, 0);
+  await h.vm().confirmPublish(); h.flush(); assert.equal(publishes, 1); assert.equal(h.vm().screen, 'published');
+  assert.equal(h.vm().publicationState.publishedListingId, backend.listingId); assert.equal(h.vm().propertyState.propertyId, backend.propertyId);
+  await h.vm().saveDraft(); await h.vm().listingDraftPersistence.save(h.vm().draft); assert.equal(backend.calls(), 0);
+  assert.equal(h.vm().listingDraftState.lastConfirmed?.status, 'active'); h.unmount();
+});
+
+test('unsaved real listing edits block confirmation and publication', async () => {
+  const backend = backendDraftService(true); let publishes = 0;
+  const h = mountProperty(backend.propertyId, backend.service, { restore: async () => null, publish: async () => { publishes++; } }); await h.setup();
+  h.vm().updateDraft('title', 'Unsaved correction'); h.flush(); h.vm().requestPublish(); h.flush();
+  assert.notEqual(h.vm().screen, 'publishConfirmation'); assert.match(h.vm().publicationState.error ?? '', /Save your listing changes/);
+  await h.vm().confirmPublish(); assert.equal(publishes, 0); h.unmount();
+});
+
+test('Figma-only publication has no backend publication action', async () => {
+  let publishes = 0; const h = mountProperty(null, {}, { restore: async () => null, publish: async () => { publishes++; } }); await h.setup();
+  await h.vm().confirmPublish(); h.flush(); assert.equal(h.vm().screen, 'published'); assert.match(h.vm().notice ?? '', /local preview only/); assert.equal(publishes, 0); h.unmount();
 });

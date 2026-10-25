@@ -8,7 +8,7 @@ Manage landlord-owned physical properties, ordinary property media, later listin
 
 The current branch is `feature/property-listing-management`. Active Tier 1 Landlords may use physical-property setup; Tier 3 is not a creation prerequisite. The ordinary-photo frontend exposes signed-in owner management only. Backend policies also recognize Admin management, but this feature adds no Admin interface. Authentication owns the account/session snapshot; this feature revalidates identity/ownership and owns its local form/media workflows.
 
-Phases 1-3 are **IMPLEMENTED / AUTOMATED-TESTED**. The Phase 1 blocked-location Android path is **RUNTIME-VERIFIED** as user-reported; successful property, ordinary-photo and listing-draft persistence remain **RUNTIME-UNVERIFIED**. New app saves remain blocked by external location integration; ordinary photos require a real persisted property UUID. Phase 3 listing draft saves/loads are implemented behind the persisted-property prerequisite. Dashboard fixtures and publication/lifecycle screens remain PREVIEW; they are separate from a confirmed backend draft.
+Phases 1-4 are **IMPLEMENTED / AUTOMATED-TESTED**. The Phase 1 blocked-location Android path is **RUNTIME-VERIFIED** as user-reported; successful property, ordinary-photo and listing-draft persistence remain **RUNTIME-UNVERIFIED**. New app saves remain blocked by external location integration; ordinary photos require a real persisted property UUID. Phase 3 listing draft saves/loads are implemented behind the persisted-property prerequisite. Dashboard fixtures and sample publication/lifecycle screens remain PREVIEW. Real saved drafts have explicit RPC publication and a separate backend-confirmed Published screen.
 
 ## Architecture
 
@@ -148,7 +148,7 @@ A per-account/property AsyncStorage pending marker is written before the RPC, st
 
 Authenticated listings table privileges are SELECT only; the frontend performs no direct INSERT/UPDATE/DELETE and asks for no broad grants. Existing RLS permits own-draft reads. The RPC requires authenticated active Tier 1 Landlord membership and an active owned property. Its SECURITY DEFINER/search_path/EXECUTE contract and external tests are recorded in [Phase 3 backend ledger](../implementation-reports/database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md#phase-3---listing-draft-persistence-recorded-2026-10-24). External function creation is not attributed to Codex. The advisor's authenticated SECURITY DEFINER finding is expected for this controlled entry point and is not a reason to expose table writes.
 
-Backend status remains draft; local published/unavailable fixture labels are not backend values. Publication controls remain explicitly preview-only and make no backend calls. No Tier 3 publication gate, lifecycle, one-active-listing enforcement, moderation or publication completeness rule is implemented. Full Phase 4/5 work and all seven teammate-owned integrations remain deferred.
+Phase 3 saves retain backend draft status. Phase 4 publication is now connected as documented below; sample published/unavailable labels remain local previews. Phase 5 lifecycle, moderation and all seven teammate-owned integrations remain deferred.
 
 Validation: npm run typecheck PASS; npm test **373 passed / 0 failed / 0 skipped / 0 cancelled**, including 19 new listing service/workflow/domain tests and three additional actual ViewModel integration tests, plus the preserved 351-test baseline. git diff --check PASS. Unit/mocked integration evidence is not Android/live persistence. Manual testing after location integration must verify first save/repeated same-ID save, restart/reload, numeric/date/rental-term inputs, local-progress boundary, rejected ownership/inactive access, interrupted saves/reconciliation and account switching. Confirm no publication/lifecycle write occurs.
 
@@ -179,11 +179,11 @@ This branch may expose clean integration boundaries but must not duplicate or ta
 | Phase 1 - physical property creation foundation | Implemented/automated-tested; Android persistence pending location integration |
 | Phase 2 - ordinary property photos | Implemented/automated-tested; runtime requires saved UUID |
 | Phase 3 - listing draft persistence | Implemented/automated-tested; Android runtime blocked by persisted-property prerequisite |
-| Phase 4 - publication workflow | NOT STARTED |
+| Phase 4 - publication workflow | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED |
 | Phase 5 - listing lifecycle | NOT STARTED |
 | Later integration with separately owned features | DEFERRED |
 
-Listing draft writes use save_listing_draft only; direct listings INSERT/UPDATE, publication and real lifecycle are not connected. The previously recorded backend publication gap for property-specific Tier 3 enforcement must be confirmed/resolved by an authorized backend operator before Phase 4; account-wide Tier 3 timestamps are not a substitute. Phase 3 is now integrated as documented above; Phase 4/5 remain NOT STARTED.
+Listing draft writes use save_listing_draft; publication uses publish_listing only. Direct listings writes and real lifecycle remain unavailable. The external publication RPC now enforces property-specific Tier 3 approval; account-wide Tier 3 timestamps are not a substitute. Phase 5 remains NOT STARTED.
 
 ## Runtime unsaved-exit correction (2026-10-24)
 
@@ -255,3 +255,24 @@ Keep behavior current here, phase evidence in the [implementation history/roadma
 The supplied phase3_final_correction.patch was applied semantically: confirmPublish and finishEdit no longer assign current local listing fields to savedDraft.current. Publication preview and Save local changes remain local presentation actions, so edited fields must still prompt on a later external workspace exit. Stay retains edits; Leave restores the last confirmed listing values and executes the requested destination once. Neither action creates a backend confirmation or adds a save/publication RPC call.
 
 Two additional actual ViewModel/Flow regressions initially failed and now pass: unsaved edits after publication preview and after local management edits remain guarded, and confirmed Leave restores the backend-saved title without another backend save. Validation: npm run typecheck PASS; npm test **378 passed, 0 failed, 0 skipped, 0 cancelled**; git diff --check PASS; documentation links PASS. Corrected behavior remains **RUNTIME-UNVERIFIED AFTER FIX** pending user Android re-verification. No live backend action, ledger change or Phase 4/lifecycle implementation occurred.
+
+
+## Phase 4 - Listing publication (2026-10-25)
+
+**IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**. Reviewed against baseline fbb0878 plus these uncommitted changes; the baseline does not contain this implementation.
+
+The existing saved draft enters an explicit Review publication / Publish listing confirmation. Real property/listing UUIDs, a confirmed backend draft, no uncertain draft save and unchanged persisted listing fields are required. Publication never auto-saves. The legacy requiredListingFields checklist is only for the Figma sample; cached completeness, landArea and local pin/photo flags do not decide real eligibility.
+
+The service calls publish_listing with only p_listing_id. Backend authorization checks active Tier 1 Landlord ownership, an active owned property, approved tier_3_property verification for that particular property, no other active/paused/rented listing for it and server-recomputed weighted completeness >= 0.80. Frontend account Tier 3 timestamps are not a gate. Known errors show safe Tier 3, completeness, duplicate or ownership messages. Supabase remains authoritative.
+
+A one-row receipt must match the listing UUID, active status, finite score >= 0.80 and valid published_at/updated_at timestamps; an owner-and-ID-scoped reload must confirm publication. Only then is active shown as Published, with the same ID, score and Philippine-time publication timestamp. Property/photo state is retained. Draft saving is blocked; restoring an active listing does not run a draft-only absence query or create a replacement. The real Published screen has no Phase 5 controls. Dashboard fixtures remain separate sample data.
+
+The ViewModel composes listingPublicationWorkflow; listingPublicationService owns authenticated RPC/read calls and an account/property/listing-scoped AsyncStorage pointer plus pending marker, written before the RPC. Busy and generation guards prevent rapid duplicate calls and stale account/workspace results. Unknown network outcomes, invalid receipts and failed confirmation reloads keep publication uncertain and block another attempt. Check publication status reads the known owned listing without publishing: active confirms success; draft explicitly says publication is not confirmed and requires a fresh user confirmation; other statuses remain blocked. No automatic retry or rollback occurs. On reopening a saved property, restoration checks its pointer (or a narrowly scoped latest owner/property read if absent) before Phase 3 draft loading. Draft-save reconciliation remains a separate operation.
+
+Source: models/ListingPublication.ts; services/listingPublicationService.ts and listingPublicationDependencies.ts; viewModels/listingPublicationWorkflow.ts, listingDraftWorkflow.ts and usePropertyListingViewModel.ts; views/ListingPreviewView.tsx, PublishedListingStatusView.tsx, PropertyDashboardView.tsx and PropertyListingFlowView.tsx. Views contain no backend clients; models are pure; workflow/ViewModel own async state/navigation. No new dependency or rebuild is required.
+
+Tests: listingPublication.test.ts plus actual-hook/Flow regressions in propertyExitGuard.test.ts and the existing marketplace wiring guard. Current validation: typecheck PASS; full suite **408 total / 408 passed / 0 failed / 0 skipped / 0 cancelled**. Automated tests do not establish Android, live client permissions or Storage success.
+
+Android checks after the separate location integration supplies a real owned property: save an unchanged draft, confirm publish once, inspect same-ID Published/status/score/time and retained photos; reopen and confirm no replacement draft. Test pending/rejected Tier 3, low completeness, another live listing, unsaved changes, rapid taps, network loss before/after RPC, Check status returning active/draft, restart with a pending marker, account switch and Stay/Leave/Back. No IDs/debug bypasses were added. New-property successful publication remains blocked by the externally owned MapTiler/location prerequisite. Phase 5 and all seven teammate-owned features remain untouched.
+
+Backend evidence, including external rollback tests, controlled EXECUTE grants, canonical function definition and Codex's read-only inspection, is in the [backend ledger](../implementation-reports/database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md#phase-4---publication-contract-and-external-evidence-2026-10-25). No permanent live backend mutation was performed in this phase by Codex. The externally created RPC is a permanent external change, separately attributed there.

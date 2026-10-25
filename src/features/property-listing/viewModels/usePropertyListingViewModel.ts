@@ -1,3 +1,6 @@
+import { createListingPublicationWorkflow } from './listingPublicationWorkflow';
+import { listingPublicationService } from '../services/listingPublicationDependencies';
+import { publicationEligibility } from '../models/ListingPublication';
 import { createListingDraftWorkflow } from './listingDraftWorkflow';
 import { listingDraftService } from '../services/listingDraftDependencies';
 import { applySavedListing, hasListingMinimum } from '../models/PersistedListingDraft';
@@ -27,6 +30,7 @@ import {
 type CounterField = 'bedrooms' | 'bathrooms' | 'parkingSpaces';
 
 export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dashboard') {
+  const [showRealPublication, setShowRealPublication] = useState(false);
   const [screen, setScreen] = useState<ListingScreen>(initialScreen);
   const [history, setHistory] = useState<ListingScreen[]>([]);
   const [draft, setDraft] = useState<ListingDraft>(initialScreen === 'postingType' ? emptyListingDraft : figmaPreviewDraft);
@@ -44,6 +48,10 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     setDraft(current => { const next = applySavedListing(current, row); savedDraft.current = next; return next; });
   }));
   const listingDraftState = useSyncExternalStore(listingDraftPersistence.subscribe, listingDraftPersistence.getSnapshot);
+  const [publication] = useState(() => createListingPublicationWorkflow(listingPublicationService, row => listingDraftPersistence.adoptBackendListing(row)));
+  const publicationState = useSyncExternalStore(publication.subscribe, publication.getSnapshot);
+  useEffect(() => { publication.activate(); return () => publication.dispose(); }, [publication]);
+  useEffect(() => { if (listingDraftState.lastConfirmed) publication.setDraft(listingDraftState.lastConfirmed); }, [publication, listingDraftState.lastConfirmed]);
   const previousProperty = useRef<string | null>(null);
   useEffect(() => { listingDraftPersistence.activate(); return () => listingDraftPersistence.dispose(); }, [listingDraftPersistence]);
   useEffect(() => {
@@ -52,11 +60,16 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     }
     previousProperty.current = propertyState.propertyId;
     listingDraftPersistence.setProperty(propertyState.propertyId);
-    if (propertyState.propertyId) void listingDraftPersistence.load();
-  }, [listingDraftPersistence, propertyState.propertyId]);
+    publication.setProperty(propertyState.propertyId);
+    if (propertyState.propertyId) void publication.restore().then(ok => {
+      const current = publication.getSnapshot();
+      if (ok && current.propertyId === propertyState.propertyId && current.status !== 'active' && !current.uncertain) void listingDraftPersistence.load();
+    });
+  }, [listingDraftPersistence, publication, propertyState.propertyId]);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  const operationBusy = () => !active.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy;
+  const operationBusy = () => !active.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy || publication.getSnapshot().busy;
+  const publicationReadOnly = () => !!propertyCreation.getSnapshot().propertyId && (!publication.getSnapshot().loaded || publication.getSnapshot().uncertain || (!!publication.getSnapshot().status && publication.getSnapshot().status !== 'draft'));
   const displayDraft = propertyState.propertyId ? { ...draft, photoCount: photoState.photos.length, coverPhotoIndex: Math.max(0, photoState.photos.findIndex(p => p.is_cover)) } : draft;
   const listingDraftDirty = JSON.stringify(draft) !== JSON.stringify(savedDraft.current);
   const navigation = useNavigationConfirmation(() => listingDraftDirty || propertyCreation.dirty() || propertyPhotos.dirty());
@@ -127,7 +140,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     field: TField,
     value: ListingDraft[TField],
   ) => {
-    if (operationBusy()) return;
+    if (operationBusy() || publicationReadOnly()) return;
     setDraft((current) => ({ ...current, [field]: value }));
   };
 
@@ -187,7 +200,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const saveDraft = async () => {
-    if (operationBusy()) return;
+    if (operationBusy() || publicationReadOnly()) return;
     const outcome = await listingDraftPersistence.save(draft);
     if (!active.current) return;
     if (outcome === 'blocked') return;
@@ -199,6 +212,12 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const requestPublish = () => {
+    if (operationBusy()) return;
+    if (propertyCreation.getSnapshot().propertyId) {
+      const error = publicationEligibility(propertyCreation.getSnapshot().propertyId, listingDraftPersistence.getSnapshot().lastConfirmed, draft, listingDraftPersistence.getSnapshot().uncertain);
+      if (error || publicationReadOnly()) { publication.report(error ?? 'Check the current publication status before continuing.'); return; }
+      navigate('publishConfirmation'); return;
+    }
     navigate(missingRequirements.length > 0 ? 'missingRequirements' : 'publishConfirmation');
   };
 
@@ -210,7 +229,13 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     setNotice('Complete Figma sample data loaded locally for frontend evaluation.');
   };
 
-  const confirmPublish = () => {
+  const confirmPublish = async () => {
+    if (operationBusy()) return;
+    if (propertyCreation.getSnapshot().propertyId) {
+      const success = await publication.publish(listingDraftPersistence.getSnapshot().lastConfirmed, draft, listingDraftPersistence.getSnapshot().uncertain);
+      if (success && active.current) { setShowRealPublication(true); setHistory([]); setScreen('published'); setIsEditing(false); }
+      return;
+    }
     syncListingSummary('published');
     setHistory([]);
     setScreen('published');
@@ -219,6 +244,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const openListing = (listingId?: string) => {
+    setShowRealPublication(false);
     const selected = landlordListingPreviews.find((item) => item.id === listingId);
     if (selected) setListing(selected);
     navigate('published');
@@ -259,11 +285,17 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     propertyState,
     propertyPhotos,
     photoState,
+    publication,
+    publicationState,
+    listingDraftReadOnly: publicationReadOnly(),
+    checkPublication: async () => { const ok = publication.getSnapshot().listingId ? await publication.reconcile() : await publication.restore(); if (ok && active.current && publication.getSnapshot().status !== 'active' && !publication.getSnapshot().uncertain) await listingDraftPersistence.reconcile(); },
+    showRealPublication,
+    openPublishedListing: () => { setShowRealPublication(true); navigate('published'); },
     listingDraftPersistence,
     listingDraftState,
     canPersistListing: hasListingMinimum(propertyState.propertyId, draft),
     saveDraftLabel: hasListingMinimum(propertyState.propertyId, draft) ? 'Save listing draft to account' : 'Keep local progress',
-    editSavedListingDraft: () => { if (propertyCreation.getSnapshot().propertyId) navigate('rentTerms'); },
+    editSavedListingDraft: () => { if (!publicationReadOnly() && propertyCreation.getSnapshot().propertyId) navigate('rentTerms'); },
     continueListingPreview: () => { if (propertyCreation.getSnapshot().propertyId) navigate('rentTerms'); },
     activeTab: listingActiveTab(screen),
     backFromWorkspace: (onClose: () => void) => {
