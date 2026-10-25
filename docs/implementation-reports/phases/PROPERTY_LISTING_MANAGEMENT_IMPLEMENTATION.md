@@ -12,7 +12,7 @@ Authoritative current behavior: [PROPERTY_LISTING_MANAGEMENT.md](../../features/
 | Phase 2 - Ordinary property photos | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Actual saved property UUID is required for Android runtime upload |
 | Phase 3 - Listing draft persistence | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Persisted property UUID/location prerequisite blocks new-property Android save |
 | Phase 4 - Publication workflow | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | New-property runtime publication awaits external location/persisted-property integration |
-| Phase 5 - Listing lifecycle | NOT STARTED | Requires exact lifecycle transitions and authorization contract |
+| Phase 5 - Listing lifecycle | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Normal saved-property/listing path still awaits external location integration |
 | External integration phase | DEFERRED | Separately owned features, explicit later integration scope |
 
 ## Phase 1 - Physical property creation evidence
@@ -256,3 +256,26 @@ Validation: npm run typecheck PASS; npm test **408 total / 408 passed / 0 failed
 Android successful publication is **RUNTIME-UNVERIFIED**. MapTiler/location remains separately owned; no fake property/listing identifiers or coordinates were introduced. Retest real publication and backend denials, unsaved edits, rapid taps, uncertain network/restart/reconciliation, account switching and prior exit/photo/draft behavior after the prerequisite is available. Phase 5 and all seven teammate-owned features remain unimplemented.
 
 No permanent live backend mutation was performed in this phase by Codex. One read-only contract/ACL inspection was performed and recorded in the existing ledger. The externally created publish_listing RPC and external rolled-back positive/negative tests are attributed separately. No backend migration was fabricated or replayed. No commit, push or merge was performed.
+
+
+## Phase 5 - Listing lifecycle (2026-10-26)
+
+Implementation plan, baseline 7ae983f (clean working tree): preserve Phases 1-4; add the exact three lifecycle structural signatures, a pure transition/error/receipt model, owner-scoped lifecycle service and generation-guarded confirmation workflow. Extend restoration/adoption for existing non-draft statuses before draft loading. Compose operation guards in the existing ViewModel, reuse the real status screen and existing confirmation dialog, keep sample actions local, and prohibit real post-publication content editing. Test transition/payload/receipt, pending-journal recovery, concurrency, stale identity/workspace, restoration and real ViewModel behavior. Update this history, living feature document and backend ledger, run typecheck/full tests/whitespace/link checks, and report Android as RUNTIME-UNVERIFIED. No database mutation, teammate feature or automatic commit is authorized.
+
+
+### Implementation and evidence
+
+Added src/features/property-listing/models/ListingLifecycle.ts, services/listingLifecycleService.ts, services/listingLifecycleDependencies.ts, viewModels/listingLifecycleWorkflow.ts and tests/listingLifecycle.test.ts. Modified existing publication service/workflow, draft workflow, composed ViewModel, real status/dashboard/flow Views, generated database.types.ts and listingPublication/propertyExitGuard/marketplaceWiring tests. Updated the existing living feature document, this continuous history, continuous backend ledger and concise generic status/routing pointers. No separate phase report was created.
+
+Implemented explicit active -> paused, paused -> active and active/paused -> archived confirmations using pause_listing/reactivate_listing/archive_listing, p_listing_id only. Strict receipt plus same-ID owner-scoped reload validates success. Durable operation-scoped pending markers, service/workflow exclusion, cross-workflow guards, stale identity/generation rejection and explicit reconciliation avoid blind retries. Restoration/adoption handles supported non-draft lifecycle statuses without replacement drafts. Real rented/removed/archived records have no landlord mutation actions; editing and Mark unavailable stay sample-only. Archive retains records/property/photos.
+
+Backend dependencies: listings SELECT; the three externally created controlled RPCs; backend tenancy/verification/completeness logic. Supplied exact permanent external CREATE/REVOKE/GRANT SQL is preserved in the ledger, not replayed. One Codex read-only catalog/ACL inspection confirmed definitions, Tier 3/tenancy/duplicate boundaries and SELECT-only listing privileges. External rollback/denial evidence is separately attributed. Active-tenancy denial was not independently executed; contract inspection only. Security advisor warnings are external reports, not a Codex advisor run or security compliance claim.
+
+Validation: npm run typecheck PASS; npm test **480 total / 480 passed / 0 failed / 0 skipped / 0 cancelled**, 72 additional cases over 408. Four restore regressions failed before the implementation and pass afterward. Earlier Phase 4 unexpected-state coverage was intentionally revised because paused is now a supported authoritative lifecycle state; existing publication/draft/sample/exit regressions are retained. MVVM/security review found no View client access, second Supabase client, direct listing write or frontend authorization replacement.
+
+Android lifecycle is RUNTIME-UNVERIFIED; normal app creation/reopen still depends on the external location/persisted-property boundary. Use the living feature doc manual test sequence; external SQL rollback tests and automated mocks are not Android acceptance. No new dependency or native rebuild was introduced. All seven teammate-owned features remain untouched. No permanent live backend mutation was performed in this phase by Codex. No commit, push or merge was performed. git diff --check PASS; documentation-link validation PASS: 51 links/anchors checked, zero errors.
+
+
+Skills actually read for Phase 5: .codex/skills/rentlease-feature-implementation/SKILL.md; rentlease-frontend-mvvm-guard/SKILL.md; rentlease-supabase-contract-guard/SKILL.md; rentlease-security-review/SKILL.md; rentlease-test-runtime-verification/SKILL.md; rentlease-documentation-maintainer/SKILL.md; rentlease-implementation-ledger/SKILL.md; rentlease-implementation-artifact-organizer/SKILL.md (all sibling paths under .codex/skills). Also consulted installed brainstorming, writing-plans, test-driven-development, verification-before-completion and Supabase instructions. The supplied detailed scope was used as the approved design; the plan stayed in this existing history, with no extra report or automatic commit.
+
+Documentation matches Phase 5 source and retains dated earlier evidence. FEATURES/FRONTEND_CONTEXT/BACKEND_CONTEXT/ROUTES now point to connected lifecycle behavior; architecture, Auth, verification, package files, shared maps/geocoding and unrelated feature documents remain unchanged because their contracts did not change. Working tree was clean at phase start; all Phase 1-4 committed work was preserved.

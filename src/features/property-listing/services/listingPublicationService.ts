@@ -1,3 +1,4 @@
+import { isLifecycleStatus } from '../models/ListingLifecycle';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import { isPropertyUuid } from '../models/DraftProperty';
@@ -34,7 +35,7 @@ export function createListingPublicationService(getClient: () => SupabaseClient<
     if (publishing.has(pendingKey(c))) throw uncertain();
     const row = await read(c);
     if (row.status === 'active' && !isPublishedListing(row)) throw uncertain();
-    if (row.status !== 'draft' && row.status !== 'active') throw new PublicationError('The listing has a different backend status. Further changes are unavailable in this phase.', 'uncertain');
+    if (!isLifecycleStatus(row.status)) throw new PublicationError('The listing has a different backend status. Further changes are unavailable in this phase.', 'uncertain');
     await journal.setItem(pointerKey(c), c.listingId); await journal.removeItem(pendingKey(c)); return row;
   };
   return {

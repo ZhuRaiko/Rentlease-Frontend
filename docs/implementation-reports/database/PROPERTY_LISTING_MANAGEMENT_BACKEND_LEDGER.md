@@ -630,3 +630,400 @@ select json_build_object('publication',(select pg_get_functiondef(p.oid) from pg
 - Migration/source: no backend file changed. Frontend generated structural contract was amended only for the user-approved exact publication signature; no full schema regeneration claimed.
 - Android/client runtime: not performed. Successful property/listing/publication app persistence awaits external location integration.
 - **No permanent live backend mutation was performed in this phase by Codex.** No live RPC test, schema/RLS/Storage change, test-data mutation or backend grant was executed by Codex.
+
+
+## Phase 5 - Listing lifecycle (2026-10-26)
+
+### P5-01: External permanent lifecycle RPC creation
+
+- Date/feature/phase: executed externally 2026-10-25, recorded 2026-10-26; Property & Listing Phase 5.
+- Actor/tool: user, Supabase SQL Editor; NOT Codex.
+- Environment/project: live RentLease cxfsbwbwmwmgtqfonqth.
+- Classification: EXTERNAL_BACKEND_CHANGE / FUNCTION_CHANGE / PRIVILEGE_CHANGE.
+- Targets: public.pause_listing(uuid), public.reactivate_listing(uuid), public.archive_listing(uuid), their EXECUTE permissions.
+- Action: supplied exact CREATE OR REPLACE / REVOKE / GRANT script follows. Copied from the user-provided rentlease_phase5_lifecycle_rpcs.sql; documented, not executed by Codex.
+- Purpose/result: controlled owner/active Tier 1 Landlord lifecycle API, no direct listing table mutation privilege. Permitted transitions active -> paused, paused -> active, active/paused -> archived. All reject active tenancy; reactivation also requires active owned property, exact-property approved Tier 3, no competing live listing and trigger-owned completeness >= .80.
+- Durable effect: the three functions and controlled authenticated EXECUTE grants remain live. PUBLIC and anon EXECUTE revoked; authenticated listings SELECT yes, INSERT/UPDATE/DELETE no.
+- Cleanup/rollback: permanent external API not rolled back; test data covered separately below.
+- Security/RLS: backend authentication/role/owner/transition checks remain authoritative. SECURITY DEFINER, search_path=pg_catalog. No direct UPDATE workaround.
+- Backend migration/source: user-supplied SQL retained below as audit evidence; no new migration/source-controlled backend implementation file created in this frontend pass.
+- Android/client runtime: not performed; RUNTIME-UNVERIFIED.
+
+```sql
+-- RentLease Phase 5 — Listing Lifecycle RPCs
+-- Intended live project: cxfsbwbwmwmgtqfonqth
+-- Apply through Supabase SQL Editor or an approved migration workflow.
+-- Do not expose direct UPDATE on public.listings to authenticated users.
+
+create or replace function public.pause_listing(p_listing_id uuid)
+returns table (
+  listing_id uuid,
+  listing_status public.listing_status,
+  completeness_score numeric,
+  published_at timestamptz,
+  paused_at timestamptz,
+  archived_at timestamptz,
+  updated_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $function$
+declare
+  v_user_id uuid := auth.uid();
+  v_listing public.listings%rowtype;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  if not public.is_tier1_verified(v_user_id) then
+    raise exception 'Tier 1 verified active account required' using errcode = '42501';
+  end if;
+
+  if not public.has_app_role('landlord'::public.app_role, v_user_id) then
+    raise exception 'Landlord role required' using errcode = '42501';
+  end if;
+
+  if p_listing_id is null then
+    raise exception 'Listing is required' using errcode = '22023';
+  end if;
+
+  select l.*
+  into v_listing
+  from public.listings l
+  where l.id = p_listing_id
+    and l.landlord_id = v_user_id
+  for update;
+
+  if v_listing.id is null then
+    raise exception 'Owned listing required' using errcode = '42501';
+  end if;
+
+  if v_listing.status <> 'active'::public.listing_status then
+    raise exception 'Only an active listing can be paused' using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1
+    from public.tenancies t
+    where t.listing_id = v_listing.id
+      and t.status = 'active'::public.tenancy_status
+  ) then
+    raise exception 'Listing status is controlled by an active tenancy' using errcode = '22023';
+  end if;
+
+  update public.listings l
+  set status = 'paused'::public.listing_status,
+      paused_at = pg_catalog.now()
+  where l.id = v_listing.id
+    and l.landlord_id = v_user_id
+    and l.status = 'active'::public.listing_status
+  returning l.* into v_listing;
+
+  if v_listing.id is null then
+    raise exception 'Listing changed before pause could complete' using errcode = '40001';
+  end if;
+
+  return query
+  select
+    v_listing.id,
+    v_listing.status,
+    v_listing.completeness_score,
+    v_listing.published_at,
+    v_listing.paused_at,
+    v_listing.archived_at,
+    v_listing.updated_at;
+end;
+$function$;
+
+create or replace function public.reactivate_listing(p_listing_id uuid)
+returns table (
+  listing_id uuid,
+  listing_status public.listing_status,
+  completeness_score numeric,
+  published_at timestamptz,
+  paused_at timestamptz,
+  archived_at timestamptz,
+  updated_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $function$
+declare
+  v_user_id uuid := auth.uid();
+  v_probe public.listings%rowtype;
+  v_listing public.listings%rowtype;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  if not public.is_tier1_verified(v_user_id) then
+    raise exception 'Tier 1 verified active account required' using errcode = '42501';
+  end if;
+
+  if not public.has_app_role('landlord'::public.app_role, v_user_id) then
+    raise exception 'Landlord role required' using errcode = '42501';
+  end if;
+
+  if p_listing_id is null then
+    raise exception 'Listing is required' using errcode = '22023';
+  end if;
+
+  select l.*
+  into v_probe
+  from public.listings l
+  where l.id = p_listing_id
+    and l.landlord_id = v_user_id;
+
+  if v_probe.id is null then
+    raise exception 'Owned listing required' using errcode = '42501';
+  end if;
+
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(v_probe.property_id::text, 0)
+  );
+
+  select l.*
+  into v_listing
+  from public.listings l
+  where l.id = p_listing_id
+    and l.landlord_id = v_user_id
+  for update;
+
+  if v_listing.id is null then
+    raise exception 'Owned listing required' using errcode = '42501';
+  end if;
+
+  if v_listing.status <> 'paused'::public.listing_status then
+    raise exception 'Only a paused listing can be reactivated' using errcode = '22023';
+  end if;
+
+  if not exists (
+    select 1
+    from public.properties p
+    where p.id = v_listing.property_id
+      and p.landlord_id = v_user_id
+      and p.is_active = true
+  ) then
+    raise exception 'Owned active property required' using errcode = '42501';
+  end if;
+
+  if not exists (
+    select 1
+    from public.verification_submissions vs
+    where vs.user_id = v_user_id
+      and vs.property_id = v_listing.property_id
+      and vs.tier = 'tier_3_property'::public.verification_tier
+      and vs.status = 'approved'::public.verification_status
+  ) then
+    raise exception 'Approved Tier 3 verification for this property is required before reactivating'
+      using errcode = '42501';
+  end if;
+
+  if exists (
+    select 1
+    from public.tenancies t
+    where t.listing_id = v_listing.id
+      and t.status = 'active'::public.tenancy_status
+  ) then
+    raise exception 'Listing status is controlled by an active tenancy' using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1
+    from public.listings other
+    where other.property_id = v_listing.property_id
+      and other.id <> v_listing.id
+      and other.status in (
+        'active'::public.listing_status,
+        'paused'::public.listing_status,
+        'rented'::public.listing_status
+      )
+  ) then
+    raise exception 'This property already has a live listing' using errcode = '23505';
+  end if;
+
+  update public.listings l
+  set status = 'active'::public.listing_status,
+      paused_at = null
+  where l.id = v_listing.id
+    and l.landlord_id = v_user_id
+    and l.status = 'paused'::public.listing_status
+  returning l.* into v_listing;
+
+  if v_listing.id is null then
+    raise exception 'Listing changed before reactivation could complete' using errcode = '40001';
+  end if;
+
+  return query
+  select
+    v_listing.id,
+    v_listing.status,
+    v_listing.completeness_score,
+    v_listing.published_at,
+    v_listing.paused_at,
+    v_listing.archived_at,
+    v_listing.updated_at;
+end;
+$function$;
+
+create or replace function public.archive_listing(p_listing_id uuid)
+returns table (
+  listing_id uuid,
+  listing_status public.listing_status,
+  completeness_score numeric,
+  published_at timestamptz,
+  paused_at timestamptz,
+  archived_at timestamptz,
+  updated_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $function$
+declare
+  v_user_id uuid := auth.uid();
+  v_listing public.listings%rowtype;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  if not public.is_tier1_verified(v_user_id) then
+    raise exception 'Tier 1 verified active account required' using errcode = '42501';
+  end if;
+
+  if not public.has_app_role('landlord'::public.app_role, v_user_id) then
+    raise exception 'Landlord role required' using errcode = '42501';
+  end if;
+
+  if p_listing_id is null then
+    raise exception 'Listing is required' using errcode = '22023';
+  end if;
+
+  select l.*
+  into v_listing
+  from public.listings l
+  where l.id = p_listing_id
+    and l.landlord_id = v_user_id
+  for update;
+
+  if v_listing.id is null then
+    raise exception 'Owned listing required' using errcode = '42501';
+  end if;
+
+  if v_listing.status not in (
+    'active'::public.listing_status,
+    'paused'::public.listing_status
+  ) then
+    raise exception 'Only an active or paused listing can be archived' using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1
+    from public.tenancies t
+    where t.listing_id = v_listing.id
+      and t.status = 'active'::public.tenancy_status
+  ) then
+    raise exception 'Listing status is controlled by an active tenancy' using errcode = '22023';
+  end if;
+
+  update public.listings l
+  set status = 'archived'::public.listing_status,
+      archived_at = pg_catalog.now()
+  where l.id = v_listing.id
+    and l.landlord_id = v_user_id
+    and l.status in (
+      'active'::public.listing_status,
+      'paused'::public.listing_status
+    )
+  returning l.* into v_listing;
+
+  if v_listing.id is null then
+    raise exception 'Listing changed before archive could complete' using errcode = '40001';
+  end if;
+
+  return query
+  select
+    v_listing.id,
+    v_listing.status,
+    v_listing.completeness_score,
+    v_listing.published_at,
+    v_listing.paused_at,
+    v_listing.archived_at,
+    v_listing.updated_at;
+end;
+$function$;
+
+revoke all on function public.pause_listing(uuid) from public;
+revoke all on function public.pause_listing(uuid) from anon;
+grant execute on function public.pause_listing(uuid) to authenticated;
+
+revoke all on function public.reactivate_listing(uuid) from public;
+revoke all on function public.reactivate_listing(uuid) from anon;
+grant execute on function public.reactivate_listing(uuid) to authenticated;
+
+revoke all on function public.archive_listing(uuid) from public;
+revoke all on function public.archive_listing(uuid) from anon;
+grant execute on function public.archive_listing(uuid) to authenticated;
+
+```
+
+### P5-02: External rollback lifecycle test
+
+- Date/feature/phase: externally performed after function creation; exact execution time unavailable, recorded 2026-10-26, Phase 5.
+- Actor/tool/environment: external Supabase integration, user-reported; live RentLease cxfsbwbwmwmgtqfonqth. NOT Codex, NOT Android.
+- Classification: RPC_TEST / TEST_DATA_MUTATION / ROLLBACK_TEST.
+- Targets/action: temporary draft -> publish_listing -> pause_listing -> reactivate_listing -> archive_listing. Each lifecycle RPC takes p_listing_id only. Original full transaction SQL and fixture listing UUID were not supplied; do not reconstruct an alleged executed transcript.
+- Purpose/result: publish active with completeness .8000, paused_at/archived_at null; pause paused with populated paused_at and score .8000; reactivate active with paused_at null and score .8000; archive archived with populated archived_at and score .8000.
+- Durable effect/cleanup: transaction rolled back; post-test public.listings count reported as zero. No test listing persisted.
+- Security/RLS: owner-positive lifecycle execution reported; no broad listing write grant.
+- Backend migration/source: no test SQL source supplied/created.
+- Android/client runtime: not performed; RUNTIME-UNVERIFIED.
+
+### P5-03: External denied-case and tenancy boundary evidence
+
+- Date/feature/phase: external exact execution time unavailable; recorded 2026-10-26, Phase 5.
+- Actor/tool/environment: external Supabase integration, user-reported; live RentLease cxfsbwbwmwmgtqfonqth, NOT Codex.
+- Classification: RPC_TEST / ROLLBACK_TEST for reported denied cases; READ_ONLY_INSPECTION for tenancy boundary.
+- Targets/action/results: draft -> pause_listing denied 22023 / Only an active listing can be paused. Unrelated authenticated Landlord -> pause_listing denied 42501 / Owned listing required. Exact fixture IDs, argument transcript and transaction SQL were not supplied.
+- Tenancy boundary: definitions of all three lifecycle functions reject Listing status is controlled by an active tenancy. Existing sync_listing_from_tenancy sets listing rented for tenancy active; an active tenancy ended/cancelled sets listing archived.
+- Evidence limit: active-tenancy denial fixture was NOT independently executed. **CONTRACT-VERIFIED / NOT INDEPENDENTLY ROLLBACK-TESTED**. Do not describe it as an executed denial test.
+- Durable effect/cleanup: no durable test listing reported; external lifecycle tests rolled back, listings count zero.
+- Security/RLS: reported owner/wrong-transition denials; active-tenancy boundary definition only.
+- Backend migration/source: full original test transcripts unavailable; no new backend file.
+- Android/client runtime: not performed.
+
+### P5-04: External security advisor result
+
+- Date/feature/phase: external post-change run 2026-10-25 (time unavailable), recorded 2026-10-26, Phase 5.
+- Actor/tool/environment: external Supabase integration/advisor report supplied by user; live RentLease cxfsbwbwmwmgtqfonqth.
+- Classification: READ_ONLY_INSPECTION / EXTERNAL_BACKEND_CHANGE evidence context.
+- Targets/action/result: external advisor reports pause_listing, reactivate_listing, archive_listing under authenticated_security_definer_function_executable. Intentional controlled authenticated RPC surface; not resolved by direct table UPDATE.
+- Durable effect/cleanup: none from advisor; no fixes performed. Pre-existing unrelated findings remain outside Phase 5.
+- Security/RLS: expected exposure still requires backend checks; this is not formal production security verification. Codex did not rerun the advisor.
+- Backend migration/source: none.
+- Android/client runtime: not performed.
+
+### P5-05: Codex read-only live contract and privilege inspection
+
+- Date/feature/phase: 2026-10-26, Property & Listing Phase 5.
+- Actor/tool: Codex / Supabase execute_sql connector.
+- Environment/project: live RentLease cxfsbwbwmwmgtqfonqth.
+- Classification: READ_ONLY_INSPECTION.
+- Targets: three lifecycle function definitions and EXECUTE ACLs, sync_listing_from_tenancy, validate_listing_owner and authenticated listings table privileges.
+- Exact inspection SQL:
+
+```sql
+select p.proname, pg_get_functiondef(p.oid) as definition, p.prosecdef, p.proconfig, has_function_privilege('authenticated',p.oid,'EXECUTE') as authenticated_execute, has_function_privilege('anon',p.oid,'EXECUTE') as anon_execute, exists(select 1 from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a where a.grantee=0 and a.privilege_type='EXECUTE') as public_execute, json_build_object('select',has_table_privilege('authenticated','public.listings','SELECT'),'insert',has_table_privilege('authenticated','public.listings','INSERT'),'update',has_table_privilege('authenticated','public.listings','UPDATE'),'delete',has_table_privilege('authenticated','public.listings','DELETE')) as listings_privileges from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('pause_listing','reactivate_listing','archive_listing','sync_listing_from_tenancy','validate_listing_owner') order by p.proname;
+```
+
+- Purpose/result: independently confirm available live definitions/ACLs without executing any lifecycle/publication RPC. All three lifecycle functions observed SECURITY DEFINER, search_path=pg_catalog, authenticated EXECUTE true, anon false, PUBLIC false. listings authenticated SELECT true; INSERT/UPDATE/DELETE false. Source-status/owner/role/Tier 1/tenancy checks confirmed; reactivation includes property-specific Tier 3, active property, duplicate-live gate and existing trigger recalculation. Tenancy trigger definition confirms rented/archive transitions. No test fixture, RPC or denied-case run by Codex.
+- Durable effect/cleanup: none, read-only; rollback not applicable.
+- Security/RLS: definition and privilege evidence only. Existing trigger-function broader EXECUTE/search_path settings were observed, not changed or claimed as newly introduced by these three RPCs.
+- Backend migration/source: none created; exact structural signatures only were added to frontend database.types.ts, no full regeneration claimed.
+- Android/client runtime: not performed; normal app persistence still location-gated and RUNTIME-UNVERIFIED.
+- **No permanent live backend mutation was performed in this phase by Codex.** No schema/RLS/Storage/function/grant or live test-data mutation was executed by Codex.

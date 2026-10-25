@@ -1,10 +1,11 @@
+import { isLifecycleStatus } from '../models/ListingLifecycle';
 import { isPropertyUuid } from '../models/DraftProperty';
 import type { ListingDraftFields } from '../models/PersistedListingDraft';
 import { isPublishedListing, PublicationError, publicationEligibility, publicationMessage, type PublicationListing } from '../models/ListingPublication';
 import type { ListingPublicationService, PublicationContext } from '../services/listingPublicationService';
 interface State { propertyId: string | null; listingId: string | null; loaded: boolean; busy: boolean; error: string | null; uncertain: boolean; status: PublicationListing['status'] | null; publishedListingId: string | null; completenessScore: number | null; publishedAt: string | null; lastConfirmed: PublicationListing | null }
 const initial = (propertyId: string | null = null): State => ({ propertyId, listingId: null, loaded: false, busy: false, error: null, uncertain: false, status: null, publishedListingId: null, completenessScore: null, publishedAt: null, lastConfirmed: null });
-export function createListingPublicationWorkflow(service: ListingPublicationService, onResolved: (row: PublicationListing) => void) {
+export function createListingPublicationWorkflow(service: ListingPublicationService, onResolved: (row: PublicationListing) => void, canWrite = () => true) {
   let state = initial(), generation = 0, disposed = false;
   const listeners = new Set<() => void>();
   const update = (patch: Partial<State>) => { if (!disposed) { state = { ...state, ...patch }; listeners.forEach(fn => fn()); } };
@@ -16,7 +17,7 @@ export function createListingPublicationWorkflow(service: ListingPublicationServ
   };
   const accept = (row: PublicationListing) => {
     if (row.status === 'active' && !isPublishedListing(row)) throw new PublicationError('Published state could not be verified. Check status again.', 'uncertain');
-    if (!['draft', 'active'].includes(row.status)) { update({ listingId: row.id, status: row.status, uncertain: true, loaded: true }); throw new PublicationError('This listing has a different backend status. Further changes are unavailable in this phase.', 'uncertain'); }
+    if (!isLifecycleStatus(row.status)) { update({ listingId: row.id, status: row.status, uncertain: true, loaded: true }); throw new PublicationError('This listing has a different backend status. Further changes are unavailable in this phase.', 'uncertain'); }
     onResolved(row);
     update({ listingId: row.id, status: row.status, lastConfirmed: row, loaded: true, uncertain: false, publishedListingId: row.status === 'active' ? row.id : null, completenessScore: row.completeness_score, publishedAt: row.published_at });
   };
@@ -35,11 +36,12 @@ export function createListingPublicationWorkflow(service: ListingPublicationServ
     getSnapshot: () => state, subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
     activate() { disposed = false; }, dispose() { disposed = true; generation++; state = initial(); listeners.clear(); },
     setProperty(id: string | null) { if (id === state.propertyId) return; generation++; update(initial(isPropertyUuid(id) ? id : null)); },
-    setDraft(row: PublicationListing) { if (!disposed && !state.busy && !state.uncertain && state.status !== 'active' && row.status === 'draft' && row.property_id === state.propertyId) update({ listingId: row.id, status: 'draft', lastConfirmed: row }); },
+    setDraft(row: PublicationListing) { if (!disposed && !state.busy && !state.uncertain && (!state.status || state.status === 'draft') && row.status === 'draft' && row.property_id === state.propertyId) update({ listingId: row.id, status: 'draft', lastConfirmed: row }); },
+    adoptLifecycle(row: PublicationListing) { if (!disposed && !state.busy && !state.uncertain && row.property_id === state.propertyId) accept(row); },
     report(message: string) { if (!state.busy) update({ error: message }); },
     restore,
     async publish(row: PublicationListing | null, form: ListingDraftFields, uncertainSave: boolean) {
-      if (disposed || state.busy || state.uncertain || state.status === 'active') return false;
+      if (disposed || state.busy || state.uncertain || (!!state.status && state.status !== 'draft') || !canWrite()) return false;
       const error = publicationEligibility(state.propertyId, row, form, uncertainSave);
       if (error) { update({ error }); return false; }
       if (!state.loaded || !row || !state.propertyId) { update({ error: 'Check the current listing before publishing.' }); return false; }

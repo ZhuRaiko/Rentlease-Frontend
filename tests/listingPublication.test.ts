@@ -94,9 +94,9 @@ test('explicit reconciliation of still-draft state clears uncertainty without pu
   const h = harness(); await h.ready(); h.error({ code: '', message: 'timeout' }); await h.flow.publish(draft(), fields(), false);
   await h.flow.reconcile(); assert.equal(h.flow.getSnapshot().status, 'draft'); assert.equal(h.flow.getSnapshot().uncertain, false); assert.match(h.flow.getSnapshot().error ?? '', /still a draft/); assert.equal(h.calls(), 1);
 });
-test('unexpected reconciliation status stays blocked without inventing a lifecycle transition', async () => {
+test('Phase 5 reconciliation accepts an authoritative non-active state without inventing a transition', async () => {
   const h = harness(); await h.ready(); h.error({ code: '', message: 'timeout' }); await h.flow.publish(draft(), fields(), false);
-  h.setRow({ ...draft(), status: 'paused' }); await h.flow.reconcile(); assert.equal(h.flow.getSnapshot().uncertain, true); assert.equal(h.flow.getSnapshot().publishedListingId, null); assert.equal(h.calls(), 1);
+  h.setRow({ ...draft(), status: 'paused' }); await h.flow.reconcile(); assert.equal(h.flow.getSnapshot().uncertain, false); assert.equal(h.flow.getSnapshot().status, 'paused'); assert.equal(h.flow.getSnapshot().publishedListingId, null); assert.equal(h.calls(), 1);
 });
 test('late account and disposed responses cannot populate publication state', async () => {
   for (const change of ['account', 'dispose', 'property']) {
@@ -143,4 +143,15 @@ test('publication presentation keeps backend access in services and adds no life
   assert.deepEqual([...service.matchAll(/\.rpc\('([^']+)'/g)].map(match => match[1]), ['publish_listing']);
   assert.doesNotMatch(service, /\.(insert|update|upsert)\(/);
   assert.deepEqual([...service.matchAll(/(\w+)\.delete\(/g)].map(match => match[1]), ['publishing']); // Only the in-memory request Set is cleared.
+});
+
+
+for (const status of ['paused', 'rented', 'archived', 'removed'] as const) test(`Phase 5 restore retains ${status} as an existing read-only listing`, async () => {
+  const h = harness(); h.setRow({ ...draft(), status, published_at: '2026-10-25T01:00:00Z' }); await h.ready();
+  assert.equal(h.flow.getSnapshot().uncertain, false);
+  assert.equal(h.flow.getSnapshot().lastConfirmed?.status, status);
+  let saves = 0;
+  const flow = createListingDraftWorkflow({ save: async () => { saves++; } } as any, () => {});
+  flow.setProperty(propertyId); flow.adoptBackendListing(h.flow.getSnapshot().lastConfirmed!);
+  assert.equal(await flow.save(fields()), 'blocked'); assert.equal(saves, 0);
 });

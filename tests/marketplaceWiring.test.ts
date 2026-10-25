@@ -49,6 +49,6 @@ test('navigation changes preserve backend boundaries and feature isolation', () 
     if (path !== 'App.tsx') assert.ok(imports.every(value => !value.includes('/features/') || !value.includes('/viewModels/')), path);
     assert.ok(imports.every(value => !value.includes('/supabase')), path);
     if (path.endsWith('.tsx')) assert.ok(imports.every(value => !value.includes('/services/')), path);
-    else assert.ok(imports.filter(value => value.includes('/services/')).every(value => path.includes('property-listing') && ['../services/propertyCreationDependencies', '../services/propertyPhotoDependencies', '../services/listingPublicationDependencies', '../services/listingDraftDependencies'].includes(value)), path);
+    else assert.ok(imports.filter(value => value.includes('/services/')).every(value => path.includes('property-listing') && ['../services/propertyCreationDependencies', '../services/propertyPhotoDependencies', '../services/listingLifecycleDependencies', '../services/listingPublicationDependencies', '../services/listingDraftDependencies'].includes(value)), path);
   }
 });

@@ -2334,6 +2334,42 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      archive_listing: {
+        Args: { p_listing_id: string }
+        Returns: {
+          listing_id: string
+          listing_status: Database["public"]["Enums"]["listing_status"]
+          completeness_score: number
+          published_at: string | null
+          paused_at: string | null
+          archived_at: string | null
+          updated_at: string
+        }[]
+      }
+      pause_listing: {
+        Args: { p_listing_id: string }
+        Returns: {
+          listing_id: string
+          listing_status: Database["public"]["Enums"]["listing_status"]
+          completeness_score: number
+          published_at: string | null
+          paused_at: string | null
+          archived_at: string | null
+          updated_at: string
+        }[]
+      }
+      reactivate_listing: {
+        Args: { p_listing_id: string }
+        Returns: {
+          listing_id: string
+          listing_status: Database["public"]["Enums"]["listing_status"]
+          completeness_score: number
+          published_at: string | null
+          paused_at: string | null
+          archived_at: string | null
+          updated_at: string
+        }[]
+      }
       publish_listing: {
         Args: {
           p_listing_id: string

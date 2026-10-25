@@ -3,7 +3,7 @@ import type { ListingDraftContext, ListingDraftService } from '../services/listi
 import { isPropertyUuid } from '../models/DraftProperty';
 interface State { propertyId: string | null; listingId: string | null; loaded: boolean; busy: boolean; error: string | null; uncertain: boolean; lastConfirmed: SavedListingDraft | null; notice: string | null }
 const initial = (propertyId: string | null = null): State => ({ propertyId, listingId: null, loaded: false, busy: false, error: null, uncertain: false, lastConfirmed: null, notice: null });
-export function createListingDraftWorkflow(service: ListingDraftService, onConfirmed: (row: SavedListingDraft) => void) {
+export function createListingDraftWorkflow(service: ListingDraftService, onConfirmed: (row: SavedListingDraft) => void, canWrite = () => true) {
   let state = initial(), generation = 0, disposed = false, context: ListingDraftContext | null = null;
   const listeners = new Set<() => void>();
   const update = (patch: Partial<State>) => { if (!disposed) { state = { ...state, ...patch }; listeners.forEach(fn => fn()); } };
@@ -39,14 +39,14 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
     activate() { disposed = false; }, dispose() { disposed = true; generation++; context = null; state = initial(); listeners.clear(); },
     setProperty(id: string | null) { if (state.propertyId === id) return; generation++; context = null; update(initial(isPropertyUuid(id) ? id : null)); },
     adoptBackendListing(row: SavedListingDraft) {
-      if (disposed || row.property_id !== state.propertyId || !['draft', 'active'].includes(row.status)) return;
+      if (disposed || row.property_id !== state.propertyId) return;
       accept(row); update({ uncertain: false, error: null, notice: null });
     },
     load, reconcile: () => load(true),
     clearNotice() { if (!state.busy) update({ notice: null, error: null }); },
     async save(form: ListingDraftFields): Promise<'local' | 'saved' | 'blocked'> {
-      if (disposed || state.busy || state.uncertain) return 'blocked';
-      if (state.lastConfirmed && state.lastConfirmed.status !== 'draft') { update({ error: 'This listing is published. Draft saving is unavailable.' }); return 'blocked'; }
+      if (disposed || state.busy || state.uncertain || !canWrite()) return 'blocked';
+      if (state.lastConfirmed && state.lastConfirmed.status !== 'draft') { update({ error: 'This is no longer a draft listing. Draft saving is unavailable.' }); return 'blocked'; }
       if (!hasListingMinimum(state.propertyId, form)) { update({ notice: 'Progress is local to this session, not saved to your account. A saved property, title, description and positive monthly rent are required.' }); return 'local'; }
       const error = listingDraftValidation(state.propertyId, form); if (error) { update({ error, notice: null }); return 'blocked'; }
       if (!state.loaded || !context) { update({ error: 'Load the current property draft before saving.' }); return 'blocked'; }

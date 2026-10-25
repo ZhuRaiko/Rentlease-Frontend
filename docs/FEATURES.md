@@ -6,7 +6,7 @@ Status describes frontend implementation, not live runtime validation. Detailed 
 | --- | --- | --- |
 | Authentication & Profiles | IMPLEMENTED baseline and Auth event synchronization; RUNTIME-UNVERIFIED | [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) |
 | User Verification | Tier 2 submission/upload/metadata USER-REPORTED development-build PASS; Tier 2 rejected correction/incomplete-upload recovery, Tier 3 flow and shared fullscreen zoom IMPLEMENTED/AUTOMATED-TESTED, Android RUNTIME-UNVERIFIED | [User Verification](features/USER_VERIFICATION.md) |
-| Property & Listing Management | Phases 1-4 property/photo/listing-draft/publication IMPLEMENTED/AUTOMATED-TESTED; location/property UUID blocks new-property runtime saves; Android RUNTIME-UNVERIFIED. Lifecycle/360 DEFERRED | [Property & Listing Management](features/PROPERTY_LISTING_MANAGEMENT.md) |
+| Property & Listing Management | Phases 1-5 property/photo/listing-draft/publication/lifecycle IMPLEMENTED/AUTOMATED-TESTED; location/property UUID blocks new-property runtime saves; Android RUNTIME-UNVERIFIED. Landlord pause/reactivate/archive connected; tenancy/moderation transitions read-only; 360 DEFERRED | [Property & Listing Management](features/PROPERTY_LISTING_MANAGEMENT.md) |
 | Search & Discovery | PREVIEW UI; optional account-setup preferences and session-local editing IMPLEMENTED, Android RUNTIME-UNVERIFIED; backend search/recommendations/maps/GPS DEFERRED | [Routes and preview boundary](ROUTES.md#search--discovery-feature-states) |
 | Property Recommendations | Scaffolded | Not yet created |
 | Rental Price Estimation | PREVIEW UI; FastAPI requests/persistence DEFERRED | Not yet created |
