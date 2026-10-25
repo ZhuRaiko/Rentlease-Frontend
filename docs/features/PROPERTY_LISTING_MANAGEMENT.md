@@ -8,7 +8,7 @@ Manage landlord-owned physical properties, ordinary property media, later listin
 
 The current branch is `feature/property-listing-management`. Active Tier 1 Landlords may use physical-property setup; Tier 3 is not a creation prerequisite. The ordinary-photo frontend exposes signed-in owner management only. Backend policies also recognize Admin management, but this feature adds no Admin interface. Authentication owns the account/session snapshot; this feature revalidates identity/ownership and owns its local form/media workflows.
 
-Phases 1 and 2 are **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**. New app saves remain blocked by external location integration; ordinary photos require a real persisted property UUID. Phase 3 listing draft saves/loads are implemented behind the persisted-property prerequisite. Dashboard fixtures and publication/lifecycle screens remain PREVIEW; they are separate from a confirmed backend draft.
+Phases 1-3 are **IMPLEMENTED / AUTOMATED-TESTED**. The Phase 1 blocked-location Android path is **RUNTIME-VERIFIED** as user-reported; successful property, ordinary-photo and listing-draft persistence remain **RUNTIME-UNVERIFIED**. New app saves remain blocked by external location integration; ordinary photos require a real persisted property UUID. Phase 3 listing draft saves/loads are implemented behind the persisted-property prerequisite. Dashboard fixtures and publication/lifecycle screens remain PREVIEW; they are separate from a confirmed backend draft.
 
 ## Architecture
 
@@ -42,7 +42,7 @@ Tests: `tests/propertyCreation.test.ts`, `tests/propertyPhotos.test.ts`, `tests/
 
 ## Phase 1 - Physical Property Creation
 
-**IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**.
+**IMPLEMENTED / AUTOMATED-TESTED**. Blocked-location Android path: **RUNTIME-VERIFIED**. Successful physical-property persistence: **RUNTIME-UNVERIFIED**, pending separately owned MapTiler/location integration.
 
 Post -> A physical property -> propertySetup uses details/address/review/created steps. It collects physical type, structured city/barangay/address, private access instructions, bedrooms, bathrooms, optional floor area/floor number/total floors/max occupants and furnishing. Floor area is not automatically land area. Display labels are separate from backend identifiers:
 
@@ -60,7 +60,7 @@ The backend requires authenticated/active/Landlord/Tier 1, **not Tier 3**. An ex
 
 The service contract requires four distinct numbers: `exactLatitude`, `exactLongitude`, `publicLatitude`, `publicLongitude`. Incomplete local drafts retain null values. The future location workflow may supply confirmed exact and approved generalized public points through `provideConfirmedLocation(location, expectedAddressRevision)`. Address edits clear all four values and increment `locationRevision`; stale confirmations are ignored.
 
-There is no current production supplier of these values. Review remains available, while final creation is disabled with the non-error notice **"Confirm the property location before saving."** No coordinate derivation, hardcoded coordinate, exact-to-public substitution, manual latitude/longitude entry or Maps/GPS implementation is added in this branch. The existing shared MapTiler/geocoding service remains unchanged. Full Android property persistence is pending the separately owned location integration.
+There is no current production supplier of these values. Review remains available, while final creation is disabled with the non-error notice **"Confirm the property location before saving."** No coordinate derivation, hardcoded coordinate, exact-to-public substitution, manual latitude/longitude entry or Maps/GPS implementation is added in this branch. The existing shared MapTiler/geocoding service remains unchanged. Full Android property persistence is pending the separately owned location integration. The user verified that the property form and review screen are reachable, exact location/public map point remain awaiting confirmation, and Confirm and save property is disabled without coordinates. This verifies the blocked path only, not an RPC save.
 
 ### UUID, uncertainty and navigation
 
@@ -114,7 +114,7 @@ The Property ViewModel composes listingDraftWorkflow and listingDraftDependencie
 
 ### Local progress versus account draft
 
-A real propertyState.propertyId, nonblank title, nonblank description and positive monthly asking rent are required before account persistence. Before that boundary, Keep local progress retains the existing session-local snapshot and explicitly says it is not saved to the account. No placeholder title/description/rent/UUID is sent. Once minimum fields exist, the action is labeled Save listing draft to account and validates the remaining supported fields before using the RPC. Invalid optional values block the save rather than silently claiming local/backend success. Success wording follows the confirmed response and authoritative reload, not optimistic local status changes.
+A real propertyState.propertyId, nonblank title, nonblank description and positive monthly asking rent are required before account persistence. Before that boundary, Keep local progress retains session-local form fields and explicitly says it is not saved to the account. It does not update the confirmed savedDraft baseline; unsaved listing changes remain dirty on the dashboard and participate in the workspace exit guard. No placeholder title/description/rent/UUID is sent. Once minimum fields exist, the action is labeled Save listing draft to account and validates the remaining supported fields before using the RPC. Invalid optional values block the save rather than silently claiming local/backend success. Success wording follows the confirmed response and authoritative reload, not optimistic local status changes.
 
 The saved-property UUID remains the externally owned location prerequisite: new Android property creation is still blocked until confirmed exact/public points are supplied. Phase 3 does not implement Maps/GPS or add manual property-ID entry. No real app persistence is claimed from tests. Existing creation receipts can supply a known UUID; the dashboard exposes Edit account listing draft/Continue listing draft for that current property, not a new unrestricted listing browser.
 
@@ -199,9 +199,29 @@ Corrected behavior: **RUNTIME-UNVERIFIED AFTER FIX** until the user retests Andr
 
 No live backend action was performed and no ledger change was needed for that bugfix. Phase 3 was NOT STARTED at that point; its later implementation is documented above. See the [continuous implementation history](../implementation-reports/phases/PROPERTY_LISTING_MANAGEMENT_IMPLEMENTATION.md#runtime-bugfix---unsaved-workspace-exit-2026-10-24).
 
+## Phase 3 local-progress correction (2026-10-25)
+
+Keep local progress no longer marks the current listing fields as a confirmed saved baseline. Listing dirty state is computed from draft-versus-confirmed-baseline differences across the whole workspace, including the dashboard; no second draft store was added. Internal state-preserving transitions retain fields. An external exit after local progress now opens Stay/Leave: Stay keeps all local inputs and the current workspace; Leave runs the first requested destination once and restores the last confirmed baseline. Authoritative backend load/save still updates that baseline, so a newly confirmed listing is clean until edited again. No incomplete progress is automatically persisted.
+
+NavigationConfirmation accepts optional title/body, with existing shared defaults unchanged for other features. PropertyListingFlowView supplies "Leave Property & Listing Management?" and "You have unsaved property, photo, or listing changes. Stay to continue editing, or leave without saving." Buttons and Android Back-as-cancel behavior are unchanged.
+
+Three regression tests exercise the actual ViewModel/Flow: local progress -> dashboard -> external exit -> Stay/preserved fields -> Leave/one destination/baseline restoration; backend-confirmed clean state and a subsequent dirty edit; contextual copy plus shared defaults and Android cancellation. They initially failed before correction. Typecheck and full automated suite pass: **376 total / 376 passed / 0 failed / 0 skipped / 0 cancelled**; whitespace and documentation links pass. Corrected exit behavior is **RUNTIME-UNVERIFIED AFTER FIX** until Android retesting.
+
+The ledger now preserves the exact user-supplied historical save_listing_draft CREATE/REVOKE/GRANT SQL as external ChatGPT/Supabase evidence. Codex did not execute it or perform any live backend action. No Phase 4/lifecycle or teammate-owned feature was implemented.
+
 ## Runtime verification and known limitations
 
-Last documentation/source review: **2026-10-24**. Current bugfix validation is recorded above; historical phase evidence follows: Phase 1 typecheck and 310/310 tests passed; Phase 2 typecheck and 340/340 tests passed (30 new photo tests), zero failures/skips/cancellations; whitespace passed. These are prior implementation-run results, **not rerun in this documentation-only pass**. Baseline `a827827` plus uncommitted Phase 2 work is not a verified Phase 2 commit. Full phase Android acceptance remains **RUNTIME-UNVERIFIED**; the user-reported blocked-save PASS and unsaved-exit failure/fix are scoped above. Full app creation/photo persistence remains location-gated.
+Last documentation/source review: **2026-10-25**. Current bugfix validation is recorded above; historical phase evidence follows: Phase 1 typecheck and 310/310 tests passed; Phase 2 typecheck and 340/340 tests passed (30 new photo tests), zero failures/skips/cancellations; whitespace passed. These are prior implementation-run results, **not rerun in this documentation-only pass**. Baseline `a827827` plus uncommitted Phase 2 work is not a verified Phase 2 commit. The Phase 1 blocked-location Android path is **RUNTIME-VERIFIED**; successful property persistence, ordinary-photo workflow and listing-draft persistence remain **RUNTIME-UNVERIFIED** for the reasons below. The unsaved-exit correction still requires user Android re-verification. Full app creation/photo persistence remains location-gated.
+
+Current user-reported runtime scope:
+
+| Flow | Android status | Limit/reason |
+| --- | --- | --- |
+| Phase 1 blocked-location path | RUNTIME-VERIFIED | Property form/review reachable; exact/public points await confirmation; save disabled without coordinates |
+| Phase 1 successful property persistence | RUNTIME-UNVERIFIED | Pending separately owned MapTiler/location integration |
+| Phase 2 successful ordinary-photo workflow | RUNTIME-UNVERIFIED | Requires a real persisted property UUID; no upload/cover/order/delete acceptance claimed |
+| Phase 3 successful listing draft persistence | RUNTIME-UNVERIFIED | Requires a real persisted property UUID; no Android RPC-save acceptance claimed |
+| Corrected unsaved-exit behavior | RUNTIME-UNVERIFIED AFTER FIX | User Android re-verification required |
 
 Existing Expo compatibility drift remains: expo 57.0.30 expects ~57.0.31, expo-location 57.0.21 expects ~57.0.22, expo-notifications 57.0.23 expects ~57.0.24. No dependencies were changed. No new native dependency/rebuild was introduced for photos. Historical pre-final-refactor Android JavaScript/Hermes export (940 modules) was bundle validation only, not a final device/runtime test.
 

@@ -177,7 +177,7 @@ This statement applies only to the current documentation-governance phase. Histo
 
 ## Phase 3 - Listing draft persistence (recorded 2026-10-24)
 
-The following entries extend this existing ledger. External actions were supplied by the user with the Phase 3 request; their exact execution timestamps and full test payloads/DDL transcripts were not supplied. Recording dates do not prove execution dates. Codex performed only P3-01's read-only inspection, not the external writes/tests. No live save RPC or test-data mutation was executed by Codex in this phase.
+The following entries extend this existing ledger. External actions were supplied by the user with the Phase 3 request; their exact execution timestamps and full test payloads were not supplied. The original DDL was unavailable at initial recording; the user supplied the exact external CREATE/REVOKE/GRANT SQL on 2026-10-25, now preserved in P3-02 below. Recording dates do not prove execution dates. Codex performed only P3-01's read-only inspection, not the external writes/tests. No live save RPC or test-data mutation was executed by Codex in this phase.
 
 ### P3-01: Codex live draft contract inspection
 
@@ -204,7 +204,7 @@ select json_build_object('function',(select pg_get_functiondef(p.oid) from pg_pr
 - **Actor/tool:** external ChatGPT/Supabase integration, not Codex; user-confirmed.
 - **Environment/project:** live RentLease, `cxfsbwbwmwmgtqfonqth`.
 - **Classification:** EXTERNAL_BACKEND_CHANGE + FUNCTION_CHANGE.
-- **Target/action:** permanent creation of public.save_listing_draft with the contract below. Exact original CREATE FUNCTION/GRANT/REVOKE transaction text was not provided. The signature/security settings and function definition were confirmed as described in P3-01; this is not a fabricated executed DDL transcript.
+- **Target/action:** permanent creation of public.save_listing_draft with the contract below. Correction recorded 2026-10-25: the user has supplied the exact original CREATE OR REPLACE FUNCTION/REVOKE/GRANT SQL, preserved below as historical evidence of external ChatGPT/Supabase execution, not SQL executed by Codex. P3-01 remains the prior read-only inspection; the supplied SQL is not replayed.
 
 ```text
 save_listing_draft(
@@ -226,8 +226,173 @@ EXECUTE: authenticated yes; anon no; PUBLIC no
 - **Durable effect:** the live function and controlled EXECUTE permissions remain. **No direct INSERT/UPDATE/DELETE grant was added to listings.** SELECT remains available subject to RLS.
 - **Rollback/cleanup:** function creation was permanent, not undone by test rollback. No function removal requested/performed.
 - **Security/RLS:** explicit authenticated active Tier 1 Landlord, owned active property, fixed search_path, no Tier 3 requirement; user reports denied anon/PUBLIC execution. No authorization rule was moved to the frontend.
-- **Source-controlled backend file:** none supplied/found for this external function creation. Generated types/this ledger are not migrations or replay authorization. Obtain the original authorized DDL if exact migration provenance is needed.
+- **Source-controlled backend file:** none supplied/found for this external function creation. The exact original DDL is now retained in this ledger as user-supplied external evidence. No migration was added; generated types/this ledger are not migrations or authorization to replay SQL.
 - **Android/client runtime:** no Android save reported; RUNTIME-UNVERIFIED.
+
+#### Exact external SQL supplied 2026-10-25
+
+The following is the user's exact historical external ChatGPT/Supabase SQL. Codex recorded it only; it was not executed again and no migration was created. Original execution timestamp remains unavailable. The user additionally reports a subsequent contract recheck: SECURITY DEFINER; search_path=pg_catalog; authenticated EXECUTE=yes; anon/PUBLIC EXECUTE=no. Listings authenticated SELECT remains yes, INSERT/UPDATE/DELETE no. These are user-confirmed historical/current-contract assertions, not a new live inspection by Codex.
+
+```sql
+create or replace function public.save_listing_draft(
+  p_property_id uuid,
+  p_title text,
+  p_description text,
+  p_asking_rent_monthly numeric,
+  p_house_rules text default null,
+  p_rental_term public.rental_term_type default 'long_term',
+  p_security_deposit_months numeric default 1,
+  p_advance_rent_months numeric default 1,
+  p_minimum_stay_months smallint default null,
+  p_available_from date default null
+)
+returns table (
+  listing_id uuid,
+  listing_status public.listing_status,
+  completeness_score numeric,
+  created_at timestamptz,
+  updated_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $function$
+declare
+  v_user_id uuid := auth.uid();
+  v_listing public.listings%rowtype;
+begin
+  if v_user_id is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  if not public.is_tier1_verified(v_user_id) then
+    raise exception 'Tier 1 verified active account required' using errcode = '42501';
+  end if;
+
+  if not public.has_app_role('landlord'::public.app_role, v_user_id) then
+    raise exception 'Landlord role required' using errcode = '42501';
+  end if;
+
+  if p_property_id is null then
+    raise exception 'Property is required' using errcode = '22023';
+  end if;
+
+  if not exists (
+    select 1
+    from public.properties p
+    where p.id = p_property_id
+      and p.landlord_id = v_user_id
+      and p.is_active = true
+  ) then
+    raise exception 'Owned active property required' using errcode = '42501';
+  end if;
+
+  if nullif(pg_catalog.btrim(p_title), '') is null then
+    raise exception 'Listing title is required' using errcode = '22023';
+  end if;
+
+  if nullif(pg_catalog.btrim(p_description), '') is null then
+    raise exception 'Listing description is required' using errcode = '22023';
+  end if;
+
+  if p_asking_rent_monthly is null or p_asking_rent_monthly <= 0 then
+    raise exception 'Monthly asking rent must be greater than zero' using errcode = '22023';
+  end if;
+
+  if p_security_deposit_months is null or p_security_deposit_months < 0 then
+    raise exception 'Security deposit months must be zero or greater' using errcode = '22023';
+  end if;
+
+  if p_advance_rent_months is null or p_advance_rent_months < 0 then
+    raise exception 'Advance rent months must be zero or greater' using errcode = '22023';
+  end if;
+
+  if p_minimum_stay_months is not null and p_minimum_stay_months <= 0 then
+    raise exception 'Minimum stay months must be greater than zero when provided' using errcode = '22023';
+  end if;
+
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(p_property_id::text, 0)
+  );
+
+  select l.*
+  into v_listing
+  from public.listings l
+  where l.property_id = p_property_id
+    and l.landlord_id = v_user_id
+    and l.status = 'draft'::public.listing_status
+  order by l.created_at desc
+  limit 1
+  for update;
+
+  if v_listing.id is null then
+    insert into public.listings (
+      property_id,
+      landlord_id,
+      title,
+      description,
+      house_rules,
+      rental_term,
+      asking_rent_monthly,
+      security_deposit_months,
+      advance_rent_months,
+      minimum_stay_months,
+      available_from,
+      status
+    )
+    values (
+      p_property_id,
+      v_user_id,
+      pg_catalog.btrim(p_title),
+      pg_catalog.btrim(p_description),
+      nullif(pg_catalog.btrim(p_house_rules), ''),
+      p_rental_term,
+      p_asking_rent_monthly,
+      p_security_deposit_months,
+      p_advance_rent_months,
+      p_minimum_stay_months,
+      p_available_from,
+      'draft'::public.listing_status
+    )
+    returning * into v_listing;
+  else
+    update public.listings l
+    set title = pg_catalog.btrim(p_title),
+        description = pg_catalog.btrim(p_description),
+        house_rules = nullif(pg_catalog.btrim(p_house_rules), ''),
+        rental_term = p_rental_term,
+        asking_rent_monthly = p_asking_rent_monthly,
+        security_deposit_months = p_security_deposit_months,
+        advance_rent_months = p_advance_rent_months,
+        minimum_stay_months = p_minimum_stay_months,
+        available_from = p_available_from
+    where l.id = v_listing.id
+      and l.status = 'draft'::public.listing_status
+    returning l.* into v_listing;
+  end if;
+
+  return query
+  select
+    v_listing.id,
+    v_listing.status,
+    v_listing.completeness_score,
+    v_listing.created_at,
+    v_listing.updated_at;
+end;
+$function$;
+
+revoke all on function public.save_listing_draft(
+  uuid,text,text,numeric,text,public.rental_term_type,numeric,numeric,smallint,date
+) from public;
+
+revoke all on function public.save_listing_draft(
+  uuid,text,text,numeric,text,public.rental_term_type,numeric,numeric,smallint,date
+) from anon;
+
+grant execute on function public.save_listing_draft(
+  uuid,text,text,numeric,text,public.rental_term_type,numeric,numeric,smallint,date
+) to authenticated;
+```
 
 ### P3-03: External authenticated create/update rollback test
 
@@ -284,4 +449,9 @@ EXECUTE: authenticated yes; anon no; PUBLIC no
 
 ### Phase 3 frontend-pass boundary
 
-Codex performed the single read-only P3-01 SQL inspection and local/mocked tests; no live draft save, backend mutation, grant, function change or test-data creation was performed by Codex. The external permanent function in P3-02 is explicitly recorded, so this is not a claim that the overall Phase 3 backend contract was unchanged. Original external DDL/test payloads remain an evidence gap; do not invent them for PDF traceability. No source-controlled backend file was added.
+Codex performed the single read-only P3-01 SQL inspection and local/mocked tests; no live draft save, backend mutation, grant, function change or test-data creation was performed by Codex. The external permanent function in P3-02 is explicitly recorded, so this is not a claim that the overall Phase 3 backend contract was unchanged. The exact external DDL gap was resolved by the user-supplied SQL recorded 2026-10-25 in P3-02. Original test payloads/execution timestamps remain evidence gaps; do not invent them for PDF traceability. No source-controlled backend file was added.
+
+
+### Phase 3 correction-pass provenance (2026-10-25)
+
+Documentation provenance update only: the exact external function/privilege SQL is now included above. No live Supabase inspection, RPC, mutation, permission change or advisor action was performed in this correction pass. No new migration was created. The historical external permanent function change remains attributed to ChatGPT/Supabase; existing grants and RLS were not altered. No permanent live backend mutation was performed in this correction pass.

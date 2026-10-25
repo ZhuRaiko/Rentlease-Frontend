@@ -101,7 +101,7 @@ export function PropertyListingFlowView({
       <FeedbackNotice message={viewModel.listingDraftState.busy ? 'Checking or saving your listing draft...' : viewModel.listingDraftState.error} tone={viewModel.listingDraftState.busy ? 'info' : 'error'} />
       {viewModel.propertyState.propertyId && !viewModel.listingDraftState.busy && (viewModel.listingDraftState.error || viewModel.listingDraftState.uncertain) ? <ListingButton label={viewModel.listingDraftState.uncertain ? 'Load current backend draft to reconcile' : 'Retry loading listing draft'} tone="outline" onPress={() => void (viewModel.listingDraftState.uncertain ? viewModel.listingDraftPersistence.reconcile() : viewModel.listingDraftPersistence.load())} /> : null}
       <View style={styles.content}>{content}</View>
-      <NavigationConfirmation visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
+      <NavigationConfirmation title="Leave Property & Listing Management?" body="You have unsaved property, photo, or listing changes. Stay to continue editing, or leave without saving." visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
       <RentLeaseBottomNavigation
         active={viewModel.activeTab}
         onChat={() => viewModel.requestNavigation(onOpenChat)}

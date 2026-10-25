@@ -33,9 +33,9 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
     const req = (name: string) => {
       if (name === 'react') return hooks;
       if (name === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
-      if (name === 'react-native') return { StyleSheet: { create: (styles: any) => styles }, View: 'View', StatusBar: 'StatusBar' };
+      if (name === 'react-native') return { StyleSheet: { create: (styles: any) => styles }, View: 'View', Text: 'Text', Modal: 'Modal', StatusBar: 'StatusBar' };
       if (name.endsWith('/usePropertyListingViewModel')) return { usePropertyListingViewModel: (...args: any[]) => { current = realHook(...args); return current; } };
-      const presentation = ['FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView'];
+      const presentation = ['AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView'];
       const component = presentation.find(value => name.endsWith('/' + value));
       if (component) return { [component]: component };
       if (name.endsWith('/listingDraftDependencies')) return { listingDraftService: draftService };
@@ -58,6 +58,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
   flush();
   return {
     vm: () => current!, flush, writes: () => writes, destinations,
+    sharedDialog: (props: any) => load('src/shared/components/NavigationConfirmation.tsx').NavigationConfirmation(props),
     bottom: () => componentProps('RentLeaseBottomNavigation'), dialog: () => componentProps('NavigationConfirmation'),
     close: () => componentProps('CreateListingView').onClose(), hardwareBack: () => backAction?.(),
     async setup() { await current.propertyCreation.initialize(); flush(); await new Promise<void>(resolve => setImmediate(resolve)); flush(); current.navigate('propertySetup'); flush(); },
@@ -145,4 +146,34 @@ test('actual ViewModel saves valid listing details for the authoritative propert
 test('actual ViewModel restores an existing draft without changing the physical property reference', async () => {
   const backend = backendDraftService(true), h = mountProperty(backend.propertyId, backend.service); await h.setup();
   assert.equal(h.vm().draft.title, 'Loaded draft title'); assert.equal(h.vm().draft.askingRent, '12000'); assert.equal(h.vm().listingDraftState.listingId, backend.listingId); assert.equal(h.vm().propertyState.propertyId, backend.propertyId); assert.equal(backend.calls(), 0); h.unmount();
+});
+
+
+test('local-only listing remains guarded after dashboard: Stay retains fields, Leave restores baseline once', async () => {
+  const h = mountProperty(); await h.setup(); const baseline = { ...h.vm().draft };
+  assert.equal(h.vm().propertyCreation.dirty(), false);
+  h.vm().updateDraft('title', 'Local rental title'); h.vm().updateDraft('description', 'Local description'); h.vm().updateDraft('askingRent', '15000'); h.flush();
+  await h.vm().saveDraft(); h.flush(); assert.equal(h.vm().screen, 'dashboard'); assert.equal(h.vm().draft.title, 'Local rental title'); assert.equal(h.vm().listingDraftState.listingId, null);
+  h.bottom().onDiscover(); h.flush(); assert.equal(h.dialog().visible, true); assert.deepEqual(h.destinations, []);
+  h.dialog().onCancel(); h.flush(); assert.equal(h.vm().screen, 'dashboard'); assert.equal(h.vm().draft.description, 'Local description'); assert.equal(h.vm().draft.askingRent, '15000');
+  h.bottom().onDiscover(); h.bottom().onChat(); h.flush(); h.dialog().onConfirm(); h.dialog().onConfirm(); h.flush();
+  assert.deepEqual(h.destinations, ['Discover']); assert.deepEqual(h.vm().draft, baseline); assert.equal(h.writes(), 0); h.unmount();
+});
+test('confirmed backend draft stays clean on dashboard until edited again', async () => {
+  const backend = backendDraftService(), h = mountProperty(backend.propertyId, backend.service); await h.setup();
+  h.vm().updateDraft('title', 'Saved title'); h.vm().updateDraft('description', 'Saved description'); h.vm().updateDraft('askingRent', '12000'); h.flush();
+  await h.vm().saveDraft(); h.flush(); h.bottom().onDiscover(); h.flush(); assert.equal(h.dialog().visible, false); assert.deepEqual(h.destinations, ['Discover']);
+  h.vm().updateDraft('title', 'Unsaved edit on dashboard'); h.flush(); h.bottom().onChat(); h.flush(); assert.equal(h.dialog().visible, true);
+  h.dialog().onCancel(); h.flush(); assert.equal(h.vm().draft.title, 'Unsaved edit on dashboard'); assert.equal(backend.calls(), 1); h.unmount();
+});
+test('Property Flow supplies contextual confirmation copy without changing shared defaults or Android cancel', () => {
+  const h = mountProperty();
+  assert.equal(h.dialog().title, 'Leave Property & Listing Management?');
+  assert.equal(h.dialog().body, 'You have unsaved property, photo, or listing changes. Stay to continue editing, or leave without saving.');
+  let cancels = 0;
+  const render = (overrides: any = {}) => h.sharedDialog({ visible: true, onCancel: () => cancels++, onConfirm: () => {}, ...overrides });
+  const text = (node: any): string[] => node?.type === 'Text' ? [node.props.children] : (Array.isArray(node?.props?.children) ? node.props.children : [node?.props?.children]).filter(Boolean).flatMap(text);
+  const defaults = render(); assert.deepEqual(text(defaults), ['Leave this preview?', 'You have unsaved changes. Stay to continue editing, or leave without saving.']);
+  const contextual = render({ title: h.dialog().title, body: h.dialog().body }); assert.equal(text(contextual)[0], h.dialog().title);
+  contextual.props.onRequestClose(); assert.equal(cancels, 1); h.unmount();
 });

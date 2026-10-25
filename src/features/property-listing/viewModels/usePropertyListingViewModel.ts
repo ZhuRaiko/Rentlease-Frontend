@@ -7,7 +7,7 @@ import { createPropertyCreationWorkflow } from './propertyCreationWorkflow';
 import { propertyCreationService } from '../services/propertyCreationDependencies';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigationConfirmation';
-import { isListingEditor, leavesListingEditor, listingActiveTab } from '../models/listingNavigation';
+import { leavesListingEditor, listingActiveTab } from '../models/listingNavigation';
 
 import {
   emptyListingDraft,
@@ -58,7 +58,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const operationBusy = () => !active.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy;
   const displayDraft = propertyState.propertyId ? { ...draft, photoCount: photoState.photos.length, coverPhotoIndex: Math.max(0, photoState.photos.findIndex(p => p.is_cover)) } : draft;
-  const navigation = useNavigationConfirmation(() => isListingEditor(screen) && JSON.stringify(draft) !== JSON.stringify(savedDraft.current) || propertyCreation.dirty() || propertyPhotos.dirty());
+  const listingDraftDirty = JSON.stringify(draft) !== JSON.stringify(savedDraft.current);
+  const navigation = useNavigationConfirmation(() => listingDraftDirty || propertyCreation.dirty() || propertyPhotos.dirty());
   const [listing, setListing] = useState<PropertyListingSummary>(initialPreviewListing);
   const [notice, setNotice] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -190,7 +191,6 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     const outcome = await listingDraftPersistence.save(draft);
     if (!active.current) return;
     if (outcome === 'blocked') return;
-    if (outcome === 'local') savedDraft.current = draft;
     syncListingSummary('draft');
     setHistory([]);
     setScreen('dashboard');

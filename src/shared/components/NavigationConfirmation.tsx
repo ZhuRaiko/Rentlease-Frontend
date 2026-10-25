@@ -5,11 +5,23 @@ import { spacing } from '../theme/spacing';
 import { radius } from '../theme/radius';
 import { typography } from '../theme/typography';
 
-export function NavigationConfirmation({ visible, onCancel, onConfirm }: { visible: boolean; onCancel: () => void; onConfirm: () => void }) {
+interface NavigationConfirmationProps {
+  visible: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  title?: string;
+  body?: string;
+}
+
+export function NavigationConfirmation({
+  visible, onCancel, onConfirm,
+  title = 'Leave this preview?',
+  body = 'You have unsaved changes. Stay to continue editing, or leave without saving.',
+}: NavigationConfirmationProps) {
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
     <View style={styles.backdrop}><View accessibilityViewIsModal style={styles.dialog}>
-      <Text accessibilityRole="header" style={styles.title}>Leave this preview?</Text>
-      <Text style={styles.body}>You have unsaved changes. Stay to continue editing, or leave without saving.</Text>
+      <Text accessibilityRole="header" style={styles.title}>{title}</Text>
+      <Text style={styles.body}>{body}</Text>
       <AppButton label="Stay here" onPress={onCancel} />
       <AppButton label="Leave without saving" onPress={onConfirm} variant="danger" />
     </View></View>

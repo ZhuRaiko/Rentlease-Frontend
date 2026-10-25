@@ -8,7 +8,7 @@ Authoritative current behavior: [PROPERTY_LISTING_MANAGEMENT.md](../../features/
 
 | Phase | Status | Blocker/boundary |
 | --- | --- | --- |
-| Phase 1 - Physical property creation | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Teammate-owned location integration for actual app save |
+| Phase 1 - Physical property creation | IMPLEMENTED / AUTOMATED-TESTED; blocked-location Android path RUNTIME-VERIFIED; successful save RUNTIME-UNVERIFIED | Teammate-owned location integration for actual app save |
 | Phase 2 - Ordinary property photos | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Actual saved property UUID is required for Android runtime upload |
 | Phase 3 - Listing draft persistence | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Persisted property UUID/location prerequisite blocks new-property Android save |
 | Phase 4 - Publication workflow | NOT STARTED | Requires exact publication/eligibility/backend enforcement contract |
@@ -186,7 +186,7 @@ A durable account/property pending marker precedes RPC issuance. Concurrent taps
 
 ### Backend interaction and external changes
 
-[Ledger Phase 3](../database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md#phase-3---listing-draft-persistence-recorded-2026-10-24) separates Codex's one read-only contract/grant/policy SELECT from external permanent function creation, rollback create/update reuse, foreign/inactive-property denials and advisor findings. External test listing a91d4de0-af56-4cbb-bfc9-a431591f605e did not persist after rollback; reported listings count was zero. Existing inactive Phase 1 fixture remains as previously recorded. No broad listings grants were added. Exact original external DDL/test payload transcripts were not supplied and are not invented. No source-controlled backend migration was created.
+[Ledger Phase 3](../database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md#phase-3---listing-draft-persistence-recorded-2026-10-24) separates Codex's one read-only contract/grant/policy SELECT from external permanent function creation, rollback create/update reuse, foreign/inactive-property denials and advisor findings. External test listing a91d4de0-af56-4cbb-bfc9-a431591f605e did not persist after rollback; reported listings count was zero. Existing inactive Phase 1 fixture remains as previously recorded. No broad listings grants were added. The exact original external DDL was initially unavailable and was supplied on 2026-10-25; it is now preserved in ledger P3-02. Original test payload transcripts remain unavailable and are not invented. No source-controlled backend migration was created.
 
 Codex performed no live save RPC, backend mutation or test-data creation in this phase. The external permanent FUNCTION_CHANGE is explicitly recorded; it would be inaccurate to describe the overall backend phase as having no permanent change. RLS and the RPC checks remain authoritative. The controlled authenticated SECURITY DEFINER advisory does not justify direct table writes.
 
@@ -203,3 +203,32 @@ Android listing persistence is **RUNTIME-UNVERIFIED - blocked by persisted-prope
 All seven teammate-owned features remain untouched: XGBoost, GPS proximity, MapTiler/geocoding, OpenStreetMap nearby places, content-based recommendations, NLP word cloud and 360. No publication, property-specific Tier 3 publication enforcement, lifecycle transition, one-active-listing rule, moderation or publication completeness policy was implemented. The existing local publication preview remains labeled preview-only. No commit, push or merge occurred.
 
 At Phase 3 start the working tree already contained the uncommitted exit-guard bugfix (creation/photo workflow discard helpers, live predicate/shared hook, ViewModel mounted checks, tests and the two feature docs). That work was preserved and extended rather than reset. Backend ledger is updated for actual read-only and user-reported external evidence; no separate Phase 3 report file was created.
+
+
+## Phase 3 correction - local progress, modal copy and provenance (2026-10-25)
+
+Scope: small Phase 3 correction only. No Phase 4/publication/lifecycle backend work or teammate-owned integration. No live Supabase action or mutation occurred; no SQL was replayed and no migration was added.
+
+Files modified: src/features/property-listing/viewModels/usePropertyListingViewModel.ts; src/shared/components/NavigationConfirmation.tsx; src/features/property-listing/views/PropertyListingFlowView.tsx; tests/propertyExitGuard.test.ts; docs/features/PROPERTY_LISTING_MANAGEMENT.md; this implementation history; and docs/implementation-reports/database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md. No other application/service/backend behavior was changed.
+
+Root cause: local save assigned savedDraft.current=draft even though progress was not persisted, and listing dirty state was gated by isListingEditor(screen), hiding differences on the dashboard. The local outcome no longer changes the confirmed baseline, and the navigation predicate includes draft-versus-baseline differences regardless of screen. Existing onConfirmed(row) continues to establish a clean authoritative baseline. No second draft store or incomplete automatic save was introduced.
+
+Behavior: valid local listing fields without a saved property -> Keep local progress -> dashboard retains fields -> external exit prompts. Stay preserves fields/workspace with no destination action; Leave restores the last confirmed baseline and executes the original destination once. Internal transitions preserve state. The existing synchronous property dirty and Android Back regressions remain intact.
+
+NavigationConfirmation now accepts optional title/body with unchanged defaults for other consumers. P&LM supplies its contextual Property & Listing Management title and unsaved property/photo/listing explanation. The existing buttons and onRequestClose-as-cancel are preserved; Search & Discovery was not modified.
+
+Three new actual ViewModel/Flow/component-copy regression tests failed before the fix and pass afterward. They cover local-only dashboard exit/Stay/Leave/baseline restoration, authoritative backend-confirmed cleanliness followed by an edited draft, and contextual/default copy with Android cancellation. Validation: npm run typecheck PASS; npm test **376 total, 376 passed, 0 failed, 0 skipped, 0 cancelled**; git diff --check PASS; existing local Markdown-link/anchor validation PASS. No new dependency.
+
+Ledger correction: user supplied the exact historical external save_listing_draft CREATE OR REPLACE FUNCTION, PUBLIC/anon REVOKE and authenticated EXECUTE GRANT SQL. It is preserved in P3-02 as external ChatGPT/Supabase evidence, with a dated correction rather than pretending Codex ran it. The user reports a subsequent contract recheck: SECURITY DEFINER, pg_catalog search_path, authenticated EXECUTE only; listings authenticated SELECT only. Codex performed no live recheck or permission change. Original external execution timestamps/test payloads still remain unavailable where not supplied.
+
+Runtime status is deliberately split:
+
+- Phase 1 blocked-location Android path: **RUNTIME-VERIFIED**, user-reported form/review reachability, exact/public points awaiting confirmation and disabled Confirm and save property.
+- Phase 1 successful physical-property persistence: **RUNTIME-UNVERIFIED**, pending separately owned MapTiler/location integration.
+- Phase 2 successful ordinary-photo workflow: **RUNTIME-UNVERIFIED**, requires a real persisted property UUID; upload/cover/order/delete are not claimed tested on Android.
+- Phase 3 successful listing draft persistence: **RUNTIME-UNVERIFIED**, requires a real persisted property UUID; no Android save_listing_draft persistence acceptance is claimed.
+- This corrected local-only exit behavior: **RUNTIME-UNVERIFIED AFTER FIX** until the user retests.
+
+Manual retest: keep incomplete/local-only listing fields, return to dashboard, then attempt Discover/Chat/Tenancy/Close or root Back. Stay and Android Back on the confirmation must preserve inputs; Leave must execute only the first destination and discard local changes. After a real backend confirmation (when the property prerequisite is supplied), an unchanged draft should exit without a prompt, while subsequent edits must prompt. No successful property/photo/listing persistence is inferred from this local-only test.
+
+No permanent live backend mutation was performed in this correction pass. Phase 4 remains NOT STARTED; none of the seven teammate-owned features was implemented. No report file, commit, push or merge was created.
