@@ -166,6 +166,26 @@ test('confirmed backend draft stays clean on dashboard until edited again', asyn
   h.vm().updateDraft('title', 'Unsaved edit on dashboard'); h.flush(); h.bottom().onChat(); h.flush(); assert.equal(h.dialog().visible, true);
   h.dialog().onCancel(); h.flush(); assert.equal(h.vm().draft.title, 'Unsaved edit on dashboard'); assert.equal(backend.calls(), 1); h.unmount();
 });
+test('publication preview does not mark unsaved backend-draft edits as confirmed', async () => {
+  const backend = backendDraftService(), h = mountProperty(backend.propertyId, backend.service); await h.setup();
+  h.vm().updateDraft('title', 'Saved title'); h.vm().updateDraft('description', 'Saved description'); h.vm().updateDraft('askingRent', '12000'); h.flush();
+  await h.vm().saveDraft(); h.flush();
+  h.vm().updateDraft('title', 'Unsaved publication edit'); h.flush(); h.vm().confirmPublish(); h.flush();
+  h.bottom().onDiscover(); h.flush(); assert.equal(h.dialog().visible, true); assert.deepEqual(h.destinations, []);
+  h.dialog().onCancel(); h.flush(); assert.equal(h.vm().draft.title, 'Unsaved publication edit');
+  h.bottom().onDiscover(); h.flush(); h.dialog().onConfirm(); h.flush();
+  assert.deepEqual(h.destinations, ['Discover']); assert.equal(h.vm().draft.title, 'Saved title'); assert.equal(backend.calls(), 1); h.unmount();
+});
+test('Save local changes does not mark unsaved backend-draft edits as confirmed', async () => {
+  const backend = backendDraftService(), h = mountProperty(backend.propertyId, backend.service); await h.setup();
+  h.vm().updateDraft('title', 'Saved title'); h.vm().updateDraft('description', 'Saved description'); h.vm().updateDraft('askingRent', '12000'); h.flush();
+  await h.vm().saveDraft(); h.flush();
+  h.vm().updateDraft('title', 'Unsaved management edit'); h.flush(); h.vm().finishEdit(); h.flush();
+  h.bottom().onChat(); h.flush(); assert.equal(h.dialog().visible, true); assert.deepEqual(h.destinations, []);
+  h.dialog().onCancel(); h.flush(); assert.equal(h.vm().draft.title, 'Unsaved management edit');
+  h.bottom().onChat(); h.flush(); h.dialog().onConfirm(); h.flush();
+  assert.deepEqual(h.destinations, ['Chat']); assert.equal(h.vm().draft.title, 'Saved title'); assert.equal(backend.calls(), 1); h.unmount();
+});
 test('Property Flow supplies contextual confirmation copy without changing shared defaults or Android cancel', () => {
   const h = mountProperty();
   assert.equal(h.dialog().title, 'Leave Property & Listing Management?');

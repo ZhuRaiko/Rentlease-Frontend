@@ -232,3 +232,10 @@ Runtime status is deliberately split:
 Manual retest: keep incomplete/local-only listing fields, return to dashboard, then attempt Discover/Chat/Tenancy/Close or root Back. Stay and Android Back on the confirmation must preserve inputs; Leave must execute only the first destination and discard local changes. After a real backend confirmation (when the property prerequisite is supplied), an unchanged draft should exit without a prompt, while subsequent edits must prompt. No successful property/photo/listing persistence is inferred from this local-only test.
 
 No permanent live backend mutation was performed in this correction pass. Phase 4 remains NOT STARTED; none of the seven teammate-owned features was implemented. No report file, commit, push or merge was created.
+
+
+### Final Phase 3 correction patch (2026-10-25)
+
+Applied the user's phase3_final_correction.patch to usePropertyListingViewModel.ts and propertyExitGuard.test.ts: removed savedDraft.current=draft from confirmPublish and finishEdit. These local preview actions no longer hide unsaved listing edits from the workspace-exit guard. The two supplied regressions failed before the fix; afterward Stay preserves edits, Leave restores the last backend-confirmed values and the originally requested destination executes once, with no extra backend save.
+
+Updated this existing history and PROPERTY_LISTING_MANAGEMENT.md; no new report was created. npm run typecheck PASS; npm test **378 total, 378 passed, 0 failed, 0 skipped, 0 cancelled**; git diff --check and local documentation-link validation PASS. Existing tests and Phase 1/2/3 behavior remain preserved. Android exit behavior is RUNTIME-UNVERIFIED AFTER FIX; property/photo/listing persistence runtime dependencies remain unchanged. No live Supabase action, backend mutation, Phase 4/lifecycle implementation or teammate-owned feature was performed. Backend ledger deliberately unchanged. No commit, push or merge occurred.

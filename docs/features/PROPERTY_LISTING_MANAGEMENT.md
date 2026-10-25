@@ -248,3 +248,10 @@ All future phases must update:
 Markdown is the traceable source material for later thesis implementation PDFs; no PDF is generated here. For **every phase**, maintain a concise record of frontend files added/modified; backend tables/RPCs/Storage used; exact permanent SQL/backend changes (or an explicit no-permanent-mutation statement); tests performed; truthful runtime status; unresolved/deferred dependencies; security/RLS validation with actor/provenance; and links to the phase section in the continuous implementation history and relevant backend-ledger entries.
 
 Keep behavior current here, phase evidence in the [implementation history/roadmap](../implementation-reports/phases/PROPERTY_LISTING_MANAGEMENT_IMPLEMENTATION.md#implementation-pdf-traceability), and exact backend actions/effects in the linked ledger. Missing historical SQL/receipts must stay explicitly unavailable until originals are supplied; do not fabricate evidence for a PDF. External backend tests are not Codex or Android runtime success.
+
+
+### Final Phase 3 baseline correction (2026-10-25)
+
+The supplied phase3_final_correction.patch was applied semantically: confirmPublish and finishEdit no longer assign current local listing fields to savedDraft.current. Publication preview and Save local changes remain local presentation actions, so edited fields must still prompt on a later external workspace exit. Stay retains edits; Leave restores the last confirmed listing values and executes the requested destination once. Neither action creates a backend confirmation or adds a save/publication RPC call.
+
+Two additional actual ViewModel/Flow regressions initially failed and now pass: unsaved edits after publication preview and after local management edits remain guarded, and confirmed Leave restores the backend-saved title without another backend save. Validation: npm run typecheck PASS; npm test **378 passed, 0 failed, 0 skipped, 0 cancelled**; git diff --check PASS; documentation links PASS. Corrected behavior remains **RUNTIME-UNVERIFIED AFTER FIX** pending user Android re-verification. No live backend action, ledger change or Phase 4/lifecycle implementation occurred.

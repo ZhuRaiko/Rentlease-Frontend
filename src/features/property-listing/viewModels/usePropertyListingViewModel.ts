@@ -211,7 +211,6 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const confirmPublish = () => {
-    savedDraft.current = draft;
     syncListingSummary('published');
     setHistory([]);
     setScreen('published');
@@ -239,7 +238,6 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const finishEdit = () => {
-    savedDraft.current = draft;
     syncListingSummary(listing.status);
     setHistory([]);
     setScreen('management');
