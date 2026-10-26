@@ -6,9 +6,9 @@ Manage landlord-owned physical properties, ordinary property media, later listin
 
 ## Scope and actor ownership
 
-The current branch is `feature/property-listing-management`. Active Tier 1 Landlords may use physical-property setup; Tier 3 is not a creation prerequisite. The ordinary-photo frontend exposes signed-in owner management only. Backend policies also recognize Admin management, but this feature adds no Admin interface. Authentication owns the account/session snapshot; this feature revalidates identity/ownership and owns its local form/media workflows.
+Phases 1-5 were implemented on feature/property-listing-management. The current exact-location integration branch is feature/maptiler-property-location (baseline 4fa955b). Active Tier 1 Landlords may use physical-property setup; Tier 3 is not a creation prerequisite. The ordinary-photo frontend exposes signed-in owner management only. Backend policies also recognize Admin management, but this feature adds no Admin interface. Authentication owns the account/session snapshot; this feature revalidates identity/ownership and owns its local form/media workflows.
 
-Phases 1-5 are **IMPLEMENTED / AUTOMATED-TESTED**. The Phase 1 blocked-location Android path is **RUNTIME-VERIFIED** as user-reported; successful property, ordinary-photo and listing-draft persistence remain **RUNTIME-UNVERIFIED**. New app saves remain blocked by external location integration; ordinary photos require a real persisted property UUID. Phase 3 listing draft saves/loads are implemented behind the persisted-property prerequisite. Dashboard fixtures and sample publication/lifecycle screens remain PREVIEW. Real saved drafts have explicit RPC publication and a separate backend-confirmed status screen with landlord pause/reactivate/archive controls.
+Phases 1-5 are **IMPLEMENTED / AUTOMATED-TESTED**. The pre-map Phase 1 blocked-location Android path was **RUNTIME-VERIFIED** as user-reported; the newly integrated map screens remain **Android RUNTIME-UNVERIFIED**; successful property, ordinary-photo and listing-draft persistence remain **RUNTIME-UNVERIFIED**. New app saves remain blocked by the public-location privacy decision; ordinary photos require a real persisted property UUID. Phase 3 listing draft saves/loads are implemented behind the persisted-property prerequisite. Dashboard fixtures and sample publication/lifecycle screens remain PREVIEW. Real saved drafts have explicit RPC publication and a separate backend-confirmed status screen with landlord pause/reactivate/archive controls.
 
 ## Architecture
 
@@ -42,7 +42,7 @@ Tests: `tests/propertyCreation.test.ts`, `tests/propertyPhotos.test.ts`, `tests/
 
 ## Phase 1 - Physical Property Creation
 
-**IMPLEMENTED / AUTOMATED-TESTED**. Blocked-location Android path: **RUNTIME-VERIFIED**. Successful physical-property persistence: **RUNTIME-UNVERIFIED**, pending separately owned MapTiler/location integration.
+**IMPLEMENTED / AUTOMATED-TESTED**. Blocked-location Android path: **RUNTIME-VERIFIED**. Successful physical-property persistence: **RUNTIME-UNVERIFIED**, blocked by the approved public-point policy dependency. Exact-only MapTiler/MapLibre integration is documented below.
 
 Post -> A physical property -> propertySetup uses details/address/review/created steps. It collects physical type, structured city/barangay/address, private access instructions, bedrooms, bathrooms, optional floor area/floor number/total floors/max occupants and furnishing. Floor area is not automatically land area. Display labels are separate from backend identifiers:
 
@@ -60,7 +60,7 @@ The backend requires authenticated/active/Landlord/Tier 1, **not Tier 3**. An ex
 
 The service contract requires four distinct numbers: `exactLatitude`, `exactLongitude`, `publicLatitude`, `publicLongitude`. Incomplete local drafts retain null values. The future location workflow may supply confirmed exact and approved generalized public points through `provideConfirmedLocation(location, expectedAddressRevision)`. Address edits clear all four values and increment `locationRevision`; stale confirmations are ignored.
 
-There is no current production supplier of these values. Review remains available, while final creation is disabled with the non-error notice **"Confirm the property location before saving."** No coordinate derivation, hardcoded coordinate, exact-to-public substitution, manual latitude/longitude entry or Maps/GPS implementation is added in this branch. The existing shared MapTiler/geocoding service remains unchanged. Full Android property persistence is pending the separately owned location integration. The user verified that the property form and review screen are reachable, exact location/public map point remain awaiting confirmation, and Confirm and save property is disabled without coordinates. This verifies the blocked path only, not an RPC save.
+The dedicated location workflow now retains a real confirmed exact pin locally for the matching address revision. It does not provide a complete four-coordinate result: approved public-point policy remains unresolved. Review remains available, while final creation is disabled with the non-error notice **"Confirm the property location before saving."** No coordinate derivation, hardcoded coordinate, exact-to-public substitution, manual latitude/longitude entry or device GPS was added. The existing geocoder is hardened and reused; full Android property persistence stays blocked by public-location privacy policy. The user verified that the property form and review screen are reachable, exact location/public map point remain awaiting confirmation, and Confirm and save property is disabled without coordinates. This verifies the blocked path only, not an RPC save.
 
 ### UUID, uncertainty and navigation
 
@@ -170,13 +170,13 @@ Structural generated types do not prove grants/RLS or runtime authorization. Pri
 6. NLP Review Word Cloud Summarizer.
 7. 360 feature.
 
-This branch may expose clean integration boundaries but must not duplicate or take ownership of these features. Ordinary photos do not constitute 360 support.
+These feature boundaries remain in place. The explicit 2026-10-26 integration request authorizes only MapTiler property-address search and MapLibre exact-pin confirmation in this feature. It does not implement device GPS/discovery, nearby places, ML/recommendation/NLP/360 or another MapTiler client. Ordinary photos do not constitute 360 support.
 
 ## Planned Property & Listing phases
 
 | Phase | Current boundary |
 | --- | --- |
-| Phase 1 - physical property creation foundation | Implemented/automated-tested; Android persistence pending location integration |
+| Phase 1 - physical property creation foundation | Implemented/automated-tested; Android persistence blocked by public-location privacy policy |
 | Phase 2 - ordinary property photos | Implemented/automated-tested; runtime requires saved UUID |
 | Phase 3 - listing draft persistence | Implemented/automated-tested; Android runtime blocked by persisted-property prerequisite |
 | Phase 4 - publication workflow | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED |
@@ -218,7 +218,7 @@ Current user-reported runtime scope:
 | Flow | Android status | Limit/reason |
 | --- | --- | --- |
 | Phase 1 blocked-location path | RUNTIME-VERIFIED | Property form/review reachable; exact/public points await confirmation; save disabled without coordinates |
-| Phase 1 successful property persistence | RUNTIME-UNVERIFIED | Pending separately owned MapTiler/location integration |
+| Phase 1 successful property persistence | RUNTIME-UNVERIFIED | Public-location privacy policy pending |
 | Phase 2 successful ordinary-photo workflow | RUNTIME-UNVERIFIED | Requires a real persisted property UUID; no upload/cover/order/delete acceptance claimed |
 | Phase 3 successful listing draft persistence | RUNTIME-UNVERIFIED | Requires a real persisted property UUID; no Android RPC-save acceptance claimed |
 | Corrected unsaved-exit behavior | RUNTIME-UNVERIFIED AFTER FIX | User Android re-verification required |
@@ -312,3 +312,36 @@ Automated evidence: npm run typecheck PASS; npm test **480 total / 480 passed / 
 Android checks after the separately owned location integration permits normal saved-property/listing creation: publish -> request Pause -> Cancel/Back (no write) -> confirm Paused -> Reactivate (Published, original publication time retained, paused time cleared) -> Archive (retained record/photos, no further controls). Reopen paused/rented/archived/removed and confirm no replacement draft. Test active-tenancy and other backend denials, unsaved/uncertain draft/publication exclusion, rapid taps, network interruption before/after RPC, explicit reconciliation/restart, account switching, Back/Stay/Leave and large text on narrow screens. No actual Android lifecycle success is claimed.
 
 Backend evidence is in the [Phase 5 ledger](../implementation-reports/database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md#phase-5---listing-lifecycle-2026-10-26). External SQL Editor changes and rollback/denial tests are attributed separately from Codex's read-only definition/privilege inspection. Active-tenancy denial is **CONTRACT-VERIFIED / NOT INDEPENDENTLY ROLLBACK-TESTED**. No permanent live backend mutation was performed in this phase by Codex. All seven teammate-owned integrations remain untouched; normal new-property runtime remains location-gated.
+
+
+## MapTiler and MapLibre exact property confirmation (2026-10-26)
+
+- MapTiler geocoding: **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**.
+- MapLibre property map: **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**.
+- Exact property pin: **IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED**.
+- Public privacy point: **DEFERRED - POLICY DECISION REQUIRED**.
+- Successful physical-property save through the normal Android path: **BLOCKED by public-location privacy policy**.
+
+Scope: physical-property address confirmation only. This extends Phase 1; ordinary photos, listing draft/publication/lifecycle, Admin and verification behavior/contracts are unchanged. The existing feature document, history and ledger remain the record set; no new per-phase document was created.
+
+Flow: address step -> Find and confirm location -> MapTiler candidates -> explicitly select one -> MapLibre map -> pan/zoom, tap or drag pin -> Confirm exact location. No first-result auto-selection. Empty search and safe network/configuration/map errors preserve the form. Review displays Exact location: Confirmed on map and Public map point: Awaiting approved privacy strategy. Raw coordinates are not displayed.
+
+Architecture/source: models/PropertyLocationConfirmation.ts owns pure ExactPropertyPoint validation, longitude-first conversion and query building. services/propertyLocationService.ts and propertyLocationDependencies.ts reuse shared geocodeAddress and getMapTilerStyleUrl (streets-v2), without Supabase or GPS. viewModels/propertyLocationWorkflow.ts owns query/candidates/working and confirmed points, style URL, abort/revision/generation, map-ready/error/cancellation and cleanup. usePropertyListingViewModel composes it; PropertySetupView binds actions; PropertyLocationMapView receives ordinary props and owns only rendering. No duplicate geocoder/config, navigation library or state manager.
+
+The shared geocoder trims/rejects short queries, requests country=ph, clamps limit to 1..10 (feature uses 5), validates unknown JSON/features/IDs/labels/finite geographic ranges, maps center [longitude, latitude] explicitly and exposes safe errors/cancellation. Queries exclude accessInstructions. No API-key, address or coordinate logging was added. Tests use synthetic fixtures and mocked HTTP; no live address/key request was executed by Codex.
+
+Native renderer: @maplibre/maplibre-react-native **11.5.0**, exact dependency and real lockfile installed through Expo; app.json includes its plugin, preserving owner rentlease-organization and existing EAS project ID. Uses v11 Map, Camera initialViewState center/zoom, ViewAnnotation lngLat and event.nativeEvent.lngLat for tap/drag. Domain points remain {latitude, longitude}; renderer uses [longitude, latitude]. Attribution stays enabled with visible MapTiler/OpenStreetMap credits. The map sits outside the wizard ScrollView to avoid competing with map gestures; its footer scrolls for large text.
+
+A fresh native development/EAS build is required; stock Expo Go cannot validate this renderer. Config/plugin introspection passed without generating android/ or ios/. No native/EAS build was executed. EXPO_PUBLIC_MAPTILER_API_KEY remains the single config input. The current local environment exported EXPO_PUBLIC_MAPTILER_KEY instead; no private values were printed/changed. Configure the expected variable before runtime testing. Missing configuration produces a safe error, not fake coordinates.
+
+Safety: address edits synchronously invalidate state through the existing creation-workflow subscription before React rerenders. Opening captures locationRevision; search and native map callbacks carry generation checks. New searches abort old requests; cancel/close/dispose/new-setup/address changes reject late responses. Root account-keyed workspace unmounts dispose the location workflow; no Auth calls were added. Cancel preserves prior confirmation only within the same address context; leaving property setup clears location state. Internal address/review navigation preserves a matching exact point. Confirm requires a valid point and loaded map.
+
+Privacy/save boundary: confirmed exact points live only in the dedicated workflow for the current setup/revision. It never calls provideConfirmedLocation. DraftProperty coordinates and the required service/RPC contract remain unchanged; all four coordinates are still required. No rounding, jitter, centroid, candidate-copy public point, GPS substitute or exact-to-public copy exists. The complete-location boundary and hasConfirmedPropertyLocation validation are intact. Legacy confirmPin/pinConfirmed/draft.address/Figma state remains separate. No location is persisted/uploaded by this exact-only flow.
+
+Verification date 2026-10-26; baseline 4fa955b plus uncommitted integration, not a runtime-verified commit. Typecheck PASS; **536 tests / 536 passed / 0 failed / 0 skipped / 0 cancelled**. Tests cover geocoding, coordinate order, workflow selection/readiness/revisions/native callbacks/cancellation, actual renderer event wiring, actual ViewModel synchronous invalidation/disposal and exact-only blocked save. The historical no-Maps-ownership assertion was narrowed to keep API work out of propertyCreationWorkflow/Views while permitting this authorized dedicated integration. Existing Phase 1-5 regressions pass.
+
+Expo install --check reports pre-existing patch drift: expo 57.0.30 expects ~57.0.31; expo-location 57.0.21 expects ~57.0.22; expo-notifications 57.0.23 expects ~57.0.24. No unrelated updates were applied. Native rendering/gestures/attribution and live MapTiler requests still require Android testing; mocks/introspection do not verify them.
+
+Manual Android sequence after a separately authorized fresh development build and expected key configuration: enter an address, search, choose a candidate, verify map/credits, pan/zoom/tap/drag and confirm. Check truthful exact/public review labels and disabled save. Edit each address field and verify invalidation; change bedrooms/access instructions and preserve the matching point. Cancel/reopen, Back/Stay/Leave, network/config errors, rapid searches, account/workspace changes during search, large text and narrow screens require testing. Property inputs must survive cancellation/errors; no create RPC should occur.
+
+No Supabase action or backend mutation occurred; no generated types/RPC changes, GPS/OSM/ML/recommendation/NLP/360 feature, commit, push, merge, deploy or EAS build was performed. See the [continuous implementation history](../implementation-reports/phases/PROPERTY_LISTING_MANAGEMENT_IMPLEMENTATION.md#maptiler-property-location-integration-2026-10-26).

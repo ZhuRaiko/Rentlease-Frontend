@@ -10,7 +10,7 @@ import type { PropertyListingViewModel } from '../src/features/property-listing/
 // Executes the actual hook + actual property/photo workflows + shared navigation guard.
 // Only React's scheduling hooks and native/backend dependency composition are replaced.
 // Explicit flush models the interval before React commits an external-store update.
-function mountProperty(persistedProperty: string | null = null, draftService: any = {}, publicationService: any = { restore: async () => null }, lifecycleService?: any) {
+function mountProperty(persistedProperty: string | null = null, draftService: any = {}, publicationService: any = { restore: async () => null }, lifecycleService?: any, locationService?: any) {
   let cursor = 0, current: PropertyListingViewModel, mounted = true;
   const slots: any[] = [], effects: (() => void)[] = [], cache = new Map<string, any>();
   let writes = 0, tree: any, realHook: any, backAction: (() => void) | null = null;
@@ -41,6 +41,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
       if (name.endsWith('/listingLifecycleDependencies')) return { listingLifecycleService: lifecycleService ?? { context: async () => ({}), assertContext: async () => {}, inspect: async () => ({ row: current.publicationState.lastConfirmed, operations: [] }) } };
       if (name.endsWith('/listingPublicationDependencies')) return { listingPublicationService: publicationService };
       if (name.endsWith('/listingDraftDependencies')) return { listingDraftService: draftService };
+      if (name.endsWith('/propertyLocationDependencies')) return { propertyLocationService: locationService ?? { searchAddress: async () => [], getMapStyleUrl: () => 'test-style' } };
       if (name.endsWith('/propertyCreationDependencies')) return { propertyCreationService: service };
       if (name.endsWith('/propertyPhotoDependencies')) return { propertyPhotoService: {}, selectPropertyPhoto: async () => { writes++; throw Error('No picker during navigation'); } };
       if (name.startsWith('.')) return load(resolve(absolute, '..', name + '.ts'));
@@ -272,4 +273,37 @@ test('opening fixture management after a real status view keeps sample actions l
   await h.setup(); await h.settle(); h.vm().openPublishedListing(); h.flush(); assert.equal(h.vm().showRealPublication, true);
   h.vm().goDashboard(); h.flush(); h.vm().openManagement(); h.flush(); assert.equal(h.vm().showRealPublication, false);
   h.vm().setListingStatus('unavailable'); h.flush(); assert.equal(h.vm().listing.status, 'unavailable'); assert.equal(h.vm().realListing?.status, 'active'); assert.equal(calls, 0); h.unmount();
+});
+
+
+async function openPhysicalLocation(h: ReturnType<typeof mountProperty>) {
+  await h.setup(); const creation = h.vm().propertyCreation;
+  creation.updateField('propertyType', 'studio'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Example barangay'); creation.updateField('addressLine1', 'Example street'); creation.next(); h.flush();
+  h.vm().openPropertyLocation(); h.flush();
+}
+test('actual property/location composition synchronously aborts an old address search before React renders', async () => {
+  let release!: (value: any[]) => void, signal!: AbortSignal;
+  const h = mountProperty(null, {}, undefined, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: async (_: string, next: AbortSignal) => { signal = next; return new Promise(resolve => { release = resolve; }); } });
+  await openPhysicalLocation(h); const revision = h.vm().propertyCreation.getSnapshot().locationRevision;
+  h.vm().propertyCreation.updateField('addressLine1', 'Changed street');
+  assert.equal(signal.aborted, true); assert.equal(h.vm().propertyLocation.getSnapshot().context?.addressRevision, revision + 1); assert.equal(h.vm().propertyLocation.getSnapshot().stage, 'closed');
+  release([{ id: 'old', label: 'Old result', longitude: 120.9, latitude: 14.4 }]); await h.settle(); assert.deepEqual(h.vm().locationState.candidates, []); h.unmount();
+});
+test('actual exact-only confirmation preserves property fields, keeps save blocked, and is cleared on confirmed workspace exit', async () => {
+  const candidate = { id: 'fixture', label: 'Example address', longitude: 120.9, latitude: 14.4 };
+  const h = mountProperty(null, {}, undefined, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: async () => [candidate] });
+  await openPhysicalLocation(h); await h.settle(); const before = { ...h.vm().propertyCreation.getSnapshot().draft };
+  const location = h.vm().propertyLocation; location.chooseCandidate(candidate.id); h.flush(); h.hardwareBack(); h.flush(); assert.equal(location.getSnapshot().confirmedPoint, null);
+  h.vm().openPropertyLocation(); await h.settle(); location.chooseCandidate(candidate.id); location.mapLoaded(); location.movePoint([121, 14.5]); location.confirmExact(); h.flush();
+  assert.deepEqual(h.vm().propertyState.draft, before); assert.ok(h.vm().locationState.confirmedPoint); assert.equal(h.vm().propertyCreation.locationReady(), false);
+  h.vm().propertyCreation.next(); await h.vm().propertyCreation.submit(); assert.equal(h.writes(), 0);
+  h.vm().requestNavigation(() => h.destinations.push('exit')); h.flush(); h.vm().confirmNavigation(); h.flush();
+  assert.equal(location.getSnapshot().confirmedPoint, null); assert.deepEqual(h.destinations, ['exit']); h.unmount();
+});
+test('account/workspace disposal aborts location requests and cannot populate a replacement workspace', async () => {
+  let release!: (value: any[]) => void, signal!: AbortSignal;
+  const h = mountProperty(null, {}, undefined, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: async (_: string, next: AbortSignal) => { signal = next; return new Promise(resolve => { release = resolve; }); } });
+  await openPhysicalLocation(h); const oldLocation = h.vm().propertyLocation; h.unmount(); assert.equal(signal.aborted, true);
+  release([{ id: 'old', label: 'Old result', longitude: 120.9, latitude: 14.4 }]); await new Promise<void>(resolve => setImmediate(resolve));
+  assert.equal(oldLocation.getSnapshot().context, null); assert.equal(oldLocation.getSnapshot().confirmedPoint, null); assert.deepEqual(oldLocation.getSnapshot().candidates, []);
 });

@@ -172,10 +172,13 @@ test('an in-flight service request cannot be duplicated by another workflow in t
   release(); await pending; assert.equal(h.calls(), 1);
 });
 
-test('property workflow does not take ownership of Maps or coordinate entry', () => {
+test('property creation persistence stays separate from dedicated location integration', () => {
   const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
   const view = readFileSync('src/features/property-listing/views/PropertySetupView.tsx', 'utf8');
-  assert.doesNotMatch(vm + view, /geocodeAddress|geocodingService|MapTiler|searchAddress|chooseCandidate/);
+  const creation = readFileSync('src/features/property-listing/viewModels/propertyCreationWorkflow.ts', 'utf8');
+  assert.doesNotMatch(creation, /geocodeAddress|geocodingService|MapTiler|searchAddress|chooseCandidate/);
+  assert.doesNotMatch(view, /fetch\(|geocodeAddress\(/);
+  assert.match(vm, /createPropertyLocationWorkflow/);
   assert.match(view, /propertyLocationNotice/);
   assert.doesNotMatch(view, /updateField\(['"](?:exact|public)(?:Latitude|Longitude)/);
 });

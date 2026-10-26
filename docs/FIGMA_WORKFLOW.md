@@ -163,7 +163,7 @@ Frontend integrations planned elsewhere in the application include:
 - Supabase Edge Functions
 - PostgreSQL/PostGIS through Supabase
 - MapTiler
-- react-native-maplibre-gl
+- @maplibre/maplibre-react-native
 - MapTiler Geocoding API
 - expo-location
 - OpenStreetMap Overpass API

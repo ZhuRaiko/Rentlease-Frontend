@@ -136,9 +136,9 @@ ViewModels will start subscriptions when their screen/feature becomes active and
 
 ## Maps, geocoding, and amenities
 
-MapTiler is the approved tile and geocoding provider. MapLibre is the planned native renderer. MapLibre screens will require an Expo development/EAS build because custom native modules are unavailable in stock Expo Go.
+MapTiler is the approved tile and geocoding provider. MapLibre 11.5.0 renders exact property-pin confirmation. MapLibre screens require an Expo development/EAS build because custom native modules are unavailable in stock Expo Go.
 
-The geocoding service currently returns candidate identifiers, labels, longitude, and latitude. A future listing ViewModel will coordinate candidate selection and map-pin confirmation before submitting validated coordinates.
+The geocoding service currently returns candidate identifiers, labels, longitude, and latitude. The dedicated property-location workflow coordinates candidate selection and exact-pin confirmation, but submits nothing: public-point privacy policy is unresolved and the four-coordinate creation contract remains unchanged.
 
 Nearby amenity lookup uses OpenStreetMap Overpass for schools, hospitals, malls, and transport terminals. These third-party results are not authoritative backend records unless the backend later defines a persistence/cache contract.
 
@@ -232,6 +232,6 @@ Storage upload and metadata registration remain non-atomic. Metadata INSERT perm
 
 ### Property & Listing backend boundary (2026-10-23)
 
-Physical-property creation uses existing create_property_setup, deriving ownership and requiring active authenticated Tier 1 Landlord membership without Tier 3. Direct property-table INSERT is not the frontend path. Ordinary photos use public property-media, property_photos and set_property_cover_photo. The property/photo foundations, Phase 3 save_listing_draft and Phase 4 publish_listing integrations are implemented/automated-tested but Android RUNTIME-UNVERIFIED; app creation remains dependent on separately owned location integration.
+Physical-property creation uses existing create_property_setup, deriving ownership and requiring active authenticated Tier 1 Landlord membership without Tier 3. Direct property-table INSERT is not the frontend path. Ordinary photos use public property-media, property_photos and set_property_cover_photo. The property/photo foundations, Phase 3 save_listing_draft and Phase 4 publish_listing integrations are implemented/automated-tested but Android RUNTIME-UNVERIFIED; app creation remains blocked by the public-location privacy decision; exact-only map confirmation does not invoke Supabase.
 
 Current behavior/contracts and owner/RLS boundaries live in [Property & Listing Management](features/PROPERTY_LISTING_MANAGEMENT.md#current-backend-authorization). Live action provenance, external RPC test/inactive fixture, exact external DELETE grant, column-scoped UPDATE permissions, rollback tests and pre-existing advisor warnings are recorded in the [backend ledger](implementation-reports/database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md). Codex's earlier implementation inspections were read-only; external changes must not be described as Codex-performed or omitted as though no backend changes existed. No live action or backend mutation was performed in the documentation-governance pass. Authenticated listings writes remain RPC-only (direct SELECT only); Phase 3 external function/test provenance is recorded in the ledger. Publication uses the controlled authenticated RPC only, with receipt validation and explicit uncertain-outcome reconciliation. Lifecycle uses pause_listing/reactivate_listing/archive_listing only; rented is tenancy-controlled and removed is Admin-controlled. Direct listing mutation privileges remain unavailable. Teammate-owned integrations remain deferred; see the [phase plan](implementation-reports/phases/PROPERTY_LISTING_MANAGEMENT_IMPLEMENTATION.md).

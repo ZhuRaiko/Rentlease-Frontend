@@ -1027,3 +1027,12 @@ select p.proname, pg_get_functiondef(p.oid) as definition, p.prosecdef, p.procon
 - Backend migration/source: none created; exact structural signatures only were added to frontend database.types.ts, no full regeneration claimed.
 - Android/client runtime: not performed; normal app persistence still location-gated and RUNTIME-UNVERIFIED.
 - **No permanent live backend mutation was performed in this phase by Codex.** No schema/RLS/Storage/function/grant or live test-data mutation was executed by Codex.
+
+
+## MapTiler exact-location integration boundary (2026-10-26)
+
+Local frontend pass on feature/maptiler-property-location, baseline 4fa955b. No live Supabase inspection, SQL, RPC/Storage test, schema/RLS/function/grant/configuration or data action was performed. There is no backend mutation to backfill for this pass. No migration/source-controlled backend file was created/modified; generated types and create_property_setup remain unchanged.
+
+Actor/tool: Codex/local source, mocked tests, Expo package install/compatibility/config introspection. Environment: local frontend; no live database targeted. Purpose/result: implement MapTiler search and native exact-pin presentation without crossing the complete-location privacy boundary. Existing service still requires exactLatitude/exactLongitude/publicLatitude/publicLongitude; no policy for the public point was invented. The dedicated workflow does not call provideConfirmedLocation or persist exact coordinates. Property saving remains blocked; no public/private coordinate equality workaround or fake UUID was added.
+
+Durable backend effect: none. Rollback/cleanup: not applicable, no remote test data created. Security/RLS: existing rules untouched and not independently retested in this pass. Android/client runtime: RUNTIME-UNVERIFIED; fresh development build/key configuration and public privacy policy remain separate prerequisites. No permanent live backend mutation was performed in this phase.

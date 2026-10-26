@@ -1,3 +1,4 @@
+import { PropertyLocationMapView } from './PropertyLocationMapView';
 import { formatVerificationDate } from '../../../shared/utils/formatVerificationDate';
 import { StyleSheet, Text, View } from 'react-native';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
@@ -14,6 +15,19 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
   const state = vm.propertyState;
   const flow = vm.propertyCreation;
   const d = state.draft;
+  const location = vm.locationState;
+  const locationFlow = vm.propertyLocation;
+  const token = locationFlow.generationToken();
+  if (state.step === 'address' && location.stage === 'map' && location.workingPoint && location.selected && location.styleUrl) return <PropertyLocationMapView key={token} styleUrl={location.styleUrl} point={location.workingPoint} initialPoint={location.selected} ready={location.mapReady} error={location.error} onMove={point => locationFlow.movePoint(point, token)} onLoaded={() => locationFlow.mapLoaded(token)} onFailed={() => locationFlow.mapFailed(token)} onCancel={locationFlow.cancel} onConfirm={() => locationFlow.confirmExact(token)} />;
+  if (state.step === 'address' && (location.stage === 'searching' || location.stage === 'candidates')) return <ListingWizardScaffold title="Find your property" description="Search the address, then choose a result to adjust its exact pin." onBack={locationFlow.cancel} onClose={onClose}>
+    <ListingField label="Property address search" placeholder="Street, barangay and city" value={location.query} onChangeText={locationFlow.updateQuery} />
+    <ListingButton label={location.busy ? 'Search again' : 'Search address'} onPress={() => void locationFlow.search()} />
+    <FeedbackNotice message={location.error} tone="error" />
+    {location.busy ? <Text accessibilityLiveRegion="polite" style={styles.copy}>Searching locations...</Text> : null}
+    {!location.busy && !location.error && !location.candidates.length ? <Text style={styles.copy}>No locations found. Check the address and search again.</Text> : null}
+    {location.candidates.map(candidate => <ListingButton key={candidate.id} label={candidate.label} tone="outline" onPress={() => locationFlow.chooseCandidate(candidate.id, token)} />)}
+    <ListingButton label="Cancel" tone="outline" onPress={locationFlow.cancel} />
+  </ListingWizardScaffold>;
   const title = state.step === 'details' ? 'Your physical property' : state.step === 'address' ? 'Where is the property?' : state.step === 'created' ? 'Property confirmed' : 'Review property setup';
   return <ListingWizardScaffold title={title} onBack={vm.goBack} onClose={onClose} description="Property setup is separate from a rental listing. Tier 3 approval is not needed to add a property.">
     <FeedbackNotice message={state.error} tone="error" />
@@ -46,7 +60,9 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
       <ListingField label="Postal code (optional)" placeholder="Postal code" value={d.postalCode} onChangeText={v => flow.updateField('postalCode', v)} />
       <ListingField label="Access instructions (private, optional)" placeholder="How to find the entrance" multiline value={d.accessInstructions} onChangeText={v => flow.updateField('accessInstructions', v)} />
       <FeedbackNotice message={propertyLocationNotice} />
-      <Text style={styles.copy}>Location confirmation will be available through the separate location feature. Your exact location and public map point are kept separate.</Text>
+      <ListingButton disabled={state.busy || !state.loaded || !d.city || !d.barangay.trim() || !d.addressLine1.trim()} label={location.confirmedPoint ? 'Review exact location on map' : 'Find and confirm location'} tone="outline" onPress={vm.openPropertyLocation} />
+      <Text style={styles.copy}>Exact location: {location.confirmedPoint ? 'Confirmed on map' : 'Not confirmed yet'}</Text>
+      <Text style={styles.copy}>Public map point is still awaiting the approved privacy rule.</Text>
       <ListingButton disabled={state.busy} label="Review property" onPress={flow.next} />
     </> : null}
     {state.step === 'review' ? <>
@@ -56,8 +72,8 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
         <Text style={styles.copy}>{d.bedrooms} bedrooms / {d.bathrooms} bathrooms / {furnishingOptions.find(o => o.value === d.furnishingStatus)?.label}</Text>
         {d.floorAreaSqm ? <Text style={styles.copy}>Floor area: {d.floorAreaSqm} sqm</Text> : null}
         {[['Floor number', d.floorNumber], ['Total floors', d.totalFloors], ['Maximum occupants', d.maxOccupants], ['Postal code', d.postalCode], ['Private access instructions', d.accessInstructions]].filter(([, value]) => !!value).map(([label, value]) => <Text key={label} style={styles.copy}>{label}: {value}</Text>)}
-        <Text style={styles.copy}>Exact location: {hasConfirmedPropertyLocation(d) ? 'Confirmed by the location feature' : 'Awaiting location confirmation'}</Text>
-        <Text style={styles.copy}>Public map point: {hasConfirmedPropertyLocation(d) ? 'Approved public point supplied separately' : 'Awaiting location confirmation'}</Text>
+        <Text style={styles.copy}>Exact location: {location.confirmedPoint ? 'Confirmed on map' : 'Awaiting location confirmation'}</Text>
+        <Text style={styles.copy}>Public map point: {hasConfirmedPropertyLocation(d) ? 'Approved public point supplied separately' : 'Awaiting approved privacy strategy'}</Text>
         <FeedbackNotice message={!hasConfirmedPropertyLocation(d) ? propertyLocationNotice : null} />
         <FeedbackNotice message={draftPropertyError(d, false)} tone="error" />
         <ListingButton disabled={state.busy || !state.loaded || !!draftPropertyError(d)} label="Confirm and save property" onPress={() => void flow.submit()} />

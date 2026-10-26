@@ -1,3 +1,6 @@
+import { createPropertyLocationWorkflow } from './propertyLocationWorkflow';
+import { propertyLocationService } from '../services/propertyLocationDependencies';
+import { propertyAddressQuery } from '../models/PropertyLocationConfirmation';
 import { createListingLifecycleWorkflow } from './listingLifecycleWorkflow';
 import { listingLifecycleService } from '../services/listingLifecycleDependencies';
 import { lifecycleActions, lifecycleLabel, lifecycleStatusLabel } from '../models/ListingLifecycle';
@@ -42,6 +45,18 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const propertyState = useSyncExternalStore(propertyCreation.subscribe, propertyCreation.getSnapshot);
   useEffect(() => { propertyCreation.activate(); return () => propertyCreation.dispose(); }, [propertyCreation]);
   useEffect(() => { if (screen === 'propertySetup' && !propertyState.loaded && !propertyState.uncertain) void propertyCreation.initialize(); }, [propertyCreation, screen]);
+  const [propertyLocation] = useState(() => createPropertyLocationWorkflow(propertyLocationService));
+  const locationState = useSyncExternalStore(propertyLocation.subscribe, propertyLocation.getSnapshot);
+  useEffect(() => { propertyLocation.activate(); return () => propertyLocation.dispose(); }, [propertyLocation]);
+  useEffect(() => {
+    // Synchronous subscription invalidates requests at the address-edit event, before React renders.
+    const sync = () => {
+      const current = propertyCreation.getSnapshot();
+      propertyLocation.syncContext(current.loaded && !current.propertyId && !current.uncertain ? { addressRevision: current.locationRevision, setupId: 'physical-property-setup', query: propertyAddressQuery(current.draft) } : null);
+    };
+    const unsubscribe = propertyCreation.subscribe(sync); sync(); return unsubscribe;
+  }, [propertyCreation, propertyLocation]);
+  useEffect(() => { if (screen !== 'propertySetup') propertyLocation.close(); }, [screen, propertyLocation]);
   const [propertyPhotos] = useState(() => createPropertyPhotoWorkflow(propertyPhotoService, selectPropertyPhoto));
   const photoState = useSyncExternalStore(propertyPhotos.subscribe, propertyPhotos.getSnapshot);
   useEffect(() => { propertyPhotos.activate(); return () => propertyPhotos.dispose(); }, [propertyPhotos]);
@@ -123,6 +138,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if (lifecycle.getSnapshot().confirmation) { lifecycle.cancel(); return; }
     navigation.requestNavigation(() => {
       if (operationBusy()) return;
+      propertyLocation.close();
       propertyCreation.discardLocalEdits();
       propertyPhotos.discardLocalEdits();
       setDraft(savedDraft.current);
@@ -132,6 +148,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
 
   const navigate = (nextScreen: ListingScreen) => {
     if (operationBusy()) return;
+    if (screen === 'propertySetup' && nextScreen !== 'propertySetup') propertyLocation.close();
     setHistory((current) => [...current, screen]);
     setScreen(nextScreen);
     setNotice(null);
@@ -140,8 +157,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const goBack = () => {
     if (operationBusy()) return;
     if (lifecycle.getSnapshot().confirmation) { lifecycle.cancel(); return; }
+    if (screen === 'propertySetup' && ['searching', 'candidates', 'map'].includes(propertyLocation.getSnapshot().stage)) { propertyLocation.cancel(); return; }
     if ((screen === 'photoUpload' || screen === 'photoManager') && propertyPhotos.back()) return;
-    if (screen === 'propertySetup' && propertyCreation.back()) return;
+    if (screen === 'propertySetup') { if (propertyCreation.back()) return; propertyLocation.close(); }
     const applyBack = () => {
       setHistory((current) => {
         const previous = current.at(-1) ?? 'dashboard';
@@ -312,6 +330,14 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     requestNavigation,
     propertyCreation,
     propertyState,
+    propertyLocation,
+    locationState,
+    openPropertyLocation: () => {
+      const current = propertyCreation.getSnapshot();
+      if (operationBusy() || screen !== 'propertySetup' || current.step !== 'address' || !current.loaded || current.propertyId || current.uncertain) return;
+      if (!current.draft.city || !current.draft.barangay.trim() || !current.draft.addressLine1.trim()) return;
+      void propertyLocation.open({ addressRevision: current.locationRevision, setupId: 'physical-property-setup', query: propertyAddressQuery(current.draft) });
+    },
     propertyPhotos,
     photoState,
     publication,
