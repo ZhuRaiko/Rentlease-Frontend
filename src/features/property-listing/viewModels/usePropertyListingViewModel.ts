@@ -1,5 +1,6 @@
 import { createPropertyLocationWorkflow } from './propertyLocationWorkflow';
 import { propertyLocationService } from '../services/propertyLocationDependencies';
+import { hasConfirmedPropertyLocation } from '../models/DraftProperty';
 import { propertyAddressQuery } from '../models/PropertyLocationConfirmation';
 import { createListingLifecycleWorkflow } from './listingLifecycleWorkflow';
 import { listingLifecycleService } from '../services/listingLifecycleDependencies';
@@ -45,7 +46,15 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const propertyState = useSyncExternalStore(propertyCreation.subscribe, propertyCreation.getSnapshot);
   useEffect(() => { propertyCreation.activate(); return () => propertyCreation.dispose(); }, [propertyCreation]);
   useEffect(() => { if (screen === 'propertySetup' && !propertyState.loaded && !propertyState.uncertain) void propertyCreation.initialize(); }, [propertyCreation, screen]);
-  const [propertyLocation] = useState(() => createPropertyLocationWorkflow(propertyLocationService));
+  const [propertyLocation] = useState(() => createPropertyLocationWorkflow(propertyLocationService, (location, confirmedRevision) => {
+    const current = propertyCreation.getSnapshot();
+    if (!active.current || !current.loaded || current.busy || current.propertyId || current.uncertain || current.locationRevision !== confirmedRevision) return false;
+    propertyCreation.provideConfirmedLocation(location, confirmedRevision);
+    const accepted = propertyCreation.getSnapshot();
+    return accepted.locationRevision === confirmedRevision && hasConfirmedPropertyLocation(accepted.draft)
+      && accepted.draft.exactLatitude === location.exactLatitude && accepted.draft.exactLongitude === location.exactLongitude
+      && accepted.draft.publicLatitude === location.publicLatitude && accepted.draft.publicLongitude === location.publicLongitude;
+  }));
   const locationState = useSyncExternalStore(propertyLocation.subscribe, propertyLocation.getSnapshot);
   useEffect(() => { propertyLocation.activate(); return () => propertyLocation.dispose(); }, [propertyLocation]);
   useEffect(() => {

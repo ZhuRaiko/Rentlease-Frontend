@@ -136,7 +136,7 @@ test('missing style configuration is a safe non-persistence error', async () => 
   let searches = 0; const flow = createPropertyLocationWorkflow({ searchAddress: async () => { searches++; return []; }, getMapStyleUrl: () => { throw Error('private-key'); } });
   await flow.open(context); assert.match(flow.getSnapshot().error ?? '', /EXPO_PUBLIC_MAPTILER_API_KEY/); assert.equal(searches, 0); assert.equal(flow.getSnapshot().confirmedPoint, null);
 });
-test('exact-only confirmation leaves all property inputs untouched and cannot enable the creation RPC', async () => {
+test('a standalone location workflow cannot write an unrelated, unconnected creation workflow', async () => {
   let writes = 0; const creation = createPropertyCreationWorkflow({ getEligibleUserId: async () => 'owner', assertIdentity: async () => {}, restore: async () => null, create: async () => { writes++; throw Error('not allowed'); } } as any);
   await creation.initialize(); creation.updateField('propertyType', 'studio'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Example'); creation.updateField('addressLine1', 'Example street'); creation.updateField('accessInstructions', 'Private instructions');
   const before = { ...creation.getSnapshot().draft }; const h = locationHarness(); await h.map(); h.flow.confirmExact();
@@ -164,6 +164,6 @@ test('location boundaries exclude GPS, raw View HTTP, legacy pins, public-point 
   const setup = readFileSync('src/features/property-listing/views/PropertySetupView.tsx', 'utf8'), map = readFileSync('src/features/property-listing/views/PropertyLocationMapView.tsx', 'utf8');
   assert.doesNotMatch(setup + map, /fetch\(|geocodeAddress\(|getSupabaseClient|\.rpc\(|expo-location|confirmPin\(/);
   const workflow = readFileSync('src/features/property-listing/viewModels/propertyLocationWorkflow.ts', 'utf8'), model = readFileSync('src/features/property-listing/models/PropertyLocationConfirmation.ts', 'utf8'), service = readFileSync('src/features/property-listing/services/propertyLocationService.ts', 'utf8'), vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
-  assert.doesNotMatch(workflow + model + service, /expo-location|provideConfirmedLocation|publicLatitude|publicLongitude|console\.|fetch\(/); assert.doesNotMatch(vm, /provideConfirmedLocation\(/);
+  assert.doesNotMatch(workflow + model + service, /expo-location|provideConfirmedLocation|console\.|fetch\(/); assert.match(vm, /provideConfirmedLocation\(location, confirmedRevision\)/);
   assert.doesNotMatch(readFileSync('src/shared/services/maps/geocoding/geocodingService.ts', 'utf8'), /console\./);
 });

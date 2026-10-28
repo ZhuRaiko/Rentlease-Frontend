@@ -1036,3 +1036,8 @@ Local frontend pass on feature/maptiler-property-location, baseline 4fa955b. No 
 Actor/tool: Codex/local source, mocked tests, Expo package install/compatibility/config introspection. Environment: local frontend; no live database targeted. Purpose/result: implement MapTiler search and native exact-pin presentation without crossing the complete-location privacy boundary. Existing service still requires exactLatitude/exactLongitude/publicLatitude/publicLongitude; no policy for the public point was invented. The dedicated workflow does not call provideConfirmedLocation or persist exact coordinates. Property saving remains blocked; no public/private coordinate equality workaround or fake UUID was added.
 
 Durable backend effect: none. Rollback/cleanup: not applicable, no remote test data created. Security/RLS: existing rules untouched and not independently retested in this pass. Android/client runtime: RUNTIME-UNVERIFIED; fresh development build/key configuration and public privacy policy remain separate prerequisites. No permanent live backend mutation was performed in this phase.
+
+
+## Public-location privacy handoff (2026-10-28)
+
+No new backend mutation or live Supabase interaction. Existing create_property_setup contract reused unchanged; no migration/schema/RLS/RPC/generated-type change. Public coordinate derivation is frontend domain logic (deterministic 300m Web Mercator grid centers). Codex performed local implementation and mocked automated tests only; successful Android property persistence is still runtime-unverified. No remote data cleanup/rollback was needed.

@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import ts from 'typescript';
+import { derivePublicPropertyPoint } from '../src/features/property-listing/models/PropertyLocationPrivacy';
 import type { PropertyListingViewModel } from '../src/features/property-listing/viewModels/usePropertyListingViewModel';
 
 // Executes the actual hook + actual property/photo workflows + shared navigation guard.
@@ -289,14 +290,17 @@ test('actual property/location composition synchronously aborts an old address s
   assert.equal(signal.aborted, true); assert.equal(h.vm().propertyLocation.getSnapshot().context?.addressRevision, revision + 1); assert.equal(h.vm().propertyLocation.getSnapshot().stage, 'closed');
   release([{ id: 'old', label: 'Old result', longitude: 120.9, latitude: 14.4 }]); await h.settle(); assert.deepEqual(h.vm().locationState.candidates, []); h.unmount();
 });
-test('actual exact-only confirmation preserves property fields, keeps save blocked, and is cleared on confirmed workspace exit', async () => {
+test('actual complete confirmation preserves non-location fields, enables location validation, and is cleared on confirmed workspace exit', async () => {
   const candidate = { id: 'fixture', label: 'Example address', longitude: 120.9, latitude: 14.4 };
   const h = mountProperty(null, {}, undefined, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: async () => [candidate] });
   await openPhysicalLocation(h); await h.settle(); const before = { ...h.vm().propertyCreation.getSnapshot().draft };
   const location = h.vm().propertyLocation; location.chooseCandidate(candidate.id); h.flush(); h.hardwareBack(); h.flush(); assert.equal(location.getSnapshot().confirmedPoint, null);
   h.vm().openPropertyLocation(); await h.settle(); location.chooseCandidate(candidate.id); location.mapLoaded(); location.movePoint([121, 14.5]); location.confirmExact(); h.flush();
-  assert.deepEqual(h.vm().propertyState.draft, before); assert.ok(h.vm().locationState.confirmedPoint); assert.equal(h.vm().propertyCreation.locationReady(), false);
-  h.vm().propertyCreation.next(); await h.vm().propertyCreation.submit(); assert.equal(h.writes(), 0);
+  const { exactLatitude, exactLongitude, publicLatitude, publicLongitude, ...unchanged } = h.vm().propertyState.draft;
+  const { exactLatitude: _a, exactLongitude: _b, publicLatitude: _c, publicLongitude: _d, ...expected } = before;
+  assert.deepEqual(unchanged, expected); assert.ok(h.vm().locationState.confirmedPoint); assert.equal(h.vm().propertyCreation.locationReady(), true);
+  assert.equal(exactLatitude, 14.5); assert.equal(exactLongitude, 121); assert.equal(typeof publicLatitude, 'number'); assert.equal(typeof publicLongitude, 'number');
+  h.vm().propertyCreation.next(); assert.equal(h.writes(), 0);
   h.vm().requestNavigation(() => h.destinations.push('exit')); h.flush(); h.vm().confirmNavigation(); h.flush();
   assert.equal(location.getSnapshot().confirmedPoint, null); assert.deepEqual(h.destinations, ['exit']); h.unmount();
 });
@@ -306,4 +310,25 @@ test('account/workspace disposal aborts location requests and cannot populate a 
   await openPhysicalLocation(h); const oldLocation = h.vm().propertyLocation; h.unmount(); assert.equal(signal.aborted, true);
   release([{ id: 'old', label: 'Old result', longitude: 120.9, latitude: 14.4 }]); await new Promise<void>(resolve => setImmediate(resolve));
   assert.equal(oldLocation.getSnapshot().context, null); assert.equal(oldLocation.getSnapshot().confirmedPoint, null); assert.deepEqual(oldLocation.getSnapshot().candidates, []);
+});
+
+
+test('actual revision-checked handoff includes all four coordinates and invalidates/reconfirms every address field', async () => {
+  const candidate = { id: 'fixture', label: 'Synthetic address', longitude: 121, latitude: 14.5 };
+  const h = mountProperty(null, {}, undefined, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: async () => [candidate] });
+  await openPhysicalLocation(h); await h.settle(); const creation = h.vm().propertyCreation, location = h.vm().propertyLocation;
+  const received: any[] = [], provide = creation.provideConfirmedLocation;
+  creation.provideConfirmedLocation = (point, revision) => { received.push({ point, revision }); provide(point, revision); };
+  const confirm = (latitude: number) => { location.chooseCandidate(candidate.id); location.mapLoaded(); location.movePoint([121, latitude]); assert.equal(location.confirmExact(), true); h.flush(); };
+  confirm(14.5);
+  assert.deepEqual(received[0], { point: { exactLatitude: 14.5, exactLongitude: 121, publicLatitude: derivePublicPropertyPoint({ latitude: 14.5, longitude: 121 }).latitude, publicLongitude: derivePublicPropertyPoint({ latitude: 14.5, longitude: 121 }).longitude }, revision: creation.getSnapshot().locationRevision });
+  let index = 0;
+  for (const [field, value] of [['city', 'tagaytay'], ['barangay', 'Changed barangay'], ['addressLine1', 'Changed street'], ['addressLine2', 'Changed unit'], ['postalCode', '4101']] as const) {
+    const oldToken = location.generationToken(), revision = creation.getSnapshot().locationRevision, count = received.length;
+    creation.updateField(field, value); const draft = creation.getSnapshot().draft;
+    assert.equal(creation.getSnapshot().locationRevision, revision + 1); assert.equal(draft.exactLatitude, null); assert.equal(draft.exactLongitude, null); assert.equal(draft.publicLatitude, null); assert.equal(draft.publicLongitude, null); assert.equal(location.getSnapshot().publicPoint, null);
+    assert.equal(location.confirmExact(oldToken), false); assert.equal(received.length, count);
+    h.flush(); h.vm().openPropertyLocation(); await h.settle(); confirm(14.51 + index++ * .01); assert.equal(creation.locationReady(), true); assert.equal(received.at(-1).revision, revision + 1);
+  }
+  assert.equal(h.writes(), 0); h.unmount();
 });

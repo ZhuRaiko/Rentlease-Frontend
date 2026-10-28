@@ -15,6 +15,7 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
   const state = vm.propertyState;
   const flow = vm.propertyCreation;
   const d = state.draft;
+  const locationAccepted = hasConfirmedPropertyLocation(d);
   const location = vm.locationState;
   const locationFlow = vm.propertyLocation;
   const token = locationFlow.generationToken();
@@ -59,10 +60,10 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
       <ListingField label="Address line 2 (optional)" placeholder="Building, subdivision or other details" value={d.addressLine2} onChangeText={v => flow.updateField('addressLine2', v)} />
       <ListingField label="Postal code (optional)" placeholder="Postal code" value={d.postalCode} onChangeText={v => flow.updateField('postalCode', v)} />
       <ListingField label="Access instructions (private, optional)" placeholder="How to find the entrance" multiline value={d.accessInstructions} onChangeText={v => flow.updateField('accessInstructions', v)} />
-      <FeedbackNotice message={propertyLocationNotice} />
+      <FeedbackNotice message={!locationAccepted ? propertyLocationNotice : null} />
       <ListingButton disabled={state.busy || !state.loaded || !d.city || !d.barangay.trim() || !d.addressLine1.trim()} label={location.confirmedPoint ? 'Review exact location on map' : 'Find and confirm location'} tone="outline" onPress={vm.openPropertyLocation} />
-      <Text style={styles.copy}>Exact location: {location.confirmedPoint ? 'Confirmed on map' : 'Not confirmed yet'}</Text>
-      <Text style={styles.copy}>Public map point is still awaiting the approved privacy rule.</Text>
+      <Text style={styles.copy}>Exact location: {locationAccepted ? 'Confirmed on map' : 'Not confirmed yet'}</Text>
+      <Text style={styles.copy}>Public map point: {locationAccepted ? 'Approximate discovery location ready' : 'Waiting for location confirmation'}</Text>
       <ListingButton disabled={state.busy} label="Review property" onPress={flow.next} />
     </> : null}
     {state.step === 'review' ? <>
@@ -72,8 +73,8 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
         <Text style={styles.copy}>{d.bedrooms} bedrooms / {d.bathrooms} bathrooms / {furnishingOptions.find(o => o.value === d.furnishingStatus)?.label}</Text>
         {d.floorAreaSqm ? <Text style={styles.copy}>Floor area: {d.floorAreaSqm} sqm</Text> : null}
         {[['Floor number', d.floorNumber], ['Total floors', d.totalFloors], ['Maximum occupants', d.maxOccupants], ['Postal code', d.postalCode], ['Private access instructions', d.accessInstructions]].filter(([, value]) => !!value).map(([label, value]) => <Text key={label} style={styles.copy}>{label}: {value}</Text>)}
-        <Text style={styles.copy}>Exact location: {location.confirmedPoint ? 'Confirmed on map' : 'Awaiting location confirmation'}</Text>
-        <Text style={styles.copy}>Public map point: {hasConfirmedPropertyLocation(d) ? 'Approved public point supplied separately' : 'Awaiting approved privacy strategy'}</Text>
+        <Text style={styles.copy}>Exact location: {locationAccepted ? 'Confirmed on map' : 'Not confirmed yet'}</Text>
+        <Text style={styles.copy}>Public map point: {locationAccepted ? 'Approximate discovery location ready' : 'Waiting for location confirmation'}</Text>
         <FeedbackNotice message={!hasConfirmedPropertyLocation(d) ? propertyLocationNotice : null} />
         <FeedbackNotice message={draftPropertyError(d, false)} tone="error" />
         <ListingButton disabled={state.busy || !state.loaded || !!draftPropertyError(d)} label="Confirm and save property" onPress={() => void flow.submit()} />

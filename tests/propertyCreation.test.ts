@@ -6,6 +6,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../src/shared/services/supabase/database.types';
 import { draftPropertyError, emptyDraftProperty, propertySetupPayload, propertyCreationInput, propertyTypeOptions } from '../src/features/property-listing/models/DraftProperty';
 import { createPropertyCreationService, type PropertyCreationService } from '../src/features/property-listing/services/propertyCreationService';
+import { derivePublicPropertyPoint } from '../src/features/property-listing/models/PropertyLocationPrivacy';
+import { createPropertyLocationWorkflow } from '../src/features/property-listing/viewModels/propertyLocationWorkflow';
+import { hasConfirmedPropertyLocation } from '../src/features/property-listing/models/DraftProperty';
 import { createPropertyCreationWorkflow } from '../src/features/property-listing/viewModels/propertyCreationWorkflow';
 const propertyId = 'a0000000-0000-4000-8000-000000000001';
 // Test fixtures only; production coordinates must come from the separate location workflow.
@@ -203,4 +206,21 @@ test('UX eligibility refuses restricted, non-Tier-1 and non-Landlord accounts wi
     const h = serviceHarness(); h.access(active, tierOne, landlord);
     await assert.rejects(h.service.create('owner', validDraft())); assert.equal(h.calls(), 0);
   }
+});
+
+
+test('normal confirmed map path supplies exact/private and generalized/public values to the unchanged property RPC', async () => {
+  const backend = serviceHarness(), creation = createPropertyCreationWorkflow(backend.service); await creation.initialize();
+  creation.updateField('propertyType', 'studio'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Synthetic barangay'); creation.updateField('addressLine1', 'Synthetic street'); creation.updateField('addressLine2', 'Unit 2'); creation.updateField('accessInstructions', 'Private fixture entrance'); creation.updateField('bedrooms', '2'); creation.updateField('bathrooms', '1.5'); creation.updateField('floorAreaSqm', '40');
+  const exact = { latitude: 14.5, longitude: 121 }, revision = creation.getSnapshot().locationRevision;
+  const location = createPropertyLocationWorkflow({ searchAddress: async () => [{ ...exact, id: 'fixture', label: 'Synthetic candidate' }], getMapStyleUrl: () => 'fixture-style' }, (point, confirmedRevision) => {
+    assert.equal(confirmedRevision, creation.getSnapshot().locationRevision); creation.provideConfirmedLocation(point, confirmedRevision); return creation.locationReady();
+  });
+  await location.open({ addressRevision: revision, setupId: 'fixture', query: 'Synthetic address' }); location.chooseCandidate('fixture'); location.mapLoaded(); assert.equal(location.confirmExact(), true);
+  const complete = creation.getSnapshot().draft; assert.ok(hasConfirmedPropertyLocation(complete)); assert.equal(draftPropertyError(complete), null);
+  const publicPoint = derivePublicPropertyPoint(exact), payload = propertySetupPayload(propertyCreationInput(complete));
+  assert.equal(payload.p_exact_lat, exact.latitude); assert.equal(payload.p_exact_lng, exact.longitude); assert.equal(payload.p_public_lat, publicPoint.latitude); assert.equal(payload.p_public_lng, publicPoint.longitude);
+  assert.equal(payload.p_bedrooms, 2); assert.equal(payload.p_floor_area_sqm, 40); assert.equal(complete.accessInstructions, 'Private fixture entrance');
+  assert.equal(backend.calls(), 0); creation.next(); creation.next(); await creation.submit();
+  assert.equal(backend.calls(), 1); assert.deepEqual(backend.payload(), payload); assert.equal(creation.getSnapshot().propertyId, propertyId); assert.equal(creation.getSnapshot().step, 'created');
 });
