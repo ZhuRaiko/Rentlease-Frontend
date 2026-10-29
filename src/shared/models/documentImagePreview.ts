@@ -26,3 +26,8 @@ export function zoomAt(base: ImageTransform, scale: number, focal: { x: number; 
   return constrainTransform({ scale: nextScale, x: x - (x - base.x) * ratio + movement.x, y: y - (y - base.y) * ratio + movement.y }, viewport, image);
 }
 export const panImage = (base: ImageTransform, dx: number, dy: number, viewport: ImageSize, image: ImageSize) => constrainTransform({ ...base, x: base.x + dx, y: base.y + dy }, viewport, image);
+
+export function imageGallerySwipe(startScale: number, endScale: number, dx: number, dy: number, pinched: boolean): -1 | 1 | null {
+  if (pinched || ![startScale, endScale, dx, dy].every(Number.isFinite) || startScale !== 1 || endScale !== 1 || Math.abs(dx) <= 60 || Math.abs(dx) <= Math.abs(dy) * 1.3) return null;
+  return dx < 0 ? 1 : -1;
+}

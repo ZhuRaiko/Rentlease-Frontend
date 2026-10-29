@@ -15,6 +15,7 @@ interface ListingFieldProps {
   keyboardType?: 'default' | 'numeric';
   prefix?: string;
   helper?: string;
+  editable?: boolean;
 }
 
 export function ListingField({
@@ -26,6 +27,7 @@ export function ListingField({
   keyboardType = 'default',
   prefix,
   helper,
+  editable = true,
 }: ListingFieldProps) {
   return (
     <View style={styles.fieldGroup}>
@@ -34,6 +36,7 @@ export function ListingField({
       <View style={[styles.inputShell, multiline && styles.inputShellMultiline]}>
         {prefix ? <Text style={styles.prefix}>{prefix}</Text> : null}
         <TextInput
+          editable={editable}
           keyboardType={keyboardType}
           multiline={multiline}
           onChangeText={onChangeText}
@@ -53,13 +56,15 @@ interface ChoiceChipProps {
   selected: boolean;
   onPress: () => void;
   tone?: 'green' | 'orange' | 'purple';
+  disabled?: boolean;
 }
 
-export function ChoiceChip({ label, selected, onPress, tone = 'green' }: ChoiceChipProps) {
+export function ChoiceChip({ label, selected, onPress, tone = 'green', disabled = false }: ChoiceChipProps) {
   return (
     <Pressable
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected }}
+      accessibilityState={{ checked: selected, disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,

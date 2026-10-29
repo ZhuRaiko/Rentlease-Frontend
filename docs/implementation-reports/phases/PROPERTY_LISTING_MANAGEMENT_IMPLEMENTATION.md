@@ -11,8 +11,8 @@ Authoritative current behavior: [PROPERTY_LISTING_MANAGEMENT.md](../../features/
 | Phase 1 - Physical property creation | IMPLEMENTED / AUTOMATED-TESTED; blocked-location Android path RUNTIME-VERIFIED; successful save RUNTIME-UNVERIFIED | Approved exact/public handoff implemented; actual Android save acceptance pending |
 | Phase 2 - Ordinary property photos | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Actual saved property UUID is required for Android runtime upload |
 | Phase 3 - Listing draft persistence | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Saved property UUID and actual Android persistence acceptance required |
-| Phase 4 - Publication workflow | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | New-property runtime publication awaits external location/persisted-property integration |
-| Phase 5 - Listing lifecycle | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Normal saved-property/listing path still awaits external location integration |
+| Phase 4 - Publication workflow | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Approved exact/public handoff exists; actual Android saved draft and property-specific publication acceptance pending |
+| Phase 5 - Listing lifecycle | IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED | Approved exact/public handoff exists; actual Android saved-property/listing/lifecycle acceptance pending |
 | External integration phase | DEFERRED | Separately owned features, explicit later integration scope |
 
 ## Phase 1 - Physical property creation evidence
@@ -331,3 +331,184 @@ Runtime evidence supplied by user on 2026-10-28: map/style load, confirmation ma
 No Supabase interaction or permanent live backend mutation was performed in this phase. Existing create_property_setup is reused; public derivation is frontend domain logic. Exact coordinates remain private; ordinary future GPS/PostGIS proximity must consume public property points. No GPS/discovery/OSM/ML/recommendation/NLP/360 or Phase 2-5 feature change, commit/push/merge/deployment/EAS build occurred. Skills read: all eight repository-local RentLease SKILL.md files (feature implementation, MVVM, Supabase contract, security, testing/runtime, documentation, ledger, artifact organizer); AGENTS and relevant architecture/frontend/Figma/feature documentation were reviewed. Current source and living docs agree on the resolved policy and unverified runtime acceptance.
 
 Final review: git diff --check PASS; documentation-link validation PASS (54 local links/anchors, zero errors). No MVVM violations found in changed source: pure model calculation, workflow confirmation, composed ViewModel handoff, presentation-only UI. Persistence service/workflow, DraftProperty validation, generated database types, package files and Phases 2-5 service/workflow diffs remain empty. No runtime save acceptance is claimed.
+
+
+## Streamlined composer and real portfolio (2026-10-29)
+
+Status: IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED. Baseline ab15285 on feature/maptiler-property-location. Work began with a clean tree for the composer request; when the follow-up portfolio request arrived, all in-progress composer/gallery/queue changes were retained. An independently edited eas.json development-simulator profile appeared during work and was preserved byte-for-byte by this pass. No branch switch occurred.
+
+### Implementation scope and plan
+
+1. Preserve Phases 1-5 mutation services/contracts and the location/privacy workflow. Add a media-first one-screen composer after confirmed property creation; retain exceptional creation recovery and secondary photo management.
+2. Install expo-image-picker with Expo-compatible tooling; validate a multi-image adapter and sequential workflow queue around existing propertyPhotoService.upload. Stop on unknown outcome, isolate the attempted item, preserve unattempted local selections and require reconciliation plus explicit continuation.
+3. Add a read-only property-centered owner portfolio using existing authorized properties/listings/Tier 3/cover reads, pagination, safe URL validation and deterministic history/status mappings.
+4. Separate workspace property/listing/mode from physical creation receipts. Open existing owned records without Phase 1 recreation, and detach into clean Post without deleting item journals. Scope dirty/operation handling and invalidate stale responses.
+5. Replace fixture dashboard cards/search/statistics; move draft/publication/lifecycle feedback into matching owner surfaces. Validate meaningful model/service/workflow/actual-hook/presentation regressions; update this continuous record set, not one-off reports.
+
+### Resulting workflow and boundaries
+
+Post creates a new physical property, then automatically opens ListingComposerView after a confirmed UUID. Media is a horizontal saved/local/uploading/uncertain strip with cover and confirmed removal. One gallery action can select remaining capacity; JPEG/PNG/WebP and 10 MiB validation are unchanged, and each existing upload operation is sequentially awaited and refreshed. Advanced manager retains alt text, explicit order and recovery. 360 remains visibly unavailable with no implementation. All supported listing terms/content fields and save_listing_draft validation/payload/journal/baseline remain. Real preview renders saved photos in order and labels local selections; sample/Figma rendering is separate. No automatic publication occurs.
+
+My Listings now reads owned properties, owned listing histories, own property-specific Tier 3 and owner-confirmed cover photos. Service revalidates identity before/after reads, paginates 200 rows and chunks cover reads by 100 IDs. No private coordinates/locations, obligations/tenancy/rating or new RPC are queried. Missing covers use placeholders; property-only records remain visible. Main listing priority is live > draft > archived/removed, then updated/created/ID ordering. Latest Tier 3 uses submitted_at, updated_at and ID, scoped per property. Normal dashboard contains no fixture unit codes, view/inquiry counts, rating, overdue or tenancy summary. Search/statistics derive from loaded records.
+
+The ViewModel owns explicit workspacePropertyId/workspaceListingId/mode and selected safe property data. Creation results are handed into that workspace, never overwritten to fake existing-property selection. Exact selected-listing restoration was added to existing read paths; RPC mutation arguments/contracts remain unchanged. Non-draft status opens the existing real lifecycle view; rented/archived/removed remain read-only. Selected draft disappearance is an error, not permission to create a replacement. Post clears only transient selection/forms and invalidates old workflow generations; persisted per-item pending markers remain recoverable. Physical creation's existing unresolved account-level marker remains a separate limitation and is not silently deleted.
+
+Global listing banners were removed. Matching draft feedback lives in composer/preview, publication feedback appears on its matching reconciliation/publication surface, lifecycle feedback only in real management. Property setup/map and the portfolio do not display unrelated item errors. Same-item busy and Stay/Leave guards remain; Post can detach an unrelated busy item without letting its late response navigate or populate the new workspace. Portfolio cache invalidation follows confirmed record adoption and entry always reloads it.
+
+### Files and preserved local work
+
+Added files:
+
+- `src/features/property-listing/components/ListingWorkspaceFeedback.tsx`
+- `src/features/property-listing/models/LandlordPortfolio.ts`
+- `src/features/property-listing/models/PropertyPhotoSelection.ts`
+- `src/features/property-listing/services/landlordPortfolioDependencies.ts`
+- `src/features/property-listing/services/landlordPortfolioService.ts`
+- `src/features/property-listing/viewModels/landlordPortfolioWorkflow.ts`
+- `src/features/property-listing/views/ListingComposerView.tsx`
+- `tests/landlordPortfolio.test.ts`
+- `tests/propertyPhotoQueue.test.ts`
+- `tests/propertyWorkspacePresentation.test.ts`
+
+Modified files:
+
+- `app.json`
+- `docs/ARCHITECTURE.md`
+- `docs/BACKEND_CONTEXT.md`
+- `docs/FEATURES.md`
+- `docs/FRONTEND_CONTEXT.md`
+- `docs/ROUTES.md`
+- `docs/features/PROPERTY_LISTING_MANAGEMENT.md`
+- `docs/implementation-reports/database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md`
+- `docs/implementation-reports/phases/PROPERTY_LISTING_MANAGEMENT_IMPLEMENTATION.md`
+- `package-lock.json`
+- `package.json`
+- `src/features/property-listing/models/PropertyListing.ts`
+- `src/features/property-listing/models/listingNavigation.ts`
+- `src/features/property-listing/services/listingDraftService.ts`
+- `src/features/property-listing/services/listingPublicationService.ts`
+- `src/features/property-listing/services/propertyPhotoDependencies.ts`
+- `src/features/property-listing/viewModels/listingDraftWorkflow.ts`
+- `src/features/property-listing/viewModels/listingPublicationWorkflow.ts`
+- `src/features/property-listing/viewModels/propertyCreationWorkflow.ts`
+- `src/features/property-listing/viewModels/propertyPhotoWorkflow.ts`
+- `src/features/property-listing/viewModels/usePropertyListingViewModel.ts`
+- `src/features/property-listing/views/CreateListingView.tsx`
+- `src/features/property-listing/views/ListingManagementView.tsx`
+- `src/features/property-listing/views/ListingPreviewView.tsx`
+- `src/features/property-listing/views/PropertyDashboardView.tsx`
+- `src/features/property-listing/views/PropertyListingFlowView.tsx`
+- `src/features/property-listing/views/PropertyPhotosView.tsx`
+- `src/features/property-listing/views/PublishedListingStatusView.tsx`
+- `tests/marketplaceWiring.test.ts`
+- `tests/propertyExitGuard.test.ts`
+
+Preserved independent local change: `eas.json` (development-simulator profile, not authored or modified by Codex).
+
+### Skills actually read
+
+All eight repository-local SKILL.md files: rentlease-feature-implementation, rentlease-frontend-mvvm-guard, rentlease-supabase-contract-guard, rentlease-security-review, rentlease-test-runtime-verification, rentlease-documentation-maintainer, rentlease-implementation-ledger and rentlease-implementation-artifact-organizer. Additional installed guidance read: brainstorming (the detailed user specification already authorizes this coherent refactor), impeccable plus its product reference/context loader, and test-driven-development. Existing product/design/theme context was reused. No speculative redesign, separate design artifact or automatic commit was introduced.
+
+### Test and runtime evidence
+
+Queue regressions were first observed failing because the batch API was absent, then passed after implementation. Added propertyPhotoQueue.test.ts, landlordPortfolio.test.ts and propertyWorkspacePresentation.test.ts; extended actual-hook/Flow tests in propertyExitGuard.test.ts and the feature-local service import allowlist in marketplaceWiring.test.ts. Test harness scheduling was updated to settle the new explicit workspace handoff; existing assertions/verification/location/publication/lifecycle coverage were retained.
+
+Coverage includes multi-selection normalization/cancellation/invalid types and sizes/capacity, immediate local queue state, sequential deterministic writes, stop/reconciliation/explicit resume, account/property/disposal invalidation, owner-scoped paginated reads/cover namespace validation, missing related records, listing histories/priorities, latest Tier 3/search/stats, actual property-success vs uncertain transitions, selected drafts/statuses, clean Post with pending/rejected Tier 3 or uncertain publication, in-flight lifecycle detachment, dirty exits and cross-property/listing notice suppression. These are mocked local automated tests, not live security or Android acceptance.
+
+Dependency: expo-image-picker ~57.0.20 installed using npx expo install expo-image-picker; expo-image-loader is transitive. Verification DocumentPicker remains. Gallery-only plugin disables camera/microphone contributions; no GPS permission/read was added. A development client predating the native picker must be rebuilt. No EAS build/deployment was run. The local unavailable D: Node issue was avoided by using the previously verified temporary official Node 24.22.1 runtime for validation; no system runtime or unrelated dependency upgrade occurred.
+
+npx expo install --check ran online, exit 1 for unchanged patch drift: expo 57.0.30 expects ~57.0.31, expo-location 57.0.21 expects ~57.0.22, expo-notifications 57.0.23 expects ~57.0.24. The new picker matches SDK 57; no automatic fixes were installed.
+
+Backend/security: no live Supabase action, new RPC, generated-type/schema/RLS/grant/Storage change, SQL, remote test fixture or mutation was performed. No permanent live backend mutation was performed in this phase. User-supplied external read-audit provenance is in the existing backend ledger. RLS remains authoritative; no authorization was moved into Views. No MVVM violations found: Views bind presentation/actions, workflows own coordination/generations, services own authenticated reads/device/Storage operations, models remain pure.
+
+Android acceptance still required: real portfolio property/photos/status/Tier 3; Post blank state with no prior banners; create second property -> composer; batch gallery/native cached-file reads; save/preview; both properties visible; reopen each draft/status without cross-item content; pending/rejected verification and publication uncertainty while starting another Post; marker recovery; network interruption mid-batch and explicit continuation; account switch; inactive/denied access; Stay/Leave, nested Back and large text/narrow screens. No native/live runtime success is claimed.
+
+MapTiler/public-coordinate behavior and Phase 4/5 RPC mutation logic are unchanged. No GPS/OSM/ML/recommendation/NLP/360 work, commit, push, merge or deployment occurred. No PDF or separate phase report was generated. Living feature, history and ledger remain the continuous authoritative record set.
+
+
+### Final validation evidence (2026-10-29)
+
+- npm run typecheck: PASS, exit 0.
+- npm test: PASS, exit 0; **621 total / 621 passed / 0 failed / 0 skipped / 0 cancelled** (46 additional cases over baseline 575).
+- git diff --check: PASS; Git's LF/CRLF conversion advisories are not whitespace errors.
+- Documentation local-link/anchor validation: PASS, **56 checked / 0 errors** across the eight affected documents.
+- Expo compatibility: exit 1 for the three existing patch mismatches listed above; no automatic fixes. The installed image-picker is SDK-compatible.
+- Protected-diff review: generated database types, Supabase backend files, environment values, shared maps/geocoder, exact-pin/privacy implementation, atomic per-photo service and lifecycle service/workflow have no changes. Publication/draft service edits are limited to exact selected-listing reads; mutation contracts remain unchanged.
+- MVVM/security review: no View backend/external-client calls, new client, private-location portfolio read, raw URI/coordinate logs, permissive policy or item journal deletion added. Runtime/live RLS remains unverified.
+- Current local scope: 10 added files, 30 modified files authored in the combined composer/portfolio work, plus the preserved independent eas.json change. No commit/push/merge/deploy/build occurred.
+
+
+## Unified default Post composer (2026-10-29)
+
+**IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED.** Continuation on feature/maptiler-property-location, baseline ab15285 plus the entire preserved uncommitted composer/portfolio work above. This corrects the earlier same-day UX boundary: the composer is now the default before property persistence, not merely its next screen. No branch switch, reset, commit, push, merge, deploy or build occurred; the independent eas.json edit remains untouched.
+
+### Plan and implementation
+
+Use the supplied complete single-scroll specification as the approved scope. Preserve the current portfolio, media queue, mutation services, journals and privacy/revision logic. Move physical/address controls into a reusable presentation section; resolve the root Post input directly to listingComposer; permit local image selection before UUID with explicit queue-preserving null-to-created binding; coordinate explicit Save in the ViewModel (property, photos, draft), with confirmed partial-success boundaries and stale/duplicate/action guards. Reuse the map as a temporary modal over the mounted composer. Keep legacy/sample/recovery paths and real management views; test actual orchestration and preserve existing regressions.
+
+Post renders ListingComposerView immediately, including initial root postingType entry (internally normalized before render) and bottom Post. The nonfunctional community choice is not a prerequisite. The retained physical-property choice also opens the unified composer. New creation holds the existing DraftProperty, location workflow, local photo queue and listing draft at the same time. Media is the first major section, followed by physical/address fields, listing fields, explicitly local-only amenity choices, terms, rules and date. No supported field/backend mapping was removed. Existing persisted properties use safe read-only summaries; new persisted physical fields stay mounted read-only rather than inventing property UPDATE support.
+
+The queue can select before property UUID with no context/read/upload call; cached local selections survive only an explicit new-property binding. Ordinary account/property switching and disposal still invalidate them. Save is synchronously excluded against repeat presses and competing picker changes. The ViewModel uses existing physical validation, confirmed four-coordinate handoff and create_property_setup service; accepts a real UUID; binds photo/draft/publication state; loads authorized state; uploads queued images sequentially through unchanged propertyPhotoService.upload; and invokes existing save_listing_draft only if listing minimum fields exist. Listing fields entered before UUID are preserved. Saving physical data with incomplete listing fields is allowed but explicitly reports those listing details as local. Save stays on the composer; there is no normal Property confirmed/Manage photos/Continue transition.
+
+Property failure or uncertainty keeps the same composer/local inputs/media and uses existing recent-owned recovery without blind creation. A photo unknown outcome keeps the confirmed property and saved photos, stops processing and blocks draft save until reconciliation. Draft uncertainty keeps property/photos, disables repeated Save and exposes existing scoped reconciliation. No transaction or rollback spanning these services is claimed; no automatic publication or speculative cleanup occurs. Same-item save guards remain scoped; the portfolio and other item journals are preserved. Default forms now initialize empty, with fixtures loaded only through explicit sample actions.
+
+The original map presentation was extracted into PropertyLocationToolView and reused by legacy setup and the composer Modal. Search/result/native pin confirmation is temporary; the composer ScrollView stays mounted, intended to retain offset. Confirm/cancel/native Back return to that same form and do not request external Leave. Address edits retain synchronous revision/generation invalidation. No provider, native renderer, geocoder, coordinate/privacy algorithm or location service changed. Real local preview shows pending images marked not saved, without Figma crops/ratings or fake publication. It returns to the composer to save. My Listings remains backend-backed; property/draft items reuse the composer, non-draft items retain real lifecycle/status.
+
+### Files for this continuation
+
+Added:
+
+- src/features/property-listing/components/ComposerPropertyFields.tsx
+- src/features/property-listing/views/PropertyLocationToolView.tsx
+
+Updated application code:
+
+- src/features/property-listing/components/ListingControls.tsx (optional editable/disabled presentation props).
+- src/features/property-listing/viewModels/propertyCreationWorkflow.ts (reuse validated submit from composer, preserving legacy review path).
+- src/features/property-listing/viewModels/propertyPhotoWorkflow.ts (local queue before UUID and narrow queue-preserving binding).
+- src/features/property-listing/viewModels/usePropertyListingViewModel.ts (immediate Post, Save orchestration, guards, draft preservation, scoped recovery/preview).
+- src/features/property-listing/views/ListingComposerView.tsx (one-screen complete form, local media and map modal).
+- src/features/property-listing/views/PropertySetupView.tsx (reuse extracted tool; retained legacy/recovery path).
+- src/features/property-listing/views/ListingPreviewView.tsx (local real-composer preview, no fake publication).
+- src/features/property-listing/views/PropertyListingFlowView.tsx (render composer without UUID).
+
+Tests: propertyExitGuard.test.ts, propertyPhotoQueue.test.ts, propertyWorkspacePresentation.test.ts, propertyLocationPrivacy.test.ts. Legacy hook tests now enter legacy screens explicitly rather than treating the changed normal Post entry as a wizard; mocks preserve all authoritative returned listing fields. Earlier regression cases remain, and expectations that Post returns postingType/no-UUID composer is absent were revised for this explicit requirement. Documentation: current living feature doc, ARCHITECTURE, FRONTEND_CONTEXT, FEATURES, ROUTES, this history and the continuous backend ledger. No package, permission/configuration, generated type or backend file change was introduced by this continuation.
+
+### Validation and evidence
+
+- npm run typecheck: PASS, exit 0.
+- npm test: **632 total / 632 passed / 0 failed / 0 skipped / 0 cancelled**, exit 0. Eleven additional cases over 621.
+- The pre-UUID selection regression was observed failing (zero queued files instead of four) before adding local selection/binding. Passing coverage includes default immediate Post/Flow view, full physical/address/listing/media-first presentation, map modal and actual state round-trip/revision clearing, property -> sequential photos -> draft ordering, pre-UUID listing retention, repeat Save/competing picker exclusion, physical known/unknown failure, photo uncertainty, draft uncertainty/no blind resave, incomplete listing wording, local preview and late picker disposal. Existing portfolio/verification/privacy/publication/lifecycle tests remain.
+- npx expo install --check: exit 1 for unchanged pre-existing expo/location/notifications patch drift documented above. No fixes or additional dependencies were installed.
+- git diff --check and documentation-link validation: recorded below after final documentation edits.
+- No Android/client runtime test occurred. No EAS build was run. This JavaScript/presentation refactor adds no native rebuild requirement; clients that still lack the earlier expo-image-picker/MapLibre dependencies must use an appropriately rebuilt development client.
+
+MVVM/security review: Views only render/bind controls and native presentation. Pure mapping/validation models and existing services are reused; the composed ViewModel owns cross-stage async orchestration, identity/generation checks, loading, notices and partial success. No direct View Supabase call, duplicate client or frontend authorization replacement was introduced. Existing RPCs/RLS remain authoritative. No live Supabase action or permanent live backend mutation was performed in this phase. The ledger records this as local-only contract reuse, not a live RPC test. No GPS/OSM/ML/NLP/recommendation/360 implementation occurred. Amenities remain local-only; existing physical property editing is not invented.
+
+Android acceptance: tap Post -> immediate Photos/Property/Location/Listing form; select several photos before UUID; fill property/address; open search/map, adjust/confirm, verify same composer values/scroll; edit address and reconfirm; fill listing and Save once, expect property -> ordered photos -> draft while staying on composer. Verify no created/manager/Continue screens, one UUID after retries, truthful incomplete listing, each partial failure/reconciliation boundary, native Back, Stay/Leave, account/workspace switch, pending Tier 3/other item uncertainty and real portfolio reopen. Native scroll offset/keyboard behavior, gallery/native file access, live RLS and actual persistence remain RUNTIME-UNVERIFIED.
+
+
+Final continuation checks: git diff --check PASS; documentation-link/anchor validation **58 checked / 0 errors**. Protected diff review confirms unchanged creation/photo/lifecycle mutation services, lifecycle workflow, generated database types, shared geocoder, exact-map renderer, public privacy model/location workflow, environment and Supabase backend files. Source review found no MVVM violations. All current uncommitted work remains; independent eas.json content was not edited. No commit/push/merge/deploy/build occurred.
+
+Skills used/read in this continuous implementation pass: .codex/skills/rentlease-feature-implementation/SKILL.md; rentlease-frontend-mvvm-guard/SKILL.md; rentlease-supabase-contract-guard/SKILL.md; rentlease-security-review/SKILL.md; rentlease-test-runtime-verification/SKILL.md; rentlease-documentation-maintainer/SKILL.md; rentlease-implementation-ledger/SKILL.md; rentlease-implementation-artifact-organizer/SKILL.md (all sibling paths under .codex/skills). Installed brainstorming, impeccable/product context and test-driven-development guidance were also read earlier in this same continuous pass. No new per-phase report was created.
+
+
+## Two-page Post refinement (2026-10-29)
+
+Status: IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED. This supersedes the same-day single-page Post checkpoint without discarding its implementation/evidence. Existing uncommitted composer, portfolio, location and independent eas.json work were preserved.
+
+Default Post is Property (`listingComposer`) -> Listing Details (`listingDetails`) -> Preview. Property has Media first, physical fields, local-only amenities and location. Next only navigates. Listing Details has a compact property summary/Edit property and offering fields, Save draft and Preview. Existing draft opens Listing Details, property-only opens Property and non-draft keeps real status/lifecycle. Back/Edit preserve both-page state; map modal returns to Property. Existing ordered Save remains property -> real UUID -> sequential photos -> listing draft. Tier 3 is unchanged.
+
+Added presentation/model files: components/ComposerRecoveryFeedback.tsx, PropertyMediaSection.tsx, PropertyMediaViewer.tsx; models/PropertyMedia.ts; views/ListingDetailsView.tsx (under src/features/property-listing). Updated ListingComposerView, ComposerPropertyFields, PropertyListingFlowView, usePropertyListingViewModel, propertyPhotoWorkflow, PropertyListing/listingNavigation models, safe portfolio physical-field projection/model and associated tests. Shared FullscreenDocumentImage/documentImagePreview gained optional bounded gallery navigation/swipe support; existing verification defaults and Admin URL lifecycle remain unchanged. This builds on the earlier uncommitted files listed above, not a new clean-tree baseline.
+
+Media has a 4:3 active preview, thumbnails, shared fullscreen pinch/pan/double-tap, fitted-image swipe and previous/next controls. Active selection never changes backend cover/order. Add 360° interior is a disabled control inside Media, not 360 support. Local files remain local before UUID. Gallery close/hardware Back preserves state; different images reset zoom. No URI is used as a debug key or logged. No new dependency/native rebuild is introduced by this refinement; the dev client must already contain earlier native dependencies. No build was run.
+
+Validation: npm run typecheck PASS (exit 0); npm test **643 total / 643 passed / 0 failed / 0 skipped / 0 cancelled** (11 more than 632). Tests cover local-only Next and shared dirty scope, existing draft entry/Edit, large preview and thumbnail wiring, gallery close/Android Back, bounded selection/reset, separate cover action, swipe eligibility and descriptor privacy. Existing ordered-save, failures/reconciliation, portfolio, verification and location regressions pass. D: Node is now available (v25.8.2), and D:/npm.cmd ran these checks; the removed temporary runtime was not counted as a validation pass.
+
+No live Supabase action or permanent backend mutation occurred. Safe owner portfolio SELECT adds existing floor_number/total_floors/max_occupants only; mutation contracts, generated types, Maps/privacy implementation and backend policies remain unchanged. No MVVM violation found: presentation binds ViewModel state; workflow owns media state/coordination; service owns authorized reads. No GPS/OSM/ML/NLP/recommendation/360 implementation, commit/push/merge/deploy/EAS build occurred.
+
+Manual Android acceptance: Post/media-first layout, large text/narrow width, local selection, fullscreen pinch/pan/swipe/Close/hardware Back, independent cover control; map confirm/cancel returns to Property; Next has no writes, Edit/Back/Preview preserve fields and dirty state; explicit Save retains UUID/ordered uploads/draft recovery; reopen property-only/draft/non-draft items; account switching and Stay/Leave. New native interactions and actual persistence remain RUNTIME-UNVERIFIED.
+
+Final compatibility check: npx expo install --check ran online, exit 1 only for unchanged expo 57.0.30/~57.0.31, expo-location 57.0.21/~57.0.22 and expo-notifications 57.0.23/~57.0.24 patch drift. No automatic fixes applied.
+
+Final whitespace/link checks: git diff --check PASS; local documentation links/anchors **60 checked / 0 errors**. Existing uncommitted work including independent eas.json is preserved.

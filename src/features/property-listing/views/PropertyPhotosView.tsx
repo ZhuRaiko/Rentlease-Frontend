@@ -11,17 +11,21 @@ import type { PropertyListingViewModel } from '../viewModels/usePropertyListingV
 
 export function PropertyPhotosView({ viewModel: vm, onClose }: { viewModel: PropertyListingViewModel; onClose: () => void }) {
   const state = vm.photoState, flow = vm.propertyPhotos;
-  const disabled = state.busy || !state.loaded || state.needsReconcile;
+  const disabled = state.busy || !state.loaded || state.needsReconcile || !!state.pendingSelections.length;
   return <ListingWizardScaffold title="Property photos" description="Show the rooms and spaces tenants will use. JPEG, PNG or WebP, up to 10 MB each." onBack={vm.goBack} onClose={onClose}>
     {!state.propertyId ? <>
-      <FeedbackNotice message="Photos require a saved property first. Confirm the property location before saving; the separate location integration is pending." />
+      <FeedbackNotice message="Photos require a saved property first. Complete property setup before adding photos." />
       <ListingButton label="Choose photo" disabled onPress={() => void flow.select()} />
       <ListingButton label="Return to property setup" tone="outline" onPress={() => vm.navigate('propertySetup')} />
     </> : <>
       <Text accessibilityRole="header" style={styles.heading}>{state.photos.length} of 10 photos</Text>
       <Text style={styles.copy}>Property photos are publicly accessible. Do not include identity documents, private access instructions or other sensitive information.</Text>
       <FeedbackNotice message={state.error} tone="error" />
-      <FeedbackNotice message={state.notice} tone="success" />
+      <FeedbackNotice message={state.notice} tone={state.needsReconcile ? 'warning' : 'info'} />
+      {state.pendingSelections.length ? <>
+        <Text style={styles.copy}>{state.pendingSelections.length} local photos are waiting. Return to the composer to review them, or continue after checking any uncertain operation.</Text>
+        <ListingButton label="Continue remaining uploads" disabled={state.busy || !state.loaded || state.needsReconcile} tone="outline" onPress={() => void flow.resumeQueue()} />
+      </> : null}
       {state.busy ? <Text accessibilityLiveRegion="polite" style={styles.copy}>Updating property photos...</Text> : null}
       {state.needsReconcile || !state.loaded ? <ListingButton label="Check photo status" disabled={state.busy} onPress={() => void flow.checkStatus()} tone="outline" /> : null}
       {!state.photos.length && state.loaded ? <Text style={styles.copy}>No saved photos yet. Add a clear photo of the property to get started.</Text> : null}
@@ -51,7 +55,7 @@ export function PropertyPhotosView({ viewModel: vm, onClose }: { viewModel: Prop
         <ListingButton disabled={state.busy} label="Discard selection" tone="outline" onPress={flow.cancelSelection} />
       </View> : <ListingButton disabled={disabled || state.photos.length >= 10} label={state.photos.length >= 10 ? '10-photo limit reached' : 'Choose photo'} onPress={() => void flow.select()} />}
       <Text style={styles.copy}>The first saved photo is assigned as cover through the backend. You can change it later. Changes here are saved to the property; no rental listing is published.</Text>
-      <ListingButton disabled={state.busy} label="Continue to listing draft" tone="outline" onPress={vm.continueListingPreview} />
+      <ListingButton disabled={state.busy} label="Return to listing composer" tone="outline" onPress={vm.goBack} />
     </>}
   </ListingWizardScaffold>;
 }

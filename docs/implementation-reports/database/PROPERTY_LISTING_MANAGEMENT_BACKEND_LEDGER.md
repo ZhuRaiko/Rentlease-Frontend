@@ -1041,3 +1041,34 @@ Durable backend effect: none. Rollback/cleanup: not applicable, no remote test d
 ## Public-location privacy handoff (2026-10-28)
 
 No new backend mutation or live Supabase interaction. Existing create_property_setup contract reused unchanged; no migration/schema/RLS/RPC/generated-type change. Public coordinate derivation is frontend domain logic (deterministic 300m Web Mercator grid centers). Codex performed local implementation and mocked automated tests only; successful Android property persistence is still runtime-unverified. No remote data cleanup/rollback was needed.
+
+
+## Portfolio read contract and local UX integration (2026-10-29)
+
+- Recording date/feature: 2026-10-29, Property & Listing composer and persisted landlord portfolio.
+- Actor/tool/environment: external read-only live Supabase audit reported by the user; exact audit execution date/tool/transcript unavailable. Existing live RentLease project. Codex did not rerun the audit or call live Supabase in this pass.
+- Classification: READ_ONLY_INSPECTION (externally reported evidence). This entry records contract dependence, not a newly executed inspection or backend change.
+- Targets/action: properties/listings/property_photos/verification_submissions table privileges and owner RLS policies. Exact executed SQL was not supplied; none is invented here.
+- Reported result: authenticated SELECT on properties/listings/verification_submissions; property_photos SELECT/INSERT/DELETE plus existing column-scoped UPDATE remain. Owner reads use landlord_id=auth.uid() for properties/listings; verification uses user_id=auth.uid(); property-photo owner access uses can_manage_property(property_id)/can_view_property(property_id). Portfolio needs no new RPC or privileges.
+- Purpose: justify frontend read-only owner portfolio integration without broadening backend access. It does not replace runtime RLS acceptance testing.
+- Durable effect: none from the audit or local implementation. No live schema, RLS, grants, functions, Storage policy/config, generated types or data changed. No permanent live backend mutation was performed in this phase.
+- Rollback/cleanup: not applicable; no live tests/fixtures created or replayed.
+- Security/RLS: supplied external audit only. Local service uses narrow owner filters, confirms owned IDs before cover queries, rechecks Auth identity and validates existing property-photo namespaces. It never reads private locations/coordinates/access instructions and performs no mutation. Denied/non-owner client runtime still needs testing.
+- Source-controlled backend file: none created/modified; existing create_property_setup, propertyPhotoService, save_listing_draft, publish_listing and lifecycle RPC mutation paths reused. Selected-item reads accept an optional exact listing ID; no RPC argument/contract change.
+- Android/client runtime: RUNTIME-UNVERIFIED. Local tests use mocks, not live RPC/Storage operations. Multi-photo gallery adds expo-image-picker in the local frontend; no native build performed. All previously recorded fixtures/warnings/cleanup remain historical and untouched.
+
+
+## Unified composer local orchestration (2026-10-29)
+
+Actor/tool/environment: Codex, local frontend source inspection and mocked automated tests on feature/maptiler-property-location. No live Supabase environment was contacted in this continuation. Purpose: reuse existing property/photo/draft contracts under one explicit composer Save without changing their order or authorization.
+
+Actions/targets: no SQL, live RPC/Storage test, privilege/schema/RLS/function/trigger/configuration/generated-type change or remote test-data operation performed. Existing create_property_setup, propertyPhotoService.upload/set_property_cover_photo and save_listing_draft paths are consumed unchanged; publication/lifecycle remain their dedicated existing RPC workflows. Local image picking before UUID performs no backend call. The four-coordinate service contract/privacy rule remains unchanged.
+
+Result/durable effect: local UI/ViewModel/workflow refactor only, no durable backend effect. No permanent live backend mutation was performed in this phase. Rollback/cleanup: not applicable, no remote fixtures created. Security/RLS: existing backend rules reused, not independently revalidated against live Supabase here. Source-controlled backend file: none created/modified. Android/client runtime: RUNTIME-UNVERIFIED; 632 passing mocked automated tests do not establish native/live persistence or security acceptance.
+
+
+## Two-page Post local presentation (2026-10-29)
+
+Actor: Codex, local frontend workspace only. Environment: feature/maptiler-property-location, no live project access. No live Supabase inspection, SQL, RPC/Storage test or data mutation occurred in this refinement. No permanent live backend mutation was performed in this phase. Existing backend contracts/security and earlier external provenance remain unchanged.
+
+Property -> Listing Details navigation and media gallery reuse existing services. The local owner portfolio SELECT projection includes existing floor_number, total_floors and max_occupants; no private coordinates or new mutation path was added. Automated mocked tests are not live RLS validation. No migration/backend file, rollback or cleanup was required. Android/client runtime remains unverified. See the continuous implementation history's two-page Post refinement section for exact test evidence.

@@ -1,6 +1,7 @@
 import { StyleSheet, Text } from 'react-native';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
 import { ListingButton } from '../components/ListingButton';
+import { ListingWorkspaceFeedback } from '../components/ListingWorkspaceFeedback';
 import { colors } from '../../../shared/theme/colors';
 import { typography } from '../../../shared/theme/typography';
 import { formatVerificationDate } from '../../../shared/utils/formatVerificationDate';
@@ -15,6 +16,7 @@ export function PublishedListingStatusView({ viewModel, onClose }: { viewModel: 
     : row?.status === 'archived' ? 'This listing is archived. Your property and photos are retained.'
     : 'Listing status is confirmed by RentLease. Content editing is unavailable after publication.';
   return <ListingWizardScaffold title={row ? viewModel.lifecycleStatusLabel[row.status] : 'Listing status'} description={description} onBack={viewModel.goBack} onClose={onClose}>
+    <ListingWorkspaceFeedback viewModel={viewModel} scope="management" />
     <Text style={styles.title}>{row?.title}</Text>
     <Text style={styles.detail}>Listing: {row?.id}</Text>
     <Text style={styles.detail}>Completeness: {Math.round((row?.completeness_score ?? 0) * 100)}%</Text>

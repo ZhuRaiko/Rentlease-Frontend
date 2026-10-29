@@ -40,11 +40,12 @@ export function createListingPublicationService(getClient: () => SupabaseClient<
   };
   return {
     context, assertContext, read, reconcile,
-    async restore(propertyId: string) {
+    async restore(propertyId: string, selectedListingId?: string) {
       const base = await access.context(propertyId);
       const pointer = await journal.getItem(pointerKey(base));
       if (pointer && !isPropertyUuid(pointer)) throw uncertain();
-      let id = pointer;
+      if (selectedListingId && !isPropertyUuid(selectedListingId)) throw uncertain();
+      let id = selectedListingId ?? pointer;
       if (!id) {
         // Narrow property/owner read also recovers active state if local receipts were lost.
         const { data, error } = await getClient().from('listings').select('id').eq('property_id', propertyId).eq('landlord_id', base.userId).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle();

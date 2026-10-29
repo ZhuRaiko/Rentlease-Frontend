@@ -32,7 +32,7 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
   if (screen === 'postingType') {
     return (
       <ScrollView contentContainerStyle={styles.postingScreen} showsVerticalScrollIndicator={false}>
-        <FeedbackNotice message="Set up a physical property separately from its rental listing. Confirm the property location before saving; location integration is pending. Photos require a saved property; publication remains a preview." />
+        <FeedbackNotice message="Add a physical property, then prepare its rental listing. Photos require a saved property. Publishing always needs a separate confirmation." />
         <Pressable
           accessibilityLabel="Close posting selection"
           accessibilityRole="button"
@@ -47,7 +47,7 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
         <View style={styles.postingChoices}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => viewModel.navigate('propertySetup')}
+            onPress={viewModel.beginPropertySetup}
             style={({ pressed }) => [styles.postingChoice, pressed && styles.pressed]}
           >
             <Text style={styles.postingLabel}>A physical property</Text>

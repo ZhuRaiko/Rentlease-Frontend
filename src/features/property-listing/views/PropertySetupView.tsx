@@ -1,4 +1,4 @@
-import { PropertyLocationMapView } from './PropertyLocationMapView';
+import { PropertyLocationToolView } from './PropertyLocationToolView';
 import { formatVerificationDate } from '../../../shared/utils/formatVerificationDate';
 import { StyleSheet, Text, View } from 'react-native';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
@@ -17,18 +17,7 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
   const d = state.draft;
   const locationAccepted = hasConfirmedPropertyLocation(d);
   const location = vm.locationState;
-  const locationFlow = vm.propertyLocation;
-  const token = locationFlow.generationToken();
-  if (state.step === 'address' && location.stage === 'map' && location.workingPoint && location.selected && location.styleUrl) return <PropertyLocationMapView key={token} styleUrl={location.styleUrl} point={location.workingPoint} initialPoint={location.selected} ready={location.mapReady} error={location.error} onMove={point => locationFlow.movePoint(point, token)} onLoaded={() => locationFlow.mapLoaded(token)} onFailed={() => locationFlow.mapFailed(token)} onCancel={locationFlow.cancel} onConfirm={() => locationFlow.confirmExact(token)} />;
-  if (state.step === 'address' && (location.stage === 'searching' || location.stage === 'candidates')) return <ListingWizardScaffold title="Find your property" description="Search the address, then choose a result to adjust its exact pin." onBack={locationFlow.cancel} onClose={onClose}>
-    <ListingField label="Property address search" placeholder="Street, barangay and city" value={location.query} onChangeText={locationFlow.updateQuery} />
-    <ListingButton label={location.busy ? 'Search again' : 'Search address'} onPress={() => void locationFlow.search()} />
-    <FeedbackNotice message={location.error} tone="error" />
-    {location.busy ? <Text accessibilityLiveRegion="polite" style={styles.copy}>Searching locations...</Text> : null}
-    {!location.busy && !location.error && !location.candidates.length ? <Text style={styles.copy}>No locations found. Check the address and search again.</Text> : null}
-    {location.candidates.map(candidate => <ListingButton key={candidate.id} label={candidate.label} tone="outline" onPress={() => locationFlow.chooseCandidate(candidate.id, token)} />)}
-    <ListingButton label="Cancel" tone="outline" onPress={locationFlow.cancel} />
-  </ListingWizardScaffold>;
+  if (state.step === 'address' && ['searching', 'candidates', 'map'].includes(location.stage)) return <PropertyLocationToolView viewModel={vm} onClose={onClose} />;
   const title = state.step === 'details' ? 'Your physical property' : state.step === 'address' ? 'Where is the property?' : state.step === 'created' ? 'Property confirmed' : 'Review property setup';
   return <ListingWizardScaffold title={title} onBack={vm.goBack} onClose={onClose} description="Property setup is separate from a rental listing. Tier 3 approval is not needed to add a property.">
     <FeedbackNotice message={state.error} tone="error" />

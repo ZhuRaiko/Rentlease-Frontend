@@ -69,9 +69,9 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
       const draft = { ...state.draft, ...location };
       if (hasConfirmedPropertyLocation(draft)) update({ draft, error: null });
     },
-    async submit() {
-      if (disposed || state.busy || !state.loaded || state.propertyId || state.uncertain || state.step !== 'review') return;
-      if (!hasConfirmedPropertyLocation(state.draft)) return;
+    async submit(fromComposer = false) {
+      if (disposed || state.busy || !state.loaded || state.propertyId || state.uncertain || (!fromComposer && state.step !== 'review')) return;
+      if (!fromComposer && !hasConfirmedPropertyLocation(state.draft)) return;
       const error = draftPropertyError(state.draft); if (error) { update({ error }); return; }
       const attempt = epoch; update({ busy: true, error: null });
       try { const id = await identity(attempt); const receipt = await service.create(id, propertyCreationInput(state.draft)); await identity(attempt); update({ propertyId: receipt.propertyId, step: 'created' }); }
@@ -94,8 +94,8 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
     },
     async startNew() {
       if (disposed || state.busy || state.uncertain) return;
-      const attempt = epoch; update({ busy: true });
-      try { const id = await identity(attempt); await service.beginNew(id); await identity(attempt); update({ ...initial(), loaded: true, locationRevision: state.locationRevision + 1 }); }
+      const attempt = ++epoch; update({ ...initial(), busy: true, locationRevision: state.locationRevision + 1 });
+      try { const id = await service.getEligibleUserId(); if (!alive(attempt)) return; owner = id; await service.beginNew(id); await identity(attempt); update({ ...initial(), loaded: true, locationRevision: state.locationRevision + 1 }); }
       catch (error) { if (alive(attempt)) fail(error, 'Could not start another property.'); }
       finally { if (alive(attempt)) update({ busy: false }); }
     },

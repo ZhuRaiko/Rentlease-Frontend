@@ -18,7 +18,7 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
     else update({ error: listingDraftMessage(error), ...(error instanceof ListingDraftError && error.kind === 'uncertain' ? { uncertain: true } : {}) });
   };
   const accept = (row: SavedListingDraft) => { onConfirmed(row); update({ listingId: row.id, lastConfirmed: row, loaded: true }); };
-  const load = async (reconcile = false) => {
+  const load = async (reconcile = false, selectedListingId: string | null = null) => {
     if (disposed || state.busy || !state.propertyId) return false;
     if (state.lastConfirmed && state.lastConfirmed.status !== 'draft') return true;
     const g = generation; update({ busy: true, error: null, notice: null });
@@ -28,7 +28,7 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
       context = next;
       const pending = await service.hasPending(next); await identity(g);
       if ((pending || state.uncertain) && !reconcile) { update({ loaded: true, uncertain: true, error: 'A previous save needs checking. Load the current backend draft before another save.' }); return false; }
-      const row = reconcile ? await service.reconcile(next) : await service.read(next); await identity(g);
+      const row = reconcile ? await service.reconcile(next) : await service.read(next, selectedListingId ?? undefined); await identity(g);
       if (row) accept(row); else update({ loaded: true });
       update({ uncertain: false, notice: reconcile ? 'Current backend draft loaded. Review it before saving again; this does not prove the earlier save applied.' : null }); return true;
     } catch (error) { fail(g, error); return false; }

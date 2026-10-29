@@ -108,7 +108,7 @@ test('Property Setup/Review readiness follows accepted four-coordinate state wit
  const file = resolve('src/features/property-listing/views/PropertySetupView.tsx'), actualRequire = createRequire(file), module = { exports: {} as any };
  const req = (name: string): any => {
   if (name === 'react-native') return { View: 'View', Text: 'Text', StyleSheet: { create: (styles: any) => styles } };
-  const component = ['PropertyLocationMapView', 'FeedbackNotice', 'ListingWizardScaffold', 'ListingButton'].find(value => name.endsWith('/' + value));
+  const component = ['PropertyLocationToolView', 'PropertyLocationMapView', 'FeedbackNotice', 'ListingWizardScaffold', 'ListingButton'].find(value => name.endsWith('/' + value));
   if (component) return { [component]: component };
   if (name.endsWith('/ListingControls')) return { ListingField: 'ListingField', ChoiceChip: 'ChoiceChip' };
   return actualRequire(name);

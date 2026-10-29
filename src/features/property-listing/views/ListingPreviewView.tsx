@@ -1,4 +1,4 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -6,6 +6,7 @@ import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { FigmaReferenceCrop } from '../components/FigmaReferenceCrop';
 import { ListingButton } from '../components/ListingButton';
+import { ListingWorkspaceFeedback } from '../components/ListingWorkspaceFeedback';
 import { ChoiceChip, SectionCard } from '../components/ListingControls';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
@@ -17,6 +18,7 @@ interface ListingPreviewViewProps {
 
 export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewProps) {
   const { draft, screen } = viewModel;
+  const physicalPreview = !!viewModel.workspacePropertyId || viewModel.composerPreview;
 
   if (screen === 'missingRequirements') {
     return (
@@ -41,7 +43,7 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
           ))}
         </View>
         <ListingButton label={viewModel.saveDraftLabel} disabled={viewModel.listingDraftState.busy || viewModel.listingDraftReadOnly} onPress={() => void viewModel.saveDraft()} tone="outline" />
-        <ListingButton label="Load complete Figma sample" disabled={!!viewModel.propertyState.propertyId} onPress={viewModel.loadFigmaSample} />
+        <ListingButton label="Load complete Figma sample" disabled={!!viewModel.workspacePropertyId} onPress={viewModel.loadFigmaSample} />
         <Text style={styles.localOnly}>The sample button changes local frontend state only.</Text>
       </ListingWizardScaffold>
     );
@@ -50,10 +52,11 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
   if (screen === 'publishConfirmation') {
     return (
       <ListingWizardScaffold onBack={viewModel.goBack} onClose={onClose} title="Ready to publish?">
+        <ListingWorkspaceFeedback viewModel={viewModel} scope="publication" />
         <SectionCard>
           <Text style={styles.confirmTitle}>{draft.title}</Text>
           <Text style={styles.confirmCopy}>
-            {viewModel.propertyState.propertyId ? 'Publish this saved listing? RentLease will check ownership verification for this property and its publication requirements. This does not publish unsaved changes.' : <>Your listing will appear as Published in this frontend preview. No Supabase record,
+            {viewModel.workspacePropertyId ? 'Publish this saved listing? RentLease will check ownership verification for this property and its publication requirements. This does not publish unsaved changes.' : <>Your listing will appear as Published in this frontend preview. No Supabase record,
             Storage upload, notification, or moderation request will be created.
             Real publication is not connected. It must check qualifying Tier 3 approval for this specific property and all other publication requirements.</>}
           </Text>
@@ -63,7 +66,7 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
             <Text style={styles.fact}>{draft.address}</Text>
           </View>
         </SectionCard>
-        <ListingButton label={viewModel.propertyState.propertyId ? (viewModel.publicationState.busy ? "Publishing..." : "Publish listing") : "Publish listing preview"} disabled={viewModel.publicationState.busy || viewModel.listingDraftReadOnly} onPress={() => void viewModel.confirmPublish()} />
+        <ListingButton label={viewModel.workspacePropertyId ? (viewModel.publicationState.busy ? "Publishing..." : "Publish listing") : "Publish listing preview"} disabled={viewModel.publicationState.busy || viewModel.listingDraftReadOnly} onPress={() => void viewModel.confirmPublish()} />
         <ListingButton label="Keep editing" onPress={viewModel.goBack} tone="outline" />
       </ListingWizardScaffold>
     );
@@ -76,9 +79,13 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
       onClose={onClose}
       title="Listing preview"
     >
+      <ListingWorkspaceFeedback viewModel={viewModel} scope="publication" />
       <View style={styles.previewCard}>
-        {viewModel.propertyState.propertyId ? (
-          viewModel.photoState.photos.length ? <Image accessibilityLabel="Saved property photo" source={{ uri: (viewModel.photoState.photos.find(photo => photo.is_cover) ?? viewModel.photoState.photos[0])!.publicUrl }} style={{ width: '100%', aspectRatio: 225 / 132 }} /> : <View style={styles.photoMissing}><Text style={styles.photoMissingText}>No saved photos</Text></View>
+        {physicalPreview ? (
+          viewModel.photoState.photos.length || viewModel.photoState.pendingSelections.length ? <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ gap: spacing.xs }}>
+            {viewModel.photoState.photos.map((photo, index) => <View key={photo.id}><Image accessibilityLabel={photo.alt_text || `Saved property photo ${index + 1}`} source={{ uri: photo.publicUrl }} style={styles.previewImage} /><Text style={styles.mediaLabel}>{photo.is_cover ? 'Cover · saved' : `Photo ${index + 1} · saved`}</Text></View>)}
+            {viewModel.photoState.pendingSelections.map((photo, index) => <View key={`local:${index}`}><Image accessibilityLabel={`Local photo ${index + 1}, not saved`} source={{ uri: photo.uri }} style={styles.previewImage} /><Text style={styles.mediaLabel}>Local · not saved</Text></View>)}
+          </ScrollView> : <View style={styles.photoMissing}><Text style={styles.photoMissingText}>No saved photos</Text></View>
         ) : draft.photoCount > 0 ? (
           <FigmaReferenceCrop crop={{ x: 2, y: 2, width: 225, height: 132 }} />
         ) : (
@@ -87,31 +94,33 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
         <View style={styles.previewCopy}>
           <View style={styles.priceRow}>
             <Text style={styles.price}>₱{draft.askingRent || '—'}<Text style={styles.perMonth}> /mo</Text></Text>
-            <View style={styles.rating}><Text style={styles.ratingText}>4.6 See Reviews</Text></View>
+            {!physicalPreview ? <View style={styles.rating}><Text style={styles.ratingText}>4.6 See Reviews</Text></View> : null}
           </View>
-          <Text style={styles.location}>{draft.address || 'Location not provided'}</Text>
+          <Text style={styles.location}>{physicalPreview ? viewModel.propertySummary.location || 'Saved property' : draft.address || 'Location not provided'}</Text>
           <Text style={styles.title}>{draft.title || 'Untitled property'}</Text>
           <View style={styles.chips}>
-            <ChoiceChip label={draft.propertyType ?? 'Property type required'} onPress={() => undefined} selected={draft.propertyType !== null} />
-            <ChoiceChip label={draft.furnished ? 'Furnished' : 'Unfurnished'} onPress={() => undefined} selected={false} />
+            <ChoiceChip label={physicalPreview ? viewModel.propertySummary.type : draft.propertyType ?? 'Property type required'} onPress={() => undefined} selected />
+            <ChoiceChip label={physicalPreview ? viewModel.propertySummary.furnishing : draft.furnished ? 'Furnished' : 'Unfurnished'} onPress={() => undefined} selected={false} />
           </View>
           <Text style={styles.sectionLabel}>DESCRIPTION</Text>
           <Text style={styles.description}>{draft.description || 'Description required before publishing.'}</Text>
           <View style={styles.specs}>
-            <Text style={styles.spec}>{draft.bedrooms} Bedrooms</Text>
-            <Text style={styles.spec}>{draft.bathrooms} Bathrooms</Text>
-            <Text style={styles.spec}>{draft.landArea || '—'} sqm</Text>
+            <Text style={styles.spec}>{physicalPreview ? viewModel.propertySummary.bedrooms : draft.bedrooms} Bedrooms</Text>
+            <Text style={styles.spec}>{physicalPreview ? viewModel.propertySummary.bathrooms : draft.bathrooms} Bathrooms</Text>
+            <Text style={styles.spec}>{(physicalPreview ? viewModel.propertySummary.floorAreaSqm : draft.landArea) || '—'} sqm</Text>
           </View>
         </View>
       </View>
       {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
-      <ListingButton label={viewModel.propertyState.propertyId ? "Review publication" : "Open publication preview"} onPress={viewModel.requestPublish} />
-      <ListingButton label={viewModel.saveDraftLabel} disabled={viewModel.listingDraftState.busy || viewModel.listingDraftReadOnly} onPress={() => void viewModel.saveDraft()} tone="outline" />
+      <ListingButton label={viewModel.workspacePropertyId ? "Review publication" : viewModel.composerPreview ? "Save a draft before publication" : "Open publication preview"} disabled={viewModel.composerPreview && !viewModel.workspacePropertyId} onPress={viewModel.requestPublish} />
+      {viewModel.composerPreview ? <ListingButton label="Back to composer" tone="outline" onPress={viewModel.goBack} /> : <ListingButton label={viewModel.saveDraftLabel} disabled={viewModel.listingDraftState.busy || viewModel.listingDraftReadOnly} onPress={() => void viewModel.saveDraft()} tone="outline" />}
     </ListingWizardScaffold>
   );
 }
 
 const styles = StyleSheet.create({
+  previewImage: { width: 290, height: 205 },
+  mediaLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, padding: spacing.xs },
   requirements: { borderColor: colors.border, borderRadius: radius.card, borderWidth: 1, overflow: 'hidden' },
   requirementRow: { alignItems: 'center', borderBottomColor: colors.border, borderBottomWidth: 1, flexDirection: 'row', gap: spacing.sm, minHeight: 56, paddingHorizontal: spacing.md },
   requirementDot: { backgroundColor: colors.warning, borderRadius: radius.pill, height: 9, width: 9 },

@@ -25,11 +25,14 @@ export function createListingDraftService(getClient: () => SupabaseClient<Databa
     const current = await context(c.propertyId);
     if (current.userId !== c.userId) throw new ListingDraftError('Your account changed. Reopen the listing.', 'identity');
   };
-  const read = async (c: ListingDraftContext): Promise<SavedListingDraft | null> => {
+  const read = async (c: ListingDraftContext, selectedListingId?: string): Promise<SavedListingDraft | null> => {
     await assertContext(c);
-    const { data, error } = await getClient().from('listings').select(columns).eq('property_id', c.propertyId).eq('landlord_id', c.userId).eq('status', 'draft').order('created_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle();
+    let query = getClient().from('listings').select(columns).eq('property_id', c.propertyId).eq('landlord_id', c.userId).eq('status', 'draft');
+    if (selectedListingId) { if (!isPropertyUuid(selectedListingId)) throw new ListingDraftError('Invalid listing selection.'); query = query.eq('id', selectedListingId); }
+    const { data, error } = await query.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle();
     await assertContext(c);
     if (error) throw new ListingDraftError('Could not load the current listing draft. Check your connection.');
+    if (selectedListingId && (!data || data.id !== selectedListingId)) throw new ListingDraftError('The selected draft is no longer available. Refresh My Listings before continuing.');
     if (data && (!isPropertyUuid(data.id) || data.property_id !== c.propertyId || data.landlord_id !== c.userId || data.status !== 'draft')) throw new ListingDraftError('The returned listing draft could not be verified.');
     return data;
   };

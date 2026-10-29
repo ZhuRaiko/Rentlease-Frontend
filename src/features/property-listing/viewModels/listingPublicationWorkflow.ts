@@ -21,11 +21,11 @@ export function createListingPublicationWorkflow(service: ListingPublicationServ
     onResolved(row);
     update({ listingId: row.id, status: row.status, lastConfirmed: row, loaded: true, uncertain: false, publishedListingId: row.status === 'active' ? row.id : null, completenessScore: row.completeness_score, publishedAt: row.published_at });
   };
-  const restore = async () => {
+  const restore = async (selectedListingId: string | null = null) => {
     if (disposed || state.busy || !state.propertyId) return false;
     const g = generation; update({ busy: true, error: null });
     try {
-      const result = await service.restore(state.propertyId); if (!alive(g)) return false;
+      const result = await service.restore(state.propertyId, selectedListingId ?? undefined); if (!alive(g)) return false;
       if (!result) { update({ loaded: true }); return true; }
       if (result.pending) { update({ loaded: true, listingId: result.row.id, status: result.row.status, uncertain: true, error: 'A previous publication needs checking before further changes.' }); return false; }
       accept(result.row); return true;
