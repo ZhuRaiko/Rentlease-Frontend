@@ -78,13 +78,14 @@ Discover on the Profile toolbar opens `SearchDiscoveryFlowView` at Home. The Pro
 | Search results | `resultsList`, `resultsMap` | `TenantDiscoveryView` | Tenant / Landlord-as-tenant |
 | Filters and sorting | `filters`, `sort` | `DiscoveryFilterView` | Tenant / Landlord-as-tenant |
 | Optional introduction and editable matching preferences | `matchingPreferences` | `DiscoveryFilterView` | Eligible accounts with a device-local pending marker get an optional introduction; all permitted ordinary accounts can edit from Profile; local preview only |
-| Current-location permission presentation | `locationPermission` | `SearchLocationView` | Tenant / Landlord-as-tenant |
+| Explicit foreground-location explanation | `locationPermission` | `SearchLocationView` | Ordinary marketplace members; no permission request until explicit Allow |
+| Real nearby results/loading/errors/empty/pagination | `nearbyResults` | `NearbyListingsView` | Backend requires Tenant + Tier 1 |
 | Property detail | `propertyDetails` | `PropertyDiscoveryDetailView` | Tenant / Landlord-as-tenant |
 | Gallery, amenities, nearby places and location | `photoGallery`, `propertyAmenities`, `nearbyPlaces`, `propertyLocation` | `PropertySupplementaryView` | Tenant / Landlord-as-tenant |
 | Saved listings | `savedListings` | `TenantDiscoveryView` | Tenant / Landlord-as-tenant |
 | Search recovery states | `noResults`, `searchError` | `TenantDiscoveryView` | Tenant / Landlord-as-tenant |
 
-These states are frontend-local. Supabase/PostGIS search, MapTiler/MapLibre map rendering, MapTiler geocoding, Android location permission acquisition and OpenStreetMap Overpass queries remain disconnected. Landlord-capable marketplace accounts can browse Discovery; Tenant/Landlord roles are backend-loaded capabilities and the active mode is a UI preference, not a Tier 3 promotion.
+Only the current-location path is backend-backed: Search Location -> explanation -> explicit Use current location -> foreground permission/one-shot position -> nearbyResults. Back returns to manual search and resets GPS state; account/workspace changes discard pending results. Radius 1/3/5 and pagination use the existing PostGIS RPC. Manual city search/filter/map/detail/saved/recommendation paths remain previews; no OSM query or backend map-result integration was added. See [Search & Discovery](features/SEARCH_DISCOVERY.md). Landlord-capable marketplace accounts can browse Discovery; Tenant/Landlord roles are backend-loaded capabilities and the active mode is a UI preference, not a Tier 3 promotion.
 
 ## Rental Price Estimation feature states
 

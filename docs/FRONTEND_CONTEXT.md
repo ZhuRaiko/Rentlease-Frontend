@@ -120,3 +120,8 @@ Physical-property creation, ordinary property photos, listing draft persistence,
 ### Composer and persisted portfolio checkpoint (2026-10-29)
 
 My Listings is now owner-backend-backed and property-centered, including property-only records and deterministic listing/Tier 3 status/history. Post starts clean creation with item journals preserved. Post opens Property with local media before UUID, then local-only Next opens Listing Details. Save there coordinates confirmed property, sequential photos and draft persistence; advanced media management remains secondary. Notices are workspace-scoped; fixtures do not drive normal My Listings. Existing drafts/publication/lifecycle mutation contracts are unchanged. IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED; the image-picker addition requires a development-client rebuild, not an automatically run build. See [Property & Listing Management](features/PROPERTY_LISTING_MANAGEMENT.md#streamlined-composer-and-real-landlord-portfolio-2026-10-29).
+
+
+### GPS current-location proximity (2026-10-29)
+
+Only GPS current-location search in Discovery is now backend-backed: explicit foreground Expo permission/one-shot position -> packaged RPC adapters -> search_nearby_listings/PostGIS over generalized public property locations. 1/3/5 km, default 3, paginated nearest-first results; Tenant + Tier 1 enforced by backend. Coordinates are ephemeral. Manual city/filter/map/recommendation/saved paths retain previews. IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED. See [Search & Discovery](features/SEARCH_DISCOVERY.md). Earlier untouched-GPS checkpoint statements above are historical.

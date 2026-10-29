@@ -166,6 +166,7 @@ export default function App() {
         ) : null}
         {workspace?.type === 'discovery' ? (
           <SearchDiscoveryFlowView
+            accountId={auth.account?.user.id}
             onRootBack={requestMarketplaceExit}
             initialScreen={workspace.initialScreen}
             introduction={workspace.introduction ?? false}

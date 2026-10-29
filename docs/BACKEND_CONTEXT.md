@@ -89,7 +89,7 @@ Roles, trust scores, verification states, and admin status must be assigned and 
 
 No SQL or PostGIS calculations were added to the frontend.
 
-For discovery features, the expected flow is:
+For the connected GPS-only Discovery path, the flow is:
 
 ```text
 Device coordinates
@@ -103,7 +103,7 @@ PostgreSQL/PostGIS
 Typed nearby-listing result
 ```
 
-The backend must define the authoritative coordinate representation, distance units, supported filters, pagination rules, and PostGIS query/RPC contract.
+GPS now consumes the existing search_nearby_listings RPC through the packaged adapters: radius 1/3/5 km, page limit 20, offsets up to 1000; returned distances are meters and server order is preserved. Tenant + Tier 1 and existing RLS remain authoritative. It reads public generalized property locations only. No backend mutation or live caller test was performed. Manual city/filter/map/recommendation backend work remains deferred. See [Search & Discovery](features/SEARCH_DISCOVERY.md) and its linked ledger for exact inspection provenance.
 
 ## Storage
 

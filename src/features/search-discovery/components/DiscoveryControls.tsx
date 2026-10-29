@@ -48,16 +48,18 @@ export function DiscoveryButton({
 }
 
 interface DiscoveryChipProps {
+  disabled?: boolean;
   label: string;
   selected: boolean;
   onPress: () => void;
 }
 
-export function DiscoveryChip({ label, selected, onPress }: DiscoveryChipProps) {
+export function DiscoveryChip({ label, selected, onPress, disabled = false }: DiscoveryChipProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && styles.pressed]}
     >

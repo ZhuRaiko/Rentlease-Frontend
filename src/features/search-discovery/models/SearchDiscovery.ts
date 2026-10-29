@@ -6,6 +6,7 @@ export type DiscoveryScreen =
   | 'filters'
   | 'sort'
   | 'locationPermission'
+  | 'nearbyResults'
   | 'matchingPreferences'
   | 'propertyDetails'
   | 'photoGallery'

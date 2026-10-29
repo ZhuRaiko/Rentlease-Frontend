@@ -7,7 +7,7 @@ Status describes frontend implementation, not live runtime validation. Detailed 
 | Authentication & Profiles | IMPLEMENTED baseline and Auth event synchronization; RUNTIME-UNVERIFIED | [Authentication & Profiles](features/AUTHENTICATION_PROFILES.md) |
 | User Verification | Tier 2 submission/upload/metadata USER-REPORTED development-build PASS; Tier 2 rejected correction/incomplete-upload recovery, Tier 3 flow and shared fullscreen zoom IMPLEMENTED/AUTOMATED-TESTED, Android RUNTIME-UNVERIFIED | [User Verification](features/USER_VERIFICATION.md) |
 | Property & Listing Management | Real property-centered My Listings, clean Post, two-page Property -> Listing Details composer and Phases 1-5 IMPLEMENTED / AUTOMATED-TESTED; Android persistence/composer/portfolio RUNTIME-UNVERIFIED. Map confirmation partially user-verified; 360 DEFERRED | [Property & Listing Management](features/PROPERTY_LISTING_MANAGEMENT.md) |
-| Search & Discovery | PREVIEW UI; optional account-setup preferences and session-local editing IMPLEMENTED, Android RUNTIME-UNVERIFIED; backend search/recommendations/maps/GPS DEFERRED | [Routes and preview boundary](ROUTES.md#search--discovery-feature-states) |
+| Search & Discovery | GPS foreground proximity/RPC results IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED; manual city/filter/maps/saved/recommendation paths remain PREVIEW/DEFERRED | [Search & Discovery](features/SEARCH_DISCOVERY.md) |
 | Property Recommendations | Scaffolded | Not yet created |
 | Rental Price Estimation | PREVIEW UI; FastAPI requests/persistence DEFERRED | Not yet created |
 | Messaging & Viewing Schedules | PREVIEW UI; Realtime, uploads and persistence DEFERRED | Not yet created |

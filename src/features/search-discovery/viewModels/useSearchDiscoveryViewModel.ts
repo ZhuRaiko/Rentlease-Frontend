@@ -1,5 +1,7 @@
 import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigationConfirmation';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { gpsProximityDependencies } from '../services/gpsProximityDependencies';
+import { createGpsProximityWorkflow } from './gpsProximityWorkflow';
 
 import {
   defaultDiscoveryFilters,
@@ -10,7 +12,6 @@ import {
   type DiscoveryFilters,
   type DiscoveryProperty,
   type DiscoveryScreen,
-  type LocationPermissionState,
   type MatchingPreferences,
   type PropertyKind,
   type SortOption,
@@ -54,7 +55,7 @@ function sortProperties(properties: DiscoveryProperty[], sort: SortOption) {
 
 export function useSearchDiscoveryViewModel(
   initialScreen: 'home' | 'matchingPreferences' = 'home',
-  options: { initialPreferences?: MatchingPreferences | undefined; introduction?: boolean; onSavePreferences?: ((value: MatchingPreferences) => void) | undefined; onIntroductionComplete?: (() => Promise<boolean>) | undefined } = {},
+  options: { accountId?: string | undefined; initialPreferences?: MatchingPreferences | undefined; introduction?: boolean; onSavePreferences?: ((value: MatchingPreferences) => void) | undefined; onIntroductionComplete?: (() => Promise<boolean>) | undefined } = {},
 ) {
   const [screen, setScreen] = useState<DiscoveryScreen>(initialScreen);
   const [history, setHistory] = useState<DiscoveryScreen[]>([]);
@@ -75,18 +76,21 @@ export function useSearchDiscoveryViewModel(
     previewDiscoveryProperties[0]?.id ?? '',
   );
   const [savedPropertyIds, setSavedPropertyIds] = useState<string[]>([]);
-  const [locationPermission, setLocationPermission] =
-    useState<LocationPermissionState>('idle');
+  const gps = useMemo(() => createGpsProximityWorkflow(gpsProximityDependencies), [options.accountId]);
+  const gpsState = useSyncExternalStore(gps.subscribe, gps.getSnapshot, gps.getSnapshot);
+  useEffect(() => { gps.activate(); return () => gps.dispose(); }, [gps]);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
 
   const navigate = (nextScreen: DiscoveryScreen) => {
+    if (nextScreen !== 'nearbyResults' && nextScreen !== 'locationPermission') gps.reset();
     setHistory((current) => [...current, screen]);
     setScreen(nextScreen);
     setNotice(null);
   };
 
   const goBack = () => {
+    gps.reset();
     if (screen === 'matchingPreferences') setMatchingPreferences(savedPreferences.current);
     setHistory((current) => {
       const previous = current.at(-1) ?? 'home';
@@ -138,6 +142,7 @@ export function useSearchDiscoveryViewModel(
   };
 
   const clearSearch = () => {
+    gps.reset();
     setQuery('');
     setFilters(defaultDiscoveryFilters);
     setSortOption('Recommended');
@@ -255,23 +260,17 @@ export function useSearchDiscoveryViewModel(
     });
   };
 
-  const requestCurrentLocationPreview = () => {
-    setLocationPermission('prompt');
+  const requestCurrentLocation = () => {
+    gps.reset();
     navigate('locationPermission');
   };
 
-  const allowLocationPreview = () => {
-    setLocationPermission('granted');
-    setQuery('');
-    setFilters((current) => ({ ...current, city: 'Imus' }));
-    setScreen('resultsList');
-    setNotice('Current-location preview is centered on Imus, Cavite.');
+  const allowCurrentLocation = () => {
+    setScreen('nearbyResults');
+    void gps.start();
   };
 
-  const denyLocationPreview = () => {
-    setLocationPermission('denied');
-    setNotice('Location access is off. Search for a city instead.');
-  };
+  const declineCurrentLocation = () => goBack();
 
   const openProperty = (propertyId: string) => {
     setSelectedPropertyId(propertyId);
@@ -297,6 +296,7 @@ export function useSearchDiscoveryViewModel(
   };
 
   const openHome = () => {
+    gps.reset();
     if (screen === 'matchingPreferences') setMatchingPreferences(savedPreferences.current);
     if (introductionPending) setIntroductionPending(false);
     setScreen('home');
@@ -304,11 +304,13 @@ export function useSearchDiscoveryViewModel(
   };
 
   const openSavedListings = () => {
+    gps.reset();
     setScreen('savedListings');
     setHistory([]);
   };
 
   const openMatchingPreferences = () => {
+    gps.reset();
     setScreen('matchingPreferences');
     setHistory([]);
   };
@@ -339,7 +341,8 @@ export function useSearchDiscoveryViewModel(
     visibleProperties,
     savedProperties,
     suggestions,
-    locationPermission,
+    gps,
+    gpsState,
     galleryIndex,
     notice,
     navigate,
@@ -360,9 +363,9 @@ export function useSearchDiscoveryViewModel(
     saveMatchingPreferences,
     chooseSort,
     movePreferenceItem,
-    requestCurrentLocationPreview,
-    allowLocationPreview,
-    denyLocationPreview,
+    requestCurrentLocation,
+    allowCurrentLocation,
+    declineCurrentLocation,
     openProperty,
     toggleSaved,
     isSaved,

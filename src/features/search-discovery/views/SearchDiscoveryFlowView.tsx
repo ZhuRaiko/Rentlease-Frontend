@@ -12,8 +12,10 @@ import { PropertyDiscoveryDetailView } from './PropertyDiscoveryDetailView';
 import { PropertySupplementaryView } from './PropertySupplementaryView';
 import { SearchLocationView } from './SearchLocationView';
 import { TenantDiscoveryView } from './TenantDiscoveryView';
+import { NearbyListingsView } from './NearbyListingsView';
 
 interface SearchDiscoveryFlowViewProps {
+  accountId?: string | undefined;
   isLandlord: boolean;
   initialScreen?: 'home' | 'matchingPreferences';
   introduction?: boolean;
@@ -42,6 +44,7 @@ const supplementaryScreens = new Set([
 ]);
 
 export function SearchDiscoveryFlowView({
+  accountId,
   isLandlord,
   initialScreen = 'home',
   introduction = false, initialPreferences, onSavePreferences, onIntroductionComplete, registerBackAction,
@@ -54,7 +57,7 @@ export function SearchDiscoveryFlowView({
   onOpenMaintenance,
   onStartInquiry, onOpenNotifications,
 }: SearchDiscoveryFlowViewProps) {
-  const viewModel = useSearchDiscoveryViewModel(initialScreen, { introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
+  const viewModel = useSearchDiscoveryViewModel(initialScreen, { accountId, introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
   const close = () => viewModel.closeFromWorkspace(onClose);
   useEffect(() => {
     registerBackAction?.(() => viewModel.backFromWorkspace(onClose, onRootBack));
@@ -62,7 +65,9 @@ export function SearchDiscoveryFlowView({
   });
   let content;
 
-  if (searchScreens.has(viewModel.screen)) {
+  if (viewModel.screen === 'nearbyResults') {
+    content = <NearbyListingsView viewModel={viewModel} />;
+  } else if (searchScreens.has(viewModel.screen)) {
     content = <SearchLocationView viewModel={viewModel} />;
   } else if (filterScreens.has(viewModel.screen)) {
     content = <DiscoveryFilterView onClose={close} viewModel={viewModel} />;

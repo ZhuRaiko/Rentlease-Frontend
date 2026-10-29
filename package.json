@@ -12,6 +12,7 @@
   "dependencies": {
     "@maplibre/maplibre-react-native": "11.5.0",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@rentlease/gps-local": "file:vendor/gps/rentlease-gps-local-0.1.0.tgz",
     "@supabase/supabase-js": "^2.112.3",
     "expo": "~57.0.30",
     "expo-crypto": "~57.0.4",

@@ -2403,6 +2403,28 @@ export type Database = {
           updated_at: string
         }[]
       }
+      search_nearby_listings: {
+        Args: {
+          p_latitude: number
+          p_limit?: number
+          p_longitude: number
+          p_offset?: number
+          p_radius_km?: number
+        }
+        Returns: {
+          asking_rent_monthly: number
+          available_from: string
+          barangay: string
+          city: string
+          distance_meters: number
+          listing_id: string
+          property_id: string
+          property_type: string
+          public_latitude: number
+          public_longitude: number
+          title: string
+        }[]
+      }
       set_property_cover_photo: {
         Args: { p_photo_id: string }
         Returns: undefined
