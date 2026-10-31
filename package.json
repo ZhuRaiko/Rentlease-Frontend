@@ -5,13 +5,14 @@
   "main": "expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
+    "android": "expo run:android",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/run-tests.cjs"
   },
   "dependencies": {
     "@maplibre/maplibre-react-native": "11.5.0",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "9.1.0",
     "@rentlease/gps-local": "file:vendor/gps/rentlease-gps-local-0.1.0.tgz",
     "@supabase/supabase-js": "^2.112.3",
     "expo": "~57.0.30",

@@ -11,9 +11,9 @@ export function ListingWorkspaceFeedback({ viewModel: vm, scope }: { viewModel: 
   return <>
     {scope !== 'management' && ownDraft ? <>
       <FeedbackNotice message={draft.busy ? 'Checking or saving your listing draft…' : draft.error ?? draft.notice} tone={draft.error ? 'error' : 'info'} />
-      {!draft.busy && (draft.error || draft.uncertain) && !publication.uncertain ? <ListingButton label={draft.uncertain ? 'Check draft save status' : 'Retry loading draft'} tone="outline" onPress={() => void (draft.uncertain ? vm.listingDraftPersistence.reconcile() : vm.listingDraftPersistence.load(false, vm.workspaceListingId))} /> : null}
+      {!draft.busy && (draft.error || draft.uncertain) && !publication.uncertain ? <ListingButton label={draft.uncertain ? 'Check draft save status' : draft.errorSource === 'save' && draft.loaded ? 'Retry saving draft' : 'Retry loading draft'} tone="outline" onPress={() => void (draft.uncertain ? vm.listingDraftPersistence.reconcile() : draft.errorSource === 'save' && draft.loaded ? vm.saveComposerDraft() : vm.listingDraftPersistence.load(false, vm.workspaceListingId))} /> : null}
     </> : null}
-    {ownPublication && (scope !== 'draft' || publication.uncertain) ? <>
+    {ownPublication && (scope !== 'draft' || publication.uncertain || !!publication.error) ? <>
       <FeedbackNotice message={publication.busy ? 'Checking publication…' : publication.error} tone={publication.error ? 'error' : 'info'} />
       {!publication.busy && (publication.error || publication.uncertain) ? <ListingButton label="Check publication status" tone="outline" onPress={() => void vm.checkPublication()} /> : null}
     </> : null}

@@ -23,6 +23,7 @@ export function ListingButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{disabled}}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -33,7 +34,7 @@ export function ListingButton({
         pressed && !disabled && styles.pressed,
       ]}
     >
-      <Text style={[styles.label, tone === 'outline' && styles.outlineLabel]}>{label}</Text>
+      <Text style={[styles.label, tone === 'outline' && styles.outlineLabel, disabled && styles.disabledLabel]}>{label}</Text>
     </Pressable>
   );
 }
@@ -52,6 +53,7 @@ const styles = StyleSheet.create({
   orange: { backgroundColor: '#DF9415' },
   danger: { backgroundColor: colors.restricted },
   outline: { backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1.2 },
+  disabledLabel:{color:colors.text},
   disabled: { backgroundColor: colors.border, opacity: 0.75 },
   pressed: { opacity: 0.72 },
   label: {

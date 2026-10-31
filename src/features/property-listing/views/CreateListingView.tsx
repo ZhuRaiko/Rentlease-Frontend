@@ -1,4 +1,6 @@
+import { AvailabilityDateField } from '../components/AvailabilityDateField';
 import { rentalTermOptions } from '../models/PersistedListingDraft';
+import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import { PropertyPhotosView } from './PropertyPhotosView';
 import { PropertySetupView } from './PropertySetupView';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -31,42 +33,30 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
 
   if (screen === 'postingType') {
     return (
+      <View style={styles.postingRoot}>
+      <ScreenHeader title="Create" onClose={onClose} />
       <ScrollView contentContainerStyle={styles.postingScreen} showsVerticalScrollIndicator={false}>
-        <FeedbackNotice message="Add a physical property, then prepare its rental listing. Photos require a saved property. Publishing always needs a separate confirmation." />
-        <Pressable
-          accessibilityLabel="Close posting selection"
-          accessibilityRole="button"
-          hitSlop={12}
-          onPress={viewModel.goBack}
-          style={styles.postingClose}
-        >
-          <View style={[styles.postingCloseLine, styles.postingCloseLineOne]} />
-          <View style={[styles.postingCloseLine, styles.postingCloseLineTwo]} />
-        </Pressable>
-        <Text accessibilityRole="header" style={styles.postingTitle}>What would you like to add?</Text>
+        <Text accessibilityRole="header" style={styles.postingTitle}>What would you like to post?</Text>
         <View style={styles.postingChoices}>
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel="Property Listing. List a property for rent"
+            disabled={viewModel.propertyState.busy}
+            accessibilityState={{ disabled: viewModel.propertyState.busy }}
             onPress={viewModel.beginPropertySetup}
             style={({ pressed }) => [styles.postingChoice, pressed && styles.pressed]}
           >
-            <Text style={styles.postingLabel}>A physical property</Text>
-            <View style={styles.homeMark}>
-              <View style={styles.homeRoof} />
-              <View style={styles.homeBody} />
-            </View>
+            <Text style={styles.postingLabel}>Property Listing</Text>
+            <Text style={styles.postingOptionCopy}>List a property for rent</Text>
           </Pressable>
-          <View style={[styles.postingChoice, styles.postingChoiceDisabled]}>
-            <Text style={styles.postingLabel}>A Community Post</Text>
-            <View style={styles.peopleMark}>
-              <View style={styles.personDot} />
-              <View style={styles.personDot} />
-              <View style={styles.personDot} />
-            </View>
-            <Text style={styles.disabledCopy}>(no function yet)</Text>
-          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Community Post. Share with the RentLease community. Coming soon" accessibilityState={{disabled:true}} disabled style={[styles.postingChoice, styles.postingChoiceDisabled]}>
+            <Text style={styles.postingLabel}>Community Post</Text>
+            <Text style={styles.postingOptionCopy}>Share with the RentLease community</Text>
+            <Text style={styles.disabledCopy}>Coming soon</Text>
+          </Pressable>
         </View>
       </ScrollView>
+      </View>
     );
   }
 
@@ -187,7 +177,7 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
       >
         <View style={styles.completionRow}>
           <Text style={styles.sectionTitle}>Included amenities</Text>
-          <Text style={styles.completion}>{draft.amenities.length === amenities.length ? '100% complete' : `${draft.amenities.length} selected`}</Text>
+          <Text style={styles.completion}>{`${draft.amenities.length} sample choices selected`}</Text>
         </View>
         <View style={styles.chips}>
           {amenities.map((amenity) => (
@@ -201,7 +191,7 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
           ))}
         </View>
         <ListingButton label="Add More Amenities" onPress={() => undefined} tone="orange" />
-        <Text style={styles.localOnly}>Additional amenity catalog is not connected yet.</Text>
+        <Text style={styles.localOnly}>Legacy sample choices are local only. Real property creation uses the live amenity catalogue.</Text>
         <ListingButton label="Continue to location" onPress={() => viewModel.navigate('address')} tone="dark" />
         <SaveDraftAction viewModel={viewModel} />
       </ListingWizardScaffold>
@@ -265,7 +255,7 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
         stepLabel="Pricing"
         title="Payment terms"
       >
-        <ListingField label="Listing title" placeholder="Describe the rental space" value={draft.title} onChangeText={value => viewModel.updateDraft('title', value)} />
+        <ListingField required label="Listing title" placeholder="Describe the rental space" value={draft.title} onChangeText={value => viewModel.updateDraft('title', value)} />
         <Text style={styles.fieldTitle}>Rental term</Text>
         <View style={styles.chips}>{rentalTermOptions.map(option => <ChoiceChip key={option.value} label={option.label} selected={draft.rentalTerm === option.value} onPress={() => viewModel.updateDraft('rentalTerm', option.value)} />)}</View>
         <ListingField label="Security deposit (months)" placeholder="1" keyboardType="numeric" value={draft.securityDepositMonths} onChangeText={value => viewModel.updateDraft('securityDepositMonths', value)} />
@@ -274,6 +264,7 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
         <FeedbackNotice message="Price estimates are not connected here. Enter your own monthly asking rent." />
         <ListingField
           keyboardType="numeric"
+          required
           label="Asking Rent"
           onChangeText={(value) => viewModel.updateDraft('askingRent', value)}
           placeholder="Enter amount"
@@ -348,14 +339,9 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
       step={5}
       stepLabel="Availability"
       title="When is the property available?"
-      description="Use YYYY-MM-DD, or leave the date blank until it is known."
+      description="Choose a date, or leave it unset until it is known."
     >
-      <ListingField
-        label="Availability date"
-        onChangeText={(value) => viewModel.updateDraft('availableDate', value)}
-        placeholder="e.g. 2026-11-01"
-        value={draft.availableDate}
-      />
+      <AvailabilityDateField value={draft.availableDate} onChange={(value) => viewModel.updateDraft('availableDate', value)} />
       <ListingButton label="Preview listing" onPress={() => viewModel.navigate('preview')} tone="dark" />
       <SaveDraftAction viewModel={viewModel} />
     </ListingWizardScaffold>
@@ -363,26 +349,26 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
 }
 
 const styles = StyleSheet.create({
-  postingScreen: { flexGrow: 1, paddingBottom: spacing.xl, paddingHorizontal: 18 },
+  postingRoot: { flex: 1 },
+  postingScreen: { flexGrow: 1, padding: spacing.lg },
   postingClose: { height: 34, justifyContent: 'center', marginTop: 17, width: 34 },
   postingCloseLine: { backgroundColor: colors.textMuted, height: 2, left: 5, opacity: 0.55, position: 'absolute', width: 24 },
   postingCloseLineOne: { transform: [{ rotate: '45deg' }] },
   postingCloseLineTwo: { transform: [{ rotate: '-45deg' }] },
-  postingTitle: { color: colors.text, fontFamily: typography.family, fontSize: 48, fontWeight: '900', letterSpacing: -1.4, lineHeight: 52, marginTop: 126, maxWidth: 376 },
-  postingChoices: { flexDirection: 'row', gap: 10, marginTop: 38 },
+  postingTitle: { color: colors.text, fontFamily: typography.family, fontSize: 24, fontWeight: '700', lineHeight: 32 },
+  postingChoices: { gap: spacing.md, marginTop: spacing.lg },
   postingChoice: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderColor: colors.border,
     borderRadius: radius.sm,
     borderWidth: 1,
-    flex: 1,
-    aspectRatio: 183 / 299,
-    padding: spacing.sm,
-    paddingTop: 70,
+    padding: spacing.lg,
+    gap: spacing.xs,
   },
-  postingChoiceDisabled: { opacity: 0.42 },
-  postingLabel: { color: colors.text, fontFamily: typography.family, fontSize: 20, fontWeight: '800', textAlign: 'center' },
-  disabledCopy: { color: colors.textMuted, fontFamily: typography.family, fontSize: 11, marginTop: 'auto', textAlign: 'center' },
+  postingChoiceDisabled: { backgroundColor: colors.surface },
+  postingLabel: { color: colors.text, fontFamily: typography.family, fontSize: 18, fontWeight: '700' },
+  postingOptionCopy: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight:21 },
+  disabledCopy: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, fontWeight:'600', marginTop: spacing.xs },
   homeMark: { height: 57, marginTop: 46, width: 57 },
   homeRoof: { borderBottomColor: colors.border, borderBottomWidth: 3, borderLeftColor: 'transparent', borderLeftWidth: 25, borderRightColor: 'transparent', borderRightWidth: 25, height: 0, width: 0 },
   homeBody: { alignSelf: 'center', borderColor: colors.border, borderWidth: 3, height: 30, width: 38 },

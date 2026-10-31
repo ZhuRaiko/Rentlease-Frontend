@@ -8,11 +8,10 @@ import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseB
 import { colors } from '../../../shared/theme/colors';
 import { useSearchDiscoveryViewModel } from '../viewModels/useSearchDiscoveryViewModel';
 import { DiscoveryFilterView } from './DiscoveryFilterView';
-import { PropertyDiscoveryDetailView } from './PropertyDiscoveryDetailView';
-import { PropertySupplementaryView } from './PropertySupplementaryView';
 import { SearchLocationView } from './SearchLocationView';
 import { TenantDiscoveryView } from './TenantDiscoveryView';
 import { NearbyListingsView } from './NearbyListingsView';
+import { LiveSearchResultsView, LivePropertyDetailView, LiveSearchFiltersView } from './LiveSearchViews';
 
 interface SearchDiscoveryFlowViewProps {
   accountId?: string | undefined;
@@ -67,21 +66,16 @@ export function SearchDiscoveryFlowView({
 
   if (viewModel.screen === 'nearbyResults') {
     content = <NearbyListingsView viewModel={viewModel} />;
+  } else if (['resultsList','noResults','searchError'].includes(viewModel.screen)) {
+    content = <LiveSearchResultsView viewModel={viewModel} />;
+  } else if (viewModel.screen === 'filters' || viewModel.screen === 'sort') {
+    content = <LiveSearchFiltersView viewModel={viewModel} />;
+  } else if (viewModel.screen === 'propertyDetails') {
+    content = <LivePropertyDetailView viewModel={viewModel} />;
   } else if (searchScreens.has(viewModel.screen)) {
     content = <SearchLocationView viewModel={viewModel} />;
   } else if (filterScreens.has(viewModel.screen)) {
     content = <DiscoveryFilterView onClose={close} viewModel={viewModel} />;
-  } else if (viewModel.screen === 'propertyDetails') {
-    content = (
-      <PropertyDiscoveryDetailView
-        onClose={close}
-        onOpenPriceEstimate={onOpenPriceEstimate}
-        onStartInquiry={onStartInquiry}
-        viewModel={viewModel}
-      />
-    );
-  } else if (supplementaryScreens.has(viewModel.screen)) {
-    content = <PropertySupplementaryView viewModel={viewModel} />;
   } else {
     content = <TenantDiscoveryView onClose={close} onOpenNotifications={() => viewModel.requestNavigation(onOpenNotifications)} viewModel={viewModel} />;
   }

@@ -22,13 +22,13 @@ export function NearbyListingsView({ viewModel: vm }: { viewModel: SearchDiscove
           {state.error.kind === 'blocked' ? <DiscoveryButton label="Open app settings" tone="outline" onPress={() => void vm.gps.openSettings()} /> : null}
           {!busy ? <DiscoveryButton label={state.rows.length ? 'Retry loading more' : 'Try again'} tone="outline" onPress={() => void vm.gps.retry()} /> : null}
         </View> : null}
-        {state.phase === 'success' && state.rows.length === 0 ? <View style={styles.header}><Text accessibilityRole="header" style={styles.title}>No rentals found within {state.radiusKm} km</Text><Text style={styles.copy}>Try a wider radius or search by city. Listings may not yet be available in this area.</Text></View> : null}
+        {state.phase === 'success' && state.rows.length === 0 ? <View style={styles.header}><Text accessibilityRole="header" style={styles.title}>No nearby rentals found within {state.radiusKm} km</Text><Text style={styles.copy}>Try a wider radius or search by city. Listings may not yet be available in this area.</Text></View> : null}
       </View>}
       ListFooterComponent={<View style={styles.header}>
         {state.hasMore && !state.error ? <DiscoveryButton disabled={busy} label="Load more" onPress={() => void vm.gps.loadMore()} /> : null}
         <DiscoveryButton disabled={busy} label="Update my location" tone="outline" onPress={() => void vm.gps.start()} />
         <DiscoveryButton label="Search by city" tone="outline" onPress={() => vm.navigate('searchLocation')} />
-        <Text style={styles.copy}>Your location is used for this search only and is not saved. Manual city search remains a sample preview.</Text>
+        <Text style={styles.copy}>Your location is used for this search only and is not saved. Manual city search uses available RentLease listings.</Text>
       </View>} />
   </View>;
 }

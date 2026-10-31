@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { FieldLabel } from './FieldLabel';
+import type { ReactNode, Ref } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
@@ -14,8 +15,12 @@ interface ListingFieldProps {
   multiline?: boolean;
   keyboardType?: 'default' | 'numeric';
   prefix?: string;
-  helper?: string;
+  helper?: ReactNode;
   editable?: boolean;
+  required?: boolean;
+  error?: string | null;
+  invalid?:boolean;
+  inputRef?:Ref<TextInput>|undefined;
 }
 
 export function ListingField({
@@ -27,15 +32,18 @@ export function ListingField({
   keyboardType = 'default',
   prefix,
   helper,
-  editable = true,
+  editable = true, required = false, error, invalid=false, inputRef,
 }: ListingFieldProps) {
   return (
     <View style={styles.fieldGroup}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      {helper ? <Text style={styles.helper}>{helper}</Text> : null}
-      <View style={[styles.inputShell, multiline && styles.inputShellMultiline]}>
+      <FieldLabel label={label} required={required} />
+      {typeof helper === 'string' ? <Text style={styles.helper}>{helper}</Text> : helper}
+      <View style={[styles.inputShell, multiline && styles.inputShellMultiline, (invalid||!!error)&&{borderColor:colors.restricted,borderWidth:1.2}]}>
         {prefix ? <Text style={styles.prefix}>{prefix}</Text> : null}
         <TextInput
+          ref={inputRef}
+          accessibilityHint={invalid?"Check the error in this section.":undefined}
+          accessibilityLabel={required ? `${label}, required` : label}
           editable={editable}
           keyboardType={keyboardType}
           multiline={multiline}
@@ -47,6 +55,7 @@ export function ListingField({
           value={value}
         />
       </View>
+      {error ? <Text accessibilityLiveRegion="polite" style={[styles.helper,{color:colors.restricted}]}>{error}</Text> : null}
     </View>
   );
 }

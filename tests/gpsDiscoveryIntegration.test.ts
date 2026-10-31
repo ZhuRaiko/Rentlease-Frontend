@@ -12,6 +12,8 @@ import type { SearchDiscoveryViewModel } from '../src/features/search-discovery/
 function mount(dependencies: GpsProximityDependencies) {
   let cursor = 0, accountId = 'tenant', current: SearchDiscoveryViewModel;
   const slots: any[] = [], effects: (() => void)[] = [], cache = new Map<string, any>();
+  const manualCalls: any[] = [];
+  const manualService = { user: async () => 'tenant', search: async (_owner: string,input: any) => { manualCalls.push(input); return []; }, locations: async () => ({locations:[],received:0}), detail: async () => { throw Error('not selected'); }, catalogue: async () => [] };
   const hooks = {
     useState(initial: any) { const i = cursor++; if (!slots[i]) slots[i] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, (v: any) => { slots[i].value = typeof v === 'function' ? v(slots[i].value) : v; }]; },
     useRef(value: any) { const i = cursor++; return slots[i] ?? (slots[i] = { current: value }); },
@@ -22,24 +24,31 @@ function mount(dependencies: GpsProximityDependencies) {
   const load = (path: string): any => {
     const absolute = resolve(path); if (cache.has(absolute)) return cache.get(absolute);
     const actual = createRequire(absolute), module = { exports: {} as any };
-    const req = (name: string): any => name === 'react' ? hooks : name.endsWith('/gpsProximityDependencies') ? { gpsProximityDependencies: dependencies } : name.startsWith('.') ? load(resolve(absolute, '..', name + '.ts')) : actual(name);
+    const req = (name: string): any => name === 'react' ? hooks : name.endsWith('/manualSearchDependencies') ? { manualSearchService: manualService } : name.endsWith('/gpsProximityDependencies') ? { gpsProximityDependencies: dependencies } : name.startsWith('.') ? load(resolve(absolute, '..', name + '.ts')) : actual(name);
     const code = ts.transpileModule(readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
     new Function('require', 'module', 'exports', code)(req, module, module.exports); cache.set(absolute, module.exports); return module.exports;
   };
   const hook = load('src/features/search-discovery/viewModels/useSearchDiscoveryViewModel.ts').useSearchDiscoveryViewModel;
   const flush = () => { cursor = 0; current = hook('home', { accountId }); while (effects.length) effects.shift()!(); return current; };
   flush();
-  return { vm: () => current, flush, async settle() { for (let i = 0; i < 3; i++) { await new Promise(r => setImmediate(r)); flush(); } }, account(id: string) { accountId = id; flush(); }, unmount() { slots.forEach(slot => slot?.cleanup?.()); } };
+  return { vm: () => current, manualCalls, flush, async settle() { for (let i = 0; i < 3; i++) { await new Promise(r => setImmediate(r)); flush(); } }, account(id: string) { accountId = id; flush(); }, unmount() { slots.forEach(slot => slot?.cleanup?.()); } };
 }
 function deps() { let calls = 0; return { calls: () => calls, dependency: { user: async () => 'tenant', locate: async () => { calls++; return { kind: 'granted' as const, coordinates: { latitude: 14.4, longitude: 120.9 } }; }, search: async () => [], settings: async () => {} } }; }
-test('real Discovery hook explains first; explicit Allow searches; Back clears GPS and manual city preview remains', async () => {
+test('real Discovery hook explains first; explicit Allow searches; Back clears GPS and manual city backend search remains', async () => {
   const d = deps(), h = mount(d.dependency); assert.equal(d.calls(), 0); h.vm().navigate('searchLocation'); h.flush(); h.vm().requestCurrentLocation(); h.flush(); assert.equal(h.vm().screen, 'locationPermission'); assert.equal(d.calls(), 0);
   h.vm().allowCurrentLocation(); await h.settle(); assert.equal(h.vm().screen, 'nearbyResults'); assert.equal(d.calls(), 1); assert.equal(h.vm().gpsState.phase, 'success'); assert.deepEqual(h.vm().gpsState.rows, []);
   h.vm().backFromWorkspace(() => assert.fail('must not close feature'), () => assert.fail('must not exit app')); h.flush(); assert.equal(h.vm().screen, 'searchLocation'); assert.equal(h.vm().gpsState.phase, 'idle');
-  h.vm().chooseSuggestion('Imus, Cavite'); h.flush(); assert.equal(h.vm().screen, 'resultsList'); assert.ok(h.vm().visibleProperties.length); assert.equal(d.calls(), 1); h.unmount();
+  h.vm().chooseSuggestion('Imus, Cavite'); await h.settle(); assert.equal(h.vm().screen, 'resultsList'); assert.deepEqual(h.vm().manualState.rows, []); assert.equal(h.manualCalls[0].query,'Imus, Cavite'); assert.equal(d.calls(), 1); h.unmount();
 });
 test('Not now returns to manual search with no permission or backend call', () => {
   const d = deps(), h = mount(d.dependency); h.vm().navigate('searchLocation'); h.flush(); h.vm().requestCurrentLocation(); h.flush(); h.vm().declineCurrentLocation(); h.flush(); assert.equal(h.vm().screen, 'searchLocation'); assert.equal(d.calls(), 0); h.unmount();
+});
+test('actual manual hook searches backend and applies filters/sort without duplicate Back screens', async () => {
+  const d=deps(),h=mount(d.dependency);h.vm().navigate('searchLocation');h.flush();h.vm().setQuery('Alapan');h.flush();h.vm().submitSearch();await h.settle();assert.equal(h.manualCalls.at(-1).query,'Alapan');assert.deepEqual(h.vm().manualState.rows,[]);
+  h.vm().openLiveFilters();h.flush();h.vm().setLiveFilterDraft({...h.vm().liveFilterDraft,minBeds:2});h.flush();h.vm().applyLiveFilters();await h.settle();assert.equal(h.manualCalls.at(-1).filters.minBeds,2);h.vm().navigate('sort');h.flush();h.vm().chooseLiveSort('Price: Low to High');await h.settle();assert.equal(h.manualCalls.at(-1).sort,'Price: Low to High');h.vm().goBack();h.flush();assert.equal(h.vm().screen,'searchLocation');assert.equal(d.calls(),0);h.unmount();
+});
+test('new typed location search does not retain a previous suggestion-only city constraint', async () => {
+  const d=deps(),h=mount(d.dependency);h.vm().navigate('searchLocation');h.flush();h.vm().chooseSuggestion({key:'imus:alapan',city:'imus',barangay:'Alapan',label:'Alapan, Imus',query:'Alapan'});await h.settle();assert.equal(h.manualCalls.at(-1).filters.city,'imus');h.vm().navigate('searchLocation');h.flush();h.vm().setQuery('Tagaytay');h.flush();h.vm().submitSearch();await h.settle();assert.equal(h.manualCalls.at(-1).filters.city,'');assert.equal(h.manualCalls.at(-1).query,'Tagaytay');h.unmount();
 });
 for (const change of ['back', 'account', 'unmount'] as const) test(`${change} invalidates the actual hook pending GPS request`, async () => {
   let complete!: (rows: []) => void;

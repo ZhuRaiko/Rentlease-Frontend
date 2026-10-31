@@ -1,3 +1,4 @@
+import { ListingCompletenessSummary } from '../components/ListingCompletenessSummary';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
@@ -52,6 +53,7 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
   if (screen === 'publishConfirmation') {
     return (
       <ListingWizardScaffold onBack={viewModel.goBack} onClose={onClose} title="Ready to publish?">
+        <ListingCompletenessSummary value={viewModel.completeness} />
         <ListingWorkspaceFeedback viewModel={viewModel} scope="publication" />
         <SectionCard>
           <Text style={styles.confirmTitle}>{draft.title}</Text>
@@ -79,7 +81,8 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
       onClose={onClose}
       title="Listing preview"
     >
-      <ListingWorkspaceFeedback viewModel={viewModel} scope="publication" />
+      <ListingCompletenessSummary value={viewModel.completeness} />
+        <ListingWorkspaceFeedback viewModel={viewModel} scope="publication" />
       <View style={styles.previewCard}>
         {physicalPreview ? (
           viewModel.photoState.photos.length || viewModel.photoState.pendingSelections.length ? <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ gap: spacing.xs }}>

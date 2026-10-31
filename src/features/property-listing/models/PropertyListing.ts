@@ -8,6 +8,7 @@ export type ListingScreen =
   | 'propertySetup'
   | 'listingComposer'
   | 'listingDetails'
+  | 'draftSaved'
   | 'photoUpload'
   | 'photoManager'
   | 'basicInfo'

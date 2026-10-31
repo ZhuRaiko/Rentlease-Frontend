@@ -42,7 +42,7 @@ export function SearchLocationView({ viewModel }: SearchLocationViewProps) {
         <DiscoverySearchBar
           onChangeText={viewModel.setQuery}
           onSubmit={viewModel.submitSearch}
-          placeholder="Enter a city, barangay, or landmark"
+          placeholder="Enter a city or barangay"
           value={viewModel.query}
         />
         <Pressable accessibilityRole="button" onPress={viewModel.requestCurrentLocation} style={styles.currentLocation}>
@@ -53,23 +53,26 @@ export function SearchLocationView({ viewModel }: SearchLocationViewProps) {
           </View>
           <Text style={styles.rowAction}>Use</Text>
         </Pressable>
-        <Text style={styles.sectionLabel}>{viewModel.query ? 'SEARCH SUGGESTIONS' : 'POPULAR LOCATIONS'}</Text>
+        <Text style={styles.sectionLabel}>AVAILABLE LOCATIONS</Text>
+        {viewModel.manualState.locationsBusy ? <Text style={styles.rowDetail}>Loading available locations...</Text> : null}
+        {viewModel.manualState.locationsStatus === 'error' ? <><Text accessibilityRole="alert" style={styles.noSuggestion}>{viewModel.manualState.locationsError}</Text><DiscoveryButton label={viewModel.manualState.locationsBusy ? 'Loading…' : 'Retry locations'} disabled={viewModel.manualState.locationsBusy} onPress={() => void viewModel.manual.locations(viewModel.query)} /></> : null}
         <View style={styles.suggestions}>
           {viewModel.suggestions.map((suggestion) => (
             <Pressable
               accessibilityRole="button"
-              key={suggestion}
+              key={suggestion.key}
               onPress={() => viewModel.chooseSuggestion(suggestion)}
               style={({ pressed }) => [styles.suggestionRow, pressed && styles.pressed]}
             >
               <DiscoveryIcon color={colors.textSecondary} name="location" size={18} />
-              <Text style={styles.suggestionText}>{suggestion}</Text>
+              <Text style={styles.suggestionText}>{suggestion.label}</Text>
             </Pressable>
           ))}
-          {viewModel.suggestions.length === 0 ? (
-            <Text style={styles.noSuggestion}>No local suggestions. Submit the search to preview the no-results state.</Text>
+          {viewModel.suggestions.length === 0 && viewModel.manualState.locationsStatus === 'success' ? (
+            <View><Text accessibilityRole="header" style={styles.noSuggestion}>No available rental locations yet.</Text><Text style={styles.noSuggestion}>Locations will appear here when rentals are published.</Text></View>
           ) : null}
         </View>
+        {viewModel.manualState.locationsMore ? <DiscoveryButton disabled={viewModel.manualState.locationsBusy} label="More available locations" tone="outline" onPress={() => void viewModel.manual.locations(viewModel.query, true)} /> : null}
         <DiscoveryButton disabled={!viewModel.query.trim()} label="Search properties" onPress={viewModel.submitSearch} tone="dark" />
       </ScrollView>
     </View>

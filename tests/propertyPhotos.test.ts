@@ -215,3 +215,13 @@ test('malformed or foreign photo paths cannot be deleted', async () => {
   const h = harness(); h.setRows([{ ...row(), storage_path: `property-media/other/${property}/${photoId}.jpg` }]);
   await assert.rejects(h.service.remove(context, photoId)); assert.equal(callsOf(h, 'delete').length, 0); assert.equal(callsOf(h, 'removeObject').length, 0);
 });
+
+
+test('temporary photo identity-read failure retains property binding and Check status can recover without writes',async()=>{
+  let unavailable=false,reads=0,ownerId=owner;
+  const service={context:async()=>({ownerId,propertyId:property}),assertContext:async()=>{if(unavailable)throw Error('read interrupted');},list:async()=>{reads++;return [{...row(),publicUrl:'https://example.test/photo'}];},hasPending:async()=>false};
+  const flow=createPropertyPhotoWorkflow(service as any,async()=>null);flow.setProperty(property);await flow.load();assert.equal(flow.getSnapshot().photos.length,1);
+  unavailable=true;await flow.load();assert.equal(flow.getSnapshot().propertyId,property);assert.equal(flow.getSnapshot().photos.length,0);assert.equal(flow.getSnapshot().needsReconcile,true);
+  unavailable=false;await flow.checkStatus();assert.equal(flow.getSnapshot().propertyId,property);assert.equal(flow.getSnapshot().loaded,true);assert.equal(flow.getSnapshot().needsReconcile,false);assert.match(flow.getSnapshot().notice??'',/refreshed/);assert.ok(reads>=3);
+  ownerId='another-owner';await flow.checkStatus();assert.equal(flow.getSnapshot().photos.length,0);assert.equal(flow.getSnapshot().propertyId,null);flow.dispose();
+});

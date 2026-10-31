@@ -1,3 +1,4 @@
+import { CompletenessHint } from './CompletenessHint';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { colors } from '../../../shared/theme/colors';
@@ -12,6 +13,7 @@ export function PropertyMediaSection({ viewModel: vm }: { viewModel: PropertyLis
   return <View style={styles.section}>
     <PropertyMediaViewer viewModel={vm} />
     <Text accessibilityRole="header" style={styles.heading}>Photos &amp; 360°</Text>
+    <CompletenessHint value={vm.completeness} factor="photoCount" />
     {active ? <Pressable accessibilityRole="button" accessibilityLabel={`Open photo ${state.activeMediaIndex + 1} fullscreen, ${active.status}`} onPress={() => flow.openMedia(state.activeMediaIndex)}>
       <Image source={{ uri: active.uri }} accessibilityLabel={active.label} style={styles.large} resizeMode="contain" />
       <View style={styles.badge}><Text style={styles.badgeText}>{active.cover ? 'Cover · ' : ''}{active.status}</Text></View>
@@ -36,9 +38,9 @@ export function PropertyMediaSection({ viewModel: vm }: { viewModel: PropertyLis
     <Text style={styles.copy}>360° interior is optional. Not available in this build yet.</Text>
     <Text style={styles.copy}>JPEG, PNG or WebP, up to 10 MB each. Photos are public; leave out sensitive information.</Text>
     <FeedbackNotice message={state.error} tone="error" />
-    {state.needsReconcile ? <FeedbackNotice message={state.notice} tone="warning" /> : null}
+    <FeedbackNotice message={state.notice} tone={state.needsReconcile ? "warning" : "info"} />
     {state.busy ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{state.batch.status === 'running' ? `${state.batch.completed} of ${state.batch.total} photos confirmed. Uploading...` : 'Opening or loading photos...'}</Text> : null}
-    {!!vm.workspacePropertyId && !state.busy && (state.needsReconcile || !state.loaded) ? <ListingButton label="Check photo status" tone="outline" onPress={() => void flow.checkStatus()} /> : null}
+    {!!vm.workspacePropertyId && !state.busy && (state.needsReconcile || !state.loaded) ? <ListingButton label={state.needsReconcile ? "Check saved photos" : "Retry loading photos"} tone="outline" onPress={() => void flow.checkStatus()} /> : null}
     {!!vm.workspacePropertyId && !blocked && state.pendingSelections.length ? <ListingButton label="Continue remaining uploads" tone="outline" onPress={() => void flow.resumeQueue()} /> : null}
     {state.removeId ? <><FeedbackNotice message="Remove this saved photo and its stored image? A replacement cover is not selected automatically." tone="warning" /><ListingButton label="Confirm remove photo" disabled={blocked} tone="danger" onPress={() => void flow.confirmRemove()} /><ListingButton label="Keep photo" tone="outline" onPress={flow.cancelRemove} /></> : null}
     {vm.workspacePropertyId ? <Pressable accessibilityRole="button" disabled={state.busy || !!vm.composerPhase} onPress={() => vm.navigate('photoManager')} style={styles.action}><Text style={styles.link}>Manage order and photo details</Text></Pressable> : null}

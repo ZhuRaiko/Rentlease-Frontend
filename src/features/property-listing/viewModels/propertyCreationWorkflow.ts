@@ -1,12 +1,14 @@
-import { draftPropertyError, emptyDraftProperty, hasConfirmedPropertyLocation, propertyCreationInput, type DraftProperty, type PropertyLocationInput } from '../models/DraftProperty';
+import { PropertyCreationError } from '../models/PropertyCreationError';
+import { propertyFloorIssues, draftPropertyError, emptyDraftProperty, hasConfirmedPropertyLocation, propertyCreationInput, type PropertyValidationField, type PropertyValidationSection, type DraftProperty, type PropertyLocationInput } from '../models/DraftProperty';
 import type { PropertyCreationService } from '../services/propertyCreationService';
 type Step = 'details' | 'address' | 'review' | 'created';
 interface State {
+  touchedFields:Partial<Record<PropertyValidationField,true>>; validationAttempted:boolean;
   draft: DraftProperty; step: Step; busy: boolean; loaded: boolean; propertyId: string | null;
   error: string | null; uncertain: boolean; locationRevision: number;
   recent: Awaited<ReturnType<PropertyCreationService['recentOwned']>>;
 }
-const initial = (): State => ({ draft: emptyDraftProperty(), step: 'details', busy: false, loaded: false, propertyId: null, error: null, uncertain: false, locationRevision: 0, recent: [] });
+const initial = (): State => ({ touchedFields:{}, validationAttempted:false, draft: emptyDraftProperty(), step: 'details', busy: false, loaded: false, propertyId: null, error: null, uncertain: false, locationRevision: 0, recent: [] });
 export function createPropertyCreationWorkflow(service: PropertyCreationService) {
   let state = initial(), epoch = 0, disposed = false, owner: string | null = null;
   const listeners = new Set<() => void>();
@@ -18,7 +20,7 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
   };
   const fail = (error: unknown, fallback: string) => {
     if ((error as { code?: string })?.code === 'property_identity_changed') { epoch++; owner = null; update({ ...initial(), error: 'Your account changed. Reopen property setup.' }); }
-    else { const uncertain = (error as { code?: string })?.code === 'property_creation_uncertain'; update({ error: uncertain ? 'Creation could not be confirmed. A property may already exist. Check recent owned properties before continuing; do not create another blindly.' : fallback, ...(uncertain ? { uncertain: true, step: 'review' as const } : {}) }); }
+    else { const uncertain = (error as { code?: string })?.code === 'property_creation_uncertain'; update({ error: uncertain ? 'Creation could not be confirmed. A property may already exist. Check recent owned properties before continuing; do not create another blindly.' : error instanceof PropertyCreationError ? error.message : fallback, ...(uncertain ? { uncertain: true, step: 'review' as const } : {}) }); }
   };
   const initialize = async () => {
     if (disposed || state.busy) return;
@@ -34,6 +36,8 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
     getSnapshot: () => state,
     subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
     initialize,
+    markFieldTouched(field:PropertyValidationField) { if(!disposed&&!state.busy&&!state.propertyId&&!state.uncertain)update({touchedFields:{...state.touchedFields,[field]:true}}); },
+    markValidationAttempt() { if(!disposed&&!state.busy&&!state.propertyId&&!state.uncertain&&!state.validationAttempted)update({validationAttempted:true}); },
     locationReady: () => hasConfirmedPropertyLocation(state.draft),
     activate() { if (disposed) { disposed = false; update({ busy: false }); } },
     dispose() { disposed = true; epoch++; listeners.clear(); },
@@ -41,18 +45,19 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
       if (disposed || state.busy) return;
       // Local discard never clears the durable receipt/uncertain-operation journal.
       epoch++;
-      if (state.propertyId) update({ draft: emptyDraftProperty(), error: null });
+      if (state.propertyId) update({ touchedFields:{}, validationAttempted:false, draft: emptyDraftProperty(), error: null });
       else { owner = null; update(initial()); }
     },
     dirty: () => !state.propertyId && JSON.stringify(state.draft) !== JSON.stringify(emptyDraftProperty()),
     updateField<K extends Exclude<keyof DraftProperty, keyof PropertyLocationInput>>(field: K, value: DraftProperty[K]) {
       if (state.busy || state.propertyId || state.uncertain) return;
       const addressChanged = ['city', 'barangay', 'addressLine1', 'addressLine2', 'postalCode'].includes(field);
-      update({ draft: { ...state.draft, [field]: value, ...(addressChanged ? { exactLatitude: null, exactLongitude: null, publicLatitude: null, publicLongitude: null } : {}) }, ...(addressChanged ? { locationRevision: state.locationRevision + 1 } : {}), error: null });
+      update({ touchedFields:{...state.touchedFields,[field]:true}, draft: { ...state.draft, [field]: value, ...(addressChanged ? { exactLatitude: null, exactLongitude: null, publicLatitude: null, publicLongitude: null } : {}) }, ...(addressChanged ? { locationRevision: state.locationRevision + 1 } : {}), error: null });
     },
     next() {
       if (!state.loaded || state.busy || state.propertyId || state.uncertain) return;
-      if (state.step === 'details') { if (!state.draft.propertyType) { update({ error: 'Choose a property type.' }); return; } update({ step: 'address', error: null }); }
+      update({validationAttempted:true});
+      if (state.step === 'details') { const floors=propertyFloorIssues(state.draft); if(floors.floorNumber||floors.totalFloors){update({error:floors.floorNumber??floors.totalFloors});return;} if (!state.draft.propertyType) { update({ error: 'Choose a supported property type.' }); return; } update({ step: 'address', error: null }); }
       else { const error = draftPropertyError(state.draft, false); update({ ...(error ? {} : { step: 'review' as const }), error }); }
     },
     back() {
@@ -67,11 +72,13 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
     provideConfirmedLocation(location: PropertyLocationInput, expectedAddressRevision: number) {
       if (disposed || state.busy || !state.loaded || state.propertyId || state.uncertain || expectedAddressRevision !== state.locationRevision) return;
       const draft = { ...state.draft, ...location };
-      if (hasConfirmedPropertyLocation(draft)) update({ draft, error: null });
+      if (hasConfirmedPropertyLocation(draft)) update({ draft, error: null, touchedFields:{...state.touchedFields,location:true} });
     },
+    focusValidationSection(section:PropertyValidationSection) { if(!disposed&&!state.busy&&!state.propertyId&&!state.uncertain)update({step:section==='address'||section==='location'?'address':'details'}); },
     async submit(fromComposer = false) {
       if (disposed || state.busy || !state.loaded || state.propertyId || state.uncertain || (!fromComposer && state.step !== 'review')) return;
       if (!fromComposer && !hasConfirmedPropertyLocation(state.draft)) return;
+      update({validationAttempted:true});
       const error = draftPropertyError(state.draft); if (error) { update({ error }); return; }
       const attempt = epoch; update({ busy: true, error: null });
       try { const id = await identity(attempt); const receipt = await service.create(id, propertyCreationInput(state.draft)); await identity(attempt); update({ propertyId: receipt.propertyId, step: 'created' }); }

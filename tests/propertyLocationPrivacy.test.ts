@@ -107,8 +107,10 @@ test('invalid candidates and geocoding failures cannot produce a complete handof
 test('Property Setup/Review readiness follows accepted four-coordinate state without rendering raw points', () => {
  const file = resolve('src/features/property-listing/views/PropertySetupView.tsx'), actualRequire = createRequire(file), module = { exports: {} as any };
  const req = (name: string): any => {
+  if(name.endsWith('/PropertyProgressFooter'))return {PropertyProgressFooter:'PropertyProgressFooter',PropertyReadinessNotice:'PropertyReadinessNotice'};
+  if(name.endsWith('/usePropertyFormFocus'))return {usePropertyFormFocus:()=>({scrollRef:{current:null},contentRef:{current:null},section:()=>()=>{},field:()=>()=>{}})};
   if (name === 'react-native') return { View: 'View', Text: 'Text', StyleSheet: { create: (styles: any) => styles } };
-  const component = ['PropertyLocationToolView', 'PropertyLocationMapView', 'FeedbackNotice', 'ListingWizardScaffold', 'ListingButton'].find(value => name.endsWith('/' + value));
+  const component = ['PropertyValidationSummary', 'PropertyFloorFields', 'FieldLabel', 'PropertyLocationToolView', 'PropertyLocationMapView', 'FeedbackNotice', 'ListingWizardScaffold', 'ListingButton'].find(value => name.endsWith('/' + value));
   if (component) return { [component]: component };
   if (name.endsWith('/ListingControls')) return { ListingField: 'ListingField', ChoiceChip: 'ChoiceChip' };
   return actualRequire(name);
@@ -121,6 +123,6 @@ test('Property Setup/Review readiness follows accepted four-coordinate state wit
   const visit = (node: any) => { if (typeof node === 'string') texts.push(node); if (!node || typeof node !== 'object') return; nodes.push(node); for (const child of [node.props?.children].flat(Infinity)) visit(child); }; visit(tree);
   const copy = texts.join(''); assert.match(copy, accepted ? /Approximate discovery location ready/ : /Waiting for location confirmation/); assert.match(copy, accepted ? /Confirmed on map/ : /Not confirmed yet/);
   assert.doesNotMatch(copy, /14\.5|121|awaiting.*privacy/i); assert.ok(!copy.includes(String(publicPoint.latitude))); assert.ok(!copy.includes(String(publicPoint.longitude)));
-  if (step === 'review') assert.equal(nodes.find(node => node.props?.label === 'Confirm and save property').props.disabled, !accepted);
+  if (step === 'review') assert.equal(nodes.find(node => node.props?.label === 'Confirm and save property').props.disabled, false);
  }
 });

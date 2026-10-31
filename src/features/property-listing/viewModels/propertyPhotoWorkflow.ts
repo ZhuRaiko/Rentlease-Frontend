@@ -13,7 +13,7 @@ interface PhotoState {
 }
 const initial = (propertyId: string | null = null): PhotoState => ({ propertyId, photos: [], loaded: false, busy: false, selected: null, altText: '', altDrafts: {}, error: null, notice: null, needsReconcile: false, removeId: null, pendingSelections: [], uncertainSelection: null, activeMediaIndex: 0, mediaViewerOpen: false, batch: { total: 0, completed: 0, current: 0, status: 'idle' } });
 export function createPropertyPhotoWorkflow(service: PropertyPhotoService, pick: () => Promise<SelectedDocument | null>, pickImages?: (remaining: number) => Promise<SelectedDocument[]>) {
-  let state = initial(), generation = 0, disposed = false, context: PhotoContext | null = null;
+  let state = initial(), generation = 0, disposed = false, context: PhotoContext | null = null, ownerId: string | null = null;
   const listeners = new Set<() => void>();
   const update = (patch: Partial<PhotoState>) => { if (!disposed) { state = { ...state, ...patch }; const count = state.photos.length + state.pendingSelections.length + Number(!!state.uncertainSelection); state = { ...state, activeMediaIndex: Math.max(0, Math.min(state.activeMediaIndex, count - 1)), mediaViewerOpen: count > 0 && state.mediaViewerOpen }; listeners.forEach(fn => fn()); } };
   const selectMedia = (index: number, open = false) => { const count = state.photos.length + state.pendingSelections.length + Number(!!state.uncertainSelection); if (!disposed && Number.isInteger(index) && index >= 0 && index < count) update({ activeMediaIndex: index, mediaViewerOpen: open || state.mediaViewerOpen }); };
@@ -21,7 +21,7 @@ export function createPropertyPhotoWorkflow(service: PropertyPhotoService, pick:
   const identity = async (g: number) => {
     if (!alive(g) || !context) throw new Error('Closed');
     try { await service.assertContext(context); }
-    catch (error) { if (alive(g)) { context = null; generation++; update({ ...initial(), error: 'Your account or property access changed. Reopen property setup.' }); } throw error; }
+    catch (error) { if (alive(g)) { const propertyId=state.propertyId; context = null; generation++; update({ ...initial(propertyId), needsReconcile:true, error: 'Could not verify photo access. Check saved photos to try again, or reopen this property from My Listings.' }); } throw error; }
     if (!alive(g)) throw new Error('Closed');
     return context;
   };
@@ -31,8 +31,8 @@ export function createPropertyPhotoWorkflow(service: PropertyPhotoService, pick:
     const g = generation, id = state.propertyId; update({ busy: true, error: null });
     try {
       const next = await service.context(id); if (!alive(g)) return;
-      if (context && context.ownerId !== next.ownerId) { context = null; generation++; update({ ...initial(), error: 'Your account changed. Reopen property setup.' }); return; }
-      context = next;
+      if (ownerId && ownerId !== next.ownerId) { context = null; generation++; update({ ...initial(), error: 'Your account changed. Reopen property setup.' }); return; }
+      ownerId = next.ownerId; context = next;
       const photos = await service.list(next); await identity(g); applyPhotos(photos);
       const pending = await service.hasPending(next); await identity(g);
       if (pending && reconcile) { await service.reconcile(next); const refreshed = await service.list(next); await identity(g); applyPhotos(refreshed); }
@@ -99,11 +99,11 @@ export function createPropertyPhotoWorkflow(service: PropertyPhotoService, pick:
     previousMedia: () => selectMedia(state.activeMediaIndex - 1),
     subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
     activate() { disposed = false; },
-    dispose() { disposed = true; generation++; context = null; state = initial(); listeners.clear(); },
+    dispose() { disposed = true; generation++; context = null; ownerId = null; state = initial(); listeners.clear(); },
     setProperty(propertyId: string | null, preserveLocalSelections = false) {
       if (propertyId === state.propertyId) return;
       const pendingSelections = preserveLocalSelections && state.propertyId === null && isPropertyUuid(propertyId) ? state.pendingSelections : [];
-      generation++; context = null; update({ ...initial(isPropertyUuid(propertyId) ? propertyId : null), pendingSelections, batch: { total: pendingSelections.length, completed: 0, current: 0, status: 'idle' } });
+      generation++; context = null; ownerId = null; update({ ...initial(isPropertyUuid(propertyId) ? propertyId : null), pendingSelections, batch: { total: pendingSelections.length, completed: 0, current: 0, status: 'idle' } });
     },
     load,
     checkStatus: async () => {

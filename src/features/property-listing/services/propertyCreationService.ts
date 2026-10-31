@@ -1,3 +1,5 @@
+import { PropertyCreationError, propertyCreationBackendError } from '../models/PropertyCreationError';
+import { propertyCreationDiagnostic, tracePropertyCreationDiagnostic, type PropertyCreationDiagnostic } from './propertyCreationDiagnostics';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import { isPropertyUuid, propertySetupPayload, type PropertyCreationInput } from '../models/DraftProperty';
@@ -5,16 +7,18 @@ export interface PropertyCreationJournal { getItem(key: string): Promise<string 
 export type PropertyCreationReceipt = { propertyId: string; status: 'created' };
 const creating = new Set<string>();
 const uncertain = () => Object.assign(new Error('Property creation needs reconciliation.'), { code: 'property_creation_uncertain' });
-export function createPropertyCreationService(getClient: () => SupabaseClient<Database>, journal: PropertyCreationJournal) {
+export function createPropertyCreationService(getClient: () => SupabaseClient<Database>, journal: PropertyCreationJournal, diagnose: (event:PropertyCreationDiagnostic)=>void = tracePropertyCreationDiagnostic) {
   const key = (userId: string) => `rentlease:property-creation:${userId}`;
   const getEligibleUserId = async () => {
     const client = getClient();
     const { data, error } = await client.auth.getUser();
-    if (error || !data.user) throw new Error('Sign in to add a property.');
+    if (error || !data.user) { diagnose(propertyCreationDiagnostic('eligibility',error,false,'authentication')); throw new PropertyCreationError('Sign in to add a property.','property_creation_preflight'); }
     const id = data.user.id;
     const { data: profile, error: profileError } = await client.from('profiles').select('account_status,tier1_verified_at').eq('id', id).maybeSingle();
     const { data: roles, error: rolesError } = await client.from('user_roles').select('role').eq('user_id', id);
-    if (profileError || rolesError || profile?.account_status !== 'active' || !profile.tier1_verified_at || !roles?.some(row => row.role === 'landlord')) throw new Error('An active Tier 1-verified Landlord account is required.');
+    if (profileError || rolesError) { const error=profileError??rolesError; diagnose(propertyCreationDiagnostic('eligibility',error,false,error?.code==='42501'?'backend_permission':'read_failed')); throw new PropertyCreationError('Could not verify your account access. Check your connection and try again.','property_creation_preflight'); }
+    const eligibility = profile?.account_status !== 'active' ? ['account','An active account is required to add a property.'] : !profile.tier1_verified_at ? ['tier1','Complete Tier 1 account verification before adding a property.'] : !roles?.some(row => row.role === 'landlord') ? ['role','The Landlord role is required to add a property.'] : null;
+    if (eligibility) { diagnose(propertyCreationDiagnostic('eligibility',null,false,eligibility[0] as 'account'|'tier1'|'role')); throw new PropertyCreationError(eligibility[1]!, 'property_creation_preflight'); }
     const { data: current, error: currentError } = await client.auth.getUser();
     if (currentError || current.user?.id !== id) throw Object.assign(new Error('Account changed.'), { code: 'property_identity_changed' });
     return id;
@@ -57,30 +61,38 @@ export function createPropertyCreationService(getClient: () => SupabaseClient<Da
       await assertIdentity(userId);
     },
     async create(userId: string, draft: PropertyCreationInput): Promise<PropertyCreationReceipt> {
-      const payload = propertySetupPayload(draft);
+      let payload: ReturnType<typeof propertySetupPayload>;
+      try { payload = propertySetupPayload(draft); } catch(error) { diagnose(propertyCreationDiagnostic('validation',null,false,'validation')); throw new PropertyCreationError(error instanceof Error ? error.message : 'Check the required property fields.','property_creation_preflight'); }
       if (creating.has(userId)) throw uncertain();
       creating.add(userId);
       let sent = false, journalWritten = false;
+      let stage:PropertyCreationDiagnostic['stage']='eligibility';
       try {
         await assertIdentity(userId);
         const existing = await restore(userId); if (existing) return existing;
         // Persist BEFORE sending; unknown outcomes stay blocked across unmount/restart.
-        await journal.setItem(key(userId), JSON.stringify({ state: 'pending' })); journalWritten = true;
-        await assertIdentity(userId); sent = true;
+        stage='journal'; await journal.setItem(key(userId), JSON.stringify({ state: 'pending' })); journalWritten = true;
+        stage='eligibility'; await assertIdentity(userId); stage='rpc'; sent = true;
         const { data, error } = await getClient().rpc('create_property_setup', payload);
         if (error) {
           // PostgreSQL validation/authorization/constraint failures are rolled back.
-          if (/^(22|23|42)/.test(error.code ?? '')) { await journal.removeItem(key(userId)); throw Object.assign(new Error('Property details or account permissions were rejected.'), { code: 'property_creation_rejected' }); }
-          throw uncertain();
+          if (/^(22|23|42|P0001$)/.test(error.code ?? '')) {
+            diagnose(propertyCreationDiagnostic('rpc',error,true,error.code==='42501'?'backend_permission':'rejected'));
+            // A known database rejection rolled back; retain a marker if local cleanup fails.
+            try { await journal.removeItem(key(userId)); } catch { diagnose(propertyCreationDiagnostic('journal',null,true,'local_storage')); }
+            throw propertyCreationBackendError(error);
+          }
+          diagnose(propertyCreationDiagnostic('rpc',error,true,'transport_unknown')); throw uncertain();
         }
-        if (!data || typeof data !== 'object' || Array.isArray(data) || data.status !== 'created' || !isPropertyUuid(data.property_id)) throw uncertain();
-        const receipt = { propertyId: data.property_id, status: 'created' as const };
-        await journal.setItem(key(userId), JSON.stringify(receipt));
-        await assertIdentity(userId);
+        if (!data || typeof data !== 'object' || Array.isArray(data) || data.status !== 'created' || !isPropertyUuid(data.property_id)) { diagnose(propertyCreationDiagnostic('receipt',null,true,'receipt_invalid')); throw uncertain(); }
+        stage='receipt'; const receipt = { propertyId: data.property_id, status: 'created' as const };
+        stage='journal'; await journal.setItem(key(userId), JSON.stringify(receipt));
+        stage='eligibility'; await assertIdentity(userId);
         return receipt;
       } catch (error) {
         if (!sent && journalWritten) { try { await journal.removeItem(key(userId)); } catch { /* Keep the marker if cleanup cannot be confirmed. */ } }
-        if (sent && (error as { code?: string })?.code !== 'property_creation_rejected' && (error as { code?: string })?.code !== 'property_identity_changed') throw uncertain();
+        if (sent && (error as { code?: string })?.code !== 'property_creation_rejected' && (error as { code?: string })?.code !== 'property_identity_changed') { if ((error as {code?:string})?.code !== 'property_creation_uncertain') diagnose(propertyCreationDiagnostic(stage,error,true,stage==='journal'?'local_storage':'transport_unknown')); throw uncertain(); }
+        if (!(error instanceof PropertyCreationError) && !sent && (error as {code?:string})?.code !== 'property_creation_uncertain' && (error as {code?:string})?.code !== 'property_identity_changed') { diagnose(propertyCreationDiagnostic(stage,error,false,stage==='journal'?'local_storage':'read_failed')); throw new PropertyCreationError('Could not verify your account or device storage. Check your connection and try again.','property_creation_preflight'); }
         throw error;
       } finally { creating.delete(userId); }
     },

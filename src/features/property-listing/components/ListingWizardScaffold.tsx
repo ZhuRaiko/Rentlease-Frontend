@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, RefObject, ReactNode } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
@@ -15,6 +15,8 @@ interface ListingWizardScaffoldProps extends PropsWithChildren {
   stepLabel?: string;
   title?: string;
   description?: string;
+  footer?:ReactNode;
+  formFocus?:{scrollRef:RefObject<ScrollView|null>;contentRef:RefObject<View|null>};
 }
 
 export function ListingWizardScaffold({
@@ -25,14 +27,17 @@ export function ListingWizardScaffold({
   step,
   stepLabel,
   title,
-  description,
+  description, formFocus, footer,
 }: ListingWizardScaffoldProps) {
-  return (
+  const scroll = (
     <ScrollView
+      style={footer?styles.scrollArea:undefined}
+      ref={formFocus?.scrollRef}
       contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
+      <View collapsable={false} ref={formFocus?.contentRef}>
       <View style={styles.topBar}>
         <Pressable
           accessibilityLabel={onBack ? 'Back' : 'Close'}
@@ -76,11 +81,15 @@ export function ListingWizardScaffold({
         {description ? <Text style={styles.description}>{description}</Text> : null}
         <View style={styles.body}>{children}</View>
       </View>
+      </View>
     </ScrollView>
   );
+  return footer?<View style={styles.frame}>{scroll}<View style={styles.footer}>{footer}</View></View>:scroll;
 }
 
 const styles = StyleSheet.create({
+  frame:{flex:1},scrollArea:{flex:1},
+  footer:{alignSelf:'center',width:'100%',maxWidth:412,paddingHorizontal:spacing.lg,paddingVertical:spacing.sm,borderTopWidth:1,borderTopColor:colors.border,backgroundColor:colors.background},
   scrollContent: { flexGrow: 1, paddingBottom: spacing.xl },
   topBar: { height: 62, justifyContent: 'center', paddingHorizontal: spacing.lg },
   closeButton: { height: 28, justifyContent: 'center', width: 28 },

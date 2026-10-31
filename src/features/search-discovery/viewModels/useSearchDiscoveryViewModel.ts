@@ -2,12 +2,13 @@ import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigat
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { gpsProximityDependencies } from '../services/gpsProximityDependencies';
 import { createGpsProximityWorkflow } from './gpsProximityWorkflow';
+import { manualSearchService } from '../services/manualSearchDependencies';
+import { createManualSearchWorkflow } from './manualSearchWorkflow';
+import { defaultSearchFilters, type SearchFilters, type SearchSort, type AvailableLocation } from '../models/ManualSearch';
 
 import {
   defaultDiscoveryFilters,
   matchingPreferenceFilters,
-  locationSuggestions,
-  previewDiscoveryProperties,
   recommendedMatchingPreferences,
   type DiscoveryFilters,
   type DiscoveryProperty,
@@ -16,42 +17,6 @@ import {
   type PropertyKind,
   type SortOption,
 } from '../models/SearchDiscovery';
-
-function matchesFilters(property: DiscoveryProperty, filters: DiscoveryFilters, query: string) {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const matchesQuery =
-    !normalizedQuery ||
-    property.title.toLocaleLowerCase().includes(normalizedQuery) ||
-    property.city.toLocaleLowerCase().includes(normalizedQuery) ||
-    property.address.toLocaleLowerCase().includes(normalizedQuery);
-  const matchesCity =
-    !filters.city || property.city.toLocaleLowerCase() === filters.city.toLocaleLowerCase();
-  const matchesKind =
-    filters.propertyKinds.length === 0 || filters.propertyKinds.includes(property.propertyKind);
-  const matchesAmenities = filters.amenities.every((amenity) =>
-    property.amenities.includes(amenity),
-  );
-
-  return (
-    matchesQuery &&
-    matchesCity &&
-    matchesKind &&
-    matchesAmenities &&
-    property.rent >= filters.minimumRent &&
-    property.rent <= filters.maximumRent &&
-    property.bedrooms >= filters.minimumBedrooms &&
-    property.bathrooms >= filters.minimumBathrooms &&
-    property.landArea >= filters.minimumLandArea &&
-    (!filters.furnishedOnly || property.furnished)
-  );
-}
-
-function sortProperties(properties: DiscoveryProperty[], sort: SortOption) {
-  const next = [...properties];
-  if (sort === 'Price: Low to High') return next.sort((a, b) => a.rent - b.rent);
-  if (sort === 'Price: High to Low') return next.sort((a, b) => b.rent - a.rent);
-  return next.sort((a, b) => b.matchScore - a.matchScore);
-}
 
 export function useSearchDiscoveryViewModel(
   initialScreen: 'home' | 'matchingPreferences' = 'home',
@@ -70,13 +35,15 @@ export function useSearchDiscoveryViewModel(
   const [introductionError, setIntroductionError] = useState<string | null>(null);
   const [isCompletingIntroduction, setIsCompletingIntroduction] = useState(false);
   const completionInFlight = useRef(false);
+  const suggestedCity = useRef(false);
   const navigation = useNavigationConfirmation(screen === 'matchingPreferences' && JSON.stringify(matchingPreferences) !== JSON.stringify(savedPreferences.current));
   const [sortOption, setSortOption] = useState<SortOption>('Recommended');
-  const [selectedPropertyId, setSelectedPropertyId] = useState(
-    previewDiscoveryProperties[0]?.id ?? '',
-  );
-  const [savedPropertyIds, setSavedPropertyIds] = useState<string[]>([]);
   const gps = useMemo(() => createGpsProximityWorkflow(gpsProximityDependencies), [options.accountId]);
+  const manual = useMemo(() => createManualSearchWorkflow(manualSearchService), [options.accountId]);
+  const manualState = useSyncExternalStore(manual.subscribe, manual.getSnapshot, manual.getSnapshot);
+  const [liveFilterDraft,setLiveFilterDraft] = useState<SearchFilters>(defaultSearchFilters);
+  useEffect(() => { manual.activate(); return () => manual.dispose(); }, [manual]);
+  useEffect(() => { if (screen !== 'searchLocation') return; const timer = setTimeout(() => { void manual.locations(query); }, 250); return () => { clearTimeout(timer); manual.cancelLocations(); }; }, [screen,query,manual]);
   const gpsState = useSyncExternalStore(gps.subscribe, gps.getSnapshot, gps.getSnapshot);
   useEffect(() => { gps.activate(); return () => gps.dispose(); }, [gps]);
   const [galleryIndex, setGalleryIndex] = useState(0);
@@ -91,6 +58,7 @@ export function useSearchDiscoveryViewModel(
 
   const goBack = () => {
     gps.reset();
+    if (screen === 'propertyDetails') manual.cancelDetail();
     if (screen === 'matchingPreferences') setMatchingPreferences(savedPreferences.current);
     setHistory((current) => {
       const previous = current.at(-1) ?? 'home';
@@ -100,51 +68,24 @@ export function useSearchDiscoveryViewModel(
     setNotice(null);
   };
 
-  const visibleProperties = useMemo(
-    () =>
-      sortProperties(
-        previewDiscoveryProperties.filter((property) => matchesFilters(property, filters, query)),
-        sortOption,
-      ),
-    [filters, query, sortOption],
-  );
-
-  const savedProperties = useMemo(
-    () => previewDiscoveryProperties.filter((property) => savedPropertyIds.includes(property.id)),
-    [savedPropertyIds],
-  );
-
-  const selectedProperty =
-    previewDiscoveryProperties.find((property) => property.id === selectedPropertyId) ??
-    previewDiscoveryProperties[0];
-
-  const suggestions = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase();
-    if (!normalizedQuery) return locationSuggestions;
-    return locationSuggestions.filter((suggestion) =>
-      suggestion.toLocaleLowerCase().includes(normalizedQuery),
-    );
-  }, [query]);
-
-  const chooseSuggestion = (suggestion: string) => {
-    const city = suggestion.split(',')[0]?.trim() ?? '';
-    setQuery(city);
-    setFilters((current) => ({ ...current, city }));
-    setScreen('resultsList');
-    setHistory((current) => [...current, 'searchLocation']);
+  // Legacy prototype Views keep a typed empty contract; real screens bind manualState only.
+  const visibleProperties: DiscoveryProperty[] = [];
+  const savedProperties: DiscoveryProperty[] = [];
+  const selectedProperty = undefined as DiscoveryProperty | undefined;
+  const suggestions = manualState.locations;
+  const chooseSuggestion = (suggestion: AvailableLocation | string) => {
+    const nextQuery = typeof suggestion === 'string' ? suggestion : suggestion.query;
+    suggestedCity.current = typeof suggestion !== 'string';
+    setQuery(nextQuery); navigate('resultsList');
+    void manual.search(nextQuery, typeof suggestion === 'string' ? undefined : { ...manualState.filters, city: suggestion.city as SearchFilters['city'] });
   };
-
-  const submitSearch = () => {
-    const hasMatches = previewDiscoveryProperties.some((property) =>
-      matchesFilters(property, filters, query),
-    );
-    navigate(hasMatches ? 'resultsList' : 'noResults');
-  };
+  const submitSearch = () => { navigate('resultsList'); const filters = suggestedCity.current ? { ...manualState.filters, city: '' as const } : manualState.filters; suggestedCity.current = false; void manual.search(query,filters); };
 
   const clearSearch = () => {
     gps.reset();
     setQuery('');
     setFilters(defaultDiscoveryFilters);
+    manual.reset();
     setSortOption('Recommended');
     setScreen('home');
     setHistory([]);
@@ -180,14 +121,10 @@ export function useSearchDiscoveryViewModel(
 
   const resetFilterDraft = () => setFilterDraft(defaultDiscoveryFilters);
 
-  const applyFilters = () => {
-    setFilters(filterDraft);
-    const hasMatches = previewDiscoveryProperties.some((property) =>
-      matchesFilters(property, filterDraft, query),
-    );
-    setScreen(hasMatches ? 'resultsList' : 'noResults');
-    setNotice(null);
-  };
+  const applyFilters = () => { setScreen('resultsList'); void manual.search(query); };
+  const openLiveFilters = () => { setLiveFilterDraft({ ...manualState.filters, types:[...manualState.filters.types], amenityIds:[...manualState.filters.amenityIds] }); navigate('filters'); void manual.catalogue(); };
+  const applyLiveFilters = () => { suggestedCity.current = false; setHistory(current => current.slice(0,-1)); setScreen('resultsList'); void manual.applyFilters(liveFilterDraft); };
+  const chooseLiveSort = (value: SearchSort) => { setHistory(current => current.slice(0,-1)); setScreen('resultsList'); void manual.sort(value); };
 
   const updateMatchingPreference = <TField extends keyof MatchingPreferences>(
     field: TField,
@@ -230,7 +167,7 @@ export function useSearchDiscoveryViewModel(
     options.onSavePreferences?.(matchingPreferences);
     if (!await finishIntroduction()) return;
     setFilters(preferenceFilters); setQuery(''); setScreen('home'); setHistory([]);
-    setNotice('Preferences saved for this session. Only sample listings were filtered; no live recommendations were activated.');
+    setNotice('Preferences kept for this session. Recommendations are not connected.');
   };
   const skipMatchingIntroduction = async () => {
     if (!await finishIntroduction()) return;
@@ -238,8 +175,7 @@ export function useSearchDiscoveryViewModel(
   };
 
   const chooseSort = (nextSort: SortOption) => {
-    setSortOption(nextSort);
-    setScreen('resultsList');
+    if (nextSort === 'Price: Low to High' || nextSort === 'Price: High to Low') chooseLiveSort(nextSort);
   };
 
   const movePreferenceItem = (
@@ -261,6 +197,7 @@ export function useSearchDiscoveryViewModel(
   };
 
   const requestCurrentLocation = () => {
+    manual.reset();
     gps.reset();
     navigate('locationPermission');
   };
@@ -272,31 +209,18 @@ export function useSearchDiscoveryViewModel(
 
   const declineCurrentLocation = () => goBack();
 
-  const openProperty = (propertyId: string) => {
-    setSelectedPropertyId(propertyId);
-    setGalleryIndex(0);
-    navigate('propertyDetails');
-  };
-
-  const toggleSaved = (propertyId: string) => {
-    setSavedPropertyIds((current) =>
-      current.includes(propertyId)
-        ? current.filter((id) => id !== propertyId)
-        : [...current, propertyId],
-    );
-  };
-
-  const isSaved = (propertyId: string) => savedPropertyIds.includes(propertyId);
-
-  const showNoResultsPreview = () => navigate('noResults');
-  const showSearchErrorPreview = () => navigate('searchError');
-  const retrySearch = () => {
-    setNotice('Search preview restored. No network request was made.');
-    setScreen('resultsList');
-  };
+  const openProperty = (listingId: string) => { setGalleryIndex(0); navigate('propertyDetails'); void manual.openDetail(listingId); };
+  const toggleSaved = (_listingId: string) => setNotice('Saved rentals are not connected yet.');
+  const isSaved = (_listingId: string) => false;
+  const showNoResultsPreview = () => { navigate('resultsList'); void manual.search(query); };
+  const showSearchErrorPreview = showNoResultsPreview;
+  const retrySearch = () => { setScreen('resultsList'); void manual.retry(); };
 
   const openHome = () => {
+    manual.reset();
+    suggestedCity.current = false;
     gps.reset();
+    if (screen === 'propertyDetails') manual.cancelDetail();
     if (screen === 'matchingPreferences') setMatchingPreferences(savedPreferences.current);
     if (introductionPending) setIntroductionPending(false);
     setScreen('home');
@@ -343,6 +267,8 @@ export function useSearchDiscoveryViewModel(
     suggestions,
     gps,
     gpsState,
+    manual, manualState, liveFilterDraft, setLiveFilterDraft, openLiveFilters, applyLiveFilters, chooseLiveSort,
+    resetLiveFilters: () => setLiveFilterDraft(defaultSearchFilters()),
     galleryIndex,
     notice,
     navigate,

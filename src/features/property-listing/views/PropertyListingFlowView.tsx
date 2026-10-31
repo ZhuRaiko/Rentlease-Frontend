@@ -1,3 +1,4 @@
+import { ListingDraftSavedView } from './ListingDraftSavedView';
 import { PublishedListingStatusView } from './PublishedListingStatusView';
 import { useEffect } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
@@ -75,6 +76,8 @@ export function PropertyListingFlowView({
     content = <PropertyDashboardView viewModel={viewModel} />;
   } else if (viewModel.screen === 'published' && viewModel.showRealPublication && viewModel.realListing) {
     content = <PublishedListingStatusView viewModel={viewModel} onClose={close} />;
+  } else if (viewModel.screen === 'draftSaved') {
+    content = <ListingDraftSavedView viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'listingComposer') {
     content = <ListingComposerView viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'listingDetails') {
@@ -112,7 +115,7 @@ export function PropertyListingFlowView({
         onChat={() => viewModel.requestNavigation(onOpenChat)}
         onDiscover={() => viewModel.requestNavigation(onOpenDiscover)}
         onListing={viewModel.goDashboard}
-        onPost={viewModel.startCreate}
+        onPost={viewModel.openPostingType}
         onTenancy={() => viewModel.requestNavigation(onOpenMaintenance)}
       />
     </ScreenContainer>

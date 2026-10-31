@@ -2,7 +2,7 @@ import { isPropertyUuid } from './DraftProperty';
 import type { ListingDraftFields, SavedListingDraft } from './PersistedListingDraft';
 export type PublicationListing = SavedListingDraft;
 export class PublicationError extends Error {
-  constructor(message: string, public readonly kind: 'rejected' | 'uncertain' | 'identity' = 'rejected') { super(message); }
+  constructor(message: string, public readonly kind: 'rejected' | 'uncertain' | 'identity' | 'read' = 'rejected') { super(message); }
 }
 const fields: (keyof ListingDraftFields)[] = ['title', 'description', 'askingRent', 'houseRules', 'rentalTerm', 'securityDepositMonths', 'advanceRentMonths', 'minimumStayMonths', 'availableDate'];
 export function confirmedListingFields(row: PublicationListing): ListingDraftFields {
@@ -24,10 +24,28 @@ export function isPublishedListing(row: PublicationListing): boolean {
 export const publicationStatusLabel = (status: PublicationListing['status'] | null) => status === 'active' ? 'Published' : status === 'draft' ? 'Draft' : status ?? 'Not confirmed';
 export function publicationBackendError(error: { code?: string; message?: string }): PublicationError {
   const message = error.message ?? '';
+  if (message === 'Authentication required') return new PublicationError('Sign in again before publishing.');
+  if (message === 'Tier 1 verified active account required') return new PublicationError('Publication requires an active Tier 1-verified account.');
+  if (message === 'Landlord role required') return new PublicationError('The Landlord role is required to publish a listing.');
+  if (message === 'Owned listing required') return new PublicationError('You can publish only your own listing. Reopen My Listings.');
+  if (message === 'Owned active property required') return new PublicationError('Publication requires an active property that you own.');
+  if (message === 'Only a draft listing can be published') return new PublicationError('Only a draft listing can be published. Check current status.');
   if (/Approved Tier 3 verification for this property/i.test(message)) return new PublicationError('This property must have approved Tier 3 ownership verification before it can be published.');
-  if (/80%+ completeness/i.test(message)) return new PublicationError('This listing does not yet meet the publication requirements. Review the property and listing details, then try again.');
+  if (/80%+ completeness/i.test(message)) return new PublicationError('This listing does not yet meet the publication requirements. Publication requires at least 80% completeness. Add missing property or listing details, save the draft, then try again.');
   if (/already has a live listing/i.test(message)) return new PublicationError('This property already has a live listing. Another listing cannot be published for it.');
-  if (error.code === '42501') return new PublicationError('Publication is unavailable. Check your account eligibility and ownership of this active property.');
+  if (error.code === '42501') return new PublicationError('Publication is unavailable. Check listing access and try again.');
   return new PublicationError('The listing could not be published. Check its current status and try again.');
 }
 export const publicationMessage = (error: unknown) => error instanceof PublicationError ? error.message : 'Publication could not be confirmed. Check the listing status before trying again.';
+
+// Presentation guidance only: the RPC remains authoritative for all eligibility checks.
+export function publicationReviewSummary(propertyId:string|null,row:PublicationListing|null,form:ListingDraftFields,uncertainSave:boolean) {
+  const visible=!!row && row.property_id===propertyId && row.status==='draft';
+  const blocker=publicationEligibility(propertyId,row,form,uncertainSave);
+  const belowThreshold=!!row && (!Number.isFinite(row.completeness_score) || row.completeness_score<0.80);
+  return {
+    visible,
+    state:row?.status==='active'?'Active':!blocker && !belowThreshold?'Ready for publication review':'Draft',
+    message:blocker ?? (belowThreshold?'The saved draft is below 80% completeness. Add details and save again before publishing.':'Review the saved draft. Property-specific Tier 3 approval and all other publication requirements are checked when you publish.'),
+  };
+}

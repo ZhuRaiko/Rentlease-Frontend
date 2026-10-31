@@ -31,3 +31,7 @@ Before implementing a RENTLEASE feature, read `.codex/skills/rentlease-feature-i
 - For Supabase-integrated work, also read `rentlease-supabase-contract-guard`, `rentlease-implementation-ledger`, `rentlease-documentation-maintainer` and `rentlease-test-runtime-verification` under `.codex/skills/<skill-name>/SKILL.md`.
 - For ownership, private data, Storage, verification or privileged actions, also read `rentlease-security-review`.
 - Keep the dedicated living feature document and backend interaction ledger current; report which skill files were actually read. Recording requirements do not authorize backend mutations.
+
+## Frontend language convention
+
+Use American English (en-US) for new or modified user-facing text, accessibility labels, tests and documentation (stories, color, center, behavior, organize, customize). Preserve database/RPC names, enums and technical identifiers; do not perform unrelated spelling-only rewrites.

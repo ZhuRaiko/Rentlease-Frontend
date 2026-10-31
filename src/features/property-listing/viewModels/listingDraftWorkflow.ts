@@ -1,9 +1,9 @@
 import { hasListingMinimum, ListingDraftError, listingDraftMessage, listingDraftValidation, type ListingDraftFields, type SavedListingDraft } from '../models/PersistedListingDraft';
 import type { ListingDraftContext, ListingDraftService } from '../services/listingDraftService';
 import { isPropertyUuid } from '../models/DraftProperty';
-interface State { propertyId: string | null; listingId: string | null; loaded: boolean; busy: boolean; error: string | null; uncertain: boolean; lastConfirmed: SavedListingDraft | null; notice: string | null }
-const initial = (propertyId: string | null = null): State => ({ propertyId, listingId: null, loaded: false, busy: false, error: null, uncertain: false, lastConfirmed: null, notice: null });
-export function createListingDraftWorkflow(service: ListingDraftService, onConfirmed: (row: SavedListingDraft) => void, canWrite = () => true) {
+interface State { propertyId: string | null; listingId: string | null; loaded: boolean; busy: boolean; error: string | null; errorSource: 'load'|'save'|null; uncertain: boolean; lastConfirmed: SavedListingDraft | null; notice: string | null }
+const initial = (propertyId: string | null = null): State => ({ propertyId, listingId: null, loaded: false, busy: false, error: null, errorSource: null, uncertain: false, lastConfirmed: null, notice: null });
+export function createListingDraftWorkflow(service: ListingDraftService, onConfirmed: (row: SavedListingDraft, source: 'load'|'save'|'adopt') => void, canWrite = () => true) {
   let state = initial(), generation = 0, disposed = false, context: ListingDraftContext | null = null;
   const listeners = new Set<() => void>();
   const update = (patch: Partial<State>) => { if (!disposed) { state = { ...state, ...patch }; listeners.forEach(fn => fn()); } };
@@ -12,16 +12,16 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
     if (!alive(g) || !context) throw new Error('Closed');
     await service.assertContext(context); if (!alive(g)) throw new Error('Closed'); return context;
   };
-  const fail = (g: number, error: unknown) => {
+  const fail = (g: number, error: unknown, source: 'load'|'save' = 'load') => {
     if (!alive(g)) return;
     if (error instanceof ListingDraftError && error.kind === 'identity') { generation++; context = null; update({ ...initial(), error: listingDraftMessage(error) }); }
-    else update({ error: listingDraftMessage(error), ...(error instanceof ListingDraftError && error.kind === 'uncertain' ? { uncertain: true } : {}) });
+    else update({ errorSource: source, error: listingDraftMessage(error), ...(error instanceof ListingDraftError && error.kind === 'uncertain' ? { uncertain: true } : {}) });
   };
-  const accept = (row: SavedListingDraft) => { onConfirmed(row); update({ listingId: row.id, lastConfirmed: row, loaded: true }); };
+  const accept = (row: SavedListingDraft, source: 'load'|'save'|'adopt' = 'load') => { onConfirmed(row,source); update({ listingId: row.id, lastConfirmed: row, loaded: true }); };
   const load = async (reconcile = false, selectedListingId: string | null = null) => {
     if (disposed || state.busy || !state.propertyId) return false;
     if (state.lastConfirmed && state.lastConfirmed.status !== 'draft') return true;
-    const g = generation; update({ busy: true, error: null, notice: null });
+    const g = generation; update({ busy: true, error: null, errorSource: null, notice: null });
     try {
       const next = await service.context(state.propertyId); if (!alive(g)) return false;
       if (context && context.userId !== next.userId) throw new ListingDraftError('Your account changed. Reopen the listing.', 'identity');
@@ -40,7 +40,7 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
     setProperty(id: string | null) { if (state.propertyId === id) return; generation++; context = null; update(initial(isPropertyUuid(id) ? id : null)); },
     adoptBackendListing(row: SavedListingDraft) {
       if (disposed || row.property_id !== state.propertyId) return;
-      accept(row); update({ uncertain: false, error: null, notice: null });
+      accept(row,'adopt'); update({ uncertain: false, error: null, notice: null });
     },
     load, reconcile: () => load(true),
     clearNotice() { if (!state.busy) update({ notice: null, error: null }); },
@@ -48,11 +48,11 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
       if (disposed || state.busy || state.uncertain || !canWrite()) return 'blocked';
       if (state.lastConfirmed && state.lastConfirmed.status !== 'draft') { update({ error: 'This is no longer a draft listing. Draft saving is unavailable.' }); return 'blocked'; }
       if (!hasListingMinimum(state.propertyId, form)) { update({ notice: 'Progress is local to this session, not saved to your account. A saved property, title, description and positive monthly rent are required.' }); return 'local'; }
-      const error = listingDraftValidation(state.propertyId, form); if (error) { update({ error, notice: null }); return 'blocked'; }
+      const error = listingDraftValidation(state.propertyId, form); if (error) { update({ error, errorSource: 'save', notice: null }); return 'blocked'; }
       if (!state.loaded || !context) { update({ error: 'Load the current property draft before saving.' }); return 'blocked'; }
-      const g = generation; update({ busy: true, error: null, notice: null });
-      try { const c = await identity(g); const row = await service.save(c, { ...form }); await identity(g); accept(row); update({ notice: 'Listing draft saved to your account. It is not published.' }); return 'saved'; }
-      catch (error) { if (alive(g)) { try { await identity(g); } catch (changed) { fail(g, changed); } fail(g, error); } return 'blocked'; }
+      const g = generation; update({ busy: true, error: null, errorSource: null, notice: null });
+      try { const c = await identity(g); const row = await service.save(c, { ...form }); await identity(g); accept(row,'save'); update({ notice: 'Listing draft saved to your account. It is not published.' }); return 'saved'; }
+      catch (error) { if (alive(g)) { try { await identity(g); } catch (changed) { fail(g, changed, 'save'); } fail(g, error, 'save'); } return 'blocked'; }
       finally { if (alive(g)) update({ busy: false }); }
     },
   };

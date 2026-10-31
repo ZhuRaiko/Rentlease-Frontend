@@ -4,7 +4,7 @@ import type { PropertyListingViewModel } from '../viewModels/usePropertyListingV
 export function ComposerRecoveryFeedback({ viewModel: vm }: { viewModel: PropertyListingViewModel }) {
   return <>
     {!vm.workspacePropertyActive ? <FeedbackNotice message="This property is inactive. Listing draft edits are unavailable." tone="warning" /> : null}
-    <FeedbackNotice message={vm.propertyState.error} tone="error" />
+    <FeedbackNotice message={vm.propertyValidationIssues?.some(issue=>issue.message===vm.propertyState.error)?null:vm.propertyState.error} tone="error" />
     <FeedbackNotice message={vm.composerNotice} />
     {vm.propertyState.uncertain ? <>
       <FeedbackNotice message="Property creation needs checking. Do not create another copy. Select a recent property only if you recognize this setup." tone="warning" />

@@ -13,6 +13,9 @@ export function hasListingMinimum(propertyId: string | null, form: ListingDraftF
 }
 export function listingDraftValidation(propertyId: string | null, form: ListingDraftFields): string | null {
   if (!isPropertyUuid(propertyId)) return 'Save a physical property before saving a listing to your account.';
+  return listingFieldValidation(form);
+}
+function listingFieldValidation(form:ListingDraftFields):string|null {
   if (!form.title.trim()) return 'Enter a listing title.';
   if (!form.description.trim()) return 'Enter a listing description.';
   if (!Number.isFinite(listingNumber(form.askingRent)) || listingNumber(form.askingRent) <= 0) return 'Enter monthly asking rent greater than zero.';
@@ -27,6 +30,11 @@ export function listingDraftValidation(propertyId: string | null, form: ListingD
   }
   return null;
 }
+export function listingFieldIssue(form:ListingDraftFields) {
+  const message=listingFieldValidation(form);if(!message)return null;
+  const field=message.includes('title')?'title':message.includes('description')?'description':message.includes('rent greater')?'askingRent':message.includes('rental term')?'rentalTerm':message.includes('Security deposit')?'securityDepositMonths':message.includes('Advance rent')?'advanceRentMonths':message.includes('Minimum stay')?'minimumStayMonths':'availableDate';
+  return {field,message};
+}
 export function listingDraftPayload(propertyId: string, form: ListingDraftFields): SaveListingDraftArgs {
   const error = listingDraftValidation(propertyId, form); if (error) throw new ListingDraftError(error);
   return { p_property_id: propertyId, p_title: form.title.trim(), p_description: form.description.trim(), p_asking_rent_monthly: listingNumber(form.askingRent), p_rental_term: form.rentalTerm, p_security_deposit_months: listingNumber(form.securityDepositMonths), p_advance_rent_months: listingNumber(form.advanceRentMonths), ...(form.minimumStayMonths ? { p_minimum_stay_months: listingNumber(form.minimumStayMonths) } : {}), ...(form.availableDate ? { p_available_from: form.availableDate } : {}), ...(form.houseRules.trim() ? { p_house_rules: form.houseRules.trim() } : {}) };
@@ -35,6 +43,6 @@ export function applySavedListing(draft: ListingDraft, row: SavedListingDraft): 
   return { ...draft, title: row.title, description: row.description, askingRent: String(row.asking_rent_monthly), houseRules: row.house_rules ?? '', rules: (row.house_rules ?? '').split('\n').filter((value): value is typeof propertyRules[number] => propertyRules.includes(value as typeof propertyRules[number])), rentalTerm: row.rental_term, securityDepositMonths: String(row.security_deposit_months), advanceRentMonths: String(row.advance_rent_months), minimumStayMonths: row.minimum_stay_months === null ? '' : String(row.minimum_stay_months), availableDate: row.available_from ?? '' };
 }
 export class ListingDraftError extends Error {
-  constructor(message: string, public readonly kind: 'rejected' | 'uncertain' | 'identity' = 'rejected') { super(message); }
+  constructor(message: string, public readonly kind: 'rejected' | 'uncertain' | 'identity' = 'rejected', options?: ErrorOptions) { super(message, options); }
 }
 export const listingDraftMessage = (error: unknown) => error instanceof ListingDraftError ? error.message : 'Could not save or load the listing draft. Check your connection and try again.';

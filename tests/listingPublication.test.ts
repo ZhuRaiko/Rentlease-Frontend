@@ -1,10 +1,11 @@
+import { publicationDiagnostic } from '../src/features/property-listing/services/publicationDiagnostics';
 /// <reference types="node" />
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../src/shared/services/supabase/database.types';
-import { confirmedListingFields, isPublishedListing, publicationBackendError, publicationEligibility, publicationStatusLabel, type PublicationListing } from '../src/features/property-listing/models/ListingPublication';
+import { publicationReviewSummary, confirmedListingFields, isPublishedListing, publicationBackendError, publicationEligibility, publicationStatusLabel, type PublicationListing } from '../src/features/property-listing/models/ListingPublication';
 import { createListingPublicationService } from '../src/features/property-listing/services/listingPublicationService';
 import { createListingPublicationWorkflow } from '../src/features/property-listing/viewModels/listingPublicationWorkflow';
 import { createListingDraftWorkflow } from '../src/features/property-listing/viewModels/listingDraftWorkflow';
@@ -13,7 +14,7 @@ function draft(): PublicationListing { return { id: listingId, property_id: prop
 const fields = () => confirmedListingFields(draft());
 function harness() {
   let owner = userId, row: PublicationListing | null = draft(), rpcError: { code: string; message: string } | null = null, receipt: unknown = undefined;
-  let calls = 0, commitOnError = false, wait: Promise<void> | null = null, readFailure = false, diskFailure = false;
+  let calls = 0, commitOnError = false, wait: Promise<void> | null = null, readFailure = false, diskFailure = false, preReadFailure = false;
   const journal = new Map<string, string>(), filters: Record<string, unknown>[] = [], applied: PublicationListing[] = [];
   const client = {
     auth: { getUser: async () => ({ data: { user: owner ? { id: owner } : null }, error: null }) },
@@ -22,7 +23,7 @@ function harness() {
       const q = { select: (_: string) => q, eq: (k: string, v: unknown) => { eqs[k] = v; return q; }, order: (_: string, __: unknown) => q, limit: (n: number) => { assert.equal(n, 1); return q; },
         maybeSingle: async () => {
           if (table === 'properties') return { data: owner === userId ? { id: propertyId, landlord_id: userId, is_active: true } : null, error: null };
-          assert.equal(table, 'listings'); filters.push(eqs); return { data: row, error: readFailure && calls ? { message: 'private read error' } : null };
+          assert.equal(table, 'listings'); filters.push(eqs); return { data: row, error: preReadFailure || (readFailure && calls) ? { code:'42501', message:'permission denied for table tenancies' } : null };
         } }; return q;
     },
     async rpc(name: string, args: unknown) {
@@ -32,9 +33,9 @@ function harness() {
     },
   } as unknown as SupabaseClient<Database>;
   const storage = { getItem: async (k: string) => journal.get(k) ?? null, setItem: async (k: string, v: string) => { if (diskFailure) throw Error('disk unavailable'); journal.set(k, v); }, removeItem: async (k: string) => { journal.delete(k); } };
-  const service = createListingPublicationService(() => client, storage);
+  const diagnostics: unknown[] = []; const service = createListingPublicationService(() => client, storage, event => diagnostics.push(event));
   const flow = createListingPublicationWorkflow(service, r => applied.push(r));
-  return { service, flow, journal, filters, applied, row: () => row, calls: () => calls, setRow: (v: PublicationListing | null) => { row = v; }, error: (v: typeof rpcError, commit = false) => { rpcError = v; commitOnError = commit; }, receipt: (v: unknown) => { receipt = v; }, user: (v: string) => { owner = v; }, delay: (v: Promise<void>) => { wait = v; }, readFail: (v: boolean) => { readFailure = v; }, diskFail: () => { diskFailure = true; }, ready: async () => { flow.setProperty(propertyId); await flow.restore(); } };
+  return { service, flow, journal, diagnostics, filters, applied, row: () => row, calls: () => calls, setRow: (v: PublicationListing | null) => { row = v; }, error: (v: typeof rpcError, commit = false) => { rpcError = v; commitOnError = commit; }, receipt: (v: unknown) => { receipt = v; }, user: (v: string) => { owner = v; }, delay: (v: Promise<void>) => { wait = v; }, preReadFail: (v: boolean) => { preReadFailure = v; }, readFail: (v: boolean) => { readFailure = v; }, diskFail: () => { diskFailure = true; }, ready: async () => { flow.setProperty(propertyId); await flow.restore(); } };
 }
 const context = { propertyId, listingId, userId };
 
@@ -70,7 +71,7 @@ for (const [message, code, expected] of [
   ['Approved Tier 3 verification for this property is required before publishing', '42501', /This property must have approved Tier 3/],
   ['Listing must reach at least 80% completeness before publishing', 'P0001', /does not yet meet the publication requirements/],
   ['This property already has a live listing', '23505', /already has a live listing/],
-  ['Owned listing required private-owner-id', '42501', /Check your account eligibility and ownership/],
+  ['Owned listing required private-owner-id', '42501', /Check listing access/],
 ] as const) test(`backend denial is normalized safely: ${code} ${message.split(' ')[0]}`, async () => {
   const h = harness(); await h.ready(); h.error({ code, message }); await h.flow.publish(draft(), fields(), false);
   assert.match(h.flow.getSnapshot().error ?? '', expected); assert.doesNotMatch(h.flow.getSnapshot().error ?? '', /private-owner-id/); assert.equal(h.flow.getSnapshot().status, 'draft'); assert.equal(h.flow.getSnapshot().uncertain, false);
@@ -154,4 +155,21 @@ for (const status of ['paused', 'rented', 'archived', 'removed'] as const) test(
   const flow = createListingDraftWorkflow({ save: async () => { saves++; } } as any, () => {});
   flow.setProperty(propertyId); flow.adoptBackendListing(h.flow.getSnapshot().lastConfirmed!);
   assert.equal(await flow.save(fields()), 'blocked'); assert.equal(saves, 0);
+});
+
+
+test('preflight read failure never reports uncertain, sends no RPC and creates no pending marker', async () => {
+  const h=harness();await h.ready();h.preReadFail(true);await h.flow.publish(draft(),fields(),false);assert.equal(h.calls(),0);assert.equal(h.flow.getSnapshot().uncertain,false);assert.match(h.flow.getSnapshot().error??'',/verify.*before publication/i);assert.equal([...h.journal.keys()].some(k=>k.includes('publish-pending')),false);
+});
+test('failed read-only reconciliation retains the journal but reports status access failure', async () => {
+  const h=harness();await h.ready();h.error({code:'',message:'timeout'},true);await h.flow.publish(draft(),fields(),false);h.readFail(true);await h.flow.reconcile();assert.equal(h.calls(),1);assert.equal(h.flow.getSnapshot().uncertain,true);assert.match(h.flow.getSnapshot().error??'',/read.*publication status/i);assert.ok([...h.journal.keys()].some(k=>k.includes('publish-pending')));
+});
+for(const status of ['rented','archived','removed'] as const)test(`reconciliation recognizes ${status} without republishing`,async()=>{const h=harness();await h.ready();h.error({code:'',message:'timeout'});await h.flow.publish(draft(),fields(),false);h.setRow({...draft(),status});await h.flow.reconcile();assert.equal(h.calls(),1);assert.equal(h.flow.getSnapshot().status,status);assert.equal(h.flow.getSnapshot().uncertain,false);});
+
+test('preflight permission diagnostics contain only stage, code, category and send boundary',async()=>{const h=harness();await h.ready();h.preReadFail(true);await h.flow.publish(draft(),fields(),false);assert.deepEqual(h.diagnostics.at(-1),{stage:'preflight-read',code:'42501',classification:'backend_permission',rpcSent:false});assert.deepEqual(publicationDiagnostic('status-read',{code:'token private',message:'secret'},false),{stage:'status-read',code:'unknown',classification:'read_failed',rpcSent:false});});
+test('post-RPC read permission diagnostics preserve mutation boundary',async()=>{const h=harness();await h.ready();h.readFail(true);await h.flow.publish(draft(),fields(),false);assert.deepEqual(h.diagnostics.at(-1),{stage:'post-rpc-read',code:'42501',classification:'backend_permission',rpcSent:true});assert.equal(h.flow.getSnapshot().uncertain,true);});
+test('publication review readiness uses saved data, never proves Tier 3 or backend eligibility',()=>{
+ const row=draft();assert.equal(publicationReviewSummary(propertyId,row,fields(),false).state,'Draft');assert.match(publicationReviewSummary(propertyId,row,fields(),false).message,/80%/);
+ const full={...row,completeness_score:1};const review=publicationReviewSummary(propertyId,full,fields(),false);assert.equal(review.state,'Ready for publication review');assert.match(review.message,/Tier 3.*checked/);
+ const edited=publicationReviewSummary(propertyId,full,{...fields(),title:'Unsaved'},false);assert.equal(edited.state,'Draft');assert.match(edited.message,/Save your listing changes/);assert.equal(publicationReviewSummary(propertyId,null,fields(),false).visible,false);assert.equal(publicationReviewSummary(propertyId,{...full,status:'active'},fields(),false).state,'Active');assert.equal(publicationReviewSummary(propertyId,{...full,status:'active'},fields(),false).visible,false);
 });

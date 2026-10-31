@@ -3,8 +3,9 @@ import type { Database } from '../../../shared/services/supabase/database.types'
 import { toSearchNearbyListingsRpcParams, mapSearchNearbyListingsRpcResponse } from '@rentlease/gps-local/rpc';
 import type { SearchOptions } from '@rentlease/gps-local';
 import { GpsError, gpsErrorMessages } from '../models/GpsProximity';
+import { searchDiagnostic, traceSearchDiagnostic, type SearchDiagnostic } from './searchDiagnostics';
 
-export function createGpsProximityService(getClient: () => SupabaseClient<Database>) {
+export function createGpsProximityService(getClient: () => SupabaseClient<Database>, diagnose: (event: SearchDiagnostic) => void = traceSearchDiagnostic) {
   const user = async () => {
     try {
       const { data, error } = await getClient().auth.getUser();
@@ -22,13 +23,16 @@ export function createGpsProximityService(getClient: () => SupabaseClient<Databa
         const { data, error } = await getClient().rpc('search_nearby_listings', params).abortSignal(signal);
         await assertUser(owner);
         if (error) {
-          const kind = error.code === '42501' ? 'eligibility' : error.code === '28000' || error.code === 'PGRST301' ? 'identity' : 'network';
+          const event = searchDiagnostic('gps_rpc', error);
+          diagnose(event);
+          const kind = event.classification === 'eligibility' || event.classification === 'backend_permission' || event.classification === 'identity' ? event.classification : 'network';
           throw new GpsError(kind, gpsErrorMessages[kind]);
         }
         try { return mapSearchNearbyListingsRpcResponse(data); }
         catch { throw new GpsError('response', gpsErrorMessages.response); }
       } catch (error) {
         if (error instanceof GpsError) throw error;
+        diagnose(searchDiagnostic('gps_rpc', error));
         throw new GpsError('network', gpsErrorMessages.network);
       }
     },

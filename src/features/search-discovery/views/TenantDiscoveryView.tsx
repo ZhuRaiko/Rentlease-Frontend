@@ -1,5 +1,5 @@
 import { InterfaceIcon } from '../../../shared/components/InterfaceIcon';
-import { FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
 import { ui } from '../../../shared/theme/ui';
@@ -7,11 +7,6 @@ import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { DiscoveryButton, DiscoveryHeader, DiscoverySearchBar } from '../components/DiscoveryControls';
-import { DiscoveryFeedPost } from '../components/DiscoveryFeedPost';
-import { DiscoveryIcon } from '../components/DiscoveryIcon';
-import { DiscoveryMapPlaceholder } from '../components/DiscoveryMapPlaceholder';
-import { DiscoveryPropertyCard } from '../components/DiscoveryPropertyCard';
-import { previewDiscoveryFeed, previewDiscoveryProperties } from '../models/SearchDiscovery';
 import type { SearchDiscoveryViewModel } from '../viewModels/useSearchDiscoveryViewModel';
 
 const profileAvatar = require('../../../assets/authentication/profile-avatar.png');
@@ -23,178 +18,8 @@ interface TenantDiscoveryViewProps {
   onOpenNotifications: () => void;
 }
 
-function ResultsToolbar({ viewModel }: { viewModel: SearchDiscoveryViewModel }) {
-  const showingMap = viewModel.screen === 'resultsMap';
-  return (
-    <View style={styles.toolbar}>
-      <View style={styles.viewToggle}>
-        <Pressable
-          accessibilityLabel="List view"
-          accessibilityRole="button"
-          accessibilityState={{ selected: !showingMap }}
-          onPress={() => viewModel.navigate('resultsList')}
-          style={[styles.toggleButton, !showingMap && styles.toggleButtonActive]}
-        >
-          <DiscoveryIcon color={!showingMap ? colors.white : colors.textSecondary} name="list" size={18} />
-          <Text style={[styles.toggleLabel, !showingMap && styles.toggleLabelActive]}>List</Text>
-        </Pressable>
-        <Pressable
-          accessibilityLabel="Map view"
-          accessibilityRole="button"
-          accessibilityState={{ selected: showingMap }}
-          onPress={() => viewModel.navigate('resultsMap')}
-          style={[styles.toggleButton, showingMap && styles.toggleButtonActive]}
-        >
-          <DiscoveryIcon color={showingMap ? colors.white : colors.textSecondary} name="map" size={18} />
-          <Text style={[styles.toggleLabel, showingMap && styles.toggleLabelActive]}>Map</Text>
-        </Pressable>
-      </View>
-      <Pressable accessibilityRole="button" onPress={viewModel.openFilters} style={styles.toolButton}>
-        <DiscoveryIcon color={colors.text} name="filter" size={18} />
-        <Text style={styles.toolLabel}>Filters</Text>
-      </Pressable>
-      <Pressable accessibilityRole="button" onPress={() => viewModel.navigate('sort')} style={styles.toolButton}>
-        <DiscoveryIcon color={colors.text} name="list" size={18} />
-        <Text style={styles.toolLabel}>Sort</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-function EmptyState({
-  error,
-  viewModel,
-}: {
-  error: boolean;
-  viewModel: SearchDiscoveryViewModel;
-}) {
-  return (
-    <View style={styles.stateScreen}>
-      <View style={[styles.stateGraphic, error && styles.stateGraphicError]}>
-        <DiscoveryIcon color={error ? colors.restricted : colors.primary} name="search" size={44} />
-      </View>
-      <Text accessibilityRole="header" style={styles.stateTitle}>
-        {error ? 'Search is unavailable' : 'No homes matched your search'}
-      </Text>
-      <Text style={styles.stateBody}>
-        {error
-          ? 'We could not refresh the preview results. Your filters and saved listings are still here.'
-          : 'Try another city, increase your budget, or remove one of your filters.'}
-      </Text>
-      <DiscoveryButton
-        label={error ? 'Try again' : 'Adjust filters'}
-        onPress={error ? viewModel.retrySearch : viewModel.openFilters}
-      />
-      <DiscoveryButton label="Clear search" onPress={viewModel.clearSearch} tone="outline" />
-    </View>
-  );
-}
-
 export function TenantDiscoveryView({ viewModel, onClose, onOpenNotifications }: TenantDiscoveryViewProps) {
-  if (viewModel.screen === 'noResults' || viewModel.screen === 'searchError') {
-    return (
-      <View style={styles.screen}>
-        <DiscoveryHeader onBack={viewModel.goBack} title="Search" />
-        <EmptyState error={viewModel.screen === 'searchError'} viewModel={viewModel} />
-      </View>
-    );
-  }
-
-  if (viewModel.screen === 'savedListings') {
-    return (
-      <View style={styles.screen}>
-        <DiscoveryHeader onClose={onClose} title="Saved Listings" />
-        {viewModel.savedProperties.length ? (
-          <FlatList
-            contentContainerStyle={styles.listContent}
-            data={viewModel.savedProperties}
-            keyExtractor={(property) => property.id}
-            renderItem={({ item }) => (
-              <DiscoveryPropertyCard
-                onPress={() => viewModel.openProperty(item.id)}
-                onToggleSaved={() => viewModel.toggleSaved(item.id)}
-                property={item}
-                saved
-              />
-            )}
-          />
-        ) : (
-          <View style={styles.stateScreen}>
-            <View style={styles.stateGraphic}>
-              <DiscoveryIcon color={colors.primary} name="bookmark" size={42} />
-            </View>
-            <Text accessibilityRole="header" style={styles.stateTitle}>Save homes for later</Text>
-            <Text style={styles.stateBody}>Your saved RENTLEASE listings will appear here.</Text>
-            <DiscoveryButton label="Explore properties" onPress={viewModel.openHome} />
-          </View>
-        )}
-      </View>
-    );
-  }
-
-  if (viewModel.screen === 'resultsList') {
-    return (
-      <View style={styles.screen}>
-        <DiscoveryHeader onBack={viewModel.goBack} title="Search Results" />
-        <View style={styles.searchPad}>
-          <DiscoverySearchBar
-            onChangeText={viewModel.setQuery}
-            onFocus={() => viewModel.navigate('searchLocation')}
-            onSubmit={viewModel.submitSearch}
-            value={viewModel.query}
-          />
-          <ResultsToolbar viewModel={viewModel} />
-          {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
-          <Text style={styles.resultCount}>{viewModel.visibleProperties.length} properties · {viewModel.sortOption}</Text>
-        </View>
-        <FlatList
-          contentContainerStyle={styles.listContent}
-          data={viewModel.visibleProperties}
-          keyExtractor={(property) => property.id}
-          renderItem={({ item }) => (
-            <DiscoveryPropertyCard
-              onPress={() => viewModel.openProperty(item.id)}
-              onToggleSaved={() => viewModel.toggleSaved(item.id)}
-              property={item}
-              saved={viewModel.isSaved(item.id)}
-            />
-          )}
-        />
-      </View>
-    );
-  }
-
-  if (viewModel.screen === 'resultsMap') {
-    return (
-      <View style={styles.screen}>
-        <DiscoveryHeader onBack={viewModel.goBack} title="Map Results" />
-        <View style={styles.searchPad}>
-          <DiscoverySearchBar
-            onChangeText={viewModel.setQuery}
-            onFocus={() => viewModel.navigate('searchLocation')}
-            onSubmit={viewModel.submitSearch}
-            value={viewModel.query}
-          />
-          <ResultsToolbar viewModel={viewModel} />
-        </View>
-        <ScrollView contentContainerStyle={styles.mapContent} showsVerticalScrollIndicator={false}>
-          <DiscoveryMapPlaceholder
-            onSelectProperty={viewModel.openProperty}
-            properties={viewModel.visibleProperties}
-          />
-          {viewModel.visibleProperties[0] ? (
-            <DiscoveryPropertyCard
-              compact
-              onPress={() => viewModel.openProperty(viewModel.visibleProperties[0]?.id ?? '')}
-              onToggleSaved={() => viewModel.toggleSaved(viewModel.visibleProperties[0]?.id ?? '')}
-              property={viewModel.visibleProperties[0]}
-              saved={viewModel.isSaved(viewModel.visibleProperties[0].id)}
-            />
-          ) : null}
-        </ScrollView>
-      </View>
-    );
-  }
+  if (viewModel.screen !== 'home') return <View style={styles.screen}><DiscoveryHeader onBack={viewModel.goBack} title="Discovery"/><View style={styles.stateScreen}><Text style={styles.stateTitle}>This feature is not connected yet</Text><Text style={styles.stateBody}>Saved rentals and map results are deferred. Search real available rentals instead.</Text><DiscoveryButton label="Search rentals" onPress={() => viewModel.navigate('searchLocation')}/></View></View>;
 
   if (viewModel.screen === 'home') {
     return (
@@ -223,27 +48,10 @@ export function TenantDiscoveryView({ viewModel, onClose, onOpenNotifications }:
           </Pressable>
         </View>
         {viewModel.notice ? <Text style={styles.feedNotice}>{viewModel.notice}</Text> : null}
-        <ScrollView contentContainerStyle={styles.feedContent} showsVerticalScrollIndicator={false}>
-          {previewDiscoveryFeed.map((post) => {
-            const property = previewDiscoveryProperties.find((item) => item.id === post.propertyId);
-            if (!property) return null;
-            return (
-              <DiscoveryFeedPost
-                avatar={profileAvatar}
-                avatarLabel={post.avatar === 'juan' ? 'JD' : undefined}
-                description={post.caption}
-                displayedMatchScore={post.displayedMatchScore}
-                galleryMoreCount={post.galleryMoreCount}
-                heroCrop={post.heroCrop}
-                key={post.id}
-                landlordName={post.landlordName}
-                onViewListing={() => viewModel.openProperty(property.id)}
-                property={property}
-                showGallery={post.showGallery}
-                tierLabel={post.verificationTier}
-              />
-            );
-          })}
+        <ScrollView style={styles.feedScroll} contentContainerStyle={styles.feedContent} showsVerticalScrollIndicator={false}>
+          <Text accessibilityRole="header" style={styles.stateTitle}>No community posts yet.</Text>
+          <Text style={styles.stateBody}>Posts from landlords and the RentLease community will appear here.</Text>
+          <DiscoveryButton label="Discover rentals" onPress={() => viewModel.navigate('searchLocation')} />
         </ScrollView>
       </View>
     );
@@ -267,7 +75,8 @@ const styles = StyleSheet.create({
   feedTabActive: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '700', borderBottomWidth: 2, borderBottomColor: colors.primaryAction, paddingVertical: spacing.xs },
   tabDivider: { backgroundColor: colors.text, height: 18, width: 1 },
   feedNotice: { ...ui.supporting, backgroundColor: colors.background, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  feedContent: { gap: spacing.sm, padding: spacing.sm, maxWidth: 600, width: '100%', alignSelf: 'center' },
+  feedScroll: { flex: 1 },
+  feedContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, maxWidth: 600, width: '100%', alignSelf: 'center' },
   notice: { backgroundColor: colors.primaryPale, borderRadius: radius.sm, color: colors.textSecondary, fontFamily: typography.family, fontSize: 11, lineHeight: 16, padding: spacing.sm },
   searchPad: { gap: spacing.sm, paddingHorizontal: spacing.lg },
   toolbar: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },

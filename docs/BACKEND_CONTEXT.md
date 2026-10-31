@@ -103,7 +103,7 @@ PostgreSQL/PostGIS
 Typed nearby-listing result
 ```
 
-GPS now consumes the existing search_nearby_listings RPC through the packaged adapters: radius 1/3/5 km, page limit 20, offsets up to 1000; returned distances are meters and server order is preserved. Tenant + Tier 1 and existing RLS remain authoritative. It reads public generalized property locations only. No backend mutation or live caller test was performed. Manual city/filter/map/recommendation backend work remains deferred. See [Search & Discovery](features/SEARCH_DISCOVERY.md) and its linked ledger for exact inspection provenance.
+GPS now consumes the existing search_nearby_listings RPC through the packaged adapters: radius 1/3/5 km, page limit 20, offsets up to 1000; returned distances are meters and server order is preserved. Tenant + Tier 1 and existing RLS remain authoritative. It reads public generalized property locations only. No backend mutation or live caller test was performed. Manual city/barangay search now uses server-filtered/paginated authenticated listing/property SELECTs and authorized photo/amenity reads; manual maps/recommendations remain deferred. See [Search & Discovery](features/SEARCH_DISCOVERY.md) and its linked ledger for exact inspection provenance.
 
 ## Storage
 
@@ -240,3 +240,5 @@ Current behavior/contracts and owner/RLS boundaries live in [Property & Listing 
 ### Read-only landlord portfolio consumption (2026-10-29)
 
 The frontend portfolio uses existing owner-scoped SELECT on properties, listings, own tier_3_property verification_submissions and cover property_photos after confirming owned IDs. Photo URL namespace validation is reused; private locations/coordinates are not queried. The externally supplied audit reports existing grants/RLS sufficient; Codex did not independently rerun it or execute any live action in this pass. No new RPC, generated type, grant, RLS/schema/Storage or backend mutation is required. Creation/photo/draft/publication/lifecycle writes remain in their dedicated existing services. Audit provenance is in the [backend ledger](implementation-reports/database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md#portfolio-read-contract-and-local-ux-integration-2026-10-29); frontend behavior is in the living feature document.
+
+The 2026-10-31 workflow repair read-only inspection confirms property-photo owner/Admin management has no Tier 3 predicate; authenticated properties have SELECT but no direct UPDATE privilege. No backend change accompanied the frontend handoff/hydration repair. See the existing [policy evidence](implementation-reports/database/PROPERTY_LISTING_MANAGEMENT_BACKEND_LEDGER.md#saved-property-workflow-policy-inspection-2026-10-31).

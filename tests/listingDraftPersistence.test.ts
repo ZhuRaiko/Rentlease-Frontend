@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../src/shared/services/supabase/database.types';
 import { emptyListingDraft } from '../src/features/property-listing/models/PropertyListing';
 import { applySavedListing, hasListingMinimum, listingDraftPayload, listingDraftValidation, rentalTermOptions, ListingDraftError, type SavedListingDraft } from '../src/features/property-listing/models/PersistedListingDraft';
+import { draftSaveDiagnostic } from '../src/features/property-listing/services/listingDraftDiagnostics';
 import { createListingDraftService } from '../src/features/property-listing/services/listingDraftService';
 import { createListingDraftWorkflow } from '../src/features/property-listing/viewModels/listingDraftWorkflow';
 const propertyId = '10000000-0000-4000-8000-000000000001', listingId = '20000000-0000-4000-8000-000000000001', owner = '30000000-0000-4000-8000-000000000001';
@@ -146,4 +147,10 @@ test('no publication writes, direct View queries or teammate integrations are in
   assert.match(service, /rpc\('save_listing_draft', payload\)/); assert.doesNotMatch(service, /\.from\('listings'\)\s*\.(?:insert|update|delete)\(|'active'|'published'/);
   for (const p of ['CreateListingView.tsx', 'ListingPreviewView.tsx', 'PropertyListingFlowView.tsx']) assert.doesNotMatch(readFileSync(`src/features/property-listing/views/${p}`, 'utf8'), /getSupabaseClient|\.rpc\(|\.from\(/);
   for (const p of ['services/listingDraftService.ts', 'services/listingDraftDependencies.ts', 'viewModels/listingDraftWorkflow.ts', 'models/PersistedListingDraft.ts']) assert.doesNotMatch(readFileSync(`src/features/property-listing/${p}`, 'utf8'), /MapTiler|geocodeAddress|expo-location|panorama|has_360|XGBoost|Overpass|word.cloud/);
+});
+
+test('draft diagnostics expose safe stages and SQLSTATE without user-entered or backend data',()=>{
+ const error={code:'23514',message:'private title and address',details:'private coordinates'};
+ const event=draftSaveDiagnostic('rpc',error,true,true);assert.equal(event.code,'23514');assert.equal(event.outcome,'confirmed_failed');assert.equal(event.operation,'save_listing_draft');assert.doesNotMatch(JSON.stringify(event),/private/);
+ assert.equal(draftSaveDiagnostic('reload',error,true,false).outcome,'uncertain');assert.equal(draftSaveDiagnostic('preflight',error,false,false).outcome,'not_sent');assert.equal(draftSaveDiagnostic('rpc',{code:'secret value'},true,false).code,'unknown');
 });

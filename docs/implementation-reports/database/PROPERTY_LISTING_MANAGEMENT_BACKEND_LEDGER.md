@@ -1072,3 +1072,208 @@ Result/durable effect: local UI/ViewModel/workflow refactor only, no durable bac
 Actor: Codex, local frontend workspace only. Environment: feature/maptiler-property-location, no live project access. No live Supabase inspection, SQL, RPC/Storage test or data mutation occurred in this refinement. No permanent live backend mutation was performed in this phase. Existing backend contracts/security and earlier external provenance remain unchanged.
 
 Property -> Listing Details navigation and media gallery reuse existing services. The local owner portfolio SELECT projection includes existing floor_number, total_floors and max_occupants; no private coordinates or new mutation path was added. Automated mocked tests are not live RLS validation. No migration/backend file, rollback or cleanup was required. Android/client runtime remains unverified. See the continuous implementation history's two-page Post refinement section for exact test evidence.
+
+
+## Root Post chooser - local navigation only (2026-10-30)
+
+Actor: Codex, local frontend workspace feature/search-discovery-backend-integration, baseline 7eb361b plus preserved uncommitted work. No live Supabase call, SQL/RPC/Storage test, privilege/policy/configuration change or data mutation occurred in this pass. Existing role gates and property mutation contracts remain unchanged; disabled Community Post has no service/backend path. No migration, rollback or cleanup required. Android runtime is unverified. No permanent live backend mutation was performed in this phase. Source/tests/evidence are in the root Post chooser section of the continuous implementation history.
+
+## Publication access inspection and prepared SELECT grant (2026-10-30)
+
+- Date/feature: 2026-10-30, Property & Listing publication runtime correction.
+- Actor/tool: Codex via connected Supabase read-only execute_sql; local Supabase CLI migration new and editor for preparation only.
+- Environment: live RentLease project cxfsbwbwmwmgtqfonqth; local feature/search-discovery-backend-integration baseline 7eb361b plus preserved uncommitted work.
+- Classification: READ_ONLY_INSPECTION. Targets: tenancy grants/RLS/policies and publish_listing(uuid) definition; no live RPC invocation or data mutation.
+- Purpose: distinguish access failures from publication mutation uncertainty and verify the user-reported grant gap.
+- Exact catalog inspection:
+
+```sql
+select jsonb_build_object(
+ 'select_grant',has_table_privilege('authenticated','public.tenancies','SELECT'),
+ 'rls',(select relrowsecurity from pg_class where oid='public.tenancies'::regclass),
+ 'policies',(select jsonb_agg(jsonb_build_object('name',policyname,'command',cmd,'roles',roles,'qual',qual)) from pg_policies where schemaname='public' and tablename='tenancies'),
+ 'publish_definition',(select pg_get_functiondef(oid) from pg_proc where oid='public.publish_listing(uuid)'::regprocedure)
+) as contract;
+```
+
+Result: authenticated SELECT false; tenancy RLS true. tenancies_read_parties_admin SELECT authenticated uses auth.uid() = tenant_id OR auth.uid() = landlord_id OR is_admin(); tenancies_admin_manage remains Admin-only. Existing listings_read_allowed references tenancies (also established in the current Search backend inspection/user evidence). publish_listing remains SECURITY DEFINER with pg_catalog search_path and authenticated/active Tier 1/Landlord/owned draft/owned active property/property-specific Tier 3/live-listing checks. No backend implementation changed.
+
+Durable effect: none from inspection. Rollback/cleanup: not required for catalog SELECT. Security result: contract inspected, not an authenticated positive/negative tenancy data test. Android/client runtime: not tested; actual failing device stage/RPC transmission remains unconfirmed. No service-role workaround or RLS bypass introduced.
+
+### Prepared change, NOT executed
+
+Local CLI generated supabase/migrations/20261030042030_authenticated_tenancies_select.sql. Proposed SQL:
+
+```sql
+GRANT SELECT ON TABLE public.tenancies TO authenticated;
+```
+
+This is a prepared PRIVILEGE_CHANGE, not a performed live grant. It permits table-level SELECT needed by policy evaluation; enabled party/Admin RLS still limits rows. No anon, INSERT/UPDATE/DELETE, policy, function or schema change. File exists locally and is uncommitted; no migration push/apply was run. Repository frontend-only rules require explicit live-mutation authorization, which this task did not supply. Responsible operator approval/application and runtime validation remain outstanding. No rollback or test-data cleanup required because nothing was applied. No permanent live backend mutation was performed in this phase.
+
+
+## Property creation and completeness contract inspection (2026-10-31)
+
+Date/feature: 2026-10-31, focused Property & Listing runtime correction. Actor: Codex, Supabase execute_sql read-only connector; local frontend workspace C:/dev/RentLease-Frontend, branch feature/search-discovery-backend-integration. Environment/project: RentLease cxfsbwbwmwmgtqfonqth. Classification: READ_ONLY_INSPECTION. Targets: create_property_setup definition, listing validation/completeness trigger/functions, amenities schema/grants/policies and property_amenities grants/policies. Purpose: map actual safe errors and weights, confirm catalogue consumption requires no backend change.
+
+Exact inspection calls (SELECT only; function definitions containing INSERT/UPDATE text were read, not executed):
+
+```sql
+-- Call 1; connector returned the final policies result, so definitions/grants were re-read in Call 2.
+select p.proname, pg_get_functiondef(p.oid) as definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and (p.proname='create_property_setup' or p.proname ilike '%completeness%');
+select column_name,data_type from information_schema.columns where table_schema='public' and table_name='amenities';
+select has_table_privilege('authenticated','public.amenities','SELECT') as catalog_select,has_table_privilege('authenticated','public.property_amenities','SELECT') as associations_select;
+select policyname,qual from pg_policies where schemaname='public' and tablename in ('amenities','property_amenities');
+
+-- Call 2
+select jsonb_build_object('functions',(select jsonb_agg(jsonb_build_object('name',p.proname,'definition',pg_get_functiondef(p.oid))) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and (p.proname='create_property_setup' or p.proname ilike '%completeness%')),'columns',(select jsonb_agg(jsonb_build_object('column',column_name,'type',data_type)) from information_schema.columns where table_schema='public' and table_name='amenities'),'grants',jsonb_build_object('amenities_select',has_table_privilege('authenticated','public.amenities','SELECT'),'associations_select',has_table_privilege('authenticated','public.property_amenities','SELECT'))) as contract;
+
+-- Call 3: identify trigger/calculator definitions; existing draft/publication/lifecycle definitions were also returned, not invoked.
+select jsonb_build_object('calculators',(select jsonb_agg(jsonb_build_object('name',p.proname,'definition',pg_get_functiondef(p.oid))) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prokind='f' and (p.prosrc ilike '%completeness_score%' or p.prosrc ilike '%v_score%')),'triggers',(select jsonb_agg(pg_get_triggerdef(oid)) from pg_trigger where tgrelid='public.listings'::regclass and not tgisinternal)) as contract;
+
+-- Call 4: exact weighted calculator
+select p.proname,pg_get_functiondef(p.oid) as definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prokind='f' and p.prosrc ilike '%0.15%' and p.prosrc ilike '%completeness%';
+```
+
+Results: create_property_setup retains its confirmed JSONB property UUID receipt, SECURITY DEFINER/pg_catalog and authenticated/active/Landlord/Tier 1 checks; no Tier 3 creation prerequisite. Exact known messages include Authentication required, Active account required, Landlord role required, Tier 1 verification required, Barangay is required, Address line 1 is required, Property coordinates are required, Invalid latitude, Invalid longitude, One or more amenities are invalid or inactive. Valid active IDs create property_amenities transactionally; duplicates are deduplicated in the RPC. No create RPC was called by Codex.
+
+Amenities columns: id bigint, code/name text, nullable category text, is_active boolean, created_at timestamp. Authenticated SELECT on amenities and property_amenities is present. Inspected policies: amenities_read_authenticated uses is_active OR is_admin(); amenities_admin_manage is_admin(); property_amenities_read_allowed can_view_property(property_id); management can_manage_property(property_id). These were catalogue/policy observations, not authenticated owner/non-owner runtime tests. No new grants or RLS bypass was necessary/performed. Existing RPC/RLS remain authoritative.
+
+validate_listing_owner awards title 0.10, trimmed description >=30 characters 0.15, positive rent 0.10, availability present 0.05, non-null floor area 0.10, non-null max occupants 0.05, private-location row exists 0.15, any property photo 0.20, any property amenity 0.10; capped at 1.00. Active publication checks recomputed score >=0.80. No weights, trigger, column or publication function changed. Frontend uses a display estimate only before a matching saved row; server score wins afterward.
+
+Durable effect: none. No SQL mutation, live RPC test, Storage action, test data, role simulation or rollback test. Rollback/cleanup: not required. Migration/source-controlled backend file: none created/changed by this pass; earlier prepared tenancy SELECT migration remains untouched/unapplied by Codex. Android/client runtime verification: none; original creation failure stage/code still unconfirmed until PROPERTY-CREATE-DIAG is captured. No permanent live backend mutation was performed in this phase.
+
+Separate external provider read: Codex fetched the configured streets-v4 style through MapTiler and emitted only version/source names/type/URL-or-tiles presence, never key or full URL. Main source maptiler_planet_v4 has TileJSON URL; maptiler_attribution vector source has neither URL nor tiles. Plausible native warning source only, without Android correlation. No attribution deletion, style rewrite or warning suppression. No Supabase effect. See the continuous implementation history for tests, source paths and runtime checklist.
+
+
+## Completeness freshness migration local-test only (2026-10-31)
+
+Feature/phase: listing completeness freshness correctness. Actor/tool: Codex via Supabase read-only execute_sql/get_advisors, Supabase CLI migration new/test db/db lint/db advisors and local Docker/psql/Python. Environments: live RentLease cxfsbwbwmwmgtqfonqth (READ ONLY); disposable localhost Supabase Postgres17 container rentlease-completeness-test-20261031, port 127.0.0.1:55438, final test database rentlease_completeness_final. No live RPC/test data mutation.
+
+### Live READ_ONLY_INSPECTION
+
+Inspected pg_trigger/pg_get_triggerdef for listings/properties/photos/private locations/amenities; pg_get_functiondef/owner/ACL for validate_listing_owner, set_updated_at, enforce_property_photo_limit; pg_indexes and pg_constraint for related tables; current server version 17.6. Confirmed the only completeness calculation is in the listing trigger, with no related refresh triggers. Existing advisory-lock namespace is property UUID hashed with seed0 in the photo limit and existing mutation paths.
+
+Observed unchanged formula: title .10, trimmed description >=30 .15, positive rent .10, available date .05, floor area non-null .10, max occupants non-null .05, private row existence .15, any photo .20, any amenity .10, cap1; active threshold .80. Existing relevant indexes and ON DELETE CASCADE parent relationships were confirmed; no unique-one-listing assumption is made.
+
+Additional exact deployment-context SELECT:
+
+```sql
+select jsonb_build_object('target_schema_exists',exists(select 1 from pg_namespace where nspname='rentlease_completeness'),'default_isolation',current_setting('default_transaction_isolation'),'listings_authenticated_update',has_table_privilege('authenticated','public.listings','UPDATE'),'listings_authenticated_select',has_table_privilege('authenticated','public.listings','SELECT')) as deployment_context;
+```
+
+Result: target schema absent; default isolation read committed; authenticated listings SELECT true, UPDATE false. No grants were changed. Live security advisor baseline reported mutable set_updated_at search_path, callable SECURITY DEFINER functions (anon/authenticated) and disabled leaked-password protection. These are pre-existing observations, not findings introduced/fixed by this unapplied migration. Relevant remediation references: https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable ; https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable ; https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection . No cleanup/rollback required for read-only inspection.
+
+### LOCAL SCHEMA_CHANGE / FUNCTION_CHANGE / ROLLBACK_TEST / TEST_DATA_MUTATION
+
+Exact proposed DDL/source: supabase/migrations/20261031072616_optimize_listing_completeness_refresh.sql, generated by npx supabase migration new optimize_listing_completeness_refresh and then populated. This source is the authoritative complete SQL; it was not replayed to live. It creates an internal schema/calculator/refresh and trigger functions, refactors the existing listing validator, installs 14 narrowly scoped lock/refresh triggers and performs a guarded no-op-avoiding backfill. Client schema/function access is revoked; no table grant, RLS/index/Storage/tenancy changes. SECURITY DEFINER is limited to trusted triggers/refresh where callers lack listing UPDATE; calculator is invoker-only, paths qualified. Active violations abort transactionally, no auto lifecycle change. Old-snapshot related writes are explicitly rejected; READ COMMITTED is supported/tested.
+
+The exact DDL was applied by local docker exec psql -v ON_ERROR_STOP=1 -f /tmp/completeness-migration.sql ONLY after loading supabase/test-support/listing_completeness_schema.sql into the disposable database. Final DDL was re-applied locally after review corrections, with final tests passing. This is an isolated contract fixture, not full live schema or live RLS acceptance. Initial fixture ACL defaults/extension placement/schema usage issues were corrected in test support only.
+
+Exact test entry points:
+
+- npx supabase test db supabase/tests/listing_completeness_refresh.sql --db-url postgresql://postgres:rentlease-local-test-only@127.0.0.1:55438/rentlease_completeness_final?sslmode=disable
+- python supabase/tests/run_completeness_concurrency.py --container rentlease-completeness-test-20261031 --database rentlease_completeness_final
+- npx supabase db lint --db-url (same localhost test URL) --schema public,rentlease_completeness --fail-on error
+- npx supabase db advisors --db-url (same localhost test URL) --type all --level warn --fail-on error
+
+The connection password is a public throwaway localhost fixture value, not a live secret. The CLI's generic "remote database" label refers to the supplied loopback URL, not the linked live project. No --linked/db push/migration up command was used. The tenancy migration was untouched/unapplied.
+
+Results: 74/74 pgTAP rollback assertions; 4/4 real integration checks (concurrent critical removals, stale-invalid and already-current-invalid active deployment rollback, stale-snapshot isolation rejection); local lint clean. Reviewer found the unchanged-invalid-active deployment gap; an independent preflight and regression closed it, verified by rollback of the entire schema/migration and no status changes. Local advisor final six WARNs concern five minimal test policies and copied baseline set_updated_at; no new-helper errors/warnings. Initial test-extension warnings were fixture-only. EXPLAIN and transaction-local planner eligibility checks confirmed existing property lookup indexes; tiny fixture sequential scans were not treated as evidence for new indexes. No fake large-scale benchmark.
+
+Durable effects: local schema existed only in disposable container databases; pgTAP data rolled back, Python fixtures and temporary invalid-test databases cleaned. Container removal status is recorded in final history evidence. Live durable effects: NONE. No permanent live backend mutation was performed in this phase. Migration status: PREPARED / LOCAL-TESTED / NOT APPLIED LIVE. Android/client/runtime status: UNVERIFIED, unchanged frontend source. No RPC, RLS, schema, grant, Storage or data mutation occurred on the live project. No commit/push/merge/deploy/EAS build. Reproduction and cleanup: supabase/test-support/README.md.
+
+
+Final evidence (2026-10-31): 74/74 pgTAP and 4/4 extra backend checks passed; frontend typecheck PASS and 793/793 tests passed (0 failed/skipped/cancelled); SQL lint no schema errors; git diff --check PASS; documentation links/anchors 84 checked, 0 errors. The exact disposable test container ID was verified before stopping; --rm removed it and docker ps confirmed no matching container remains. Local test schemas/data are discarded. Tenancy migration SHA256 remains unchanged. Final branch feature/search-discovery-backend-integration; live deployment NOT performed. No commit/push/merge/deploy/EAS build.
+
+
+## External completeness deployment report and presentation-only pass (2026-10-31)
+
+Classification: EXTERNAL_BACKEND_CHANGE (reported prior deployment), plus local presentation-only maintenance. Recording date 2026-10-31; exact external execution time, actor/tool and applied-DDL transcript were not supplied. Source: user's attached contextual-guidance request, which states the live completeness migration is already deployed. Environment/project: RentLease live backend, as reported; no connection made by Codex in this pass. Target: migration 20261031072616_optimize_listing_completeness_refresh.sql and its internal calculation/refresh contract.
+
+Purpose/result: carry forward user-supplied deployment context while moving existing frontend hint presentation. User-reported durable effect: automatic server completeness refresh is deployed. The repository migration file exists, but exact externally applied bytes/receipt were not independently verified. Do not attribute deployment to Codex or silently substitute prior local tests for live evidence. No SQL was replayed and no new migration was created/modified. Rollback/cleanup and live security/RLS test status: external details unavailable; no new runtime acceptance claimed. Earlier preparation/local validation entries remain historical.
+
+Local source review used the existing migration and generated types read-only. All 64 protected backend/service/workflow/ViewModel/shared-service hashes stayed unchanged. No Supabase query, SQL, RPC, Storage action, test-data mutation or backend advisor call occurred in this pass. Only shared metadata keys and presentation are changed; persisted completeness remains server-authoritative. No permanent live backend mutation was performed by Codex in this phase. No commit/push/merge/deploy/EAS build. Android contextual-guidance UI is RUNTIME-UNVERIFIED; automated frontend evidence is in the existing implementation history.
+
+
+## Property save failure inspection (2026-10-31)
+
+- Feature/phase / entry: Property & Listing Management, SAVE-DIAG-20261031.
+- Actor/tool: Codex via connected Supabase execute_sql, authorized read-only investigation; Android log supplied externally by user.
+- Environment/project: live RentLease / cxfsbwbwmwmgtqfonqth.
+- Classification: READ_ONLY_INSPECTION. No live RPC test or data mutation.
+- Targets/action: catalog SELECTs using pg_get_functiondef/identity arguments/result for public.create_property_setup; pg_constraint for properties/property_private_locations/property_amenities; pg_trigger definitions; rentlease_completeness.lock_related_property/refresh_related_property; PostGIS st_makepoint/st_setsrid namespace lookup; has_function_privilege(authenticated, create_property_setup, EXECUTE), pg_class relrowsecurity; aggregate count/max(created_at) on properties. An initial combined multi-statement read exposed only its last result, so relevant catalogs were queried separately. No private address/coordinate/account rows were selected.
+- Purpose/result: confirm Save contract and distinguish known rejection from uncertain mutation. Live create RPC has 19 parameters and JSONB created/property_id result matching frontend mapping, SECURITY DEFINER with pg_catalog search_path and authenticated EXECUTE. It checks Auth, active profile, Landlord and Tier 1, not Tier 3. Property and private-location RLS remain enabled. Coordinate PostGIS functions exist in extensions. Live physical-property CHECKs include nonnegative bedrooms/bathrooms, positive floor area/max occupants and floor_number <= total_floors. Related completeness triggers exist. These inspections do not prove which CHECK failed.
+- Runtime evidence: user Android log `stage=rpc`, `rpcSent=true`, `code=23514`, `classification=rejected`. This confirms a database CHECK rejection and rollback of that request; exact constraint/error message was not retained by old diagnostics. No evidence supports blaming completeness, Auth, RLS or the trigger migration specifically. Updated diagnostics await Android retest.
+- Persistence evidence: 9 properties; newest created_at 2026-10-30 04:09:14.818225+00. No October 31 row observed at inspection. No account-specific request correlation; older successful requests cannot be ruled out by aggregate evidence. Preserve reconciliation for unknown network outcomes.
+- Durable effect: none. Rollback/cleanup: not applicable, SELECT only. Security/RLS: structural inspection only, no impersonation or owner/non-owner runtime test. No grants or policies changed.
+- Source-controlled backend files: existing create-property and 20261031072616 completeness migration sources inspected, neither edited nor replayed. No migration created. User reports both 20261030042030 and 20261031072616 already deployed externally; deployment actor/tool/time/exact applied bytes not independently established by this pass.
+- Android/client verification: existing rejection user-reported; revised diagnostic RUNTIME-UNVERIFIED. No permanent live backend mutation was performed in this phase.
+
+
+## Saved-property workflow policy inspection (2026-10-31)
+
+- Entry/phase: WORKFLOW-REPAIR-20261031, Property & Listing continuity.
+- Actor/tool: Codex, Supabase execute_sql, live RentLease project cxfsbwbwmwmgtqfonqth.
+- Classification: READ_ONLY_INSPECTION. Purpose: determine whether pending Tier 3 legitimately gates photo management or physical editing.
+- Action/targets: one SELECT returning pg_get_functiondef for public.can_manage_property/public.can_view_property, pg_policies command/qual/with_check for public.property_photos, and has_table_privilege(authenticated, public.properties, SELECT/UPDATE). No user rows, private coordinates, addresses or media were queried.
+- Result: can_manage_property permits Admin or matching property landlord, with no Tier 3 predicate. can_view_property permits management, Tier 1 with active listing, or tenancy parties. property_photos_manage_owner_admin ALL uses/checks can_manage_property(property_id); property_photos_read_allowed SELECT uses can_view_property(property_id). Authenticated properties SELECT=true, UPDATE=false. No evidence in these inspected objects of a pending-verification editing lock. Listing draft service inspection likewise has no frontend Tier 3 gate; publication requirements unchanged. This is structural read-only evidence, not a live owner/non-owner upload test or a complete security audit.
+- Durable effect: none. Rollback/cleanup: not applicable, SELECT only. Migration/source-controlled change: none created, applied or edited. Existing policy/helper search paths were not modified in this frontend task.
+- External runtime evidence: user confirmed successful physical property save and real UUID on Android, then photo-binding/continuity problems. No production test data was created by Codex. The previous exact CHECK constraint remains unknown; successful later save is not proof of its cause. Repaired photo/draft workflow remains Android RUNTIME-UNVERIFIED.
+- Security: owner identity is revalidated on recovery, prior media is cleared on unverified access, different-owner context invalidates the binding, and in-flight generations/journals remain enforced. Automated mocks do not establish live RLS/Storage acceptance.
+- No permanent live backend mutation was performed in this phase. No SQL/RPC/Storage mutation test or deployment occurred.
+
+
+## Floor validation contract inspection (2026-10-31)
+
+- Entry/phase: FLOOR-VALIDATION-20261031, Property & Listing save reliability.
+- Actor/tool/environment: Codex via Supabase execute_sql, live RentLease cxfsbwbwmwmgtqfonqth. Classification: READ_ONLY_INSPECTION.
+- Action/targets: one catalog SELECT joining no user data: pg_attribute/format_type/attnotnull for bedrooms, bathrooms, floor_area_sqm, floor_number, total_floors, max_occupants on public.properties; pg_constraint/pg_get_constraintdef for its CHECKs. Purpose: compare frontend numeric validation with actual creation storage rules.
+- Result: floors/bedrooms/occupants smallint; bathrooms numeric(4,1) NOT NULL; floor_area_sqm numeric(10,2) nullable. CHECKs confirm nonnegative bedrooms/bathrooms, positive optional area/occupants, floor_number <= total_floors unless either NULL, server-owned safety_rating 0..5. Existing positive building-floor UI convention and ground floor 0 behavior were preserved, not invented from the pair CHECK.
+- External evidence: user supplied Android properties_floor_numbers 23514 diagnostic with stage rpc, rpcSent=true, operation create_property_setup, outcome confirmed_failed. Exact attempted floor values/execution time were not supplied. PostgreSQL rejected/rolled back that attempt; no new live create or mutation test was executed by Codex.
+- Durable effect: none. Rollback/cleanup: not applicable, SELECT only. Backend/source migration: none created, edited or applied. Existing generated RPC contract unchanged.
+- Security/RLS: no changes or new access test; existing authenticated backend checks and RLS remain authoritative. No private address/coordinate/account/document data queried or logged.
+- Android/client runtime: original failure user-reported, corrected client validation RUNTIME-UNVERIFIED. No permanent live backend mutation was performed in this phase.
+
+
+## Contextual floor frontend boundary (2026-10-31)
+
+Feature: Property & Listing contextual floors / validation navigation. Actor: Codex frontend implementation only. No live Supabase call, SQL execution, RPC/Storage test or database mutation occurred in this pass. No action classification requiring a live-action entry applies; this is an explicit no-interaction boundary record.
+
+Contract consumed: generated property_type values and create_property_setup optional p_floor_number/p_total_floors, with the previously inspected NULL defaults and properties_floor_numbers CHECK. User-authorized whole-house semantics omit the inapplicable p_floor_number while retaining its draft entry locally; no backend behavior or object changed. Existing field-to-parameter names are preserved. Native/UI tests and mocked payload tests are not live runtime/security acceptance.
+
+Environment: local frontend, existing branch and uncommitted work preserved; prior live RentLease evidence remains above, not reverified. Durable backend effect: none. Rollback/cleanup/migration: not applicable, none created/applied. Security/RLS/Storage unchanged, no new authorization claim. Android contextual fields, navigation/focus and accessibility remain RUNTIME-UNVERIFIED. No permanent live backend mutation was performed in this phase.
+
+
+## Stage 1 validation presentation-only boundary (2026-10-31)
+
+Local frontend Stage 1, actor Codex. No live Supabase inspection, SQL, RPC test, Storage call, test-data mutation or backend change occurred. Existing generated/confirmed creation contracts are consumed unchanged. No live action classification is applicable to this no-interaction boundary record.
+
+Next readiness reuses the existing property validation model; touched/attempted flags affect presentation only. Disabled or programmatic invalid progression cannot send create_property_setup. Valid Next remains navigation only; the existing explicit Save and durable journals remain authoritative for persistence. RLS/backend constraints, profile eligibility, Tier 3, Storage and RPCs remain unchanged.
+
+Durable backend effect: none. Migration/rollback/cleanup: not applicable. No schema/permissions or service changes. Prior live evidence above was not reverified. Android end-to-end acceptance for the new footer/interaction presentation remains RUNTIME-UNVERIFIED. No permanent live backend mutation was performed in this phase.
+
+
+## Stage 2 completeness-footer presentation boundary (2026-11-01)
+
+Actor: Codex, local frontend Stage 2. No live Supabase read, SQL execution, RPC/Storage test, test-data mutation or backend modification occurred. No live-action classification is applicable to this explicit no-interaction boundary record.
+
+The footer consumes the existing ViewModel completeness percent/source and Stage 1 readiness. Backend-confirmed display remains authoritative; UI expansion/collapse neither reads nor writes the backend and is independent of form/persistence state. Existing RPCs, schemas, constraints, RLS/grants, Storage, validation, score weights/80% threshold, property-specific Tier 3 and journals are unchanged.
+
+Durable backend effect: none. Migration/rollback/cleanup: not applicable. Historical live contract evidence is not reverified by this UI pass. Tests use mocked native presentation and existing business regression suites; native Android/keyboard/TalkBack acceptance remains RUNTIME-UNVERIFIED. No permanent live backend mutation was performed in this phase.
+
+
+## Stage 3 draft-save presentation and diagnostics (2026-11-01)
+
+Actor: Codex frontend implementation. Environment: local authoritative frontend repository on feature/search-discovery-backend-integration. No live backend action/classification applies: existing `save_listing_draft`, owner-scoped listing reads and local pending journal are reused without a backend contract change. Automated tests use mocks, not live RPC calls or data. Added safe development-only diagnostic metadata and private error causes; no secrets, addresses, coordinates or draft content are logged/documented.
+
+Exact permanent SQL/Storage action: none. Durable backend effect: none. Rollback/cleanup: not needed. Schema/RLS/grants/functions/Storage remain unchanged; RLS remains authoritative. No migration was created/applied. Android/client runtime verification: not performed; RUNTIME-UNVERIFIED. No permanent live backend mutation was performed in this phase.
+
+
+## Stage 2 shared-footer follow-up (2026-11-01)
+
+Local presentation-only pass by Codex. No live Supabase action, SQL, RPC test, test data or Storage action occurred. Existing draft-save contract and RLS remain unchanged. No migration or cleanup is needed. No permanent live backend mutation was performed in this phase. Android/client acceptance remains RUNTIME-UNVERIFIED.
+
+
+## Publication discoverability frontend pass (2026-11-01)
+
+Actor: Codex local frontend implementation; no live Supabase inspection/RPC/test/mutation or Storage action. User-reported external observation: three live listings, all draft, zero active; not independently queried in this pass. This observation is context, not evidence that any particular listing meets publication eligibility. Existing publish_listing(p_listing_id), owner reads, journal and RLS remain authoritative and unchanged. Exact permanent SQL/backend action: none. No migration/source-controlled backend file added or modified. Durable effect: none; rollback/cleanup unnecessary. No permanent live backend mutation was performed in this phase. Android/client publication remains RUNTIME-UNVERIFIED for this entry-point change.
