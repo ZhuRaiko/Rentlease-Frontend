@@ -6,14 +6,14 @@ import { uploadVerificationDocument } from '../../../shared/services/supabase/st
 import { createTierThreeVerificationService } from '../services/tierThreeVerificationService';
 import { createTierThreeVerificationWorkflow } from './tierThreeVerificationWorkflow';
 
-export function useTierThreeVerificationViewModel(enabled: boolean) {
+export function useTierThreeVerificationViewModel(enabled: boolean, initialPropertyId?: string) {
   const [workflow] = useState(() => createTierThreeVerificationWorkflow({ service: createTierThreeVerificationService(getSupabaseClient), selectDocument: selectLocalDocument, uploadDocument: uploadVerificationDocument }));
   const state = useSyncExternalStore(workflow.subscribe, workflow.getSnapshot);
   useEffect(() => {
     workflow.activate();
     return () => workflow.dispose();
   }, [workflow]);
-  useEffect(() => { void workflow.setEnabled(enabled); }, [workflow, enabled]);
+  useEffect(() => { void workflow.setEnabled(enabled,initialPropertyId); }, [workflow, enabled, initialPropertyId]);
   return { ...state, ...workflow, showRecovery: needsVerificationRecovery(state), canSubmit: workflow.canSubmit(), busy: state.isLoading || state.isSelectingDocument || state.isSubmitting };
 }
 export type TierThreeVerificationViewModel = ReturnType<typeof useTierThreeVerificationViewModel>;

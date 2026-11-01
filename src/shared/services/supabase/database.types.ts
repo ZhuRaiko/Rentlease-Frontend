@@ -210,6 +210,7 @@ export type Database = {
           completeness_score: number
           created_at: string
           description: string
+          edit_version: string
           house_rules: string | null
           id: string
           landlord_id: string
@@ -233,6 +234,7 @@ export type Database = {
           completeness_score?: number
           created_at?: string
           description: string
+          edit_version?: string
           house_rules?: string | null
           id?: string
           landlord_id: string
@@ -256,6 +258,7 @@ export type Database = {
           completeness_score?: number
           created_at?: string
           description?: string
+          edit_version?: string
           house_rules?: string | null
           id?: string
           landlord_id?: string
@@ -2379,6 +2382,74 @@ export type Database = {
           listing_id: string
           listing_status: Database["public"]["Enums"]["listing_status"]
           published_at: string
+          updated_at: string
+        }[]
+      }
+      update_published_listing_content: {
+        Args: {
+          p_advance_rent_months?: number
+          p_asking_rent_monthly: number
+          p_available_from?: string
+          p_description: string
+          p_expected_edit_version: string
+          p_house_rules?: string
+          p_listing_id: string
+          p_minimum_stay_months?: number
+          p_rental_term?: Database["public"]["Enums"]["rental_term_type"]
+          p_security_deposit_months?: number
+          p_title: string
+        }
+        Returns: {
+          advance_rent_months: number
+          archived_at: string | null
+          asking_rent_monthly: number
+          available_from: string | null
+          completeness_score: number
+          created_at: string
+          description: string
+          edit_version: string
+          house_rules: string | null
+          id: string
+          landlord_id: string
+          minimum_stay_months: number | null
+          paused_at: string | null
+          property_id: string
+          published_at: string | null
+          removal_reason: string | null
+          removed_at: string | null
+          rental_term: Database["public"]["Enums"]["rental_term_type"]
+          security_deposit_months: number
+          status: Database["public"]["Enums"]["listing_status"]
+          title: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "listings"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      update_listing_draft: {
+        Args: {
+          p_advance_rent_months?: number
+          p_asking_rent_monthly: number
+          p_available_from?: string
+          p_description: string
+          p_expected_edit_version: string
+          p_house_rules?: string
+          p_listing_id: string
+          p_minimum_stay_months?: number
+          p_rental_term?: Database["public"]["Enums"]["rental_term_type"]
+          p_security_deposit_months?: number
+          p_title: string
+        }
+        Returns: {
+          completeness_score: number
+          created_at: string
+          edit_version: string
+          listing_id: string
+          listing_status: Database["public"]["Enums"]["listing_status"]
           updated_at: string
         }[]
       }

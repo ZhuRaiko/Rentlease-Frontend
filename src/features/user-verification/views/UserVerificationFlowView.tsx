@@ -12,6 +12,7 @@ import { canEnterTierThree } from '../models/TierThreeVerification';
 import { TierThreeVerificationView } from './TierThreeVerificationView';
 
 interface UserVerificationFlowViewProps {
+  initialPropertyId?: string;
   tierOneVerified: boolean;
   hasLandlordRole: boolean;
   onClose: () => void;
@@ -26,6 +27,7 @@ const tierTwoScreens = new Set([
 ]);
 
 export function UserVerificationFlowView({
+  initialPropertyId,
   tierOneVerified,
   hasLandlordRole,
   onClose,
@@ -33,12 +35,12 @@ export function UserVerificationFlowView({
 }: UserVerificationFlowViewProps) {
   const viewModel = useTierTwoVerificationViewModel();
   const eligible = canEnterTierThree(tierOneVerified, hasLandlordRole);
-  const [showTierThree, setShowTierThree] = useState(false);
-  const tierThree = useTierThreeVerificationViewModel(showTierThree && eligible);
+  const [showTierThree, setShowTierThree] = useState(!!initialPropertyId);
+  const tierThree = useTierThreeVerificationViewModel(showTierThree && eligible,initialPropertyId);
   const isTierThree = showTierThree && eligible;
   const toOverview = () => {
     const current = tierThree.getSnapshot();
-    if (!current.isSubmitting && !current.isSelectingDocument && !current.isLoading) setShowTierThree(false);
+    if (!current.isSubmitting && !current.isSelectingDocument && !current.isLoading) { if(initialPropertyId)onClose();else setShowTierThree(false); }
   };
   const close = () => {
     const current = isTierThree ? tierThree.getSnapshot() : viewModel.getSnapshot();
@@ -46,7 +48,7 @@ export function UserVerificationFlowView({
   };
   useEffect(() => {
     registerBackAction(() => {
-      if (isTierThree) { if (tierThree.getSnapshot().screen === 'intro') toOverview(); else tierThree.goBack(); }
+      if (isTierThree) { if (tierThree.getSnapshot().screen === 'intro' || (initialPropertyId && tierThree.getSnapshot().screen==='property')) toOverview(); else tierThree.goBack(); }
       else if (viewModel.getSnapshot().screen === 'overview') close();
       else viewModel.goBack();
     });

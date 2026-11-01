@@ -1,3 +1,4 @@
+import {PropertyVerificationAction} from '../components/PropertyVerificationAction';
 import { ListingCompletenessSummary } from '../components/ListingCompletenessSummary';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -55,6 +56,7 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
       <ListingWizardScaffold onBack={viewModel.goBack} onClose={onClose} title="Ready to publish?">
         <ListingCompletenessSummary value={viewModel.completeness} />
         <ListingWorkspaceFeedback viewModel={viewModel} scope="publication" />
+        <PropertyVerificationAction viewModel={viewModel} />
         <SectionCard>
           <Text style={styles.confirmTitle}>{draft.title}</Text>
           <Text style={styles.confirmCopy}>

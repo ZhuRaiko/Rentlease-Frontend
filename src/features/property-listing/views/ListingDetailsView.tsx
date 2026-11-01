@@ -1,3 +1,4 @@
+import {PropertyVerificationAction} from '../components/PropertyVerificationAction';
 import { PropertyProgressFooter, PropertyReadinessNotice } from '../components/PropertyProgressFooter';
 import { CompletenessHint } from '../components/CompletenessHint';
 import { AvailabilityDateField } from '../components/AvailabilityDateField';
@@ -16,9 +17,15 @@ import type { PropertyListingViewModel } from '../viewModels/usePropertyListingV
 
 // Page 2: rental offering only; persistence is coordinated by the ViewModel.
 export function ListingDetailsView({ viewModel: vm, onClose }: { viewModel: PropertyListingViewModel; onClose: () => void }) {
+  if(vm.draftHydration.status==='loading'||vm.draftHydration.status==='error')return <ListingWizardScaffold title="Listing details" onBack={vm.goBack} onClose={onClose}>
+    <Text accessibilityRole="header" style={styles.heading}>{vm.draftHydration.status==='error'?'Saved details could not load':'Loading saved details'}</Text>
+    <Text accessibilityLiveRegion="polite" style={styles.body}>{vm.draftHydration.error??'Loading your saved listing, property details, and photos. You can go back while this finishes.'}</Text>
+    {vm.draftHydration.status==='error'?<><ListingWorkspaceFeedback viewModel={vm} scope="draft"/><ListingButton label="Retry loading" onPress={vm.retryDraftHydration}/></>:null}
+    <ListingButton label="Back to My Listings" tone="outline" onPress={vm.goBack}/>
+  </ListingWizardScaffold>;
   const draft = vm.draft, property = vm.propertySummary;
-  const editable = !vm.listingDraftReadOnly && !vm.composerPhase;
-  const saveLabel = vm.composerPhase ? (vm.composerPhase === 'property' ? 'Saving property...' : vm.composerPhase === 'photos' ? 'Saving photos...' : 'Saving listing draft...') : 'Save Draft';
+  const editable = !vm.listingDraftReadOnly && !vm.composerPhase && !(vm.publishedEditing && vm.listingDraftState.busy);
+  const saveLabel = vm.publishedEditing&&vm.listingDraftState.busy?'Saving changes...':vm.composerPhase ? (vm.composerPhase === 'property' ? 'Saving property...' : vm.composerPhase === 'photos' ? 'Saving photos...' : 'Saving listing draft...') : vm.publishedEditing?'Save Changes':'Save Draft';
   const footer = <PropertyProgressFooter viewModel={vm} action={{label:saveLabel,disabled:vm.composerSaveDisabled,onPress:()=>void vm.saveComposerDraft()}} guidance={<>
     {vm.propertyValidationIssues?.length ? <PropertyReadinessNotice viewModel={vm}/> : null}
     <ListingWorkspaceFeedback viewModel={vm} scope="draft" />
@@ -26,16 +33,17 @@ export function ListingDetailsView({ viewModel: vm, onClose }: { viewModel: Prop
     {!vm.composerPhase && !vm.listingDraftState.error && vm.listingValidationIssue ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{vm.listingValidationIssue.message}</Text> : null}
   </>} />;
   return <ListingWizardScaffold title="Listing details" onBack={vm.goBack} onClose={onClose} footer={footer}>
-    <Text style={styles.copy}>* Required to save a listing draft</Text>
+    {vm.publishedEditing?<Text accessibilityLiveRegion="polite" style={styles.copy}>Editing {vm.listingDraftState.lastConfirmed?.status==='paused'?'Paused':'Published'} listing. Saving changes preserves this status.</Text>:null}
+    <Text style={styles.copy}>{vm.publishedEditing?'* Required to save changes':'* Required to save a listing draft'}</Text>
     <View style={styles.summary}>
       <Text style={styles.heading}>{property.type}</Text>
       <Text style={styles.body}>{property.bedrooms} bedrooms · {property.bathrooms} bathrooms</Text>
       <Text style={styles.copy}>{property.location || 'Location not entered'}</Text>
       <Text style={styles.copy}>{vm.mediaItems.length} photos · {vm.workspacePropertyId ? 'Saved property location' : hasConfirmedPropertyLocation(vm.propertyState.draft) ? 'Location confirmed' : 'Location not confirmed'}</Text>
-      <ListingButton label={vm.workspacePropertyId ? "Property and photos" : "Edit property"} tone="outline" onPress={vm.editComposerProperty} />
+      {!vm.publishedEditing?<ListingButton label={vm.workspacePropertyId ? "Property and photos" : "Edit property"} tone="outline" onPress={vm.editComposerProperty} />:null}
     </View>
     {vm.listingEditExplanation ? <FeedbackNotice message={vm.listingEditExplanation} /> : null}
-    {vm.workspacePropertyId ? <Text style={styles.copy}>{vm.propertyVerificationLabel ? `${vm.propertyVerificationLabel}. ` : ""}Property-specific Tier 3 approval is required to publish. Photos and draft editing do not require it.</Text> : null}
+    {!vm.publishedEditing?<PropertyVerificationAction viewModel={vm} />:null}
     <ComposerRecoveryFeedback viewModel={vm} />
     <ListingField editable={editable} required error={vm.listingValidationIssue?.field==='title'?vm.listingValidationIssue.message:null} helper={<CompletenessHint value={vm.completeness} factor="title" />} label="Listing title" placeholder="e.g. Bright 1-bedroom apartment in Imus" value={draft.title} onChangeText={v => vm.updateDraft('title', v)} />
     <ListingField editable={editable} required error={vm.listingValidationIssue?.field==='askingRent'?vm.listingValidationIssue.message:null} helper={<CompletenessHint value={vm.completeness} factor="rent" />} label="Monthly asking rent" prefix="₱" keyboardType="numeric" placeholder="Enter monthly rent" value={draft.askingRent} onChangeText={v => vm.updateDraft('askingRent', v)} />
@@ -51,12 +59,12 @@ export function ListingDetailsView({ viewModel: vm, onClose }: { viewModel: Prop
     <AvailabilityDateField disabled={!editable} value={draft.availableDate} onChange={v => vm.updateDraft('availableDate', v)} />
     <CompletenessHint value={vm.completeness} factor="availableDate" />
     <FeedbackNotice message={vm.listingValidationIssue?.field==='availableDate'?vm.listingValidationIssue.message:null} tone="error" />
-    <Text style={styles.copy}>Save draft keeps confirmed property and photo progress. Nothing is published automatically.</Text>
+    <Text style={styles.copy}>{vm.publishedEditing?'Save changes updates this listing without changing its publication status.':vm.listingDraftState.lastConfirmed?.status==='draft'?'Save draft updates this existing listing. It does not publish it.':'Save draft keeps confirmed property and photo progress. Nothing is published automatically.'}</Text>
     {vm.publicationReview?.visible ? <>
       <Text accessibilityLiveRegion="polite" style={styles.copy}>{vm.publicationReview.state}. {vm.publicationReview.message}</Text>
       <ListingButton label="Review Publication" tone="outline" disabled={vm.publicationReviewDisabled} onPress={vm.requestPublish} />
     </> : null}
-    <ListingButton label="Preview listing" tone="outline" disabled={vm.photoState.busy || !!vm.composerPhase} onPress={vm.openComposerPreview} />
+    {!vm.publishedEditing?<ListingButton label="Preview listing" tone="outline" disabled={vm.photoState.busy || !!vm.composerPhase} onPress={vm.openComposerPreview} />:null}
   </ListingWizardScaffold>;
 }
 const styles = StyleSheet.create({ heading: { ...ui.sectionTitle }, body: { ...ui.body }, copy: { ...ui.supporting }, section: { gap: spacing.sm }, summary: { gap: spacing.xs, paddingVertical: spacing.sm }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs } });

@@ -1,7 +1,8 @@
 import type { Database, Enums } from '../../../shared/services/supabase/database.types';
 import { propertyCityOptions, propertyTypeOptions } from './DraftProperty';
 export type PortfolioProperty = Pick<Database['public']['Tables']['properties']['Row'], 'id' | 'landlord_id' | 'property_type' | 'city' | 'barangay' | 'bedrooms' | 'bathrooms' | 'floor_area_sqm' | 'floor_number' | 'total_floors' | 'max_occupants' | 'furnishing_status' | 'is_active' | 'created_at' | 'updated_at'>;
-export type PortfolioListing = Database['public']['Tables']['listings']['Row'];
+// Portfolio reads intentionally exclude the draft-edit-only concurrency column.
+export type PortfolioListing = Omit<Database['public']['Tables']['listings']['Row'], 'edit_version'>;
 export type PortfolioVerification = Pick<Database['public']['Tables']['verification_submissions']['Row'], 'id' | 'user_id' | 'property_id' | 'tier' | 'status' | 'submitted_at' | 'updated_at'>;
 export interface LandlordPortfolioItem {
   propertyId: string; property: PortfolioProperty; listings: PortfolioListing[]; currentListing: PortfolioListing | null;

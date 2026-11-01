@@ -1,4 +1,4 @@
-export type SearchFailureClassification = 'eligibility' | 'backend_permission' | 'identity' | 'query' | 'network' | 'response';
+export type SearchFailureClassification = 'eligibility' | 'backend_permission' | 'identity' | 'query' | 'network' | 'response' | 'unknown';
 export interface SearchDiagnostic {
   stage: 'gps_rpc' | 'available_locations';
   code: string;
@@ -9,7 +9,8 @@ export function searchDiagnostic(stage: SearchDiagnostic['stage'], error: unknow
   const fields = error && typeof error === 'object' ? error as Record<string, unknown> : {};
   const code = typeof fields.code === 'string' && /^(?:[A-Z0-9]{5}|PGRST[0-9]{3})$/.test(fields.code) ? fields.code : 'unknown';
   const intentionalEligibility = code === '42501' && typeof fields.message === 'string' && fields.message.trim() === 'Tenant verification required';
-  return { stage, code, classification: classification ?? (intentionalEligibility ? 'eligibility' : code === '42501' ? 'backend_permission' : code === '28000' || code === 'PGRST301' ? 'identity' : code.startsWith('PGRST') ? 'query' : 'network') };
+  const transportFailure=typeof fields.message==='string' && /network request failed|failed to fetch|networkerror|fetch failed|timed? ?out/i.test(fields.message);
+  return { stage, code, classification: classification ?? (intentionalEligibility ? 'eligibility' : code === '42501' ? 'backend_permission' : code === '28000' || code === 'PGRST301' ? 'identity' : code.startsWith('PGRST') || /^(22|23|42)/.test(code) ? 'query' : stage==='available_locations' && !transportFailure ? 'unknown' : 'network') };
 }
 export function traceSearchDiagnostic(event: SearchDiagnostic) {
   if (typeof __DEV__ !== 'undefined' && __DEV__) {

@@ -1,3 +1,4 @@
+import {FeedbackNotice} from '../../../shared/components/FeedbackNotice';
 import { StyleSheet, Text } from 'react-native';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
 import { ListingButton } from '../components/ListingButton';
@@ -14,8 +15,9 @@ export function PublishedListingStatusView({ viewModel, onClose }: { viewModel: 
     ? 'This listing is currently rented and its status is managed by the tenancy workflow.'
     : row?.status === 'removed' ? 'This listing is no longer active on RentLease.'
     : row?.status === 'archived' ? 'This listing is archived. Your property and photos are retained.'
-    : 'Listing status is confirmed by RentLease. Content editing is unavailable after publication.';
+    : 'Listing status is confirmed by RentLease. Use My Listings to edit listing details or manage its status.';
   return <ListingWizardScaffold title={row ? viewModel.lifecycleStatusLabel[row.status] : 'Listing status'} description={description} onBack={viewModel.goBack} onClose={onClose}>
+    <FeedbackNotice message={viewModel.notice==='Listing changes saved. Publication status is unchanged.'?viewModel.notice:null}/>
     <ListingWorkspaceFeedback viewModel={viewModel} scope="management" />
     <Text style={styles.title}>{row?.title}</Text>
     <Text style={styles.detail}>Listing: {row?.id}</Text>

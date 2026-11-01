@@ -1,0 +1,20 @@
+import {canReviewPortfolioPublication} from '../src/features/property-listing/models/PropertyVerificationPresentation';
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {createPropertyVerificationEntry} from '../src/features/property-listing/viewModels/propertyVerificationEntryWorkflow';
+const propertyId='10000000-0000-4000-8000-000000000001';
+function fixture(status:string|null=null){let current=status,owner='owner',reads=0;const service={getEligibleUserId:async()=>owner,fetchLatest:async(_owner:string,id:string)=>{assert.equal(id,propertyId);reads++;return current?{id:'submission',property_id:id,status:current}:null;}};const flow=createPropertyVerificationEntry(service as never);flow.setProperty(propertyId);return{flow,reads:()=>reads,status:(s:string|null)=>current=s,owner:(s:string)=>owner=s};}
+for(const [status,label]of [[null,'Verify This Property'],['pending','View Verification Status'],['under_review','View Verification Status'],['rejected','View Verification Feedback'],['approved',null]]as const)test(`context verification uses property-specific ${status} state`,async()=>{const h=fixture(status);await h.flow.refresh();assert.equal(h.flow.getSnapshot().actionLabel,label);await h.flow.open();assert.equal(h.flow.getSnapshot().entryPropertyId,status==='approved'?null:propertyId);});
+test('return from verification refreshes status without any submission or publication operation',async()=>{const h=fixture();await h.flow.open();assert.equal(h.flow.getSnapshot().entryPropertyId,propertyId);h.status('approved');await h.flow.close();assert.equal(h.flow.getSnapshot().status,'approved');assert.equal(h.flow.getSnapshot().actionLabel,null);assert.equal(h.flow.getSnapshot().entryPropertyId,null);assert.equal(h.reads(),2);});
+test('changed property and disposal invalidate a late contextual open',async()=>{let release!:()=>void;const wait=new Promise<void>(r=>release=r);const flow=createPropertyVerificationEntry({getEligibleUserId:async()=>'owner',fetchLatest:async()=>{await wait;return null;}}as never);flow.setProperty(propertyId);const opening=flow.open();await new Promise<void>(r=>setImmediate(r));flow.setProperty(null);release();await opening;assert.equal(flow.getSnapshot().entryPropertyId,null);assert.equal(flow.getSnapshot().loaded,false);flow.dispose();await flow.open();assert.equal(flow.getSnapshot().entryPropertyId,null);});
+
+test('context entry rejects mismatched property responses and account changes',async()=>{
+ const h=fixture();await h.flow.refresh();h.owner('different-owner');await h.flow.open();assert.equal(h.flow.getSnapshot().entryPropertyId,null);assert.equal(h.flow.getSnapshot().loaded,false);
+ const flow=createPropertyVerificationEntry({getEligibleUserId:async()=>'owner',fetchLatest:async()=>({id:'s',property_id:'wrong-property',status:'approved'})}as never);flow.setProperty(propertyId);await flow.open();assert.equal(flow.getSnapshot().entryPropertyId,null);assert.equal(flow.getSnapshot().loaded,false);
+});
+
+test('portfolio verification opens another physical property without selecting a listing workspace',async()=>{const h=fixture();await h.flow.openForProperty(propertyId);assert.equal(h.flow.getSnapshot().entryPropertyId,propertyId);assert.equal(h.reads(),1);await h.flow.close();assert.equal(h.flow.getSnapshot().entryPropertyId,null);});
+
+test('portfolio review action uses saved score and property approval only as review guidance',()=>{
+ const item:any={property:{is_active:true},tier3:{status:'approved'},currentListing:{status:'draft',completeness_score:1}};assert.equal(canReviewPortfolioPublication(item),true);assert.equal(canReviewPortfolioPublication({...item,currentListing:{status:'active',completeness_score:1}}),false);assert.equal(canReviewPortfolioPublication({...item,currentListing:{status:'draft',completeness_score:.79}}),false);assert.equal(canReviewPortfolioPublication({...item,tier3:{status:'pending'}}),false);assert.equal(canReviewPortfolioPublication({...item,property:{is_active:false}}),false);
+});

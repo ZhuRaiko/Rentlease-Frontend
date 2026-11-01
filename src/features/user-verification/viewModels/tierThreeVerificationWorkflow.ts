@@ -43,12 +43,21 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
     if (screen === 'document' && !state.documentType) return;
     update({ screen });
   };
-  return {
+  const workflow = {
     getSnapshot: () => state,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     canSubmit, refresh, navigate,
-    setEnabled(enabled: boolean) {
-      if (enabled) return refresh();
+    async setEnabled(enabled: boolean, initialPropertyId?: string): Promise<void> {
+      if (enabled) {
+        const attempt=epoch; await refresh();
+        if(!current(attempt)||!state.loaded||!initialPropertyId)return;
+        if(state.properties.some(p=>p.id===initialPropertyId)) {
+          await workflow.selectProperty(initialPropertyId);
+          if(current(attempt)&&state.requiresRefresh)update({propertyId:null,submission:null,screen:'property',error:'Could not validate the requested property. Refresh and choose a property you own.'});
+        }
+        else update({propertyId:null,submission:null,screen:'property',error:'Choose a property you own. The requested property could not be selected safely.'});
+        return;
+      }
       // Leaving Tier 3 invalidates work and clears local data without removing mounted subscribers.
       epoch++; userId = null; update(initialState);
       return Promise.resolve();
@@ -114,4 +123,5 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
     },
     dispose() { state = { ...state, selectedDocument: null, documentType: null }; disposed = true; epoch++; listeners.clear(); },
   };
+  return workflow;
 }

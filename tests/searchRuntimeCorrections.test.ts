@@ -58,7 +58,7 @@ function presentation(path:string,name:string){const full=resolve(path),actual=c
 };const code=ts.transpileModule(readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;new Function('require','module','exports',code)(req,mod,mod.exports);return mod.exports[name];}
 function nodes(tree:any):any[]{if(!tree||typeof tree!=='object')return[];return[tree,...[tree.props?.children].flat(Infinity).flatMap(nodes)];}
 test('successful empty Available Locations has explanatory copy, no retry or fixtures',()=>{
-  const render=presentation('src/features/search-discovery/views/SearchLocationView.tsx','SearchLocationView');const tree=render({viewModel:{screen:'searchLocation',query:'',suggestions:[],manualState:{locationsStatus:'success',locationsBusy:false,locationsError:null},manual:{}}});const text=JSON.stringify(tree);assert.match(text,/No available rental locations yet/);assert.match(text,/rentals are published/);assert.doesNotMatch(text,/Retry locations|Imus|Tagaytay|Alapan|POPULAR LOCATIONS/);
+  const render=presentation('src/features/search-discovery/views/SearchLocationView.tsx','SearchLocationView');const tree=render({viewModel:{screen:'searchLocation',query:'',suggestions:[],manualState:{locationsStatus:'success',locationsBusy:false,locationsError:null},manual:{}}});const text=JSON.stringify(tree);assert.match(text,/No available rental locations yet/);assert.match(text,/active rentals are available now/);assert.doesNotMatch(text,/Retry locations|Imus|Tagaytay|Alapan|POPULAR LOCATIONS/);
 });
 test('Available Locations retry binds a real request and is disabled while loading',()=>{
   const render=presentation('src/features/search-discovery/views/SearchLocationView.tsx','SearchLocationView');let requests=0;const tree=render({viewModel:{screen:'searchLocation',query:'area',suggestions:[],manualState:{locationsStatus:'error',locationsBusy:false,locationsError:'Please retry'},manual:{locations:()=>{requests++;}}}});nodes(tree).find(n=>n.props?.label==='Retry locations').props.onPress();assert.equal(requests,1);
@@ -69,7 +69,7 @@ test('For You is a community placeholder with search CTA and no GPS or fabricate
 test('diagnostics retain only code-owned stage, safe code and classification',()=>{
   const event=searchDiagnostic('gps_rpc',{code:'42501',message:'permission denied email secret@example.test latitude 14.4 token PRIVATE',details:'PRIVATE',hint:'PRIVATE'});
   assert.deepEqual(event,{stage:'gps_rpc',code:'42501',classification:'backend_permission'});
-  assert.deepEqual(searchDiagnostic('available_locations',{code:'secret@example.test',message:'PRIVATE'}),{stage:'available_locations',code:'unknown',classification:'network'});
+  assert.deepEqual(searchDiagnostic('available_locations',{code:'secret@example.test',message:'PRIVATE'}),{stage:'available_locations',code:'unknown',classification:'unknown'});
 });
 test('diagnostics are silent in production and contain no raw error in development',()=>{
   const before=Object.getOwnPropertyDescriptor(globalThis,'__DEV__'),original=console.info,events:unknown[][]=[];console.info=(...args:unknown[])=>{events.push(args);};
@@ -86,4 +86,20 @@ test('location retry control exposes disabled loading state',()=>{
 
 test('For You empty state grows into available space with centered content and scrollable overflow',()=>{
  const render=presentation('src/features/search-discovery/views/TenantDiscoveryView.tsx','TenantDiscoveryView');const tree=render({viewModel:{screen:'home',navigate(){},openHome(){}},onClose(){},onOpenNotifications(){}});const scroll=nodes(tree).find(n=>n.type==='ScrollView');assert.equal(scroll.props.style.flex,1);const content=scroll.props.contentContainerStyle;assert.equal(content.flexGrow,1);assert.equal(content.justifyContent,'center');assert.equal(content.alignItems,'center');assert.equal(content.height,undefined);assert.equal(content.position,undefined);assert.ok(nodes(scroll).some(n=>n.props.label==='Discover rentals'));assert.ok(nodes(tree).some(n=>n.props.children==='For You'));
+});
+
+test('Available Locations does not call an unknown error a verified network failure',()=>{
+ assert.equal(searchDiagnostic('available_locations',{code:'',message:'unspecified'}).classification,'unknown');assert.equal(searchDiagnostic('available_locations',{code:'42703',message:'private SQL'}).classification,'query');assert.equal(searchDiagnostic('available_locations',{message:'TypeError: Network request failed'}).classification,'network');assert.equal(searchDiagnostic('available_locations',{message:'TypeError: Failed to fetch'}).classification,'network');
+});
+test('intentional Available Locations cancellation is silent, not a network diagnostic',async()=>{
+ const controller=new AbortController(),events:unknown[]=[];const query:any=new Proxy({}, {get(_t,key){if(key==='then')return(resolve:any)=>{controller.abort();resolve({data:null,error:{code:'',message:'AbortError: private'}});};return()=>query;}});const client={auth:{getUser:async()=>({data:{user:{id:'tenant'}},error:null})},from:()=>query}as unknown as SupabaseClient<Database>;
+ await assert.rejects(()=>createManualSearchService(()=>client,e=>events.push(e)).locations('tenant','',0,controller.signal),(e:any)=>e.name==='AbortError');assert.deepEqual(events,[]);
+});
+test('Available Locations reports a non-canceled thrown fetch failure safely',async()=>{
+ const events:any[]=[];const query:any=new Proxy({}, {get(_t,key){if(key==='then')return(_resolve:any,reject:any)=>reject(new TypeError('Network request failed private'));return()=>query;}});const client={auth:{getUser:async()=>({data:{user:{id:'tenant'}},error:null})},from:()=>query}as unknown as SupabaseClient<Database>;
+ await assert.rejects(()=>createManualSearchService(()=>client,e=>events.push(e)).locations('tenant','',0),/Could not load available locations/);assert.equal(events.length,1);assert.equal(events[0].classification,'network');assert.doesNotMatch(JSON.stringify(events),/private/);
+});
+
+test('Available Locations failure does not prevent independent manual listing search',async()=>{
+ let searches=0;const flow=createManualSearchWorkflow({user:async()=>'tenant',locations:async()=>{throw Error('failed');},search:async()=>{searches++;return[];},detail:async()=>{throw Error('not requested');},catalogue:async()=>[]});await flow.locations();assert.equal(flow.getSnapshot().locationsStatus,'error');await flow.search('');assert.equal(searches,1);assert.equal(flow.getSnapshot().phase,'success');assert.equal(flow.getSnapshot().error,null);assert.equal(flow.getSnapshot().locationsStatus,'error');
 });

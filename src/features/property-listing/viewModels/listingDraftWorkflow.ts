@@ -1,9 +1,10 @@
 import { hasListingMinimum, ListingDraftError, listingDraftMessage, listingDraftValidation, type ListingDraftFields, type SavedListingDraft } from '../models/PersistedListingDraft';
 import type { ListingDraftContext, ListingDraftService } from '../services/listingDraftService';
 import { isPropertyUuid } from '../models/DraftProperty';
-interface State { propertyId: string | null; listingId: string | null; loaded: boolean; busy: boolean; error: string | null; errorSource: 'load'|'save'|null; uncertain: boolean; lastConfirmed: SavedListingDraft | null; notice: string | null }
-const initial = (propertyId: string | null = null): State => ({ propertyId, listingId: null, loaded: false, busy: false, error: null, errorSource: null, uncertain: false, lastConfirmed: null, notice: null });
-export function createListingDraftWorkflow(service: ListingDraftService, onConfirmed: (row: SavedListingDraft, source: 'load'|'save'|'adopt') => void, canWrite = () => true) {
+interface State { propertyId: string | null; listingId: string | null; loaded: boolean; busy: boolean; error: string | null; errorSource: 'load'|'save'|null; conflict:boolean; uncertain: boolean; lastConfirmed: SavedListingDraft | null; notice: string | null }
+const initial = (propertyId: string | null = null): State => ({ propertyId, listingId: null, loaded: false, busy: false, error: null, errorSource: null, conflict:false, uncertain: false, lastConfirmed: null, notice: null });
+export function createListingDraftWorkflow(service: ListingDraftService, onConfirmed: (row: SavedListingDraft, source: 'load'|'save'|'adopt') => void, canWrite = () => true, mode: 'draft'|'published'='draft') {
+  const editable=(status:string)=>mode==='published'?status==='active'||status==='paused':status==='draft';
   let state = initial(), generation = 0, disposed = false, context: ListingDraftContext | null = null;
   const listeners = new Set<() => void>();
   const update = (patch: Partial<State>) => { if (!disposed) { state = { ...state, ...patch }; listeners.forEach(fn => fn()); } };
@@ -15,22 +16,22 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
   const fail = (g: number, error: unknown, source: 'load'|'save' = 'load') => {
     if (!alive(g)) return;
     if (error instanceof ListingDraftError && error.kind === 'identity') { generation++; context = null; update({ ...initial(), error: listingDraftMessage(error) }); }
-    else update({ errorSource: source, error: listingDraftMessage(error), ...(error instanceof ListingDraftError && error.kind === 'uncertain' ? { uncertain: true } : {}) });
+    else update({...(error instanceof ListingDraftError && error.kind==='conflict'?{conflict:true}:{}), errorSource: source, error: listingDraftMessage(error), ...(error instanceof ListingDraftError && error.kind === 'uncertain' ? { uncertain: true } : {}) });
   };
   const accept = (row: SavedListingDraft, source: 'load'|'save'|'adopt' = 'load') => { onConfirmed(row,source); update({ listingId: row.id, lastConfirmed: row, loaded: true }); };
   const load = async (reconcile = false, selectedListingId: string | null = null) => {
     if (disposed || state.busy || !state.propertyId) return false;
-    if (state.lastConfirmed && state.lastConfirmed.status !== 'draft') return true;
-    const g = generation; update({ busy: true, error: null, errorSource: null, notice: null });
+    if (state.lastConfirmed && !editable(state.lastConfirmed.status)) return true;
+    const g = generation; update({ listingId:selectedListingId??state.listingId,busy: true, error: null, errorSource: null, notice: null });
     try {
       const next = await service.context(state.propertyId); if (!alive(g)) return false;
       if (context && context.userId !== next.userId) throw new ListingDraftError('Your account changed. Reopen the listing.', 'identity');
       context = next;
       const pending = await service.hasPending(next); await identity(g);
-      if ((pending || state.uncertain) && !reconcile) { update({ loaded: true, uncertain: true, error: 'A previous save needs checking. Load the current backend draft before another save.' }); return false; }
-      const row = reconcile ? await service.reconcile(next) : await service.read(next, selectedListingId ?? undefined); await identity(g);
+      if ((pending || state.uncertain) && !reconcile) { update({ loaded: true, uncertain: true, error: mode==='published'?'A previous update needs checking. Load the saved listing before another update.':'A previous save needs checking. Load the current backend draft before another save.' }); return false; }
+      const row = reconcile ? await service.reconcile(next, selectedListingId??state.listingId??undefined) : await service.read(next, selectedListingId ?? undefined); await identity(g);
       if (row) accept(row); else update({ loaded: true });
-      update({ uncertain: false, notice: reconcile ? 'Current backend draft loaded. Review it before saving again; this does not prove the earlier save applied.' : null }); return true;
+      update({ conflict:false, uncertain: false, notice: reconcile ? mode==='published'?'Current saved listing loaded. Review it before saving again; this does not prove the earlier changes applied.':'Current backend draft loaded. Review it before saving again; this does not prove the earlier save applied.' : null }); return true;
     } catch (error) { fail(g, error); return false; }
     finally { if (alive(g)) update({ busy: false }); }
   };
@@ -42,16 +43,29 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
       if (disposed || row.property_id !== state.propertyId) return;
       accept(row,'adopt'); update({ uncertain: false, error: null, notice: null });
     },
-    load, reconcile: () => load(true),
+    // Reuse only a freshly authorized publication-restoration read, never portfolio cache.
+    async initializeFromSnapshot(row: SavedListingDraft) {
+      if(disposed||state.busy||row.property_id!==state.propertyId)return false;
+      const g=generation;update({busy:true,error:null,errorSource:null});
+      try {
+        const next=await service.context(row.property_id);if(!alive(g))return false;
+        if(next.userId!==row.landlord_id||next.propertyId!==row.property_id)throw new ListingDraftError('Your account changed. Reopen the listing.','identity');
+        context=next;const pending=await service.hasPending(next);await identity(g);
+        if(pending){update({listingId:row.id,loaded:true,uncertain:true,errorSource:'load',error:mode==='published'?'A previous update needs checking. Load the saved listing before another update.':'A previous save needs checking. Load the current backend draft before another save.'});return false;}
+        accept(row);update({conflict:false,uncertain:false});return true;
+      }catch(error){fail(g,error);return false;}finally{if(alive(g))update({busy:false});}
+    },
+    load, reconcile: () => load(true,state.listingId),
     clearNotice() { if (!state.busy) update({ notice: null, error: null }); },
     async save(form: ListingDraftFields): Promise<'local' | 'saved' | 'blocked'> {
-      if (disposed || state.busy || state.uncertain || !canWrite()) return 'blocked';
-      if (state.lastConfirmed && state.lastConfirmed.status !== 'draft') { update({ error: 'This is no longer a draft listing. Draft saving is unavailable.' }); return 'blocked'; }
+      if (disposed || state.busy || state.uncertain || state.conflict || !canWrite()) return 'blocked';
+      if (state.lastConfirmed && !editable(state.lastConfirmed.status)) { update({ error: mode==='published'?'This listing can no longer be edited. Return to My Listings.':'This is no longer a draft listing. Draft saving is unavailable.' }); return 'blocked'; }
+      if (mode==='published'&&!hasListingMinimum(state.propertyId,form)){update({error:'Enter a title, description and positive rent before saving changes.',errorSource:'save'});return 'blocked';}
       if (!hasListingMinimum(state.propertyId, form)) { update({ notice: 'Progress is local to this session, not saved to your account. A saved property, title, description and positive monthly rent are required.' }); return 'local'; }
       const error = listingDraftValidation(state.propertyId, form); if (error) { update({ error, errorSource: 'save', notice: null }); return 'blocked'; }
       if (!state.loaded || !context) { update({ error: 'Load the current property draft before saving.' }); return 'blocked'; }
       const g = generation; update({ busy: true, error: null, errorSource: null, notice: null });
-      try { const c = await identity(g); const row = await service.save(c, { ...form }); await identity(g); accept(row,'save'); update({ notice: 'Listing draft saved to your account. It is not published.' }); return 'saved'; }
+      try { const c = await identity(g); if(state.lastConfirmed && !isPropertyUuid(state.lastConfirmed.edit_version)) throw new ListingDraftError(mode==='published'?'Load the latest saved listing to obtain its edit version before saving changes.':'This draft needs the updated backend contract. Reopen it after deployment; no replacement draft was created.'); const row = await service.save(c, { ...form },state.lastConfirmed?{listingId:state.lastConfirmed.id,editVersion:state.lastConfirmed.edit_version!}:undefined); await identity(g); accept(row,'save'); update({ notice: mode==='published'?'Listing changes saved. Publication status is unchanged.':'Listing draft saved to your account. It is not published.' }); return 'saved'; }
       catch (error) { if (alive(g)) { try { await identity(g); } catch (changed) { fail(g, changed, 'save'); } fail(g, error, 'save'); } return 'blocked'; }
       finally { if (alive(g)) update({ busy: false }); }
     },

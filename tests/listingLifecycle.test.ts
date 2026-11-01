@@ -10,7 +10,7 @@ import { createListingLifecycleWorkflow } from '../src/features/property-listing
 const propertyId = '10000000-0000-4000-8000-000000000001', listingId = '20000000-0000-4000-8000-000000000001', userId = '30000000-0000-4000-8000-000000000001';
 const time = '2026-10-25T01:00:00Z', later = '2026-10-26T01:00:00Z';
 function listing(status: LifecycleStatus = 'active'): LifecycleListing {
-  return { id: listingId, property_id: propertyId, landlord_id: userId, title: 'A rental home', description: 'A sufficiently descriptive rental home.', asking_rent_monthly: 12000, house_rules: null, rental_term: 'long_term', security_deposit_months: 1, advance_rent_months: 1, minimum_stay_months: null, available_from: null, status, completeness_score: .8, published_at: time, paused_at: status === 'paused' ? time : null, archived_at: status === 'archived' ? time : null, created_at: time, updated_at: time, removed_at: null, removal_reason: null };
+  return { edit_version:'50000000-0000-4000-8000-000000000001', id: listingId, property_id: propertyId, landlord_id: userId, title: 'A rental home', description: 'A sufficiently descriptive rental home.', asking_rent_monthly: 12000, house_rules: null, rental_term: 'long_term', security_deposit_months: 1, advance_rent_months: 1, minimum_stay_months: null, available_from: null, status, completeness_score: .8, published_at: time, paused_at: status === 'paused' ? time : null, archived_at: status === 'archived' ? time : null, created_at: time, updated_at: time, removed_at: null, removal_reason: null };
 }
 const context = { userId, propertyId, listingId };
 function harness(status: LifecycleStatus = 'active') {

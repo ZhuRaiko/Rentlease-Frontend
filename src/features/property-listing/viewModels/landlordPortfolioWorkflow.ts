@@ -25,7 +25,7 @@ export function createLandlordPortfolioWorkflow(service: LandlordPortfolioServic
       } catch (error) {
         if (!alive(g)) return;
         if (error instanceof PortfolioError && error.identity) { owner = null; generation++; update({ ...initial(), error: error.message }); }
-        else update({ error: 'Could not load your properties. Check your connection and try again.' });
+        else update({ error: error instanceof PortfolioError ? error.message : 'Could not load your properties. Check your connection and try again.' });
       } finally { if (alive(g)) update({ busy: false, refreshing: false }); }
     },
   };

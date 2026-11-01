@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import { PROPERTY_PHOTO_BUCKET, propertyPhotoObjectPath } from '../../property-listing/models/PropertyPhoto';
 import { cityLabels, locationQuery, ManualSearchError, parseSearchListing, record, validateSearchInput, type AvailableLocation, type SearchDetail, type SearchInput, type SearchListing, type SearchPhoto } from '../models/ManualSearch';
-import { searchDiagnostic, traceSearchDiagnostic } from './searchDiagnostics';
+import { searchDiagnostic, traceSearchDiagnostic, type SearchDiagnostic } from './searchDiagnostics';
 
 const LISTING_FIELDS = 'id,property_id,title,description,asking_rent_monthly,available_from,published_at,house_rules,rental_term,minimum_stay_months,security_deposit_months,advance_rent_months,status';
 const PROPERTY_FIELDS = 'id,landlord_id,city,barangay,property_type,bedrooms,bathrooms,floor_area_sqm,furnishing_status,is_active';
@@ -10,7 +10,7 @@ export function searchAvailabilityDate(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
   return ['year','month','day'].map(type => parts.find(part => part.type === type)!.value).join('-');
 }
-export function createManualSearchService(getClient: () => SupabaseClient<Database>) {
+export function createManualSearchService(getClient: () => SupabaseClient<Database>, diagnose: (event:SearchDiagnostic)=>void = traceSearchDiagnostic) {
   const user = async () => { const { data,error } = await getClient().auth.getUser(); if (error || !data.user) throw new ManualSearchError('Sign in again to search rentals.',true); return data.user.id; };
   const identity = async (owner: string) => { if (await user() !== owner) throw new ManualSearchError('Your account changed. Start a new search.',true); };
   const photoRows = async (owner: string, listings: SearchListing[], signal?: AbortSignal) => {
@@ -56,13 +56,19 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
     async locations(owner: string, text: string, offset: number, signal?: AbortSignal) {
       await identity(owner); let query = geographic(base('id,properties!inner(city,barangay,is_active)'),text).order('id').range(offset,offset+19);
       if (signal) query = query.abortSignal(signal);
-      const { data,error } = await query; await identity(owner);
+      // Debounced searches and screen cleanup intentionally abort superseded reads.
+      const assertNotCanceled = () => { if(signal?.aborted) { const error=new Error('Location request canceled.'); error.name='AbortError'; throw error; } };
+      let result: Awaited<typeof query>;
+      try { result=await query; }
+      catch(error) { assertNotCanceled(); diagnose(searchDiagnostic('available_locations',error)); throw new ManualSearchError('Could not load available locations. Please retry.'); }
+      assertNotCanceled();
+      const { data,error } = result; await identity(owner);
       if (error) {
-        traceSearchDiagnostic(searchDiagnostic('available_locations', error));
+        diagnose(searchDiagnostic('available_locations', error));
         throw new ManualSearchError('Could not load available locations. Please retry.');
       }
       if (!Array.isArray(data)) {
-        traceSearchDiagnostic(searchDiagnostic('available_locations', null, 'response'));
+        diagnose(searchDiagnostic('available_locations', null, 'response'));
         throw new ManualSearchError('Could not read available locations. Please retry.');
       }
       // A successful zero-row query is a genuine empty result, never a retry error.

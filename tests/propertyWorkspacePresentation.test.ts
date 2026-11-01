@@ -18,7 +18,7 @@ function presentation(path: string, exports: string) {
     if(name.endsWith('/PropertyProgressFooter')&&!absolute.endsWith('PropertyProgressFooter.tsx'))return {PropertyProgressFooter:'PropertyProgressFooter',PropertyReadinessNotice:'PropertyReadinessNotice'};
   if(name.endsWith('/usePropertyFormFocus'))return {usePropertyFormFocus:()=>({scrollRef:{current:null},contentRef:{current:null},section:()=>()=>{},field:()=>()=>{}})};
   if (name === 'react-native') return {AccessibilityInfo:{announceForAccessibility:(text:string)=>announcements.push(text)},useWindowDimensions:()=>viewport, Image: 'Image', Pressable: 'Pressable', ScrollView: 'ScrollView', Text: 'Text', View: 'View', TextInput: 'TextInput', RefreshControl: 'RefreshControl', StyleSheet: { create: (x: any) => x } };
-    const part = ['PropertyValidationSummary', 'PropertyFloorFields', 'CompletenessHint', 'ListingCompletenessSummary', 'PropertyAmenitiesFields', 'FieldLabel', 'AvailabilityDateField', 'ScreenHeader', 'PropertyPhotosView', 'PropertySetupView', 'FigmaReferenceCrop', 'FullscreenDocumentImage', 'PropertyMediaSection', 'PropertyMediaViewer', 'ComposerRecoveryFeedback', 'ComposerPropertyFields', 'PropertyLocationToolView', 'FeedbackNotice', 'ListingButton', 'ListingWorkspaceFeedback', 'ListingWizardScaffold', 'ListingField', 'ChoiceChip'].find(p => name.endsWith('/' + p));
+    const part = ['PropertyVerificationAction', 'PropertyValidationSummary', 'PropertyFloorFields', 'CompletenessHint', 'ListingCompletenessSummary', 'PropertyAmenitiesFields', 'FieldLabel', 'AvailabilityDateField', 'ScreenHeader', 'PropertyPhotosView', 'PropertySetupView', 'FigmaReferenceCrop', 'FullscreenDocumentImage', 'PropertyMediaSection', 'PropertyMediaViewer', 'ComposerRecoveryFeedback', 'ComposerPropertyFields', 'PropertyLocationToolView', 'FeedbackNotice', 'ListingButton', 'ListingWorkspaceFeedback', 'ListingWizardScaffold', 'ListingField', 'ChoiceChip'].find(p => name.endsWith('/' + p));
     if (part && !absolute.endsWith('/'+part+'.tsx') && !absolute.endsWith('\\'+part+'.tsx')) return { [part]: part };
     if (name.endsWith('/ListingControls')) return { ChoiceChip: 'ChoiceChip', ListingField: 'ListingField' };
     return actual(name);
@@ -26,7 +26,7 @@ function presentation(path: string, exports: string) {
   const mod = { exports: {} as any };
   const code = ts.transpileModule(readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   new Function('require', 'module', 'exports', code)(req, mod, mod.exports);
-  return Object.assign((...args:any[])=>{hookCursor=0;return mod.exports[exports](...args);},{announcements,viewport});
+  return Object.assign((...args:any[])=>{hookCursor=0;if(exports==='ListingDetailsView'&&args[0]?.viewModel&&!args[0].viewModel.draftHydration)args[0].viewModel.draftHydration={status:'idle',error:null};return mod.exports[exports](...args);},{announcements,viewport});
 }
 const feedback = () => presentation('src/features/property-listing/components/ListingWorkspaceFeedback.tsx', 'ListingWorkspaceFeedback');
 test('posting chooser routes only Property Listing; Community Post is visibly disabled and Close delegates safely', () => {
@@ -247,4 +247,24 @@ for(const visible of [true,false])test(`Listing Details directly exposes Review 
 
 test('direct publication review blockers are visible on Listing Details draft feedback',()=>{
  const render=feedback();const current:any=vm();current.listingDraftState={propertyId:'B',listingId:'B-listing'};current.publicationState={propertyId:'B',listingId:'B-listing',error:'This property must have approved Tier 3 ownership verification before it can be published.',uncertain:false};const tree=render({viewModel:current,scope:'draft'});assert.match(JSON.stringify(tree),/approved Tier 3/);
+});
+
+for(const status of ['not_submitted','pending','under_review','rejected','approved']as const)test(`context property action renders ${status} without duplicating approved verification`,()=>{
+ const render=presentation('src/features/property-listing/components/PropertyVerificationAction.tsx','PropertyVerificationAction');let opened=0;const label=status==='approved'?null:status==='not_submitted'?'Verify This Property':status==='rejected'?'View Verification Feedback':'View Verification Status';const tree=render({viewModel:{workspacePropertyId:'property',propertyVerificationState:{propertyId:'property',loaded:true,status,actionLabel:label},openPropertyVerification:()=>opened++}});const button=flatten(tree).find(n=>n.type==='ListingButton');assert.equal(!!button,status!=='approved');if(button){button.props.onPress();assert.equal(opened,1);}else assert.match(JSON.stringify(tree),/Property ownership verified/);
+});
+
+for(const status of ['not_submitted','pending','under_review','rejected','approved']as const)test(`My Listings card exposes direct ${status} verification while retaining Continue draft`,()=>{
+ const render=presentation('src/features/property-listing/views/PropertyDashboardView.tsx','PropertyDashboardView');const propertyId='10000000-0000-4000-8000-000000000001';let target='',review='',continued='';const item={propertyId,property:{property_type:'house',city:'imus',barangay:'A',is_active:true},currentListing:{id:'different-listing-uuid',title:'Rental',status:'draft',asking_rent_monthly:12000,completeness_score:1},tier3:{status},coverPhoto:null};const tree=render({viewModel:{portfolioState:{loaded:true,items:[item]},portfolioStatistics:{},portfolioItems:[item],portfolio:{load(){}},openPortfolioVerification:(id:string)=>target=id,reviewPortfolioPublication:(id:string)=>review=id,openPortfolioItem:(id:string)=>continued=id}});const all=flatten(tree);all.find(n=>n.props.label==='Continue draft').props.onPress();assert.equal(continued,propertyId);const verification=all.find(n=>['Verify This Property','View Verification Status','View Verification Feedback'].includes(n.props.label));if(status==='approved'){assert.equal(verification,undefined);assert.match(JSON.stringify(tree),/Property Verified/);all.find(n=>n.props.label==='Review Publication').props.onPress();assert.equal(review,propertyId);}else{assert.ok(verification);verification.props.onPress();assert.equal(target,propertyId);assert.equal(all.some(n=>n.props.label==='Review Publication'),false);}
+});
+
+for(const status of ['loading','error'])test(`saved draft ${status} presentation hides fields, completeness and submit actions`,()=>{
+ const render=presentation('src/features/property-listing/views/ListingDetailsView.tsx','ListingDetailsView');let retry=0,back=0;
+ const tree=render({viewModel:{draftHydration:{status,error:status==='error'?'Could not load saved details':null},goBack:()=>back++,retryDraftHydration:()=>retry++,listingDraftState:{},publicationState:{},lifecycleState:{}},onClose(){}});
+ const nodes=flatten(tree);assert.equal(tree.props.footer,undefined);assert.equal(nodes.some(n=>n.type==='ListingField'||n.type==='PropertyProgressFooter'),false);assert.equal(nodes.some(n=>n.props.label==='Save Draft'||n.props.label==='Preview listing'),false);
+ assert.match(JSON.stringify(tree),status==='loading'?/Loading saved details/:/Could not load saved details/);const action=nodes.find(n=>n.props.label==='Retry loading');assert.equal(!!action,status==='error');if(action){action.props.onPress();assert.equal(retry,1);}nodes.find(n=>n.props.label==='Back to My Listings').props.onPress();assert.equal(back,1);
+});
+
+test('published editor reuses fields and footer with Save Changes while excluding property media and publication actions',()=>{
+ const render=presentation('src/features/property-listing/views/ListingDetailsView.tsx','ListingDetailsView');let saved=0;const vm:any={publishedEditing:true,draftHydration:{status:'ready'},draft:{},propertySummary:{},mediaItems:[],propertyState:{draft:{}},photoState:{},listingDraftState:{lastConfirmed:{status:'active'}},composerSaveDisabled:false,saveComposerDraft:()=>saved++};
+ const tree=render({viewModel:vm,onClose(){}});assert.equal(tree.props.footer.props.action.label,'Save Changes');tree.props.footer.props.action.onPress();assert.equal(saved,1);const nodes=flatten(tree);assert.ok(nodes.some(n=>n.props.label==='Monthly asking rent'));assert.equal(nodes.some(n=>n.props.label==='Property and photos'||n.props.label==='Preview listing'||n.props.label==='Review Publication'),false);assert.ok(nodes.some(n=>Array.isArray(n.props.children)&&n.props.children.join('').startsWith('Editing Published')));
 });

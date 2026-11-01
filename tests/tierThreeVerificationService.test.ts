@@ -65,3 +65,7 @@ test('changed identity and query errors cannot become eligible empty state or cr
   const denied = fixture(); denied.fail('verification_submissions'); await assert.rejects(denied.service.fetchLatest('owner', 'p'));
   const noProperties = fixture(); noProperties.fail('properties'); await assert.rejects(noProperties.service.fetchOwnedProperties('owner'));
 });
+
+test('Tier 3 picker reads physical properties without listing-status or submission-existence filters',async()=>{
+ const h=fixture();const properties=await h.service.fetchOwnedProperties('owner');assert.equal(properties[0]?.id,'p');assert.ok(h.calls.some(c=>c[0]==='eq'&&c[1]==='properties'&&c[2]==='landlord_id'&&c[3]==='owner'));assert.equal(h.calls.some(c=>c[0]==='from'&&(c[1]==='listings'||c[1]==='verification_submissions')),false);assert.equal(h.calls.some(c=>c[0]==='insert'),false);assert.equal(h.calls.some(c=>c[0]==='eq'&&c[2]==='status'),false);
+});

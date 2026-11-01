@@ -1,7 +1,8 @@
 import type { Database, Enums } from '../../../shared/services/supabase/database.types';
 import { isPropertyUuid } from './DraftProperty';
 import { propertyRules, type ListingDraft } from './PropertyListing';
-export type SavedListingDraft = Database['public']['Tables']['listings']['Row'];
+// Read snapshots may predate the prepared version-column migration. Writes still require a real token.
+export type SavedListingDraft = Omit<Database['public']['Tables']['listings']['Row'], 'edit_version'> & { edit_version?: string };
 export type SaveListingDraftArgs = Database['public']['Functions']['save_listing_draft']['Args'];
 export type ListingDraftFields = Pick<ListingDraft, 'title' | 'description' | 'askingRent' | 'houseRules' | 'rentalTerm' | 'securityDepositMonths' | 'advanceRentMonths' | 'minimumStayMonths' | 'availableDate'>;
 export const rentalTermOptions: { value: Enums<'rental_term_type'>; label: string }[] = [{ value: 'short_term', label: 'Short term' }, { value: 'long_term', label: 'Long term' }, { value: 'either', label: 'Either' }];
@@ -43,6 +44,8 @@ export function applySavedListing(draft: ListingDraft, row: SavedListingDraft): 
   return { ...draft, title: row.title, description: row.description, askingRent: String(row.asking_rent_monthly), houseRules: row.house_rules ?? '', rules: (row.house_rules ?? '').split('\n').filter((value): value is typeof propertyRules[number] => propertyRules.includes(value as typeof propertyRules[number])), rentalTerm: row.rental_term, securityDepositMonths: String(row.security_deposit_months), advanceRentMonths: String(row.advance_rent_months), minimumStayMonths: row.minimum_stay_months === null ? '' : String(row.minimum_stay_months), availableDate: row.available_from ?? '' };
 }
 export class ListingDraftError extends Error {
-  constructor(message: string, public readonly kind: 'rejected' | 'uncertain' | 'identity' = 'rejected', options?: ErrorOptions) { super(message, options); }
+  constructor(message: string, public readonly kind: 'rejected' | 'uncertain' | 'identity' | 'conflict' = 'rejected', options?: ErrorOptions) { super(message, options); }
 }
 export const listingDraftMessage = (error: unknown) => error instanceof ListingDraftError ? error.message : 'Could not save or load the listing draft. Check your connection and try again.';
+
+export interface DraftEditTarget { listingId:string; editVersion:string }

@@ -1,8 +1,8 @@
 import { ListingDraftSavedView } from './ListingDraftSavedView';
 import { PublishedListingStatusView } from './PublishedListingStatusView';
-import { useEffect } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
-import { StatusBar, StyleSheet, View } from 'react-native';
+import { Modal, StatusBar, StyleSheet, View } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
 import { ScreenContainer } from '../../../shared/components/ScreenContainer';
@@ -17,6 +17,7 @@ import { ListingPreviewView } from './ListingPreviewView';
 import { PropertyDashboardView } from './PropertyDashboardView';
 
 interface PropertyListingFlowViewProps {
+  renderPropertyVerification?: (propertyId:string,onClose:()=>void,registerBack:(action:(()=>void)|null)=>void)=>ReactNode;
   initialScreen?: 'dashboard' | 'postingType';
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onClose: () => void;
@@ -55,6 +56,7 @@ const managementScreens = new Set([
 ]);
 
 export function PropertyListingFlowView({
+  renderPropertyVerification,
   initialScreen = 'dashboard',
   registerBackAction,
   onClose,
@@ -65,6 +67,8 @@ export function PropertyListingFlowView({
   onOpenMaintenance,
 }: PropertyListingFlowViewProps) {
   const viewModel = usePropertyListingViewModel(initialScreen);
+  const verificationBack=useRef<(()=>void)|null>(null);
+  const verificationPropertyId=viewModel.propertyVerificationState.entryPropertyId;
   const close = () => viewModel.requestNavigation(onClose);
   useEffect(() => {
     registerBackAction?.(() => viewModel.backFromWorkspace(onRootBack));
@@ -107,6 +111,9 @@ export function PropertyListingFlowView({
 
   return (
     <ScreenContainer includeBottomInset={false} padded={false}>
+      {verificationPropertyId && renderPropertyVerification ? <Modal key={verificationPropertyId} visible presentationStyle="fullScreen" onRequestClose={()=>verificationBack.current?.()}>
+        {renderPropertyVerification(verificationPropertyId,viewModel.closePropertyVerification,action=>{verificationBack.current=action;})}
+      </Modal> : null}
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
       <NavigationConfirmation title="Leave Property & Listing Management?" body="You have unsaved property, photo, or listing changes. Stay to continue editing, or leave without saving." visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />

@@ -10,9 +10,9 @@ import { createListingPublicationService } from '../src/features/property-listin
 import { createListingPublicationWorkflow } from '../src/features/property-listing/viewModels/listingPublicationWorkflow';
 import { createListingDraftWorkflow } from '../src/features/property-listing/viewModels/listingDraftWorkflow';
 const propertyId = '10000000-0000-4000-8000-000000000001', listingId = '20000000-0000-4000-8000-000000000001', userId = '30000000-0000-4000-8000-000000000001';
-function draft(): PublicationListing { return { id: listingId, property_id: propertyId, landlord_id: userId, title: 'A rental home', description: 'A sufficiently descriptive rental home.', asking_rent_monthly: 12000, house_rules: null, rental_term: 'long_term', security_deposit_months: 1, advance_rent_months: 1, minimum_stay_months: null, available_from: null, status: 'draft', completeness_score: 0.3, published_at: null, created_at: '2026-10-25T00:00:00Z', updated_at: '2026-10-25T00:00:00Z', paused_at: null, archived_at: null, removed_at: null, removal_reason: null }; }
+function draft(): PublicationListing { return { edit_version:'50000000-0000-4000-8000-000000000001', id: listingId, property_id: propertyId, landlord_id: userId, title: 'A rental home', description: 'A sufficiently descriptive rental home.', asking_rent_monthly: 12000, house_rules: null, rental_term: 'long_term', security_deposit_months: 1, advance_rent_months: 1, minimum_stay_months: null, available_from: null, status: 'draft', completeness_score: 0.3, published_at: null, created_at: '2026-10-25T00:00:00Z', updated_at: '2026-10-25T00:00:00Z', paused_at: null, archived_at: null, removed_at: null, removal_reason: null }; }
 const fields = () => confirmedListingFields(draft());
-function harness() {
+function harness(publishedScore = 0.8) {
   let owner = userId, row: PublicationListing | null = draft(), rpcError: { code: string; message: string } | null = null, receipt: unknown = undefined;
   let calls = 0, commitOnError = false, wait: Promise<void> | null = null, readFailure = false, diskFailure = false, preReadFailure = false;
   const journal = new Map<string, string>(), filters: Record<string, unknown>[] = [], applied: PublicationListing[] = [];
@@ -28,7 +28,7 @@ function harness() {
     },
     async rpc(name: string, args: unknown) {
       assert.equal(name, 'publish_listing'); assert.deepEqual(args, { p_listing_id: listingId }); calls++; if (wait) await wait;
-      if ((!rpcError || commitOnError) && row) row = { ...row, status: 'active', completeness_score: 0.8, published_at: '2026-10-25T01:00:00Z' };
+      if ((!rpcError || commitOnError) && row) row = { ...row, status: 'active', completeness_score: publishedScore, published_at: '2026-10-25T01:00:00Z' };
       return { data: receipt !== undefined ? receipt : row ? [{ listing_id: row.id, listing_status: row.status, completeness_score: row.completeness_score, published_at: row.published_at, updated_at: row.updated_at }] : null, error: rpcError };
     },
   } as unknown as SupabaseClient<Database>;
@@ -172,4 +172,9 @@ test('publication review readiness uses saved data, never proves Tier 3 or backe
  const row=draft();assert.equal(publicationReviewSummary(propertyId,row,fields(),false).state,'Draft');assert.match(publicationReviewSummary(propertyId,row,fields(),false).message,/80%/);
  const full={...row,completeness_score:1};const review=publicationReviewSummary(propertyId,full,fields(),false);assert.equal(review.state,'Ready for publication review');assert.match(review.message,/Tier 3.*checked/);
  const edited=publicationReviewSummary(propertyId,full,{...fields(),title:'Unsaved'},false);assert.equal(edited.state,'Draft');assert.match(edited.message,/Save your listing changes/);assert.equal(publicationReviewSummary(propertyId,null,fields(),false).visible,false);assert.equal(publicationReviewSummary(propertyId,{...full,status:'active'},fields(),false).state,'Active');assert.equal(publicationReviewSummary(propertyId,{...full,status:'active'},fields(),false).visible,false);
+});
+
+test('100 percent publication is adopted as active and reopened without another RPC',async()=>{
+ const h=harness(1);const row={...draft(),completeness_score:1,updated_at:'2026-11-01T04:35:56.636907+00:00'};h.setRow(row);await h.ready();assert.equal(await h.flow.publish(row,confirmedListingFields(row),false),true);assert.equal(h.calls(),1);assert.equal(h.flow.getSnapshot().status,'active');assert.equal(h.flow.getSnapshot().completenessScore,1);assert.equal(h.flow.getSnapshot().publishedListingId,listingId);assert.equal(publicationStatusLabel(h.flow.getSnapshot().status),'Published');assert.equal(h.applied.at(-1)?.status,'active');assert.ok(h.filters.some(f=>f.id===listingId&&f.property_id===propertyId&&f.landlord_id===userId));
+ const reopened=createListingPublicationWorkflow(h.service,()=>{});reopened.setProperty(propertyId);await reopened.restore(listingId);assert.equal(reopened.getSnapshot().status,'active');assert.equal(h.calls(),1);assert.equal(h.journal.has(`rentlease:publish-pending:${userId}:${listingId}`),false);
 });

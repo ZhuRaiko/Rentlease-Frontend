@@ -1,3 +1,4 @@
+import { measureHydration } from './draftHydrationDiagnostics';
 import { publicationDiagnostic, tracePublicationDiagnostic, type PublicationDiagnostic } from './publicationDiagnostics';
 import { isLifecycleStatus } from '../models/ListingLifecycle';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -24,10 +25,10 @@ export function createListingPublicationService(getClient: () => SupabaseClient<
       throw new PublicationError('Could not check property access. Try checking status again.');
     }
   };
-  const read = async (c: PublicationContext, stage: 'preflight-read' | 'post-rpc-read' | 'status-read' = 'status-read', rpcSent = false): Promise<PublicationListing> => {
+  const read = async (c: PublicationContext, stage: 'preflight-read' | 'post-rpc-read' | 'status-read' = 'status-read', rpcSent = false, accessAlreadyChecked = false): Promise<PublicationListing> => {
     try {
-    await assertContext(c);
-    const { data, error } = await getClient().from('listings').select('*').eq('id', c.listingId).eq('landlord_id', c.userId).eq('property_id', c.propertyId).maybeSingle();
+    if(!accessAlreadyChecked)await assertContext(c);
+    const { data, error } = await measureHydration('listing',()=>getClient().from('listings').select('*').eq('id', c.listingId).eq('landlord_id', c.userId).eq('property_id', c.propertyId).maybeSingle());
     await assertContext(c);
     if (error) { diagnose(publicationDiagnostic(stage,error,rpcSent)); throw new PublicationError(stage === 'preflight-read' ? 'Could not verify the listing before publication. Check your connection or listing access and try again.' : 'Could not read publication status. Check your connection or listing access and try checking status again.', 'read'); }
     if (!data || data.id !== c.listingId || data.property_id !== c.propertyId || data.landlord_id !== c.userId) throw new PublicationError('The owned listing could not be found. Check your access.', 'identity');
@@ -55,7 +56,7 @@ export function createListingPublicationService(getClient: () => SupabaseClient<
         await access.assertContext(base); if (error) { diagnose(publicationDiagnostic('status-read',error,false)); throw new PublicationError('Could not read publication status. Check listing access and try again.','read'); } id = data?.id ?? null;
       }
       if (!id) return null;
-      const c = { ...base, listingId: id }; const row = await read(c);
+      const c = { ...base, listingId: id }; const row = await read(c,'status-read',false,true);
       const pending = !!await journal.getItem(pendingKey(c));
       return { row, pending };
     },

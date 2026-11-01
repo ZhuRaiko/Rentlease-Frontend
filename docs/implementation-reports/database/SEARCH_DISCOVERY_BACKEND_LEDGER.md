@@ -133,3 +133,38 @@ Observed result: active Tier 1 Tenant count 3; active listings 0; active propert
 Security/RLS interpretation: a missing privilege on a policy dependency can produce a permission error independently of the intentional eligibility exception. This is a confirmed catalog dependency gap, not proof that a specific device error referenced that table; no authenticated caller/RLS simulation or live GPS/query execution was performed. New frontend development diagnostics expose only validated code, categorical classification and fixed stage, not raw errors/identities/coordinates. Actual Android correlation and backend-owner review remain pending. No suggested broad grant or policy bypass was executed.
 
 Durable effect: none. Rollback/cleanup: not applicable; no rows/objects/privileges changed. Android/client runtime: user-reported failures before correction, revision/build unspecified; after correction RUNTIME-UNVERIFIED. No secret/user ID was recorded. No permanent live backend mutation was performed in this phase.
+
+
+## LOC-INV-01 - Available Locations read-only investigation (2026-11-01)
+
+Actor/tool: Codex Supabase query_logs and execute_sql. Environment/project: live RentLease cxfsbwbwmwmgtqfonqth. Classification: READ_ONLY_INSPECTION. Purpose: trace reported available_locations network/unknown event and verify target listing against the actual query filter. No RPC invoked, identity impersonation, mutation, new fixture or Storage action.
+
+Log query window: 2026-11-01T04:30:00Z through 2026-11-01T05:30:00Z:
+```sql
+select timestamp,event_message from logs where source='edge_logs'
+and event_message like '%/rest/v1/listings?select=id%2Cproperties%'
+order by timestamp desc limit 20
+```
+Observed four exact locations-query GET 200 responses at 04:33:02.781, 04:36:03.481, 04:37:30.520 and 04:37:45.425 UTC. Server logs have no response body and cannot establish a historical client abort or non-arriving network failure.
+
+SQL inspections (the first two SELECTs were submitted together; the connector returned only the final policy result, so the target SELECT was repeated separately):
+```sql
+select l.id,l.status,l.available_from,p.city,p.barangay,p.is_active,
+(l.status='active' and p.is_active and
+(l.available_from is null or l.available_from <= (current_timestamp at time zone 'Asia/Manila')::date))
+as matches_discovery_base
+from public.listings l join public.properties p on p.id=l.property_id
+where l.id='69fe5035-51d7-4a06-b42d-4c97959d7b9d';
+select tablename,policyname,roles,cmd,qual from pg_policies
+where schemaname='public' and tablename in ('listings','properties') and cmd='SELECT';
+```
+Repeated target read used explicit date '2026-11-01' instead of the clock expression, matching the observed Android URL. Result: active, property active, available_from 2026-11-06, matches_discovery_base false. City/barangay returned for contract inspection but are unnecessary to reproduce the date exclusion and are not copied here.
+```sql
+select count(*) as matching_available_locations_rows
+from public.listings l join public.properties p on p.id=l.property_id
+where l.status='active' and p.is_active=true
+and (l.available_from is null or l.available_from<=date '2026-11-01');
+```
+Result: zero. RLS can further restrict the result, not add this excluded record. listings_read_allowed permits active listings to Tier 1-verified authenticated readers plus owner/Admin/tenancy exceptions; properties_read_allowed uses owner or can_view_property(id). These privileged reads are not a live tenant-token test. No policies/grants/functions or filters were changed.
+
+Permanent SQL/backend action: none. Durable effect: none. Rollback/cleanup: unnecessary. Source-controlled backend file: none added/modified. Android/client evidence: user reports successful-empty copy; post-fix cancellation/offline/tenant acceptance remains RUNTIME-UNVERIFIED. No permanent live backend mutation was performed in this phase. Prior uncommitted publication investigation and independent android/ and ninja-error.txt are preserved. No commit/push/merge/build/deployment.

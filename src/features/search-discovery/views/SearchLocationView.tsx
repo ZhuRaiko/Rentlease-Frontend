@@ -69,7 +69,7 @@ export function SearchLocationView({ viewModel }: SearchLocationViewProps) {
             </Pressable>
           ))}
           {viewModel.suggestions.length === 0 && viewModel.manualState.locationsStatus === 'success' ? (
-            <View><Text accessibilityRole="header" style={styles.noSuggestion}>No available rental locations yet.</Text><Text style={styles.noSuggestion}>Locations will appear here when rentals are published.</Text></View>
+            <View><Text accessibilityRole="header" style={styles.noSuggestion}>No available rental locations yet.</Text><Text style={styles.noSuggestion}>Locations appear here when active rentals are available now.</Text></View>
           ) : null}
         </View>
         {viewModel.manualState.locationsMore ? <DiscoveryButton disabled={viewModel.manualState.locationsBusy} label="More available locations" tone="outline" onPress={() => void viewModel.manual.locations(viewModel.query, true)} /> : null}

@@ -25,7 +25,7 @@ function fixture() {
     uploadDocument: async input => { step('upload', input); return { storagePath: 'owner/submission-one/uuid.jpeg', fileName: 'test.jpeg', mimeType: 'image/jpeg', size: 12 }; },
   });
   const ready = async () => { await workflow.refresh(); await workflow.selectProperty(property.id); workflow.chooseDocumentType('land_title'); await workflow.pickDocument(); workflow.navigate('review'); };
-  return { workflow, calls, ready, fail: (v: string) => { fail = v; }, setLatest: (v: TierThreeSubmission | null) => { latest = v; }, noProperties: () => { properties = []; }, switchUser: () => { user = 'other'; }, cancel: () => { cancel = true; }, pause: () => { paused = true; }, release: () => release?.(), failFinalRefresh: () => { finalRefreshFailure = true; } };
+  return { workflow, calls, ready, fail: (v: string) => { fail = v; }, setLatest: (v: TierThreeSubmission | null) => { latest = v; }, setProperties: (value: typeof properties) => { properties = value; }, noProperties: () => { properties = []; }, switchUser: () => { user = 'other'; }, cancel: () => { cancel = true; }, pause: () => { paused = true; }, release: () => release?.(), failFinalRefresh: () => { finalRefreshFailure = true; } };
 }
 test('Tier 3 entry requires Tier 1 and landlord, not Tier 2', () => {
   assert.equal(canEnterTierThree(true, true), true); assert.equal(canEnterTierThree(false, true), false); assert.equal(canEnterTierThree(true, false), false);
@@ -137,3 +137,15 @@ test('disabling Tier 3 during an operation ignores late work without clearing su
   await h.workflow.setEnabled(false); const snapshot = h.workflow.getSnapshot(); h.release(); await request;
   assert.equal(h.workflow.getSnapshot(), snapshot); assert.ok(!h.calls.some(c => c[0] === 'upload'));
 });
+
+test('owned physical properties without submissions remain selectable without automatic writes',async()=>{
+ const h=fixture();const second={...property,id:'physical-property-two'},third={...property,id:'physical-property-three'};h.setProperties([property,second,third]);await h.workflow.refresh();assert.deepEqual(h.workflow.getSnapshot().properties.map(p=>p.id),[property.id,second.id,third.id]);
+ await h.workflow.selectProperty(second.id);assert.equal(h.workflow.getSnapshot().propertyId,second.id);assert.equal(h.workflow.getSnapshot().screen,'documentType');assert.equal(h.workflow.getSnapshot().submission,null);assert.ok(h.calls.some(c=>c[0]==='fetch'&&c[1]===second.id));
+ await h.workflow.selectProperty('listing-id-is-not-a-property-id');assert.equal(h.workflow.getSnapshot().propertyId,second.id);assert.equal(h.calls.some(c=>c[0]==='fetch'&&c[1]==='listing-id-is-not-a-property-id'),false);assert.equal(h.calls.some(c=>['create','upload','metadata'].includes(String(c[0]))),false);
+});
+
+test('contextual preselection validates physical ownership and never submits',async()=>{const h=fixture();await h.workflow.setEnabled(true,property.id);assert.equal(h.workflow.getSnapshot().propertyId,property.id);assert.equal(h.workflow.getSnapshot().screen,'documentType');assert.equal(h.calls.some(c=>c[0]==='create'),false);});
+test('invalid contextual property falls back to owned picker with explanation',async()=>{const h=fixture();await h.workflow.setEnabled(true,'listing-id-not-owned-property');assert.equal(h.workflow.getSnapshot().propertyId,null);assert.equal(h.workflow.getSnapshot().screen,'property');assert.match(h.workflow.getSnapshot().error??'',/Choose.*property/i);assert.equal(h.calls.some(c=>c[0]==='create'),false);});
+for(const status of ['pending','under_review','rejected','approved']as const)test(`contextual ${status} submission opens existing status instead of another request`,async()=>{const h=fixture();h.setLatest(submitted(status));await h.workflow.setEnabled(true,property.id);assert.equal(h.workflow.getSnapshot().screen,'status');assert.equal(h.workflow.canSubmit(),false);assert.equal(h.calls.some(c=>c[0]==='create'),false);});
+
+test('preselection read failure falls back to the property picker without enabling submission',async()=>{const h=fixture();h.fail('fetch');await h.workflow.setEnabled(true,property.id);assert.equal(h.workflow.getSnapshot().screen,'property');assert.equal(h.workflow.getSnapshot().propertyId,null);assert.equal(h.workflow.getSnapshot().requiresRefresh,true);assert.equal(h.workflow.canSubmit(),false);assert.equal(h.calls.some(c=>c[0]==='create'),false);});

@@ -132,6 +132,9 @@ export default function App() {
     if (canEnterMarketplace && !auth.hasLandlordRole && (workspace.type === 'properties' || (workspace.type === 'priceEstimate' && workspace.actor === 'landlord'))) setWorkspace({ type: 'discovery', initialScreen: 'home' });
   }, [canEnterMarketplace, canEnterAdmin, auth.hasLandlordRole, workspace]);
 
+  const renderPropertyVerification = (propertyId:string,onReturn:()=>void,registerBack:(action:(()=>void)|null)=>void) => (
+    <UserVerificationFlowView initialPropertyId={propertyId} tierOneVerified={!!auth.account?.profile.tier1_verified_at} hasLandlordRole={auth.hasLandlordRole} onClose={onReturn} registerBackAction={registerBack}/>
+  );
   return (
     <SafeAreaProvider>
       <AuthProfilesFlowView
@@ -195,6 +198,7 @@ export default function App() {
         ) : null}
         {workspace?.type === 'properties' && auth.hasLandlordRole ? (
           <PropertyListingFlowView
+            renderPropertyVerification={renderPropertyVerification}
             onRootBack={openDiscovery}
             registerBackAction={registerWorkspaceBack}
             initialScreen={workspace.initialScreen}
