@@ -1,5 +1,33 @@
 # Isolated listing-completeness database tests
 
+## Unified account authorization (disposable local tests)
+
+Use a fresh disposable no-port/no-volume container named
+`rentlease-identity-test-role-revamp` with the same PostgreSQL 17 image and throwaway
+password shown below. Run `python supabase/tests/run_property_identity.py --container
+rentlease-identity-test-role-revamp` first. Then run `python
+supabase/tests/run_unified_account.py --container rentlease-identity-test-role-revamp
+--baseline` to install the inspected contract fixture and confirm the original GPS
+membership denial, followed by the same command without `--baseline` to apply and
+test the prepared migration locally. Stop only the container you created afterward.
+
+The suite tests profile/membership lookup, owner/participant RLS, private document
+metadata, publication, existing safeguards, rollback and reapplication. The JSON
+baseline contains contract definitions only. Storage HTTP and Android are untested.
+`prepare_unified_account.py` deterministically renders the forward and inverse SQL;
+it does not connect to any database. The inverse is a separately coordinated
+rollback, **not** a migration to apply after the forward migration. It restores old
+membership gates and retains preference data. Never execute these fixture commands
+against live, or use `db push` to deploy the prepared change.
+
+Migration deployed separately as `20261102102331_unified_account_authorization.sql`;
+these commands remain local-only and must never replay it against production.
+Final Task 1 result: 50 existing identity checks before cutover and 82 focused
+authorization checks after cutover passed, including coordinated inverse/reapplication
+and transactional abort on source drift. No live deployment or Android acceptance.
+
+## Listing completeness
+
 This support schema is **not a production migration or a full Supabase schema dump**. It models the inspected score/ownership/status surface, relevant FKs/indexes, SELECT-only listing client access and owner RLS. Auth, PostGIS, Storage, Tier 3, tenancy and all publication RPCs are not recreated. Existing live RPCs are not modified or called by these tests.
 
 Use an unused disposable container name beginning `rentlease-completeness-test-` and a free loopback port. Docker must be running. The password below is a public throwaway local test value, not a project credential. Do not substitute a live URL or use --linked/db push/migration up: those could include the unrelated tenancy migration.
