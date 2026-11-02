@@ -4,6 +4,7 @@ import { getSupabaseClient } from '../../../shared/services/supabase/client';
 import type { AccountProfile, AccountSnapshot, AppRole } from '../models/AuthProfile';
 import { parseExperiencePreference, type ExperiencePreference } from '../models/AuthProfile';
 import { nextAuthBootInstance, traceAuthBoot } from '../../../shared/utils/authBootTrace';
+import { readAccountOwnership } from './accountOwnershipService';
 
 export function subscribeToAccountAuthChanges(
   onChange: (event: AuthChangeEvent, userId: string | null) => void,
@@ -72,7 +73,7 @@ export async function loadAccount(): Promise<AccountSnapshot | null> {
 
   traceAuthBoot('PROFILE_QUERY_START', { instance });
   traceAuthBoot('ROLES_QUERY_START', { instance });
-  const [profileResult, rolesResult] = await Promise.all([
+  const [profileResult, rolesResult, ownsProperty] = await Promise.all([
     client
       .from('profiles')
       .select('id,display_name,bio,avatar_path,tier1_verified_at,tier2_verified_at,tier3_verified_at,trust_score,account_status,experience_preference')
@@ -85,6 +86,7 @@ export async function loadAccount(): Promise<AccountSnapshot | null> {
       traceAuthBoot('ROLES_QUERY_RESULT', { instance, errorPresent: Boolean(result.error) });
       return result;
     }),
+    readAccountOwnership(client, authData.user.id),
   ]);
   if (profileResult.error) throw profileResult.error;
   if (rolesResult.error) throw rolesResult.error;
@@ -93,6 +95,7 @@ export async function loadAccount(): Promise<AccountSnapshot | null> {
     user: authData.user,
     profile: parseProfile(profileResult.data),
     roles: parseRoles(rolesResult.data),
+    ownsProperty,
   };
 }
 

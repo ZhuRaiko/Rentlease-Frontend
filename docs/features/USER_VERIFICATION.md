@@ -145,11 +145,11 @@ The repository now includes the Admin queue RPC migration. Read-only live inspec
 - DEFERRED: non-image Admin viewing, document replacement, Tier 3 resubmission and Tier 2 cancelled/revoked restart, additional-information requests and property-creation backend integration. Tier 3 submission and Admin compatibility are implemented but await Android testing. Tier 2 correction/recovery is implemented below and remains Android RUNTIME-UNVERIFIED.
 - UNRESOLVED: project-wide upload limits, deletion/replacement/partial-state recovery policy and cache-retention lifecycle. Read-only bucket inspection shows allowed_mime_types and file_size_limit are null (no per-bucket values); it does not establish project-wide limits or native memory capacity. No arbitrary client limits were invented.
 - PREVIEW/LEGACY: `useUserVerificationViewModel`, `Verification.ts` and TierOneVerificationView retain disconnected prototype logic. TierThreeVerificationView has been repurposed for the real property workflow and imports no preview properties. Do not reconnect fake Tier 1, Tier 2 decision simulation or Tier 3 actor promotion.
-- Existing Tier 3 business boundary remains an authenticated Tier 1-verified landlord with an owned property; Tier 2 is not required and Tier 3 grants no role.
+- Existing Tier 3 business boundary remains an authenticated active Tier 1 account with an owned property; Tier 2 is not required and Tier 3 grants no role.
 
 ## Android/live runtime tests still needed
 
-1. Regression: use an ordinary account and open Profile -> Verification -> Tier 2; confirm the existing four ID options and read-only Tier 1. Tier 3 is locked for Tenant-only accounts, available to Tier 1-verified landlords, and does not require Tier 2.
+1. Regression: use an ordinary account and open Profile -> Verification -> Tier 2; confirm the existing four ID options and read-only Tier 1. Tier 3 is available to active Tier 1 accounts for their owned properties regardless of legacy memberships, and does not require Tier 2.
 2. Select/cancel an image and PDF; check filename, real image/fallback, retained selection on cancel, no DB/object writes until Submit, and Back/reopen behavior.
 3. Submit a valid selection and tap Submit rapidly. Expect one created submission, private user/submission object with a unique key, one correct metadata row, then actual Pending/other returned status. Check no property_id/review/role/trust fields were written by the client. Test Android Back during submission.
 4. Reopen and manually refresh existing pending, under_review and approved records. Using authorized backend/Admin preparation separately, also inspect rejected with reason, cancelled and revoked records. No state should offer automatic resubmission or preview approval.

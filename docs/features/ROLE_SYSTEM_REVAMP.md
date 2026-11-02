@@ -35,3 +35,10 @@ and [backend ledger](../implementation-reports/database/ROLE_SYSTEM_REVAMP_BACKE
 Local PostgreSQL/Storage metadata tests do not establish live HTTP or Android acceptance.
 No existing live Tier 1 account lacked normal role memberships at deployment, so
 role-free eligibility was confirmed through deployed fingerprints and local tests.
+
+Gap closure: the user reports Android acceptance for the preceding 287-test frontend
+checkpoint. The deployed backend source/test assets are now preserved in Git
+(`d62d2ca`). Profile ownership recognition is a subsequent, separately tested change:
+Property Owner comes from a bounded owned-property read, regardless of preferences
+or memberships, and implies no Tier 3 approval. This new indication still needs its
+own Android check after first-property creation and after switching accounts.

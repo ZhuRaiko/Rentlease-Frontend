@@ -125,3 +125,28 @@ Links: [feature](../../features/ROLE_SYSTEM_REVAMP.md),
   verification/documentation/ledger/artifact skills and Supabase skill; targeted
   regression-first validation and requesting-code-review skill (scoped reviewer,
   both concrete findings fixed and rechecked). No deployment authorization inferred.
+
+## ROLE-004 — November 2, 2026: backend source checkpoint and ownership indication
+
+- Actor/tool: Codex, Supabase execute_sql SELECT-only; local Git, TypeScript/Node.
+  Project: `cxfsbwbwmwmgtqfonqth`; classification READ_ONLY_INSPECTION.
+- Exact live read: SELECT version,name,cardinality(statements),
+  encode(sha256(convert_to(array_to_string(statements,''),'UTF8')),'hex')
+  FROM supabase_migrations.schema_migrations WHERE name='unified_account_authorization'.
+  Result: `20261102102331`, one stored SQL entry, hash
+  `f12ee97f1c3d18883b9de74341fdb99be282d4704845cfe29808d8af59f69213`,
+  identical to the reviewed local file. No function, RLS, grant or record was changed.
+- Git-only source preservation: seven previously excluded backend migration/tests/
+  test-support files reviewed for scope/secrets and pushed as `d62d2ca`; remote SHA
+  matched. The JSON baseline contains contract definitions only, no production rows.
+- Frontend contract: authenticated SELECT properties(id,landlord_id),
+  eq(landlord_id,confirmedUserId), limit(1), under existing property RLS. The
+  optional account-snapshot indication is used only for the plain Property Owner
+  Profile label; neither this label nor the preference authorizes operations or
+  marks a property verified. Unknown/error lookup results assert no ownership.
+- Local model/service tests use synthetic data; no live property mutations or
+  document tests. No permanent live backend mutation was performed in this phase.
+- Validation: 125 targeted frontend tests passed, zero failures/skips/cancellations;
+  TypeScript and whitespace checks passed. No full frontend or PostgreSQL suite rerun.
+- Cleanup: none required. Previous Android acceptance is user-reported for the
+  prior frontend checkpoint; the new ownership indication is RUNTIME-UNVERIFIED.

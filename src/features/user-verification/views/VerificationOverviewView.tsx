@@ -38,7 +38,7 @@ const tierDefinitions = [
   {
     tier: 3 as const,
     title: 'Property Verification',
-    subtitle: 'Optional - Tier 1-verified landlords',
+    subtitle: 'For owned properties - active Tier 1 required',
     items: [
       'Provide ownership or leasing authority for a property you own.',
       'Approval applies to the selected property only.',

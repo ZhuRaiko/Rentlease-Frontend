@@ -30,9 +30,7 @@ interface ProfileViewProps {
 
 export function ProfileView({ viewModel, marketplaceNavigation, onOpenAdminModeration, onOpenMatchingPreferences, onBack, onOpenRatingsReports, onOpenVerification }: ProfileViewProps) {
   const initials = viewModel.displayName.split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase()).join('');
-  const roles = viewModel.isAdmin
-    ? 'Admin'
-    : viewModel.roleLabels.join(' · ');
+  const roles = viewModel.roleLabels.join(' · ');
   return <View style={styles.screen}>
     <ScreenHeader title="Profile" onBack={onBack} />
     <ScrollView contentContainerStyle={styles.scrollContent}>

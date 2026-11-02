@@ -3,7 +3,7 @@ import { createOnboardingStatusCheck } from './onboardingStatusCheck';
 import { marketplaceIntroductionStorage } from '../services/marketplaceIntroductionStorage';
 import type { FeedbackTone } from '../../../shared/models/verificationPresentation';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { accountStatusLabel, accountVerificationSummary, experiencePreferenceLabel, hasProfileChanges } from '../models/accountPresentation';
+import { accountIdentityLabels, accountStatusLabel, accountVerificationSummary, hasProfileChanges } from '../models/accountPresentation';
 import { createMarketplaceIntroduction } from './marketplaceIntroduction';
 
 import { isSupabaseConfigured } from '../../../config/env';
@@ -503,7 +503,7 @@ export function useAuthProfilesViewModel() {
     draft,
     account,
     roles,
-    roleLabels: roles.includes('admin') ? ['Admin'] : [account?.profile.experience_preference ? experiencePreferenceLabel(account.profile.experience_preference) : 'RentLease member'],
+    roleLabels: accountIdentityLabels(account),
     verificationSummary: accountVerificationSummary(account?.profile ?? null, roles),
     isAdmin: roles.includes('admin'),
     displayName,
@@ -532,6 +532,8 @@ export function useAuthProfilesViewModel() {
     },
     signedOutVersion,
     bootstrap,
+    refreshProfile: () => operationBusyRef.current ? Promise.resolve(null)
+      : syncRef.current?.refresh('background').catch(() => null),
     navigate,
     goBack,
     updateDraft,

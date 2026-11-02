@@ -1,8 +1,14 @@
-import type { AccountProfile, AppRole } from './AuthProfile';
+import type { AccountProfile, AccountSnapshot, AppRole } from './AuthProfile';
 import type { StatusPresentation } from '../../../shared/models/verificationPresentation';
 import { experiencePreferenceOptions, type ExperiencePreference } from './AuthProfile';
 
 export const experiencePreferenceLabel = (value: ExperiencePreference) => experiencePreferenceOptions.find(option => option.value === value)?.label ?? 'No preference';
+export function accountIdentityLabels(account: AccountSnapshot | null): string[] {
+  const labels = account?.roles.includes('admin') ? ['Admin'] : [account?.profile.experience_preference
+    ? experiencePreferenceLabel(account.profile.experience_preference) : 'RentLease member'];
+  if (account?.ownsProperty === true) labels.push('Property Owner');
+  return labels;
+}
 export function hasProfileChanges(profile: AccountProfile | null, name: string, bio: string, preference: ExperiencePreference) {
   return !!profile && !!name.trim() && (name.trim() !== (profile.display_name ?? '').trim()
     || bio.trim() !== (profile.bio ?? '').trim() || preference !== (profile.experience_preference ?? null));

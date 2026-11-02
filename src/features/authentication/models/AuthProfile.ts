@@ -58,6 +58,8 @@ export interface AccountSnapshot {
   user: User;
   profile: AccountProfile;
   roles: AppRole[];
+  // Undefined means the optional ownership indication could not be established.
+  ownsProperty?: boolean | undefined;
 }
 
 export const initialRegistrationDraft: RegistrationDraft = {

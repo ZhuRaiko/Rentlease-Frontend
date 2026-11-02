@@ -56,6 +56,7 @@ export default function App() {
   const openProfile = () => {
     setProfileReturnTarget(profileAfterDismissal(profileReturnTarget, auth.account?.user.id ?? null, workspace, previewActor, access));
     setWorkspace(null);
+    void auth.refreshProfile();
   };
   const returnFromProfile = () => {
     if (!allowedProfileReturn) return;

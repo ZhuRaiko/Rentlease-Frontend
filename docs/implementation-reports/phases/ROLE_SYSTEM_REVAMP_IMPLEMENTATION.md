@@ -73,3 +73,25 @@ and reopen an owned property, and verify its own Tier 3 entry. Check legacy Tena
 posting, legacy Landlord GPS, unverified/Admin precedence, each saved display
 preference on restart, Profile/Back/unsaved guards and account switching. Existing
 Tenancy/Chat previews must remain labeled and behave as previews.
+
+## Verified gap closure — November 2, 2026
+
+The user reports Android acceptance of frontend checkpoint `1562f74` (287 targeted
+tests). Backend checkpoint `d62d2ca760f22cebbd6c9db189e7eec24f23e929` commits and
+pushes exactly the seven previously excluded migration/test/support files. A live
+SELECT confirmed version `20261102102331` and the approved SHA-256; no SQL replay.
+
+Profile ownership recognition adds an optional factual snapshot indication using
+an owner-filtered id/landlord_id SELECT limited to one row, parallel with existing
+account metadata reads. Profile entry uses the existing background coordinator to
+refresh that snapshot after creation, preserving account generations and cleanup.
+The label is independent of legacy memberships/preferences and never claims Verified.
+Tier 3 remains property-specific; obsolete landlord-only wording is corrected.
+No portfolio fetch, new permission, migration, navigation or preview redesign.
+
+Validation: 125 targeted frontend tests passed, zero failures/skips/cancellations;
+TypeScript and whitespace checks passed. Scope: ownership projection/model, account routing/synchronization,
+Profile Back, marketplace wiring, verification presentation and Tier 3 regressions.
+Android follow-up for the new label: create an unverified first property, return to
+Profile and expect Property Owner while Tier 3 stays per-property; switch accounts
+and confirm the indication belongs only to the current account.

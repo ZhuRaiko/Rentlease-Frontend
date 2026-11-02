@@ -34,7 +34,7 @@ Auth events are not a subscription to every profile/user_roles database change. 
 
 ## Authoritative refresh and routing precedence
 
-Account loading reads the persisted session, confirms the Auth user with `getUser`, then retrieves own `profiles` and `user_roles` before deriving routes.
+Account loading reads the persisted session, confirms the Auth user with `getUser`, then retrieves own `profiles`, `user_roles`, and a one-row owned-property existence projection in parallel before deriving routes. Ownership is presentation data, not a permission or verification credential.
 
 Successful sign-in, phone update/verification, explicit Tier 1 recovery and profile save reload the account. Profile save no longer forces Profile after the reload. During registrationPhone/mobileConfirmation/verificationPending only, the Auth ViewModel also checks on background-to-active return and once two seconds after entering verificationPending. Automatic checks have a 30-second cooldown, exclude overlapping checks and skip explicit loading operations. They use the existing background account coordinator, preserve unchanged OTP presentation, and add no interval polling. Effect cleanup removes the AppState listener/timer; coordinator generations still protect account switching/disposal. Delayed verification or errors retain Check again/Check verification status recovery.
 
@@ -327,3 +327,14 @@ Profile number-anchor follow-up (2026-10-23): boxed tier chips are replaced by u
 Profile numeral/spacing refinement (2026-10-23): numbers are now unboxed 24sp Roboto weight900 with tabular-nums and32sp line height. Rows use16dp horizontal padding and16dp number-to-label column gaps; the numeral column is36dp at default, scaling with system fontScale to avoid clipping. Existing vertical padding/gap, 8dp corners, gradients, category inks, friendly label type and status semantics remain. Status retains right alignment within the16dp inset; labels/status can reflow into separate lines rather than overlap. Agent inspected default and320dp/150% font rendering and restored physical1080x2400/420dpi/font1.0. Typecheck,290/290 tests and whitespace PASS. User acceptance pending; no logic/navigation/backend change.
 
 Profile bloom-language consistency (2026-10-23): the compact strips now use the overview's elliptical radial-gradient character and same five plateau strengths/stop rhythm, mirrored to the existing left accent. Profile radius is70% width/180% height, origin left0/top35%, at32% overview intensity. The bloom fades out by roughly43% width; right semantic-status area remains white. Existing24sp tabular numbers,16dp padding/gaps, row wrapping and status placement/colors are unchanged. No overview-card or shared theme changes. Agent inspected default Android capture; typecheck,290 tests and whitespace PASS. No new enlarged-font/state acceptance for this background-only revision; uncommitted for review.
+
+### Ownership recognition (November 2, 2026)
+
+Profile adds Property Owner when the account snapshot has a confirmed owned property.
+The authenticated service selects only id/landlord_id, filters landlord_id to the
+confirmed Auth identity, and limits results to one. No portfolio/listing/media or
+verification query is needed. Errors remain unknown and do not assert ownership.
+Opening Profile refreshes the existing account coordinator in the background, so
+first-property creation is recognized on return without a second state owner.
+Preference and legacy roles cannot grant this label; it never says Verified.
+Tier 3 still displays Checked per Property and uses the existing owned-property flow.
