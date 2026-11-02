@@ -3,7 +3,7 @@ import { createOnboardingStatusCheck } from './onboardingStatusCheck';
 import { marketplaceIntroductionStorage } from '../services/marketplaceIntroductionStorage';
 import type { FeedbackTone } from '../../../shared/models/verificationPresentation';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { accountStatusLabel, accountVerificationSummary, roleLabel } from '../models/accountPresentation';
+import { accountStatusLabel, accountVerificationSummary, experiencePreferenceLabel, hasProfileChanges } from '../models/accountPresentation';
 import { createMarketplaceIntroduction } from './marketplaceIntroduction';
 
 import { isSupabaseConfigured } from '../../../config/env';
@@ -13,7 +13,7 @@ import {
   type AccountSnapshot,
   type AuthProfileScreen,
   type RegistrationDraft,
-  type UserRole,
+  type ExperiencePreference,
 } from '../models/AuthProfile';
 import { getAccountDestination, getWorkspaceDestination } from '../models/accountRouting';
 import { createAccountSynchronization } from './accountSynchronization';
@@ -25,7 +25,6 @@ import {
   requestPhoneChange,
   resendPhoneChange,
   resendSignupEmail,
-  saveUserRoles,
   signIn,
   signOutAccount,
   signUp,
@@ -69,7 +68,7 @@ export function useAuthProfilesViewModel() {
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [profileName, setProfileName] = useState('');
   const [profileBio, setProfileBio] = useState('');
-  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
+  const [profilePreference, setProfilePreference] = useState<ExperiencePreference>(null);
   const [signInIdentifier, setSignInIdentifier] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
   const [notice, setNoticeText] = useState<string | null>(null);
@@ -114,7 +113,7 @@ export function useAuthProfilesViewModel() {
     setProfileName('');
     setProfileBio('');
     setResendAvailableAt(0);
-    setSelectedRoles([]);
+    setProfilePreference(null);
     setHistory([]);
     setScreen(destination);
     setShowSignOutConfirmation(false);
@@ -136,6 +135,7 @@ export function useAuthProfilesViewModel() {
     if (!background || !sameDestination || screenRef.current !== 'editProfile') {
       setProfileName(snapshot.profile.display_name ?? '');
       setProfileBio(snapshot.profile.bio ?? '');
+      setProfilePreference(snapshot.profile.experience_preference ?? null);
     }
     if (destination !== 'emailConfirmation') {
       setDraft((current) => ({ ...current, password: '', confirmPassword: '' }));
@@ -226,7 +226,7 @@ export function useAuthProfilesViewModel() {
         setDraft(initialRegistrationDraft);
         setProfileName('');
         setProfileBio('');
-        setSelectedRoles([]);
+        setProfilePreference(null);
         setScreen('bootstrap');
       }
       sync.handleEvent(event, userId);
@@ -451,47 +451,30 @@ export function useAuthProfilesViewModel() {
     }
   };
 
-  const toggleRole = (role: UserRole) => {
-    setSelectedRoles((current) =>
-      current.includes(role) ? current.filter((value) => value !== role) : [...current, role],
-    );
-  };
-
-  const submitRoles = async () => {
-    if (selectedRoles.length === 0) {
-      setNotice('Choose at least one role to continue.', 'error');
-      return;
-    }
-    setAsyncState('loading');
-    setNotice(null);
-    try {
-      await mutateAccount(() => saveUserRoles(selectedRoles));
-      await refreshAccount();
-      setAsyncState('success');
-    } catch (error) {
-      setAsyncState('error');
-      setNotice(friendlyError(error), 'error');
-    }
-  };
-
   const saveProfile = async () => {
-    if (!account) return;
+    if (!account || operationBusyRef.current || !hasProfileChanges(account.profile, profileName, profileBio, profilePreference)) return;
     if (!profileName.trim()) {
       setNotice('Display name cannot be empty.', 'error');
       return;
     }
     setAsyncState('loading');
+    operationBusyRef.current = true;
+    const ownerId = account.user.id;
     setNotice(null);
     try {
       await mutateAccount(() => updateOwnProfile(account.user.id, {
         display_name: profileName.trim(),
         bio: profileBio.trim(),
+        experience_preference: profilePreference,
       }));
+      if (!mountedRef.current || accountRef.current?.user.id !== ownerId) return;
       const snapshot = await refreshAccount();
       if (!snapshot) throw new Error('Session ended during profile update.');
+      if (!mountedRef.current || snapshot.user.id !== ownerId || accountRef.current?.user.id !== ownerId) return;
       setAsyncState('success');
       setNotice('Profile updated.', 'success');
     } catch (error) {
+      if (!mountedRef.current || accountRef.current?.user.id !== ownerId) return;
       setAsyncState('error');
       setNotice(friendlyError(error), 'error');
     }
@@ -520,15 +503,15 @@ export function useAuthProfilesViewModel() {
     draft,
     account,
     roles,
-    roleLabels: roles.map(roleLabel),
+    roleLabels: roles.includes('admin') ? ['Admin'] : [account?.profile.experience_preference ? experiencePreferenceLabel(account.profile.experience_preference) : 'RentLease member'],
     verificationSummary: accountVerificationSummary(account?.profile ?? null, roles),
-    hasTenantRole: roles.includes('tenant'),
-    hasLandlordRole: roles.includes('landlord'),
     isAdmin: roles.includes('admin'),
     displayName,
     profileName,
     profileBio,
-    selectedRoles,
+    profilePreference,
+    setProfilePreference,
+    canSaveProfile: asyncState !== 'loading' && hasProfileChanges(account?.profile ?? null, profileName, profileBio, profilePreference),
     signInIdentifier,
     signInPassword,
     notice,
@@ -571,8 +554,6 @@ export function useAuthProfilesViewModel() {
     refreshVerificationState,
     showVerificationRecovery: asyncState === 'error' || screen === 'verificationPending',
     accountStatusLabel: account ? accountStatusLabel(account.profile.account_status) : 'Unknown',
-    toggleRole,
-    submitRoles,
     saveProfile,
     setShowSignOutConfirmation,
     signOut,

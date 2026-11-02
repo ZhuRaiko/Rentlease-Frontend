@@ -1,6 +1,6 @@
 import type { AuthProfileScreen, RegistrationDraft } from '../models/AuthProfile';
 
-const questions: AuthProfileScreen[] = ['registrationName', 'registrationNickname', 'registrationEmail', 'registrationPassword', 'emailConfirmation', 'registrationPhone', 'mobileConfirmation', 'roleSelection'];
+const questions: AuthProfileScreen[] = ['registrationName', 'registrationNickname', 'registrationEmail', 'registrationPassword', 'emailConfirmation', 'registrationPhone', 'mobileConfirmation'];
 export const registrationDisplayName = (draft: RegistrationDraft) => draft.nickname.trim() || `${draft.firstName.trim()} ${draft.lastName.trim()}`.trim();
 export function validateRegistrationStep(screen: AuthProfileScreen, draft: RegistrationDraft): string | null {
   if (screen === 'registrationName' && (!draft.firstName.trim() || !draft.lastName.trim())) return 'Enter your first and last name.';

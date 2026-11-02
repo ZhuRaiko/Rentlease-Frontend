@@ -2,6 +2,7 @@ import type { AuthChangeEvent, AuthError } from '@supabase/supabase-js';
 
 import { getSupabaseClient } from '../../../shared/services/supabase/client';
 import type { AccountProfile, AccountSnapshot, AppRole } from '../models/AuthProfile';
+import { parseExperiencePreference, type ExperiencePreference } from '../models/AuthProfile';
 import { nextAuthBootInstance, traceAuthBoot } from '../../../shared/utils/authBootTrace';
 
 export function subscribeToAccountAuthChanges(
@@ -41,6 +42,7 @@ function parseProfile(value: unknown): AccountProfile {
     tier3_verified_at: nullableString(value.tier3_verified_at),
     trust_score: typeof value.trust_score === 'number' ? value.trust_score : null,
     account_status: nullableString(value.account_status),
+    experience_preference: parseExperiencePreference(value.experience_preference),
   };
 }
 
@@ -73,7 +75,7 @@ export async function loadAccount(): Promise<AccountSnapshot | null> {
   const [profileResult, rolesResult] = await Promise.all([
     client
       .from('profiles')
-      .select('id,display_name,bio,avatar_path,tier1_verified_at,tier2_verified_at,tier3_verified_at,trust_score,account_status')
+      .select('id,display_name,bio,avatar_path,tier1_verified_at,tier2_verified_at,tier3_verified_at,trust_score,account_status,experience_preference')
       .eq('id', authData.user.id)
       .single().then((result) => {
         traceAuthBoot('PROFILE_QUERY_RESULT', { instance, errorPresent: Boolean(result.error) });
@@ -143,7 +145,7 @@ export async function saveUserRoles(requestedRoles: Array<'tenant' | 'landlord'>
 
 export async function updateOwnProfile(
   userId: string,
-  changes: { display_name: string; bio: string },
+  changes: { display_name: string; bio: string; experience_preference: ExperiencePreference },
 ) {
   const { error } = await getSupabaseClient()
     .from('profiles')

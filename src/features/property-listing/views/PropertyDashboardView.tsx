@@ -17,7 +17,7 @@ export function PropertyDashboardView({ viewModel: vm }: { viewModel: PropertyLi
     {state.busy && !state.loaded ? <Text accessibilityLiveRegion="polite" style={styles.body}>Loading your properties...</Text> : null}
     {state.error && !state.busy ? <ListingButton label="Retry loading properties" tone="outline" onPress={() => void vm.portfolio.load()} /> : null}
     {state.loaded ? <View style={styles.stats}>{Object.entries(stats).map(([label, value]) => <View key={label} style={styles.stat}><Text style={styles.title}>{value}</Text><Text style={styles.supporting}>{label === 'properties' ? 'Properties' : label === 'published' ? 'Published' : label === 'drafts' ? 'Drafts' : 'Rented'}</Text></View>)}</View> : null}
-    {state.loaded && !state.items.length ? <View style={styles.empty}><Text style={styles.heading}>No properties yet</Text><Text style={styles.body}>Start by adding your first rental property.</Text><ListingButton label="Post a property" onPress={vm.startCreate} /></View> : null}
+    {state.loaded && !state.items.length ? <View style={styles.empty}><Text style={styles.heading}>No properties yet</Text><Text style={styles.body}>Use Post below to add your first rental property.</Text></View> : null}
     {vm.portfolioItems.map(item => {
       const listing = item.currentListing;
       const verificationAction=item.tier3.requiresRepair?null:propertyVerificationActionLabel(item.tier3.status);
@@ -41,7 +41,6 @@ export function PropertyDashboardView({ viewModel: vm }: { viewModel: PropertyLi
       </View>;
     })}
     {state.loaded && state.items.length > 0 && !vm.portfolioItems.length ? <Text style={styles.body}>No matching properties or listings. Try a title, property type, barangay or city.</Text> : null}
-    <ListingButton label="Post a new property" onPress={vm.startCreate} />
   </ScrollView>;
 }
 const styles = StyleSheet.create({

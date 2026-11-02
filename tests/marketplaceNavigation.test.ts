@@ -13,17 +13,17 @@ const tenant = { marketplace: true, admin: false, tenant: true, landlord: false 
 const dual = { ...tenant, landlord: true };
 const account = (): AccountSnapshot => ({ user: { id: 'new', aud: 'authenticated', created_at: '', app_metadata: {}, user_metadata: {}, email_confirmed_at: 'date' }, profile: { id: 'new', display_name: null, bio: null, avatar_path: null, tier1_verified_at: 'date', tier2_verified_at: null, tier3_verified_at: null, trust_score: null, account_status: 'active' }, roles: ['tenant'] });
 
-test('Listings and My Properties share dashboard entry; Post uses creation and role membership, not active mode or Tier 3', () => {
+test('Listings and My Properties share dashboard entry; Post uses creation for any eligible account, independent of mode or Tier 3', () => {
   assert.deepEqual(propertiesWorkspace(dual, 'dashboard'), { type: 'properties', initialScreen: 'dashboard' });
   assert.deepEqual(propertiesWorkspace(dual, 'postingType'), { type: 'properties', initialScreen: 'postingType' });
-  assert.equal(propertiesWorkspace(tenant, 'dashboard'), null);
+  assert.deepEqual(propertiesWorkspace(tenant, 'dashboard'), { type: 'properties', initialScreen: 'dashboard' });
   assert.equal(propertiesWorkspace({ ...dual, marketplace: false }, 'postingType'), null);
 });
 test('dual roles switch predictably without changing membership; landlord-only can still browse', () => {
   assert.deepEqual(switchMarketplaceMode(dual, 'landlord'), { mode: 'landlord', workspace: { type: 'properties', initialScreen: 'dashboard' } });
   assert.deepEqual(switchMarketplaceMode(dual, 'tenant'), { mode: 'tenant', workspace: { type: 'discovery', initialScreen: 'home' } });
-  assert.equal(switchMarketplaceMode(tenant, 'landlord'), null);
-  assert.equal(switchMarketplaceMode({ ...dual, tenant: false }, 'tenant'), null);
+  assert.equal(switchMarketplaceMode(tenant, 'landlord')?.workspace?.type, 'properties');
+  assert.equal(switchMarketplaceMode({ ...dual, tenant: false }, 'tenant')?.workspace?.type, 'discovery');
   assert.equal(dual.landlord, true);
 });
 test('Admin and restricted routing take precedence over ordinary modes', () => {
@@ -40,7 +40,7 @@ test('persistent signup marker waits for authoritative completion and remains pe
   await intro.markCreated('new'); intro.clear();
   delete snapshot.user.email_confirmed_at; await intro.check(snapshot); assert.equal(intro.getSnapshot().status, 'idle');
   snapshot.user.email_confirmed_at = 'date'; snapshot.profile.tier1_verified_at = null; await intro.check(snapshot); assert.equal(intro.getSnapshot().status, 'idle');
-  snapshot.profile.tier1_verified_at = 'date'; snapshot.roles = []; await intro.check(snapshot); assert.equal(intro.getSnapshot().status, 'idle');
+  snapshot.profile.tier1_verified_at = 'date'; snapshot.roles = []; await intro.check(snapshot); assert.equal(intro.getSnapshot().status, 'required');
   snapshot.roles = ['tenant']; await intro.check(snapshot); assert.equal(intro.getSnapshot().status, 'required');
   assert.equal(await service.read('new'), 'pending');
 });

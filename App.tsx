@@ -17,7 +17,7 @@ import { MaintenanceRequestsFlowView } from './src/features/maintenance/views/Ma
 import { NotificationsFlowView } from './src/features/notifications/views/NotificationsFlowView';
 import { PropertyListingFlowView } from './src/features/property-listing/views/PropertyListingFlowView';
 import { RatingsReportsFlowView } from './src/features/ratings-reports/views/RatingsReportsFlowView';
-import { initialMarketplaceWorkspace, propertiesWorkspace, type AppWorkspace } from './src/shared/models/marketplaceNavigation';
+import { defaultMarketplaceMode, defaultPreviewActor, initialMarketplaceWorkspace, propertiesWorkspace, type AppWorkspace } from './src/shared/models/marketplaceNavigation';
 import type { MatchingPreferences } from './src/features/search-discovery/models/SearchDiscovery';
 import { RentalPriceEstimationFlowView } from './src/features/rental-price-estimation/views/RentalPriceEstimationFlowView';
 import { SearchDiscoveryFlowView } from './src/features/search-discovery/views/SearchDiscoveryFlowView';
@@ -26,8 +26,8 @@ traceAuthBoot('APP_MODULE_READY');
 
 export default function App() {
   const auth = useAuthProfilesViewModel();
-  const [preferredRole, setPreferredRole] = useState<UserRole>('tenant');
-  const accountRole: UserRole = auth.hasLandlordRole && (!auth.hasTenantRole || preferredRole === 'landlord') ? 'landlord' : 'tenant';
+  const [activityMode, setActivityMode] = useState<UserRole>('tenant');
+  const previewActor: UserRole = activityMode;
   const [workspace, setWorkspace] = useState<AppWorkspace>(null);
   const [profileReturnTarget, setProfileReturnTarget] = useState<ProfileReturnTarget | null>(null);
   const [savedPreferences, setSavedPreferences] = useState<{ userId: string; value: MatchingPreferences } | null>(null);
@@ -40,7 +40,7 @@ export default function App() {
   const workspaceDestination = auth.account ? getWorkspaceDestination(auth.account) : null;
   const canEnterAdmin = workspaceDestination === 'adminModeration';
   const canEnterMarketplace = workspaceDestination === 'discovery' && !auth.matchingIntroductionGate;
-  const access = { marketplace: canEnterMarketplace, admin: canEnterAdmin, tenant: auth.hasTenantRole, landlord: auth.hasLandlordRole };
+  const access = { marketplace: canEnterMarketplace, admin: canEnterAdmin };
   const requestMarketplaceExit = useMarketplaceExitConfirmation(workspace, auth.account?.user.id ?? null, canEnterMarketplace && !canEnterAdmin);
   useEffect(() => {
     traceAuthBoot('APP_MOUNT', { initialMetricsPresent: initialWindowMetrics !== null });
@@ -52,20 +52,20 @@ export default function App() {
       modalVisible: workspace !== null && (workspace.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace) });
   }, [auth.screen, auth.asyncState, auth.account, workspaceDestination, workspace, canEnterAdmin, canEnterMarketplace]);
   const validProfileReturn = resolveProfileReturn(profileReturnTarget, auth.account?.user.id ?? null, access);
-  const allowedProfileReturn = profileBackTarget(profileReturnTarget, auth.account?.user.id ?? null, accountRole, access);
+  const allowedProfileReturn = profileBackTarget(profileReturnTarget, auth.account?.user.id ?? null, previewActor, access);
   const openProfile = () => {
-    setProfileReturnTarget(profileAfterDismissal(profileReturnTarget, auth.account?.user.id ?? null, workspace, accountRole, access));
+    setProfileReturnTarget(profileAfterDismissal(profileReturnTarget, auth.account?.user.id ?? null, workspace, previewActor, access));
     setWorkspace(null);
   };
   const returnFromProfile = () => {
     if (!allowedProfileReturn) return;
-    setPreferredRole(allowedProfileReturn.mode);
+    setActivityMode(allowedProfileReturn.mode);
     setWorkspace(allowedProfileReturn.workspace);
     setProfileReturnTarget(null);
   };
   useEffect(() => {
     if (profileReturnTarget && !validProfileReturn) setProfileReturnTarget(null);
-  }, [auth.account?.user.id, canEnterMarketplace, canEnterAdmin, auth.hasLandlordRole, auth.hasTenantRole, profileReturnTarget]);
+  }, [auth.account?.user.id, canEnterMarketplace, canEnterAdmin, profileReturnTarget]);
   useEffect(() => {
     if (workspace || !['profile', 'editProfile', 'settings'].includes(auth.screen) || auth.showSignOutConfirmation) return;
     if (auth.screen === 'profile' && !allowedProfileReturn) return;
@@ -90,18 +90,17 @@ export default function App() {
 
   const openProperties = (initialScreen: 'dashboard' | 'postingType') => {
     const next = propertiesWorkspace(access, initialScreen);
-    if (next) { setPreferredRole('landlord'); setWorkspace(next); }
-    else if (canEnterMarketplace) auth.setNotice('Listings and posting require the Landlord role. You can browse homes in Discover.');
+    if (next) { setActivityMode('landlord'); setWorkspace(next); }
   };
 
   const openDiscovery = () => {
     if (!canEnterMarketplace) return;
-    setPreferredRole(auth.hasTenantRole ? 'tenant' : 'landlord');
+    setActivityMode(defaultPreviewActor(auth.roles));
     setWorkspace({ type: 'discovery', initialScreen: 'home' });
   };
   const finishMatchingIntroduction = async () => {
     if (!await auth.completeMatchingIntroduction()) return false;
-    setWorkspace(initialMarketplaceWorkspace(access, accountRole));
+    setWorkspace(initialMarketplaceWorkspace(access, defaultMarketplaceMode(auth.account?.profile.experience_preference)));
     return true;
   };
 
@@ -109,9 +108,9 @@ export default function App() {
     if (auth.entryVersion === 0 || !workspaceDestination || (workspaceDestination === 'discovery' && !canEnterMarketplace)) return;
     if (handledIntroduction.current === auth.entryVersion) return;
     handledIntroduction.current = auth.entryVersion;
-    const mode = auth.hasTenantRole ? 'tenant' : 'landlord';
+    const mode = defaultMarketplaceMode(auth.account?.profile.experience_preference);
     const offer = canEnterMarketplace && auth.matchingIntroductionRequired;
-    setPreferredRole(mode);
+    setActivityMode(defaultPreviewActor(auth.roles));
     setSavedPreferences(current => current?.userId === auth.account?.user.id ? current : null);
     setWorkspace(offer ? { type: 'discovery', initialScreen: 'matchingPreferences', introduction: true } : initialMarketplaceWorkspace(access, mode));
   }, [auth.entryVersion, workspaceDestination, auth.matchingIntroductionRequired, canEnterMarketplace]);
@@ -120,7 +119,7 @@ export default function App() {
     if (auth.signedOutVersion > 0) {
       setWorkspace(null);
       setProfileReturnTarget(null);
-      setPreferredRole('tenant');
+      setActivityMode('tenant');
       setSavedPreferences(null);
       handledIntroduction.current = 0;
     }
@@ -129,11 +128,10 @@ export default function App() {
   useEffect(() => {
     if (!workspace) return;
     if ((workspace.type === 'adminModeration' && !canEnterAdmin) || (workspace.type !== 'adminModeration' && !canEnterMarketplace)) { setWorkspace(null); return; }
-    if (canEnterMarketplace && !auth.hasLandlordRole && (workspace.type === 'properties' || (workspace.type === 'priceEstimate' && workspace.actor === 'landlord'))) setWorkspace({ type: 'discovery', initialScreen: 'home' });
-  }, [canEnterMarketplace, canEnterAdmin, auth.hasLandlordRole, workspace]);
+  }, [canEnterMarketplace, canEnterAdmin, workspace]);
 
   const renderPropertyVerification = (propertyId:string,onReturn:()=>void,registerBack:(action:(()=>void)|null)=>void) => (
-    <UserVerificationFlowView initialPropertyId={propertyId} tierOneVerified={!!auth.account?.profile.tier1_verified_at} hasLandlordRole={auth.hasLandlordRole} onClose={onReturn} registerBackAction={registerBack}/>
+    <UserVerificationFlowView initialPropertyId={propertyId} tierOneVerified={!!auth.account?.profile.tier1_verified_at} onClose={onReturn} registerBackAction={registerBack}/>
   );
   return (
     <SafeAreaProvider>
@@ -165,7 +163,7 @@ export default function App() {
         visible={workspace !== null && (workspace?.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace)}
       >
         {workspace?.type === 'verification' && canEnterMarketplace ? (
-          <UserVerificationFlowView tierOneVerified={!!auth.account?.profile.tier1_verified_at} hasLandlordRole={auth.hasLandlordRole} onClose={openProfile} registerBackAction={registerWorkspaceBack} />
+          <UserVerificationFlowView tierOneVerified={!!auth.account?.profile.tier1_verified_at} onClose={openProfile} registerBackAction={registerWorkspaceBack} />
         ) : null}
         {workspace?.type === 'discovery' ? (
           <SearchDiscoveryFlowView
@@ -177,7 +175,7 @@ export default function App() {
             onSavePreferences={(value) => { if (auth.account) setSavedPreferences({ userId: auth.account.user.id, value }); }}
             onIntroductionComplete={finishMatchingIntroduction}
             registerBackAction={registerWorkspaceBack}
-            isLandlord={auth.hasLandlordRole}
+            canPostProperty={canEnterMarketplace}
             onClose={openProfile}
             onCreateListing={() =>
               openProperties('postingType')
@@ -196,7 +194,7 @@ export default function App() {
             }
           />
         ) : null}
-        {workspace?.type === 'properties' && auth.hasLandlordRole ? (
+        {workspace?.type === 'properties' && canEnterMarketplace ? (
           <PropertyListingFlowView
             renderPropertyVerification={renderPropertyVerification}
             onRootBack={openDiscovery}
@@ -215,10 +213,10 @@ export default function App() {
           <RentalPriceEstimationFlowView
             registerBackAction={registerWorkspaceBack}
             actor={workspace.actor}
-            isLandlord={auth.hasLandlordRole}
+            canPostProperty={canEnterMarketplace}
             onClose={() =>
               setWorkspace(
-                workspace.returnTo === 'properties' && auth.hasLandlordRole
+                workspace.returnTo === 'properties' && canEnterMarketplace
                   ? { type: 'properties', initialScreen: 'dashboard' }
                   : { type: 'discovery', initialScreen: 'home' },
               )
@@ -238,9 +236,9 @@ export default function App() {
           <MessagingViewingFlowView
             onRootBack={openDiscovery}
             registerBackAction={registerWorkspaceBack}
-            actor={accountRole}
+            actor={previewActor}
             initialScreen={workspace.initialScreen}
-            isLandlord={auth.hasLandlordRole}
+            canPostProperty={canEnterMarketplace}
             onClose={openProfile}
             onCreateListing={() =>
               openProperties('postingType')
@@ -256,8 +254,8 @@ export default function App() {
           <MaintenanceRequestsFlowView
             onRootBack={openDiscovery}
             registerBackAction={registerWorkspaceBack}
-            actor={accountRole}
-            isLandlord={auth.hasLandlordRole}
+            actor={previewActor}
+            canPostProperty={canEnterMarketplace}
             onClose={openProfile}
             onCreateListing={() =>
               openProperties('postingType')
@@ -272,8 +270,8 @@ export default function App() {
         {workspace?.type === 'ratingsReports' ? (
           <RatingsReportsFlowView
             registerBackAction={registerWorkspaceBack}
-            actor={accountRole}
-            isLandlord={auth.hasLandlordRole}
+            actor={previewActor}
+            canPostProperty={canEnterMarketplace}
             onClose={openProfile}
             onCreateListing={() =>
               openProperties('postingType')
@@ -292,7 +290,7 @@ export default function App() {
         {workspace?.type === 'notifications' ? (
           <NotificationsFlowView
             registerBackAction={registerWorkspaceBack}
-            isLandlord={auth.hasLandlordRole}
+            canPostProperty={canEnterMarketplace}
             onClose={openDiscovery}
             onCreateListing={() =>
               openProperties('postingType')

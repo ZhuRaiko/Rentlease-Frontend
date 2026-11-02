@@ -1,7 +1,7 @@
 import { OnboardingAccountOptions } from '../components/OnboardingAccountOptions';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -10,7 +10,6 @@ import { typography } from '../../../shared/theme/typography';
 import { AuthButton } from '../components/AuthButton';
 import { AuthField } from '../components/AuthField';
 import { AuthScaffold } from '../components/AuthScaffold';
-import type { UserRole } from '../models/AuthProfile';
 import type { AuthProfilesViewModel } from '../viewModels/useAuthProfilesViewModel';
 
 export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewModel }) {
@@ -102,25 +101,11 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
     </AuthScaffold>
   );
 
-  return (
-    <AuthScaffold {...scaffold} description="Choose Tenant, Landlord, or select both. Property verification is a separate trust step." footer={accountActions} title="How will you use RentLease?">
-      {(['tenant', 'landlord'] as UserRole[]).map((role) => (
-        <Pressable disabled={busy} accessibilityRole="checkbox" accessibilityState={{ checked: viewModel.selectedRoles.includes(role), disabled: busy }} key={role} onPress={() => viewModel.toggleRole(role)} style={[styles.roleCard, viewModel.selectedRoles.includes(role) && styles.roleSelected]}>
-          <Text style={styles.roleTitle}>{role === 'tenant' ? 'Tenant' : 'Landlord'}</Text>
-          <Text style={styles.body}>{role === 'tenant' ? 'Discover rental homes and manage your tenancy.' : 'Manage properties and rental listings.'}</Text>
-        </Pressable>
-      ))}
-      <AuthButton disabled={busy || viewModel.selectedRoles.length === 0} label={busy ? 'Saving roles…' : 'Continue'} onPress={() => void viewModel.submitRoles()} />
-      {notice}
-    </AuthScaffold>
-  );
+  return null;
 }
 
 const styles = StyleSheet.create({
   accountActions: { gap: spacing.sm },
   body: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
   notice: { backgroundColor: colors.primaryPale, borderRadius: radius.sm, color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 18, padding: spacing.sm },
-  roleCard: { borderColor: colors.border, borderRadius: radius.card, borderWidth: 1, gap: spacing.xs, padding: spacing.md },
-  roleSelected: { backgroundColor: colors.primaryPale, borderColor: colors.primary },
-  roleTitle: { color: colors.text, fontFamily: typography.family, fontSize: 17, fontWeight: '700' },
 });

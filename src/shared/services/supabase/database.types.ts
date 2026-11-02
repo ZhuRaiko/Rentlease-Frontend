@@ -891,6 +891,7 @@ export type Database = {
           bio: string | null
           created_at: string
           display_name: string
+          experience_preference: string | null
           id: string
           suspended_until: string | null
           suspension_reason: string | null
@@ -906,6 +907,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string
+          experience_preference?: string | null
           id: string
           suspended_until?: string | null
           suspension_reason?: string | null
@@ -921,6 +923,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string
+          experience_preference?: string | null
           id?: string
           suspended_until?: string | null
           suspension_reason?: string | null

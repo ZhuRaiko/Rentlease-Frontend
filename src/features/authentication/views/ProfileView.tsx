@@ -42,7 +42,7 @@ export function ProfileView({ viewModel, marketplaceNavigation, onOpenAdminModer
             <ProfileAvatar initials={initials} />
             <View style={styles.membership}>
               <Text accessibilityRole="header" style={styles.name}>{viewModel.displayName}</Text>
-              <Text style={styles.role}>{roles || 'Role not selected'}</Text>
+              <Text style={styles.role}>{roles || 'RentLease member'}</Text>
             </View>
 
           </View>

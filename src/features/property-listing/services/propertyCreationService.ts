@@ -15,9 +15,8 @@ export function createPropertyCreationService(getClient: () => SupabaseClient<Da
     if (error || !data.user) { diagnose(propertyCreationDiagnostic('eligibility',error,false,'authentication')); throw new PropertyCreationError('Sign in to add a property.','property_creation_preflight'); }
     const id = data.user.id;
     const { data: profile, error: profileError } = await client.from('profiles').select('account_status,tier1_verified_at').eq('id', id).maybeSingle();
-    const { data: roles, error: rolesError } = await client.from('user_roles').select('role').eq('user_id', id);
-    if (profileError || rolesError) { const error=profileError??rolesError; diagnose(propertyCreationDiagnostic('eligibility',error,false,error?.code==='42501'?'backend_permission':'read_failed')); throw new PropertyCreationError('Could not verify your account access. Check your connection and try again.','property_creation_preflight'); }
-    const eligibility = profile?.account_status !== 'active' ? ['account','An active account is required to add a property.'] : !profile.tier1_verified_at ? ['tier1','Complete Tier 1 account verification before adding a property.'] : !roles?.some(row => row.role === 'landlord') ? ['role','The Landlord role is required to add a property.'] : null;
+    if (profileError) { const error=profileError; diagnose(propertyCreationDiagnostic('eligibility',error,false,error?.code==='42501'?'backend_permission':'read_failed')); throw new PropertyCreationError('Could not verify your account access. Check your connection and try again.','property_creation_preflight'); }
+    const eligibility = profile?.account_status !== 'active' ? ['account','An active account is required to add a property.'] : !profile.tier1_verified_at ? ['tier1','Complete Tier 1 account verification before adding a property.'] : null;
     if (eligibility) { diagnose(propertyCreationDiagnostic('eligibility',null,false,eligibility[0] as 'account'|'tier1'|'role')); throw new PropertyCreationError(eligibility[1]!, 'property_creation_preflight'); }
     const { data: current, error: currentError } = await client.auth.getUser();
     if (currentError || current.user?.id !== id) throw Object.assign(new Error('Account changed.'), { code: 'property_identity_changed' });

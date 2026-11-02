@@ -9,9 +9,6 @@ export function getAccountDestination(account: AccountSnapshot): AuthProfileScre
       ? 'verificationPending'
       : 'registrationPhone';
   }
-  if (!account.roles.some((role) => role === 'tenant' || role === 'landlord')) {
-    return 'roleSelection';
-  }
   return 'profile';
 }
 

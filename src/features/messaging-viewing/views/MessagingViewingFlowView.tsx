@@ -13,7 +13,7 @@ import { ViewingScheduleView } from './ViewingScheduleView';
 interface MessagingViewingFlowViewProps {
   actor: MessagingActor;
   initialScreen?: 'inbox' | 'newInquiry';
-  isLandlord: boolean;
+  canPostProperty: boolean;
   onClose: () => void;
   onRootBack: () => void;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
@@ -34,7 +34,7 @@ const conversationScreens = new Set([
 export function MessagingViewingFlowView({
   actor,
   initialScreen = 'inbox',
-  isLandlord,
+  canPostProperty,
   onClose,
   onRootBack,
   registerBackAction,
@@ -67,20 +67,20 @@ export function MessagingViewingFlowView({
         onChat={viewModel.openInbox}
         onDiscover={onOpenDiscover}
         onListing={() => {
-          if (isLandlord) {
+          if (canPostProperty) {
             onOpenListings();
             return;
           }
           viewModel.openInbox();
-          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
+          viewModel.setNotice('Complete account verification to manage listings.');
         }}
         onPost={() => {
-          if (isLandlord) {
+          if (canPostProperty) {
             onCreateListing();
             return;
           }
           viewModel.openInbox();
-          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
+          viewModel.setNotice('Complete account verification before posting.');
         }}
         onTenancy={onOpenMaintenance}
       />

@@ -2,6 +2,16 @@ import type { User } from '@supabase/supabase-js';
 
 export type UserRole = 'tenant' | 'landlord';
 export type AppRole = UserRole | 'admin';
+export type ExperiencePreference = 'rent' | 'list' | 'both' | null;
+export const experiencePreferenceOptions = [
+  { value: null, label: 'No preference' },
+  { value: 'rent', label: 'Looking to rent' },
+  { value: 'list', label: 'Listing properties' },
+  { value: 'both', label: 'Both' },
+] as const;
+export function parseExperiencePreference(value: unknown): ExperiencePreference {
+  return value === 'rent' || value === 'list' || value === 'both' ? value : null;
+}
 
 export type AuthProfileScreen =
   | 'bootstrap'
@@ -15,7 +25,6 @@ export type AuthProfileScreen =
   | 'mobileConfirmation'
   | 'verificationPending'
   | 'registrationPassword'
-  | 'roleSelection'
   | 'profile'
   | 'editProfile'
   | 'settings'
@@ -42,6 +51,7 @@ export interface AccountProfile {
   tier3_verified_at: string | null;
   trust_score: number | null;
   account_status: string | null;
+  experience_preference?: ExperiencePreference;
 }
 
 export interface AccountSnapshot {

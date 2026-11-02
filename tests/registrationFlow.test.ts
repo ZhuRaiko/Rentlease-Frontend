@@ -48,10 +48,9 @@ test('Back after created/uncertain signup recovers without editing the attempted
   }
 });
 test('progress tracks the current real stage and never marks current email/SMS verification complete', () => {
-  assert.deepEqual(getRegistrationProgress('emailConfirmation'), { step: 5, total: 8, completed: 4 });
-  assert.deepEqual(getRegistrationProgress('mobileConfirmation'), { step: 7, total: 8, completed: 6 });
-  assert.deepEqual(getRegistrationProgress('verificationPending'), { step: 7, total: 8, completed: 6 });
-  assert.deepEqual(getRegistrationProgress('roleSelection'), { step: 8, total: 8, completed: 7 });
+  assert.deepEqual(getRegistrationProgress('emailConfirmation'), { step: 5, total: 7, completed: 4 });
+  assert.deepEqual(getRegistrationProgress('mobileConfirmation'), { step: 7, total: 7, completed: 6 });
+  assert.deepEqual(getRegistrationProgress('verificationPending'), { step: 7, total: 7, completed: 6 });
   assert.equal(getRegistrationProgress('signIn'), null);
 });
 test('signup is synchronously excluded while pending and after account creation', async () => {

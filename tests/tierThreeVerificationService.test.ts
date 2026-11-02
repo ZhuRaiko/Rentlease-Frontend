@@ -34,11 +34,13 @@ function fixture() {
   } as unknown as SupabaseClient<Database>;
   return { missingContract:()=>{missingContract=true;}, calls, service: createTierThreeVerificationService(() => client), noAuth: () => { identity = null; }, switchUser: () => { identity = 'another'; }, tenant: () => { role = 'tenant'; }, noTierOne: () => { tierOne = false; }, restricted: () => { active = false; }, foreignProperty: () => { propertyOwner = 'other'; }, fail: (table: string) => { fail = table; } };
 }
-test('service verifies Auth, own active Tier 1 profile and landlord role without requiring Tier 2', async () => {
+test('service verifies Auth, own active Tier 1 profile without requiring normal roles or Tier 2', async () => {
   const h = fixture(); assert.equal(await h.service.getEligibleUserId(), 'owner');
   assert.ok(h.calls.some(c => c[0] === 'eq' && c[1] === 'profiles' && c[2] === 'id' && c[3] === 'owner'));
   assert.ok(!JSON.stringify(h.calls).includes('tier2_verified_at'));
-  for (const deny of ['noAuth', 'tenant', 'noTierOne', 'restricted'] as const) { const denied = fixture(); denied[deny](); await assert.rejects(denied.service.getEligibleUserId()); }
+  h.tenant(); assert.equal(await h.service.getEligibleUserId(), 'owner');
+  assert.equal(h.calls.some(c => c[1] === 'user_roles'), false);
+  for (const deny of ['noAuth', 'noTierOne', 'restricted'] as const) { const denied = fixture(); denied[deny](); await assert.rejects(denied.service.getEligibleUserId()); }
 });
 test('property service explicitly filters landlord_id and excludes foreign rows even when RLS permits public reads', async () => {
   const h = fixture(); assert.equal((await h.service.fetchOwnedProperties('owner')).length, 1);

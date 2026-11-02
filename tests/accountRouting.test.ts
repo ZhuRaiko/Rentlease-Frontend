@@ -66,10 +66,10 @@ test('backend restrictions take precedence over completed onboarding', () => {
   }
 });
 
-test('role selection is required only after Tier 1 completes', () => {
+test('role-free accounts enter only after Tier 1 completes', () => {
   const account = existingAccount();
   account.roles = [];
-  assert.equal(getAccountDestination(account), 'roleSelection');
+  assert.equal(getAccountDestination(account), 'profile');
   account.profile.tier1_verified_at = null;
   assert.equal(getAccountDestination(account), 'verificationPending');
 });
@@ -111,12 +111,12 @@ test('email and mobile continuation advance only from authoritative confirmation
   account.user.email_confirmed_at = '2026-10-22T00:00:00Z'; assert.equal(getAccountDestination(account), 'registrationPhone');
   account.user.phone = '+639171234567'; account.user.phone_confirmed_at = '2026-10-22T00:01:00Z';
   assert.equal(getAccountDestination(account), 'verificationPending'); assert.equal(getWorkspaceDestination(account), null);
-  account.profile.tier1_verified_at = '2026-10-22T00:01:01Z'; assert.equal(getAccountDestination(account), 'roleSelection');
+  account.profile.tier1_verified_at = '2026-10-22T00:01:01Z'; assert.equal(getAccountDestination(account), 'profile');
 });
-test('Tenant, Landlord and Both enter the marketplace only after backend role loading', () => {
+test('legacy membership never changes eligible marketplace access', () => {
   for (const roles of [['tenant'], ['landlord'], ['tenant', 'landlord']] as AccountSnapshot['roles'][]) {
     const account = existingAccount(); account.roles = [];
-    assert.equal(getAccountDestination(account), 'roleSelection');
+    assert.equal(getAccountDestination(account), 'profile');
     account.roles = roles;
     assert.equal(getAccountDestination(account), 'profile'); assert.equal(getWorkspaceDestination(account), 'discovery');
   }

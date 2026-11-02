@@ -10,7 +10,7 @@ import { RentalPriceEstimationView } from './RentalPriceEstimationView';
 
 interface RentalPriceEstimationFlowViewProps {
   actor: EstimateActor;
-  isLandlord: boolean;
+  canPostProperty: boolean;
   onClose: () => void;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onCreateListing: () => void;
@@ -22,7 +22,7 @@ interface RentalPriceEstimationFlowViewProps {
 
 export function RentalPriceEstimationFlowView({
   actor,
-  isLandlord,
+  canPostProperty,
   onClose,
   registerBackAction,
   onCreateListing,
@@ -48,18 +48,18 @@ export function RentalPriceEstimationFlowView({
         onChat={onOpenChat}
         onDiscover={onOpenDiscover}
         onListing={() => {
-          if (isLandlord) {
+          if (canPostProperty) {
             onOpenListings();
             return;
           }
-          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
+          viewModel.setNotice('Complete account verification to manage listings.');
         }}
         onPost={() => {
-          if (isLandlord) {
+          if (canPostProperty) {
             onCreateListing();
             return;
           }
-          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
+          viewModel.setNotice('Complete account verification before posting.');
         }}
         onTenancy={onOpenMaintenance}
       />

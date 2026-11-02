@@ -15,7 +15,7 @@ import { LiveSearchResultsView, LivePropertyDetailView, LiveSearchFiltersView } 
 
 interface SearchDiscoveryFlowViewProps {
   accountId?: string | undefined;
-  isLandlord: boolean;
+  canPostProperty: boolean;
   initialScreen?: 'home' | 'matchingPreferences';
   introduction?: boolean;
   initialPreferences?: MatchingPreferences | undefined;
@@ -44,7 +44,7 @@ const supplementaryScreens = new Set([
 
 export function SearchDiscoveryFlowView({
   accountId,
-  isLandlord,
+  canPostProperty,
   initialScreen = 'home',
   introduction = false, initialPreferences, onSavePreferences, onIntroductionComplete, registerBackAction,
   onClose,
@@ -91,18 +91,18 @@ export function SearchDiscoveryFlowView({
         onChat={() => viewModel.requestNavigation(onOpenChat)}
         onDiscover={() => viewModel.requestNavigation(viewModel.openHome)}
         onListing={() => {
-          if (isLandlord && onOpenListings) {
+          if (canPostProperty && onOpenListings) {
             viewModel.requestNavigation(onOpenListings);
             return;
           }
-          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
+          viewModel.setNotice('Complete account verification to manage listings.');
         }}
         onPost={() => {
-          if (isLandlord && onCreateListing) {
+          if (canPostProperty && onCreateListing) {
             viewModel.requestNavigation(onCreateListing);
             return;
           }
-          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
+          viewModel.setNotice('Complete account verification before posting.');
         }}
         onTenancy={() => viewModel.requestNavigation(onOpenMaintenance)}
       />

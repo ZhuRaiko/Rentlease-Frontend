@@ -27,7 +27,7 @@ export function TierThreeVerificationView({ viewModel: vm, onClose, onOverview }
     <VerificationScaffold title={title} onBack={back} onClose={onClose}>
       {vm.screen === 'intro' ? <>
         <Text style={styles.heading}>Verify a property you own</Text>
-        <Text style={styles.body}>Provide proof of ownership or authorization to lease for an existing property. Tier 2 is not required. Verification does not grant the Landlord role.</Text>
+        <Text style={styles.body}>Provide proof of ownership or authorization to lease for an existing property. Tier 2 is not required. Verification applies only to the selected property.</Text>
         <AppButton disabled={vm.busy || !vm.loaded || vm.requiresRefresh} label="Choose property" onPress={() => vm.navigate('property')} />
       </> : null}
       {vm.screen === 'property' ? <>

@@ -11,7 +11,7 @@ Tier 1 email/phone onboarding belongs here. Tier 2/3 documents and Admin review 
 - IMPLEMENTED: the singleton `SupabaseClient<Database>` persists the session in AsyncStorage and manages token auto-refresh through the existing AppState listener.
 - IMPLEMENTED: `App` mounts one `useAuthProfilesViewModel`; its `account` snapshot owns the current Auth user, profile, full recognized role collection, account status, tier timestamps and trust score.
 - The feature-local `accountSynchronization.ts` coordinates requests, generations and timers only. It does not store a second account/session snapshot.
-- `App` owns workspace selection, the Tenant/Landlord UI preference and saved Matching Preferences in account-scoped process memory. The workspace Modal is keyed by account ID so feature-local state is remounted across identity changes. These local preferences do not persist across restart or change backend membership.
+- `App` owns workspace selection, a display-only activity context and saved Matching Preferences in account-scoped process memory. The workspace Modal is keyed by account ID so feature-local state is remounted across identity changes. These local preferences do not persist across restart or change backend membership.
 
 ## Auth event synchronization and lifecycle
 
@@ -21,7 +21,7 @@ The root ViewModel creates the coordinator and subscription on mount, then start
 
 - `INITIAL_SESSION`: bootstrap loads the account; the event does not start another load.
 - `SIGNED_IN`, `USER_UPDATED`, `TOKEN_REFRESHED`, `MFA_CHALLENGE_VERIFIED`: event-driven refreshes are deferred with a zero-delay timer and coalesced.
-- `SIGNED_OUT`: immediately invalidates old reads and clears account, profile form, selected roles, registration/password/phone drafts, cooldown, history and sign-out modal; root workspace is cleared.
+- `SIGNED_OUT`: immediately invalidates old reads and clears account, profile form, profile preference drafts, registration/password/phone drafts, cooldown, history and sign-out modal; root workspace is cleared.
 - Explicit Auth/account mutations suppress their own notification-triggered reloads, then explicitly reload account state. Their events do not produce duplicate requests.
 - Token/sign-in notifications emitted by an active account read do not recursively reload that same identity. A different signed-in identity invalidates an older load.
 - An account switch hides the prior snapshot while the new identity is loaded. Generation checks prevent an older request from restoring stale account state.
@@ -36,7 +36,7 @@ Auth events are not a subscription to every profile/user_roles database change. 
 
 Account loading reads the persisted session, confirms the Auth user with `getUser`, then retrieves own `profiles` and `user_roles` before deriving routes.
 
-Successful sign-in, phone update/verification, explicit Tier 1 recovery, role selection and profile save reload the account. Profile save no longer forces Profile after the reload. During registrationPhone/mobileConfirmation/verificationPending only, the Auth ViewModel also checks on background-to-active return and once two seconds after entering verificationPending. Automatic checks have a 30-second cooldown, exclude overlapping checks and skip explicit loading operations. They use the existing background account coordinator, preserve unchanged OTP presentation, and add no interval polling. Effect cleanup removes the AppState listener/timer; coordinator generations still protect account switching/disposal. Delayed verification or errors retain Check again/Check verification status recovery.
+Successful sign-in, phone update/verification, explicit Tier 1 recovery and profile save reload the account. Profile save no longer forces Profile after the reload. During registrationPhone/mobileConfirmation/verificationPending only, the Auth ViewModel also checks on background-to-active return and once two seconds after entering verificationPending. Automatic checks have a 30-second cooldown, exclude overlapping checks and skip explicit loading operations. They use the existing background account coordinator, preserve unchanged OTP presentation, and add no interval polling. Effect cleanup removes the AppState listener/timer; coordinator generations still protect account switching/disposal. Delayed verification or errors retain Check again/Check verification status recovery.
 
 Routing uses `models/accountRouting.ts`:
 
@@ -44,16 +44,15 @@ Routing uses `models/accountRouting.ts`:
 2. Active Admin role → Admin-capable Profile destination and Admin workspace; ordinary email/Tier 1/role onboarding is bypassed.
 3. Ordinary unconfirmed email → email confirmation.
 4. Missing Tier 1 timestamp → phone onboarding, or pending synchronization if Auth already confirms a nonempty phone.
-5. Missing Tenant/Landlord role → role selection.
-6. Otherwise → ordinary Profile and marketplace eligibility; App selects Discovery or property management according to the permitted mode.
+5. Active Tier 1 ordinary accounts enter Profile and the marketplace regardless of legacy normal-role membership. App starts at Listings for experience_preference=list, otherwise Discover; Admin precedence is unchanged.
 
 The root opens a workspace when account identity or permitted workspace changes, not on every token refresh. RLS and backend Admin checks remain authoritative.
 
 ## Roles and profile rules
 
-- Roles are a collection: tenant, landlord, admin. Normal self-selection accepts Tenant, Landlord, or both through `set_user_roles({ requested_roles: string[] })`; frontend never offers Admin selection.
+- `user_roles` retains legacy normal memberships and separately assigned Admin. Onboarding no longer selects or writes normal roles. `set_user_roles` remains backward-compatible and is not used by new onboarding; Admin is never self-selectable.
 - UI mode changes no backend role. Tier 3 approval does not grant landlord.
-- The current profile editor directly updates only `display_name` and `bio` on the caller's row, then reloads the account. This safe existing path is retained.
+- The profile editor updates `display_name`, `bio`, and nullable `experience_preference` on the caller's row, then reloads the account. Preference (rent/list/both/unset) affects the starting destination and label only. Save is disabled for unchanged/reverted/invalid/busy drafts; late results are account-scoped.
 - `avatar_path` is a normal editable backend field but has no editor/upload flow in this phase.
 - Email/phone remain Auth operations. Account status, trust score, verification timestamps and suspension/moderation fields are not written by the editor.
 - Generated `update_my_profile` and `refresh_my_tier1_verification` RPCs are available but unused. Their presence alone does not establish that the current direct-write/refresh paths must change.
@@ -62,11 +61,11 @@ The root opens a workspace when account identity or permitted workspace changes,
 
 ### Marketplace navigation Phase 2 (2026-10-22)
 
-**IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED.** The prominent Profile mode switcher has been removed. Eligible ordinary Profile screens now use the root-supplied marketplace toolbar, with no selected marketplace tab. Discovery entry selects Tenant context for Tenant-capable accounts; Listings/Post selects Landlord context using actual membership. Chat/Maintenance retain that process-local perspective. These are workspace preferences, never backend roles. Landlord-only accounts default to property management but can browse Discovery. Dual-role accounts default to Tenant mode on entry. Listings/My Properties use one dashboard entry; Post uses the existing creation preview. All use actual backend-loaded Landlord membership, not the selected mode or Tier 3. Mode switching and navigation invoke no `set_user_roles` operation.
+**IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED (November 2 unified account).** The bottom toolbar stays Discover / Listings / Post / Tenancy / Chat. All eligible ordinary accounts can discover, manage their owned portfolio and start the existing Post composer without normal memberships. My Listings manages existing items; its empty state directs users to Post. No separate owner dashboard or creation flow was added. Preference determines the starting destination only. Chat/Maintenance remain previews with their existing display context; legacy context never authorizes backend operations. Root Auth snapshot, Back guards, account cleanup and Admin precedence remain intact.
 
 `viewModels/marketplaceIntroduction.ts` coordinates an account-scoped device-local marker through `services/marketplaceIntroductionService.ts` and `marketplaceIntroductionStorage.ts` (existing AsyncStorage dependency). A confirmed signup records `pending`; only explicit Save or Skip records `done`. Opening the editor does not complete it. Keys contain the account ID and values contain only pending/done, never credentials, tokens, account snapshots or preference contents. Signup marker failures do not repeat signup; the controller retries the local write on eligibility checking.
 
-Authoritative account routing still takes precedence: restrictions, Admin bypass, confirmed email, Tier 1 and backend-loaded roles. Before ordinary workspace entry the Auth ViewModel checks the marker; errors show Retry setup check instead of silently losing the offer. Checking/coalescing, epoch invalidation, disposal and account identity guards reject stale results. Sign-out clears memory, retaining the durable marker. Save/Skip must acknowledge storage before continuing; failure retains the introduction with recovery. Leaving through another marketplace tab keeps pending, so the offer returns after restart until Save/Skip.
+Authoritative account routing still takes precedence: restrictions, Admin bypass, confirmed email and Tier 1, independent of normal roles. Before ordinary workspace entry the Auth ViewModel checks the marker; errors show Retry setup check instead of silently losing the offer. Checking/coalescing, epoch invalidation, disposal and account identity guards reject stale results. Sign-out clears memory, retaining the durable marker. Save/Skip must acknowledge storage before continuing; failure retains the introduction with recovery. Leaving through another marketplace tab keeps pending, so the offer returns after restart until Save/Skip.
 
 Skip saves no preference edits. Save retains existing preferences in account-scoped App memory; their contents still disappear on restart/sign-out. Profile can reopen the editor. No preference backend, ranking, role mutation or second account owner was added. Auth callback synchronization and bootstrap coordination remain unchanged.
 
@@ -74,7 +73,7 @@ Limitations: markers cover successful signups observed after this correction, on
 
 Registration password correction: the first native input was reused from Email to Password while Confirm Password mounted fresh. Installed React Native Android setters can retain email variation flags when changing keyboard class, explaining the asymmetric secure-entry path. `AuthField` now gives each question/secure-field identity a distinct TextInput key and explicitly uses the default keyboard for password fields. Visibility is excluded from the key, preserving the mounted input and controlled value during Show/Hide; each field retains independent visibility. This source-level cause/fix is automated-tested; actual hiding, focus, autofill and keyboard behavior remain Android RUNTIME-UNVERIFIED. `models/authInputPresentation.ts` owns the pure identity mapping.
 
-Manual Android acceptance: restart during email confirmation and phone OTP, finish Tier 1/roles, and expect the optional screen. Open then restart without Save/Skip and expect it again. Save or Skip, restart/sign in, and expect no repeat. Test another account, restricted/Admin precedence, local storage recovery, duplicate taps, normal Profile editing, and both password Show/Hide controls while preserving values/focus. Recheck dual-role navigation and existing verification flows without modifying approved records.
+Manual Android acceptance: restart during email confirmation and phone OTP, finish Tier 1, and expect the optional screen. Open then restart without Save/Skip and expect it again. Save or Skip, restart/sign in, and expect no repeat. Test another account, restricted/Admin precedence, local storage recovery, duplicate taps, normal Profile editing, and both password Show/Hide controls while preserving values/focus. Recheck dual-role navigation and existing verification flows without modifying approved records.
 
 ### UI refinement Phase 1 (2026-10-22)
 
@@ -82,7 +81,7 @@ Manual Android acceptance: restart during email confirmation and phone OTP, fini
 
 Auth notices now carry a ViewModel-owned semantic tone: validation/service errors, successful saves/resends, pending/uncertain warnings and neutral instructions are distinct. Shared `FeedbackNotice` renders these tones without classifying message strings in Views. The root account snapshot, Auth subscription/bootstrap, service operations and routing precedence are unchanged.
 
-Profile keeps the initials avatar fallback, real display name/bio and capitalized roles. A compact summary derives Tier 1/2/3 indications from existing backend profile timestamps via `models/accountPresentation.ts`; it does not fetch or invent submission states. Missing timestamps show Not Verified, with Not Applicable for ordinary Tier 1 onboarding bypassed by Admin and Tier 3 absent on a non-landlord. Existing timestamps remain evidence even when a role later changes. Tier 3 is explicitly an account indication, not approval of every property. The Verification action opens authoritative submission/property details; pending, under-review and rejection details remain there. No avatar upload or new profile query is added.
+Profile keeps the initials avatar fallback, real display name/bio and capitalized roles. A compact summary derives Tier 1/2/3 indications from existing backend profile timestamps via `models/accountPresentation.ts`; it does not fetch or invent submission states. Missing timestamps show Not Verified, with Not Applicable for ordinary Tier 1 onboarding bypassed by Admin and Tier 3 absent on a non-landlord. Existing timestamps remain evidence even when a role later changes. Tier 3 is always checked per property; an account timestamp or preference cannot establish publication eligibility. The Verification action opens authoritative submission/property details; pending, under-review and rejection details remain there. No avatar upload or new profile query is added.
 
 Profile now focuses on identity, verification summary, Edit Profile, Matching Preferences, Verification, Ratings & Reports and Account Settings. Notifications is now in the Discovery header. Discover Properties/My Properties duplicate rows and prominent mode pills are removed; the root-supplied marketplace toolbar preserves access. Labels and descriptions stack within flexible rows instead of competing horizontally. Edit Profile stays discoverable on Profile and Account Settings. Settings groups actual contact, role and account information without treating a missing phone as proof of failed verification. Shared buttons retain existing variants, allow text wrapping/system scaling, expose disabled accessibility state and use a darker green action token for readable white labels.
 

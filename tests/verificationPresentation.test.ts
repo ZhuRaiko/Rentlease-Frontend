@@ -14,9 +14,9 @@ test('verification statuses retain exact meaning and distinct feedback tones', (
 });
 test('profile does not invent pending submissions or property approval from missing/account timestamps', () => {
   const summary = accountVerificationSummary({ tier1_verified_at: 'date', tier2_verified_at: null, tier3_verified_at: null }, ['tenant']);
-  assert.deepEqual(summary.map(item => item.status.label), ['Verified', 'Not Verified', 'Not Applicable']);
+  assert.deepEqual(summary.map(item => item.status.label), ['Verified', 'Not Verified', 'Checked per Property']);
   const landlord = accountVerificationSummary({ tier1_verified_at: 'date', tier2_verified_at: 'date', tier3_verified_at: 'date' }, ['tenant', 'landlord']);
-  assert.equal(landlord[2]?.status.label, 'Verified');
+  assert.equal(landlord[2]?.status.label, 'Checked per Property');
   assert.match(landlord[2]?.detail ?? '', /individual property/i);
   assert.equal(accountVerificationSummary(null, ['admin'])[0]?.status.label, 'Not Applicable');
 });

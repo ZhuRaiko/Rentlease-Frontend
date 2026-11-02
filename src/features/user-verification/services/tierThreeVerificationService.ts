@@ -12,9 +12,7 @@ export function createTierThreeVerificationService(getClient: () => SupabaseClie
     const id = auth.user.id;
     const { data: profile, error: profileError } = await client.from('profiles').select('account_status,tier1_verified_at').eq('id', id).maybeSingle();
     if (profileError) throw profileError;
-    const { data: roles, error: roleError } = await client.from('user_roles').select('role').eq('user_id', id);
-    if (roleError) throw roleError;
-    if (profile?.account_status !== 'active' || !profile.tier1_verified_at || !roles?.some(row => row.role === 'landlord')) throw new Error('Tier 3 requires an active Tier 1-verified landlord account.');
+    if (profile?.account_status !== 'active' || !profile.tier1_verified_at) throw new Error('Tier 3 requires an active Tier 1-verified account.');
     return id;
   };
   const assertIdentity = async (userId: string) => {

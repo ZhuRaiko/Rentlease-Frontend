@@ -69,11 +69,11 @@ export function VerificationOverviewView({
               ? { label: tierOneVerified ? 'Verified' : 'Required in Onboarding', tone: tierOneVerified ? 'success' : 'info' }
               : item.tier === 2 ? viewModel.submission ? tierTwoSubmissionPresentation(viewModel.submission, viewModel.requiresRefresh)
                 : { label: viewModel.isLoading ? 'Checking Status' : !viewModel.loaded || viewModel.requiresRefresh ? 'Status Unavailable' : 'Not Started', tone: 'info' }
-              : { label: tierThreeEligible ? 'Checked per Property' : 'Landlord Access Required', tone: 'info' }}
+              : { label: tierThreeEligible ? 'Checked per Property' : 'Tier 1 Required', tone: 'info' }}
             onPress={() => item.tier === 3 ? onOpenTierThree() : viewModel.navigate(viewModel.submission ? 'tier2Status' : 'tier2Intro')}
             disabled={item.tier === 3 ? !tierThreeEligible || viewModel.busy : item.tier !== 2 || !viewModel.loaded || viewModel.requiresRefresh || viewModel.busy}
             actionLabel={item.tier === 1 ? ''
-              : item.tier === 3 ? tierThreeEligible ? 'Choose property' : 'Requires Tier 1 + Landlord' : viewModel.isLoading ? 'Loading…'
+              : item.tier === 3 ? tierThreeEligible ? 'Choose property' : 'Requires Tier 1' : viewModel.isLoading ? 'Loading…'
               : viewModel.submission?.status === 'pending' && !viewModel.submission.hasDocument ? 'View incomplete upload' : viewModel.submission ? 'View submission' : 'Verify identity'}
           />
       ))}</View>

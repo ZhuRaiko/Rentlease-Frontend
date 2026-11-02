@@ -10,7 +10,7 @@ import { NotificationCenterView } from './NotificationCenterView';
 import { NotificationPermissionView } from './NotificationPermissionView';
 
 interface NotificationsFlowViewProps {
-  isLandlord: boolean;
+  canPostProperty: boolean;
   onClose: () => void;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onCreateListing: () => void;
@@ -23,7 +23,7 @@ interface NotificationsFlowViewProps {
 }
 
 export function NotificationsFlowView({
-  isLandlord,
+  canPostProperty,
   onClose,
   registerBackAction,
   onCreateListing,
@@ -46,9 +46,9 @@ export function NotificationsFlowView({
     else if (target === 'verification') onOpenVerification();
     else if (target === 'ratingsReports') onOpenRatingsReports();
     else if (target === 'discovery') onOpenDiscover();
-    else if (target === 'listings' && isLandlord) onOpenListings();
+    else if (target === 'listings' && canPostProperty) onOpenListings();
     else if (target === 'listings') {
-      viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
+      viewModel.setNotice('Complete account verification to manage listings.');
     }
   };
 
@@ -67,20 +67,20 @@ export function NotificationsFlowView({
         onChat={onOpenChat}
         onDiscover={onOpenDiscover}
         onListing={() => {
-          if (isLandlord) {
+          if (canPostProperty) {
             onOpenListings();
             return;
           }
           viewModel.openCenter();
-          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
+          viewModel.setNotice('Complete account verification to manage listings.');
         }}
         onPost={() => {
-          if (isLandlord) {
+          if (canPostProperty) {
             onCreateListing();
             return;
           }
           viewModel.openCenter();
-          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
+          viewModel.setNotice('Complete account verification before posting.');
         }}
         onTenancy={onOpenMaintenance}
       />
