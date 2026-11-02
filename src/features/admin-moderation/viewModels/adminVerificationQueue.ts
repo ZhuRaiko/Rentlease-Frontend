@@ -12,13 +12,14 @@ interface QueueState {
   documentPreview: AdminDocumentPreview | null;
   reviewDialog: AdminReviewStatus | null;
   rejectionReason: string;
+  sameAssetConfirmed:boolean;
   reviewBusy: boolean;
   reviewError: string | null;
   reviewNotice: string | null;
   reviewNeedsRefresh: boolean;
 }
 export function createAdminVerificationQueue(service: AdminVerificationService) {
-  let state: QueueState = { queue: [], status: 'idle', error: null, detail: null, detailStatus: 'idle', detailError: null, documentPreview: null, reviewDialog: null, rejectionReason: '', reviewBusy: false, reviewError: null, reviewNotice: null, reviewNeedsRefresh: false };
+  let state: QueueState = { queue: [], status: 'idle', error: null, detail: null, detailStatus: 'idle', detailError: null, documentPreview: null, reviewDialog: null, rejectionReason: '', sameAssetConfirmed:false, reviewBusy: false, reviewError: null, reviewNotice: null, reviewNeedsRefresh: false };
   let disposed = false; let generation = 0; let detailGeneration = 0;
   let previewGeneration = 0;
   let reviewGeneration = 0;
@@ -47,20 +48,22 @@ export function createAdminVerificationQueue(service: AdminVerificationService) 
     reviewActions,
     requestReview(status: AdminReviewStatus) {
       if (!reviewActions().includes(status)) return;
-      closePrivateDocument(); update({ reviewDialog: status, rejectionReason: '', reviewError: null, reviewNotice: null });
+      closePrivateDocument(); update({ reviewDialog: status, rejectionReason: '', sameAssetConfirmed:false, reviewError: null, reviewNotice: null });
     },
     cancelReview() { if (!state.reviewBusy) update({ reviewDialog: null, rejectionReason: '' }); },
+    setSameAssetConfirmed(value:boolean){if(!state.reviewBusy)update({sameAssetConfirmed:value});},
     setRejectionReason(rejectionReason: string) { if (!state.reviewBusy && state.reviewDialog === 'rejected') update({ rejectionReason }); },
     async confirmReview(): Promise<boolean> {
       const status = state.reviewDialog; const detail = state.detail;
       if (!status || !detail || !reviewActions().includes(status)) return false;
       const reason = state.rejectionReason.trim();
       if (status === 'rejected' && !reason) { update({ reviewError: 'Enter a rejection reason.' }); return false; }
+      if(status==='approved'&&detail.identity?.same_asset_required&&!state.sameAssetConfirmed){update({reviewError:'Confirm the evidence corrects the same physical property.'});return false;}
       const request = ++reviewGeneration;
       closePrivateDocument(); generation++; detailGeneration++;
       update({ reviewBusy: true, reviewError: null, reviewNotice: null });
       try {
-        await service.reviewSubmission({ submissionId: detail.item.submissionId, status, ...(status === 'rejected' ? { rejectionReason: reason } : {}) });
+        await service.reviewSubmission({ submissionId: detail.item.submissionId, status, ...(detail.identity?{identity:detail.identity,sameAssetConfirmed:state.sameAssetConfirmed}:{}), ...(status === 'rejected' ? { rejectionReason: reason } : {}) });
       } catch {
         if (!disposed && request === reviewGeneration) update({ reviewBusy: false, reviewDialog: null, rejectionReason: '', reviewNeedsRefresh: true, reviewError: 'Could not confirm the review result. Refresh before trying again; check your connection, Admin access and submission requirements.' });
         return false;
@@ -129,6 +132,6 @@ export function createAdminVerificationQueue(service: AdminVerificationService) 
         if (request === detailGeneration) update({ detail, detailStatus: 'success' });
       } catch (error) { if (request === detailGeneration) update({ detail: null, detailStatus: 'error', detailError: (error as AppError).message || 'Could not load verification details.' }); }
     },
-    dispose() { state = { ...state, documentPreview: null, reviewDialog: null, rejectionReason: '', reviewBusy: false }; disposed = true; generation++; detailGeneration++; previewGeneration++; reviewGeneration++; listeners.clear(); },
+    dispose() { state = { ...state, documentPreview: null, reviewDialog: null, rejectionReason: '', sameAssetConfirmed:false, reviewBusy: false }; disposed = true; generation++; detailGeneration++; previewGeneration++; reviewGeneration++; listeners.clear(); },
   };
 }

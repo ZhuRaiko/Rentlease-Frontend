@@ -1,3 +1,4 @@
+import type {IdentityReviewContext} from '../../../shared/models/PropertyIdentity';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import { normalizeError } from '../../../shared/errors/AppError';
@@ -19,6 +20,11 @@ export function createAdminVerificationService(getClient: () => SupabaseClient<D
       try {
         const reason = input.rejectionReason?.trim();
         if (input.status === 'rejected' && !reason) throw new Error('Reason required');
+        if(input.identity){
+          const c=input.identity;
+          const {error}=await getClient().rpc('review_property_identity_verification',{p_submission_id:input.submissionId,p_expected_submission_version:c.submission_version,p_expected_property_version:c.property_version,p_expected_correction_version:c.correction_version,p_status:input.status,p_same_asset_confirmed:input.sameAssetConfirmed===true,...(input.reviewNote?{p_note:input.reviewNote}:{}),...(reason?{p_reason:reason}:{})});
+          if(error)throw error;return;
+        }
         // Generated optional text arguments exclude null. Omission uses the RPC's SQL NULL defaults.
         const args: Database['public']['Functions']['review_verification_submission']['Args'] = {
           requested_submission_id: input.submissionId, requested_status: input.status,
@@ -55,7 +61,15 @@ export function createAdminVerificationService(getClient: () => SupabaseClient<D
           .select('id,submission_id,document_type,storage_path,file_name,mime_type,created_at')
           .eq('submission_id', submissionId).order('created_at', { ascending: true }).order('id', { ascending: true });
         if (error) throw error;
-        return { item, documents: data ?? [] };
+        let identity:IdentityReviewContext|undefined;
+        if(item.tier==='tier_3_property'){
+          const result=await getClient().rpc('get_admin_property_identity_review',{p_submission_id:submissionId});
+          if(result.error)throw result.error;
+          const c=result.data as unknown as IdentityReviewContext;
+          if(!c||typeof c.submission_version!=='string'||typeof c.property_version!=='string'||!c.current||!c.proposed||c.requires_repair)throw new Error('Identity review context unavailable.');
+          identity=c;
+        }
+        return { item, documents: data ?? [], ...(identity?{identity}:{}) };
       } catch (error) { throw { ...normalizeError(error), message: 'Could not load this verification submission. Refresh the queue and try again.' }; }
     },
   };

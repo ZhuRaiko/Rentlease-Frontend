@@ -1,4 +1,5 @@
 import {getSupabaseClient} from '../../../shared/services/supabase/client';
 import {createTierThreeVerificationService} from '../../user-verification/services/tierThreeVerificationService';
-// Reuse the verification feature's ownership and authorization reads; no new contract.
-export const propertyVerificationService=createTierThreeVerificationService(getSupabaseClient);
+// Publication/ordinary entry reflects canonical identity, not a pending proposal.
+const service=createTierThreeVerificationService(getSupabaseClient);
+export const propertyVerificationService={getEligibleUserId:service.getEligibleUserId,fetchLatest:service.fetchCurrent};

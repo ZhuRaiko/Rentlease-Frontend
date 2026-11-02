@@ -934,6 +934,8 @@ export type Database = {
       }
       properties: {
         Row: {
+          edit_version: string
+          media_version: string
           barangay: string
           bathrooms: number
           bedrooms: number
@@ -953,6 +955,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          edit_version?: string
+          media_version?: string
           barangay: string
           bathrooms?: number
           bedrooms?: number
@@ -972,6 +976,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          edit_version?: string
+          media_version?: string
           barangay?: string
           bathrooms?: number
           bedrooms?: number
@@ -1581,6 +1587,8 @@ export type Database = {
       }
       tenancies: {
         Row: {
+          accepted_identity_revision_id: string | null
+          accepted_property_edit_version: string | null
           activated_at: string | null
           actual_end_date: string | null
           agreed_monthly_rent: number
@@ -1603,6 +1611,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accepted_identity_revision_id?: string | null
+          accepted_property_edit_version?: string | null
           activated_at?: string | null
           actual_end_date?: string | null
           agreed_monthly_rent: number
@@ -1625,6 +1635,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accepted_identity_revision_id?: string | null
+          accepted_property_edit_version?: string | null
           activated_at?: string | null
           actual_end_date?: string | null
           agreed_monthly_rent?: number
@@ -1926,6 +1938,10 @@ export type Database = {
       }
       verification_submissions: {
         Row: {
+          identity_revision_id: string | null
+          identity_correction_id: string | null
+          identity_review_version: string
+          ready_for_review_at: string | null
           id: string
           property_id: string | null
           rejection_reason: string | null
@@ -1940,6 +1956,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          identity_revision_id?: string | null
+          identity_correction_id?: string | null
+          identity_review_version?: string
+          ready_for_review_at?: string | null
           id?: string
           property_id?: string | null
           rejection_reason?: string | null
@@ -1954,6 +1974,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          identity_revision_id?: string | null
+          identity_correction_id?: string | null
+          identity_review_version?: string
+          ready_for_review_at?: string | null
           id?: string
           property_id?: string | null
           rejection_reason?: string | null
@@ -2207,6 +2231,27 @@ export type Database = {
       }
     }
     Functions: {
+      get_owned_property_identity_statuses: {Args: {p_property_ids:string[]}; Returns:{property_id:string;verified:boolean;requires_repair:boolean;current_submission_id:string|null}[]}
+      get_property_identity_context: {Args: {p_property_id: string}; Returns: Json}
+      get_property_identity_operation: {Args: {p_property_id: string; p_operation_id: string}; Returns: Json}
+      manage_property_identity: {Args: {p_property_id: string; p_expected_version: string; p_operation_id: string; p_action: string; p_identity?: Json; p_correction_id?: string; p_expected_correction_version?:string}; Returns: Json}
+      get_property_identity_submission: {Args: {p_property_id: string; p_current_only?:boolean}; Returns: Json}
+      begin_property_identity_verification: {Args: {p_property_id: string; p_expected_revision?:string}; Returns: Json}
+      attach_property_identity_document: {Args: {p_submission_id: string; p_document_type: Database['public']['Enums']['verification_document_type']; p_storage_path: string; p_file_name: string; p_mime_type: string}; Returns: undefined}
+      get_admin_property_identity_review: {Args: {p_submission_id: string}; Returns: Json}
+      review_property_identity_verification: {Args: {p_submission_id: string; p_expected_submission_version: string; p_expected_property_version: string; p_expected_correction_version: string | null; p_status: Database['public']['Enums']['verification_status']; p_same_asset_confirmed: boolean; p_note?: string; p_reason?: string}; Returns: undefined}
+
+      get_owned_property_edit_context: { Args: { p_property_id: string }; Returns: Json }
+      get_property_details_operation: { Args: { p_property_id: string; p_request_id: string }; Returns: Json }
+      update_property_details: {
+        Args: { p_property_id: string; p_expected_edit_version: string; p_request_id: string; p_bedrooms: number; p_bathrooms: number; p_floor_area_sqm: number | null; p_max_occupants: number | null; p_total_floors: number | null; p_furnishing_status: Database["public"]["Enums"]["furnishing_status"]; p_amenity_ids: number[]; p_access_instructions: string | null }
+        Returns: Json
+      }
+
+      get_property_media_state: { Args: { p_property_id: string }; Returns: string }
+      get_property_media_operation: { Args: { p_property_id: string; p_request_id: string }; Returns: Json }
+      manage_property_media: { Args: { p_property_id: string; p_expected_version: string; p_request_id: string; p_action: string; p_args?: Json }; Returns: Json }
+
       begin_tier2_verification_resubmission: {
         Args: never
         Returns: {

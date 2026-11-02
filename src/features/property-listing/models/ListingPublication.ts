@@ -1,15 +1,14 @@
 import { isPropertyUuid } from './DraftProperty';
-import type { ListingDraftFields, SavedListingDraft } from './PersistedListingDraft';
+import {listingFieldsEqual,type ListingDraftFields,type SavedListingDraft} from './PersistedListingDraft';
 export type PublicationListing = SavedListingDraft;
 export class PublicationError extends Error {
   constructor(message: string, public readonly kind: 'rejected' | 'uncertain' | 'identity' | 'read' = 'rejected') { super(message); }
 }
-const fields: (keyof ListingDraftFields)[] = ['title', 'description', 'askingRent', 'houseRules', 'rentalTerm', 'securityDepositMonths', 'advanceRentMonths', 'minimumStayMonths', 'availableDate'];
 export function confirmedListingFields(row: PublicationListing): ListingDraftFields {
   return { title: row.title, description: row.description, askingRent: String(row.asking_rent_monthly), houseRules: row.house_rules ?? '', rentalTerm: row.rental_term, securityDepositMonths: String(row.security_deposit_months), advanceRentMonths: String(row.advance_rent_months), minimumStayMonths: row.minimum_stay_months === null ? '' : String(row.minimum_stay_months), availableDate: row.available_from ?? '' };
 }
 export function listingFieldsUnchanged(form: ListingDraftFields, row: PublicationListing): boolean {
-  const expected = confirmedListingFields(row); return fields.every(field => form[field] === expected[field]);
+  return listingFieldsEqual(form,confirmedListingFields(row));
 }
 export function publicationEligibility(propertyId: string | null, row: PublicationListing | null, form: ListingDraftFields, uncertainSave: boolean): string | null {
   if (!isPropertyUuid(propertyId) || !row || !isPropertyUuid(row.id) || row.property_id !== propertyId) return 'Save a listing draft for your saved property before publishing.';

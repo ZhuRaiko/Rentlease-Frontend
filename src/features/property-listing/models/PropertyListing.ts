@@ -6,6 +6,8 @@ export type ListingScreen =
   | 'empty'
   | 'postingType'
   | 'propertySetup'
+  | 'propertyEdit'
+  | 'identityEdit'
   | 'listingComposer'
   | 'listingDetails'
   | 'draftSaved'

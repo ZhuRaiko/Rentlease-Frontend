@@ -20,7 +20,7 @@ export function PropertyDashboardView({ viewModel: vm }: { viewModel: PropertyLi
     {state.loaded && !state.items.length ? <View style={styles.empty}><Text style={styles.heading}>No properties yet</Text><Text style={styles.body}>Start by adding your first rental property.</Text><ListingButton label="Post a property" onPress={vm.startCreate} /></View> : null}
     {vm.portfolioItems.map(item => {
       const listing = item.currentListing;
-      const verificationAction=propertyVerificationActionLabel(item.tier3.status);
+      const verificationAction=item.tier3.requiresRepair?null:propertyVerificationActionLabel(item.tier3.status);
       const action = !listing ? 'Create listing' : listing.status === 'draft' ? 'Continue draft' : ['active', 'paused'].includes(listing.status) ? 'Manage listing' : listing.status === 'removed' ? 'View status' : 'View listing';
       return <View key={item.propertyId} style={styles.card}>
         {item.coverPhoto ? <Image accessibilityLabel={`Cover of ${listing?.title || portfolioType(item.property)}`} source={{ uri: item.coverPhoto.publicUrl }} style={styles.cover} /> : <View style={styles.placeholder}><Text style={styles.supporting}>Property photos not added yet</Text></View>}
@@ -29,9 +29,10 @@ export function PropertyDashboardView({ viewModel: vm }: { viewModel: PropertyLi
           <Text style={styles.body}>{portfolioLocation(item.property)}</Text>
           {listing ? <Text style={styles.rent}>{"\u20b1"}{listing.asking_rent_monthly.toLocaleString('en-PH')} / month</Text> : null}
           <Text style={styles.status}>{listing ? portfolioListingLabels[listing.status] : 'No listing yet'}</Text>
-          <Text style={styles.supporting}>{item.tier3.status==='approved'?'Property Verified':portfolioTierLabels[item.tier3.status]}</Text>
+          <Text style={styles.supporting}>{item.tier3.requiresRepair?'Identity data repair required':item.tier3.status==='approved'?(item.tier3.identityBindingAvailable===false?'Approval history (identity check pending)':'Property Verified'):portfolioTierLabels[item.tier3.status]}</Text>
           {!item.property.is_active ? <Text style={styles.supporting}>Property inactive. Listing changes may be unavailable.</Text> : null}
           <ListingButton label={action} tone="outline" disabled={vm.portfolioActionsDisabled} onPress={() => vm.openPortfolioItem(item.propertyId)} />
+          {item.property.is_active&&(!listing||!['draft','active','paused'].includes(listing.status))?<ListingButton label="Edit Property Details" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>vm.openPortfolioProperty(item.propertyId)}/>:null}
           {listing&&item.property.is_active&&['active','paused'].includes(listing.status)?<ListingButton label="Edit Listing" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>vm.editPortfolioListing(item.propertyId)}/>:null}
           {vm.propertyVerificationState?.propertyId===item.propertyId?<FeedbackNotice tone="error" message={vm.propertyVerificationState.error}/>:null}
           {verificationAction?<ListingButton label={verificationAction} tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>void vm.openPortfolioVerification(item.propertyId)}/>:null}

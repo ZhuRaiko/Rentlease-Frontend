@@ -19,6 +19,7 @@ export function createPropertyVerificationEntry(service:Pick<TierThreeVerificati
   activate(){disposed=false;},dispose(){disposed=true;generation++;state=initial();owner=null;listeners.clear();},
   setProperty(id:string|null){if(id===state.propertyId)return;generation++;owner=null;update(initial(isPropertyUuid(id)?id:null));},refresh,
   async open(){if(disposed||state.opening||state.entryPropertyId||!canOpen())return;const g=generation;update({opening:true});try{if(await refresh()&&alive(g)&&state.status!=='approved')update({entryPropertyId:state.propertyId});}finally{if(alive(g))update({opening:false});}},
+  async openCorrection(){if(disposed||state.opening||state.entryPropertyId||!canOpen())return;const g=generation;update({opening:true});try{if(await refresh()&&alive(g))update({entryPropertyId:state.propertyId});}finally{if(alive(g))update({opening:false});}},
   async openForProperty(id:string):Promise<void>{if(disposed||state.opening||state.entryPropertyId||!canOpen()||!isPropertyUuid(id))return;workflow.setProperty(id);await workflow.open();},
   async close(){if(disposed||!state.entryPropertyId)return;update({entryPropertyId:null});await refresh();},
  };

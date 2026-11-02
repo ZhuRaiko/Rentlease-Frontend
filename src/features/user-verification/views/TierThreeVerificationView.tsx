@@ -39,6 +39,7 @@ export function TierThreeVerificationView({ viewModel: vm, onClose, onOverview }
         </Pressable>) : null}
       </> : null}
       {property && vm.screen !== 'property' && vm.screen !== 'intro' ? <View style={styles.summary}><Text style={styles.caption}>Selected property</Text><Text style={styles.propertyTitle}>{verificationPropertyLabel(property)}</Text></View> : null}
+      {vm.submission?.identityCorrection&&vm.screen!=='status'?<Text style={styles.body}>Proof must describe the proposed corrected identity, not the previous identity. Saving this submission does not publish the listing.</Text>:null}
       {vm.screen === 'documentType' ? <>
         <Text style={styles.body}>Choose the ownership or authorization proof you will provide.</Text>
         {!vm.busy && !vm.requiresRefresh ? tierThreeDocumentOptions.map(option => <SelectionRow key={option.value} label={option.label} selected={vm.documentType === option.value} onPress={() => vm.chooseDocumentType(option.value)} />) : null}
@@ -65,12 +66,14 @@ export function TierThreeVerificationView({ viewModel: vm, onClose, onOverview }
       </> : null}
       {vm.screen === 'status' ? <>
         {submission ? <VerificationStatusIndicator {...verificationStatusPresentation(submission.status)} /> : <Text style={styles.heading}>Status unavailable</Text>}
-        <Text style={styles.body}>{submission?.status === 'approved' ? 'This property verification was approved. Approval applies to this property.' : 'New submissions or replacement documents for this property are not available here.'}</Text>
+        <Text style={styles.body}>{submission?.status === 'approved' ? 'This property verification was approved. Approval applies to this property.' : submission?.identityCorrection ? 'This evidence concerns a proposed identity correction. The current approved identity remains unchanged until Admin approval.' : 'Review the current submission status. Rejected or incomplete requests can be resumed explicitly when allowed.'}</Text>
         {submission && !submission.hasDocument ? <FeedbackNotice tone="warning" message="No document attachment could be confirmed. This request may be incomplete. No automatic upload retry or cleanup was performed." /> : null}
         {submission?.rejection_reason ? <FeedbackNotice tone="error" message={`Rejection reason: ${submission.rejection_reason}`} /> : null}
         {submission?.review_note ? <Text style={styles.body}>Review note: {submission.review_note}</Text> : null}
         {submission ? <Text style={styles.body}>Submitted: {formatVerificationDate(submission.submitted_at)}</Text> : null}
         {submission?.reviewed_at ? <Text style={styles.body}>Reviewed: {formatVerificationDate(submission.reviewed_at)}</Text> : null}
+        {submission?.identityCorrection&&['rejected','cancelled'].includes(submission.status)?<Text style={styles.body}>Return to Edit Property Details to revise the correction and submit fresh proof. The previous approved identity remains unchanged.</Text>:null}
+        {vm.canResume?<AppButton disabled={vm.busy} label={submission?.status==='pending'?"Resume incomplete submission":"Resubmit Verification"} onPress={vm.resume}/>:null}
         <AppButton disabled={vm.busy} label="Choose another property" onPress={() => vm.navigate('property')} variant="secondary" />
       </> : null}
       {vm.isLoading ? <Text accessibilityLiveRegion="polite" style={styles.body}>Loading property verification...</Text> : null}

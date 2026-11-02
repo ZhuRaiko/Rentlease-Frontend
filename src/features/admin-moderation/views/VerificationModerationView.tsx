@@ -1,3 +1,4 @@
+import {identityDisplayFields,identityLocationChanged} from '../../../shared/models/PropertyIdentity';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { VerificationStatusBadge } from '../../../shared/components/VerificationStatusBadge';
 import { verificationStatusPresentation } from '../../../shared/models/verificationPresentation';
@@ -44,6 +45,11 @@ export function VerificationModerationView({ viewModel }: { viewModel: AdminMode
         {item.propertyId ? <DetailRow readable label="Property ID" value={item.propertyId} /> : null}
         <DetailRow readable label="Submitted note" value={item.submittedNote ?? 'No note provided'} last />
       </DetailCard>
+      {detail.identity?<>
+       <Text accessibilityRole="header" style={styles.sectionLabel}>{detail.identity.same_asset_required?'Property identity correction':'Property identity being verified'}</Text>
+       {identityDisplayFields.map(([key,label])=><View key={key} style={{marginBottom:spacing.sm}}><Text style={styles.inputLabel}>{label}</Text><Text style={styles.viewerNoteBody}>Current: {String(detail.identity!.current[key]??'Not specified').replace(/_/g,' ')}</Text>{detail.identity!.same_asset_required?<Text style={styles.viewerNoteBody}>Proposed: {String(detail.identity!.proposed[key]??'Not specified').replace(/_/g,' ')}</Text>:null}</View>)}
+       <Text style={styles.viewerNoteBody}>{identityLocationChanged(detail.identity.current,detail.identity.proposed)?'Private/public location changes are proposed. Confirm the evidence describes the same physical rental.':'Confirmed location is unchanged.'} Exact coordinates are kept private. Relocation, splitting, merging, or another unit requires a new property.</Text>
+      </>:null}
       <View style={styles.documentSummary}>
         <View style={styles.documentCount}><Text style={styles.documentCountValue}>{documents.length}</Text></View>
         <View style={styles.documentCopy}><Text style={styles.documentTitle}>Documents attached</Text><Text style={styles.documentBody}>Private image previews are available on demand.</Text></View>
@@ -80,6 +86,7 @@ export function VerificationModerationView({ viewModel }: { viewModel: AdminMode
               <Text style={styles.inputLabel}>Rejection reason (required)</Text>
               <TextInput accessibilityLabel="Rejection reason" multiline editable={!review.reviewBusy} onChangeText={viewModel.setRejectionReason} value={review.rejectionReason} style={styles.textArea} textAlignVertical="top" />
             </> : null}
+            {review.reviewDialog==='approved'&&detail.identity?.same_asset_required?<AppButton variant="secondary" disabled={review.reviewBusy} label={review.sameAssetConfirmed?'Same physical property confirmed':'Confirm evidence describes the same physical property'} onPress={()=>viewModel.setSameAssetConfirmed(!review.sameAssetConfirmed)}/>:null}
             <FeedbackNotice tone="error" message={review.reviewError} />
             <AppButton disabled={review.reviewBusy || (review.reviewDialog === 'rejected' && !review.rejectionReason.trim())} label={review.reviewBusy ? 'Saving review...' : review.reviewDialog === 'approved' ? 'Approve' : review.reviewDialog === 'rejected' ? 'Reject' : 'Start review'} onPress={() => void viewModel.confirmReview()} variant={review.reviewDialog === 'rejected' ? 'danger' : 'primary'} />
             <AppButton disabled={review.reviewBusy} label="Cancel" onPress={viewModel.cancelReview} variant="secondary" />

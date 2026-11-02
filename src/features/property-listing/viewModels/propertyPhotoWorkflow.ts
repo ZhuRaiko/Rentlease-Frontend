@@ -8,10 +8,10 @@ interface PhotoState {
   selected: SelectedDocument | null; altText: string; altDrafts: Record<string, string>;
   error: string | null; notice: string | null; needsReconcile: boolean; removeId: string | null;
   pendingSelections: SelectedDocument[]; uncertainSelection: SelectedDocument | null;
-  activeMediaIndex: number; mediaViewerOpen: boolean;
+  activeMediaIndex: number; mediaViewerOpen: boolean; detailId:string|null;
   batch: { total: number; completed: number; current: number; status: 'idle' | 'running' | 'paused' | 'complete' };
 }
-const initial = (propertyId: string | null = null): PhotoState => ({ propertyId, photos: [], loaded: false, busy: false, selected: null, altText: '', altDrafts: {}, error: null, notice: null, needsReconcile: false, removeId: null, pendingSelections: [], uncertainSelection: null, activeMediaIndex: 0, mediaViewerOpen: false, batch: { total: 0, completed: 0, current: 0, status: 'idle' } });
+const initial = (propertyId: string | null = null): PhotoState => ({ propertyId, photos: [], loaded: false, busy: false, selected: null, altText: '', altDrafts: {}, error: null, notice: null, needsReconcile: false, removeId: null, pendingSelections: [], uncertainSelection: null, activeMediaIndex: 0, mediaViewerOpen: false, detailId:null, batch: { total: 0, completed: 0, current: 0, status: 'idle' } });
 export function createPropertyPhotoWorkflow(service: PropertyPhotoService, pick: () => Promise<SelectedDocument | null>, pickImages?: (remaining: number) => Promise<SelectedDocument[]>) {
   let state = initial(), generation = 0, disposed = false, context: PhotoContext | null = null, ownerId: string | null = null;
   const listeners = new Set<() => void>();
@@ -25,7 +25,10 @@ export function createPropertyPhotoWorkflow(service: PropertyPhotoService, pick:
     if (!alive(g)) throw new Error('Closed');
     return context;
   };
-  const applyPhotos = (photos: PropertyPhoto[]) => update({ photos, altDrafts: Object.fromEntries(photos.map(p => [p.id, p.alt_text ?? ''])), loaded: true });
+  const applyPhotos = (photos: PropertyPhoto[]) => {
+    const altDrafts=Object.fromEntries(photos.map(p=>{const previous=state.photos.find(old=>old.id===p.id),edited=state.altDrafts[p.id];return [p.id,previous&&edited!==undefined&&edited!==(previous.alt_text??'')?edited:(p.alt_text??'')];}));
+    update({photos,altDrafts,loaded:true,detailId:photos.some(p=>p.id===state.detailId)?state.detailId:null,removeId:photos.some(p=>p.id===state.removeId)?state.removeId:null});
+  };
   const load = async (reconcile = false) => {
     if (disposed || state.busy || !state.propertyId) return;
     const g = generation, id = state.propertyId; update({ busy: true, error: null });
@@ -90,7 +93,16 @@ export function createPropertyPhotoWorkflow(service: PropertyPhotoService, pick:
     const g = generation; update({ busy: true, error: null, notice: null });
     try { await drainQueue(g); } finally { if (alive(g)) update({ busy: false }); }
   };
+  const reorder = async(ids:string[]) => {
+    if(ids.length!==state.photos.length||new Set(ids).size!==ids.length||ids.some(id=>!state.photos.some(p=>p.id===id)))return;
+    if(ids.every((id,index)=>state.photos[index]?.id===id))return;
+    await mutate(c=>service.reorder(c,ids),'Photo order and cover saved.');if(!state.error&&state.notice==='Photo order and cover saved.')update({detailId:null});
+  };
   return {
+    reorder,
+    openDetail(id:string){if(!state.busy&&state.photos.some(p=>p.id===id))update({detailId:id});},
+    closeDetail(){if(!state.busy)update({detailId:null,removeId:null});},
+    async saveDetail(){const id=state.detailId;if(!id)return;await mutate(c=>service.updateAlt(c,id,state.altDrafts[id]??''),'Photo description saved.');if(state.notice==='Photo description saved.'&&!state.error)update({detailId:null});},
     getSnapshot: () => state,
     selectMedia,
     openMedia: (index: number) => selectMedia(index, true),
@@ -158,7 +170,7 @@ export function createPropertyPhotoWorkflow(service: PropertyPhotoService, pick:
     move: (id: string, direction: -1 | 1) => mutate(c => service.move(c, id, direction), 'Photo order saved.'),
     requestRemove(id: string) { if (!state.busy && !state.needsReconcile && state.photos.some(p => p.id === id)) update({ removeId: id }); },
     cancelRemove() { if (!state.busy) update({ removeId: null }); },
-    confirmRemove: async () => { const id = state.removeId; if (id) await mutate(c => service.remove(c, id), 'Photo removed. Choose a cover if needed.'); },
-    back() { if (state.mediaViewerOpen) { update({ mediaViewerOpen: false }); return true; } if (state.busy) return true; if (state.removeId) { update({ removeId: null }); return true; } return false; },
+    confirmRemove: async () => { const id = state.removeId; if (id) await mutate(c => service.remove(c, id), 'Photo removed.');if(!state.error&&!state.photos.some(p=>p.id===id))update({detailId:null}); },
+    back() { if (state.mediaViewerOpen) { update({ mediaViewerOpen: false }); return true; } if (state.busy) return true; if (state.removeId) { update({ removeId: null }); return true; } if(state.detailId){update({detailId:null});return true;} return false; },
   };
 }

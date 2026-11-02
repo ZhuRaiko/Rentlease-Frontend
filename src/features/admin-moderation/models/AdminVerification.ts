@@ -1,3 +1,4 @@
+import type {IdentityReviewContext} from '../../../shared/models/PropertyIdentity';
 import type { Database, Enums, Tables } from '../../../shared/services/supabase/database.types';
 import { isPreviewImage } from '../../../shared/models/documentImagePreview';
 
@@ -21,8 +22,8 @@ export function mapAdminVerification(row: AdminVerificationRow) {
 }
 export type AdminVerificationQueueItem = ReturnType<typeof mapAdminVerification>;
 export type AdminReviewStatus = Extract<Enums<'verification_status'>, 'under_review' | 'approved' | 'rejected'>;
-export interface AdminReviewInput { submissionId: string; status: AdminReviewStatus; reviewNote?: string; rejectionReason?: string }
-export interface AdminVerificationSubmissionDetail { item: AdminVerificationQueueItem; documents: Tables<'verification_documents'>[] }
+export interface AdminReviewInput { submissionId: string; status: AdminReviewStatus; reviewNote?: string; rejectionReason?: string; identity?:IdentityReviewContext; sameAssetConfirmed?:boolean }
+export interface AdminVerificationSubmissionDetail { item: AdminVerificationQueueItem; documents: Tables<'verification_documents'>[]; identity?:IdentityReviewContext }
 export interface AdminDocumentPreview {
   requestId: number;
   isOpening: boolean;

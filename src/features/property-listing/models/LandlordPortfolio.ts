@@ -7,7 +7,7 @@ export type PortfolioVerification = Pick<Database['public']['Tables']['verificat
 export interface LandlordPortfolioItem {
   propertyId: string; property: PortfolioProperty; listings: PortfolioListing[]; currentListing: PortfolioListing | null;
   coverPhoto: { id: string; publicUrl: string } | null;
-  tier3: { status: Enums<'verification_status'> | 'not_submitted'; submissionId: string | null; updatedAt: string | null };
+  tier3: { status: Enums<'verification_status'> | 'not_submitted'; submissionId: string | null; updatedAt: string | null; identityBound?:boolean; identityBindingAvailable?:boolean; requiresRepair?:boolean };
 }
 export const portfolioListingLabels: Record<Enums<'listing_status'>, string> = { draft: 'Draft', active: 'Published', paused: 'Paused', rented: 'Rented', archived: 'Archived', removed: 'Removed' };
 export const portfolioTierLabels: Record<LandlordPortfolioItem['tier3']['status'], string> = { not_submitted: 'Ownership verification not submitted', pending: 'Verification pending', under_review: 'Verification under review', approved: 'Ownership verified', rejected: 'Verification rejected', cancelled: 'Verification cancelled', revoked: 'Verification revoked' };

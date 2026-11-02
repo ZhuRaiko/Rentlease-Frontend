@@ -199,6 +199,7 @@ export function useAdminModerationViewModel() {
     requestReview: verificationQueue.requestReview,
     cancelReview: verificationQueue.cancelReview,
     setRejectionReason: verificationQueue.setRejectionReason,
+    setSameAssetConfirmed:verificationQueue.setSameAssetConfirmed,
     confirmReview: async () => {
       if (await verificationQueue.confirmReview()) {
         setScreen('verificationQueue'); setHistory(['reviewQueues']);

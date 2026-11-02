@@ -8,7 +8,7 @@ interface State {
   submission: TierThreeSubmission | null; documentType: TierThreeDocumentType | null; selectedDocument: SelectedDocument | null;
   loaded: boolean; isLoading: boolean; isSelectingDocument: boolean; isSubmitting: boolean; requiresRefresh: boolean; error: string | null;
 }
-interface Dependencies { service: TierThreeVerificationService; selectDocument: () => Promise<SelectedDocument | null>; uploadDocument: typeof uploadVerificationDocument }
+interface Dependencies { service: Pick<TierThreeVerificationService,'getEligibleUserId'|'fetchOwnedProperties'|'fetchLatest'|'createSubmission'|'insertDocument'>; selectDocument: () => Promise<SelectedDocument | null>; uploadDocument: typeof uploadVerificationDocument }
 export function createTierThreeVerificationWorkflow({ service, selectDocument, uploadDocument }: Dependencies) {
   const initialState: State = { screen: 'intro', properties: [], propertyId: null, submission: null, documentType: null, selectedDocument: null, loaded: false, isLoading: false, isSelectingDocument: false, isSubmitting: false, requiresRefresh: false, error: null };
   let state: State = initialState;
@@ -18,12 +18,14 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
   const current = (attempt: number) => !disposed && attempt === epoch;
   const alive = (attempt: number) => { if (!current(attempt)) throw Error('Verification closed.'); };
   const busy = () => state.isLoading || state.isSelectingDocument || state.isSubmitting;
-  const canEdit = () => !disposed && state.loaded && !state.requiresRefresh && !state.submission && !busy() && !!state.propertyId && state.properties.some(p => p.id === state.propertyId);
+  const resumable=(s:TierThreeSubmission|null)=>!!s&&((['rejected','cancelled','revoked'].includes(s.status)&&!s.identityCorrection)||(s.status==='pending'&&s.ready_for_review_at===null));
+  let resumeRequested=false;
+  const canEdit = () => !disposed && state.loaded && !state.requiresRefresh && (!state.submission||(resumeRequested&&resumable(state.submission))) && !busy() && !!state.propertyId && state.properties.some(p => p.id === state.propertyId);
   const canSubmit = () => canEdit() && state.screen === 'review' && !!state.selectedDocument && isTierThreeDocumentType(state.documentType ?? '');
   const refresh = async () => {
     if (disposed || busy()) return;
     const attempt = epoch;
-    update({ isLoading: true, error: null, selectedDocument: null, documentType: null });
+    resumeRequested=false;update({ isLoading: true, error: null, selectedDocument: null, documentType: null });
     try {
       const id = await service.getEligibleUserId(); alive(attempt);
       const properties = await service.fetchOwnedProperties(id); alive(attempt);
@@ -38,7 +40,7 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
     if (disposed || busy()) return;
     if (screen === 'intro' || screen === 'property') { update({ screen }); return; }
     if (!state.loaded || state.requiresRefresh || !state.propertyId) return;
-    if (state.submission) { update({ screen: 'status' }); return; }
+    if (state.submission&&!resumeRequested) { update({ screen: 'status' }); return; }
     if (screen === 'status' || (screen === 'review' && (!state.documentType || !state.selectedDocument))) return;
     if (screen === 'document' && !state.documentType) return;
     update({ screen });
@@ -47,6 +49,8 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
     getSnapshot: () => state,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     canSubmit, refresh, navigate,
+    canResume:()=>!busy()&&!state.requiresRefresh&&resumable(state.submission),
+    resume(){if(!busy()&&!state.requiresRefresh&&resumable(state.submission)){resumeRequested=true;update({screen:'documentType',selectedDocument:null,documentType:null,error:null});}},
     async setEnabled(enabled: boolean, initialPropertyId?: string): Promise<void> {
       if (enabled) {
         const attempt=epoch; await refresh();
@@ -66,7 +70,7 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
     goBack() { navigate(({ intro: 'intro', property: 'intro', documentType: 'property', document: 'documentType', review: 'document', status: 'property' } as const)[state.screen]); },
     async selectProperty(propertyId: string) {
       if (disposed || busy() || !state.loaded || state.requiresRefresh || !userId || !state.properties.some(p => p.id === propertyId)) return;
-      const sameProperty = propertyId === state.propertyId;
+      resumeRequested=false;const sameProperty = propertyId === state.propertyId;
       const attempt = epoch;
       update({ propertyId, submission: null, ...(!sameProperty ? { selectedDocument: null, documentType: null } : {}), isLoading: true, error: null });
       try {
@@ -99,8 +103,8 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
         stage = 'fetch'; const properties = await service.fetchOwnedProperties(id); alive(attempt);
         if (!properties.some(p => p.id === propertyId && p.landlord_id === id)) throw Error('Ownership changed.');
         const existing = await service.fetchLatest(id, propertyId); alive(attempt);
-        if (existing) { update({ submission: existing, screen: 'status', selectedDocument: null, documentType: null }); return; }
-        stage = 'create'; const created = await service.createSubmission(id, propertyId); alive(attempt);
+        if (existing&&!(resumeRequested&&resumable(existing))) { update({ submission: existing, screen: 'status', selectedDocument: null, documentType: null }); return; }
+        stage = 'create'; const created = existing?.status==='pending'&&resumeRequested?existing:await service.createSubmission(id, propertyId); alive(attempt);
         if (!created.id || created.property_id !== propertyId) throw Error('Submission not confirmed.');
         update({ submission: created });
         stage = 'upload'; if (await service.getEligibleUserId() !== id) throw Error('Account changed.'); alive(attempt);
@@ -108,7 +112,7 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
         stage = 'metadata'; await service.insertDocument(id, created.id, documentType, uploaded); alive(attempt);
         stage = 'refresh'; const submission = await service.fetchLatest(id, propertyId); alive(attempt);
         if (!submission || submission.id !== created.id || !submission.hasDocument) throw Error('Attachment not confirmed.');
-        update({ submission, screen: 'status', requiresRefresh: false, selectedDocument: null, documentType: null });
+        resumeRequested=false;update({ submission, screen: 'status', requiresRefresh: false, selectedDocument: null, documentType: null });
       } catch {
         const messages = {
           auth: 'Check your account and refresh verification before submitting.',

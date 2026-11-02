@@ -1,3 +1,4 @@
+import {ListingButton} from '../components/ListingButton';
 import { usePropertyFormFocus } from '../components/usePropertyFormFocus';
 import { PropertyProgressFooter } from '../components/PropertyProgressFooter';
 import { PropertyAmenitiesFields } from '../components/PropertyAmenitiesFields';
@@ -21,6 +22,7 @@ export function ListingComposerView({ viewModel: vm, onClose }: { viewModel: Pro
       {!vm.workspacePropertyId ? <Text style={styles.copy}>* Required to save the property</Text> : null}
       <PropertyMediaSection viewModel={vm} />
       <ComposerRecoveryFeedback viewModel={vm} />
+    {vm.propertyEditAvailable?<ListingButton label="Edit Property Details" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={vm.openPropertyDetails}/>:null}
       <ComposerPropertyFields viewModel={vm} focus={focus}>
         <View collapsable={false} ref={focus.section('amenities')}><PropertyAmenitiesFields viewModel={vm} /></View>
       </ComposerPropertyFields>

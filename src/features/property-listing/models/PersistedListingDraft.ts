@@ -49,3 +49,10 @@ export class ListingDraftError extends Error {
 export const listingDraftMessage = (error: unknown) => error instanceof ListingDraftError ? error.message : 'Could not save or load the listing draft. Check your connection and try again.';
 
 export interface DraftEditTarget { listingId:string; editVersion:string }
+
+// Same normalization as listing payloads; blank optional values remain distinct from zero.
+export function listingFieldsEqual(a:ListingDraftFields,b:ListingDraftFields):boolean {
+ const numeric=(v:string)=>Number.isFinite(listingNumber(v))?listingNumber(v):['invalid',v];
+ const normalized=(d:ListingDraftFields)=>[d.title.trim(),d.description.trim(),numeric(d.askingRent),d.houseRules.trim()||null,d.rentalTerm,numeric(d.securityDepositMonths),numeric(d.advanceRentMonths),d.minimumStayMonths===''?null:numeric(d.minimumStayMonths),d.availableDate||null];
+ return JSON.stringify(normalized(a))===JSON.stringify(normalized(b));
+}

@@ -1,70 +1,63 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
-import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
-import { colors } from '../../../shared/theme/colors';
-import { spacing } from '../../../shared/theme/spacing';
-import { typography } from '../../../shared/theme/typography';
-import { ui } from '../../../shared/theme/ui';
-import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
-import { ListingButton } from '../components/ListingButton';
-import { ListingField } from '../components/ListingControls';
-import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
+import {Image,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {FeedbackNotice} from '../../../shared/components/FeedbackNotice';
+import {ScreenHeader} from '../../../shared/components/ScreenHeader';
+import {ScreenContainer} from '../../../shared/components/ScreenContainer';
+import {colors} from '../../../shared/theme/colors';
+import {ui} from '../../../shared/theme/ui';
+import {ListingButton} from '../components/ListingButton';
+import {ListingField} from '../components/ListingControls';
+import {movePhotoIds} from '../models/PropertyPhotoGrid';
+import {PropertyPhotoGrid} from '../components/PropertyPhotoGrid';
+import type {PropertyListingViewModel} from '../viewModels/usePropertyListingViewModel';
 
-export function PropertyPhotosView({ viewModel: vm, onClose }: { viewModel: PropertyListingViewModel; onClose: () => void }) {
-  const state = vm.photoState, flow = vm.propertyPhotos;
-  const disabled = state.busy || !state.loaded || state.needsReconcile || !!state.pendingSelections.length;
-  return <ListingWizardScaffold title="Property photos" description="Show the rooms and spaces tenants will use. JPEG, PNG or WebP, up to 10 MB each." onBack={vm.goBack} onClose={onClose}>
-    <FeedbackNotice message={state.error} tone="error" />
-    {!state.propertyId ? <>
-      <FeedbackNotice message="Choose a saved property from My Listings to manage its photos. If access could not be confirmed, reopen that property rather than creating another." />
-      <ListingButton label="Go to My Listings" tone="outline" onPress={vm.goDashboard} />
-    </> : <>
-      <Text accessibilityRole="header" style={styles.heading}>{state.photos.length} of 10 photos</Text>
-      <Text style={styles.copy}>Property photos are publicly accessible. Do not include identity documents, private access instructions or other sensitive information.</Text>
-      <FeedbackNotice message={state.notice} tone={state.needsReconcile ? 'warning' : 'info'} />
-      {state.pendingSelections.length ? <>
-        <Text style={styles.copy}>{state.pendingSelections.length} local photos are waiting. Return to the composer to review them, or continue after checking any uncertain operation.</Text>
-        <ListingButton label="Continue remaining uploads" disabled={state.busy || !state.loaded || state.needsReconcile} tone="outline" onPress={() => void flow.resumeQueue()} />
-      </> : null}
-      {state.busy ? <Text accessibilityLiveRegion="polite" style={styles.copy}>Updating property photos...</Text> : null}
-      {state.needsReconcile || !state.loaded ? <ListingButton label={state.needsReconcile ? "Check saved photos" : "Retry loading photos"} disabled={state.busy} onPress={() => void flow.checkStatus()} tone="outline" /> : null}
-      {!state.photos.length && state.loaded ? <Text style={styles.copy}>No saved photos yet. Add a clear photo of the property to get started.</Text> : null}
-      {state.photos.map((photo, index) => <View key={photo.id} style={styles.photo}>
-        <Image source={{ uri: photo.publicUrl }} accessibilityLabel={photo.alt_text || `Property photo ${index + 1}`} style={styles.image} resizeMode="cover" />
-        <View style={styles.caption}><Text style={styles.heading}>Photo {index + 1}</Text>{photo.is_cover ? <Text style={styles.cover}>Cover photo</Text> : null}</View>
-        <ListingField label={`Photo ${index + 1} description (optional)`} placeholder="For example: Bedroom with window" value={state.altDrafts[photo.id] ?? ''} onChangeText={value => flow.setAltDraft(photo.id, value)} multiline />
-        <ListingButton disabled={disabled || (state.altDrafts[photo.id] ?? '') === (photo.alt_text ?? '')} label="Save description" tone="outline" onPress={() => void flow.saveAlt(photo.id)} />
-        {!photo.is_cover ? <ListingButton disabled={disabled} label="Use as cover" tone="outline" onPress={() => void flow.setCover(photo.id)} /> : null}
-        <View style={styles.actions}>
-          <View style={styles.action}><ListingButton disabled={disabled || index === 0} label="Move earlier" tone="outline" onPress={() => void flow.move(photo.id, -1)} /></View>
-          <View style={styles.action}><ListingButton disabled={disabled || index === state.photos.length - 1} label="Move later" tone="outline" onPress={() => void flow.move(photo.id, 1)} /></View>
-        </View>
-        {state.removeId === photo.id ? <>
-          <FeedbackNotice tone="warning" message="Remove this photo from the property? This also removes its stored image. A replacement cover is not selected automatically." />
-          <ListingButton disabled={state.busy} label="Confirm remove photo" tone="danger" onPress={() => void flow.confirmRemove()} />
-          <ListingButton disabled={state.busy} label="Keep photo" tone="outline" onPress={flow.cancelRemove} />
-        </> : <ListingButton disabled={disabled} label="Remove photo" tone="danger" onPress={() => flow.requestRemove(photo.id)} />}
-      </View>)}
-      {state.selected ? <View style={styles.photo}>
-        <Text accessibilityRole="header" style={styles.heading}>Ready to upload</Text>
-        <Image source={{ uri: state.selected.uri }} accessibilityLabel="Selected property photo, not uploaded" style={styles.image} resizeMode="contain" />
-        <Text style={styles.copy}>{state.selected.fileName}</Text>
-        <Text style={styles.copy}>{state.selected.mimeType} ? {state.selected.size === null ? 'Size checked before upload' : `${(state.selected.size / 1024 / 1024).toFixed(2)} MB`}</Text>
-        <ListingField label="Photo description (optional)" placeholder="Describe this room or space" value={state.altText} onChangeText={flow.setAlt} multiline />
-        <ListingButton disabled={disabled || state.photos.length >= 10} label="Upload photo" onPress={() => void flow.upload()} />
-        <ListingButton disabled={state.busy} label="Discard selection" tone="outline" onPress={flow.cancelSelection} />
-      </View> : <ListingButton disabled={disabled || state.photos.length >= 10} label={state.photos.length >= 10 ? '10-photo limit reached' : 'Choose photo'} onPress={() => void flow.select()} />}
-      <Text style={styles.copy}>The first saved photo is assigned as cover through the backend. You can change it later. Changes here are saved to the property; no rental listing is published.</Text>
-      <ListingButton disabled={state.busy} label="Done" tone="outline" onPress={vm.goBack} />
-    </>}
-  </ListingWizardScaffold>;
+export function PropertyPhotosView({viewModel:vm,onClose}:{viewModel:PropertyListingViewModel;onClose:()=>void}){
+ const state=vm.photoState,flow=vm.propertyPhotos;
+ const disabled=state.busy||!state.loaded||state.needsReconcile||!!state.pendingSelections.length;
+ const photo=state.photos.find(p=>p.id===state.detailId),index=state.photos.findIndex(p=>p.id===state.detailId);
+ const pending=[...state.pendingSelections.map((p,i)=>({uri:p.uri,label:state.busy&&i===0?'Uploading...':'Waiting'})),...(state.uncertainSelection?[{uri:state.uncertainSelection.uri,label:'Check status'}]:[]),...(state.selected?[{uri:state.selected.uri,label:'Not uploaded'}]:[])];
+ const header=<>
+  <Text accessibilityRole="header" style={styles.heading}>{state.photos.length} of 10 photos</Text>
+  <Text style={styles.copy}>Touch and hold to move. The first photo becomes the cover when the order is saved.</Text>
+  <FeedbackNotice message={state.error} tone="error"/>
+  <FeedbackNotice message={state.notice}/>
+  {state.busy?<Text accessibilityLiveRegion="polite" style={styles.copy}>{state.batch.status==='running'?`Saving photo ${state.batch.current} of ${state.batch.total}...`:'Saving photo changes...'}</Text>:null}
+  {state.needsReconcile||!state.loaded?<ListingButton label={state.needsReconcile?'Check saved photos':'Load saved photos'} disabled={state.busy} tone="outline" onPress={()=>void flow.checkStatus()}/>:null}
+  {!state.propertyId?<ListingButton label="Go to My Listings" tone="outline" onPress={vm.goDashboard}/>:null}
+ </>;
+ const footer=<>
+  {state.pendingSelections.length&&!state.busy?<ListingButton label="Continue remaining uploads" disabled={state.needsReconcile} onPress={()=>void flow.resumeQueue()}/>:null}
+  {state.selected?<><ListingButton label="Upload selected photo" disabled={disabled} onPress={()=>void flow.upload()}/><ListingButton label="Discard selection" tone="outline" disabled={state.busy} onPress={flow.cancelSelection}/></>:null}
+  <Text style={styles.helper}>JPEG, PNG or WebP, up to 10 MB each. Photos are public; keep documents and private access details out.</Text>
+ </>;
+ return <GestureHandlerRootView style={styles.root}>
+  <ScreenHeader title="Property photos" onBack={vm.goBack} onClose={onClose}/>
+  <PropertyPhotoGrid photos={state.photos} pending={pending} disabled={disabled} canAdd={!!state.propertyId&&state.photos.length+pending.length<10} onAdd={()=>void flow.addPhotos()} onOpen={flow.openDetail} onReorder={ids=>void flow.reorder(ids)} header={header} footer={footer}/>
+  <Modal visible={!!photo} animationType="slide" presentationStyle="pageSheet" onRequestClose={()=>flow.back()}>
+   <ScreenContainer padded={false}>
+    <ScreenHeader title={`Photo ${index+1}`} onClose={flow.closeDetail} disabled={state.busy}/>
+    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS==='ios'?'padding':'height'}>
+     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.detail}>
+      {photo?<>
+       <Image source={{uri:photo.publicUrl}} resizeMethod="resize" resizeMode="contain" accessibilityLabel={photo.alt_text||`Property photo ${index+1}`} style={styles.preview}/>
+       <FeedbackNotice message={state.error} tone="error"/>
+       <ListingField label="Description (optional)" placeholder="For example: Bedroom with window" multiline value={state.altDrafts[photo.id]??''} onChangeText={value=>flow.setAltDraft(photo.id,value)}/>
+       <ListingButton label={state.busy?'Saving...':'Save description'} disabled={disabled||(state.altDrafts[photo.id]??'')===(photo.alt_text??'')} onPress={()=>void flow.saveDetail()}/>
+       <View style={styles.moves}>
+        <View style={styles.move}><ListingButton label="Move earlier" tone="outline" disabled={disabled||index===0} onPress={()=>void flow.reorder(movePhotoIds(state.photos.map(p=>p.id),index,index-1))}/></View>
+        <View style={styles.move}><ListingButton label="Move later" tone="outline" disabled={disabled||index===state.photos.length-1} onPress={()=>void flow.reorder(movePhotoIds(state.photos.map(p=>p.id),index,index+1))}/></View>
+       </View>
+       {state.removeId===photo.id?<>
+        <FeedbackNotice message="Remove this photo and its stored image? An active listing must remain complete enough for publication." tone="warning"/>
+        <ListingButton label="Confirm remove photo" tone="danger" disabled={state.busy} onPress={()=>void flow.confirmRemove()}/>
+        <ListingButton label="Keep photo" tone="outline" disabled={state.busy} onPress={flow.cancelRemove}/>
+       </>:<ListingButton label="Remove photo" tone="danger" disabled={disabled} onPress={()=>flow.requestRemove(photo.id)}/>}
+       {state.needsReconcile?<ListingButton label="Check saved photos" tone="outline" disabled={state.busy} onPress={()=>void flow.checkStatus()}/>:null}
+      </>:null}
+     </ScrollView>
+    </KeyboardAvoidingView>
+   </ScreenContainer>
+  </Modal>
+ </GestureHandlerRootView>;
 }
-const styles = StyleSheet.create({
-  heading: { ...ui.sectionTitle },
-  copy: { ...ui.body },
-  photo: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md, gap: spacing.sm },
-  image: { width: '100%', aspectRatio: 4 / 3, backgroundColor: colors.background, borderRadius: 10 },
-  caption: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
-  cover: { color: colors.primary, fontFamily: typography.family, fontSize: 15, fontWeight: '700' },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  action: { flexBasis: 140, flexGrow: 1 },
-});
+const styles=StyleSheet.create({root:{flex:1},heading:{...ui.sectionTitle},copy:{...ui.body},helper:{...ui.body,color:colors.textMuted,fontSize:12},detail:{padding:16,gap:12,width:'100%',maxWidth:460,alignSelf:'center',paddingBottom:32},preview:{width:'100%',aspectRatio:4/3,backgroundColor:colors.background},moves:{flexDirection:'row',flexWrap:'wrap',gap:8},move:{flexGrow:1,flexBasis:140}});

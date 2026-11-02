@@ -1,3 +1,8 @@
+import {createPropertyIdentityWorkflow} from './propertyIdentityWorkflow';
+import {propertyIdentityService} from '../services/propertyIdentityDependencies';
+import {createPropertyRoutineWorkflow} from './propertyRoutineWorkflow';
+import {propertyRoutineService} from '../services/propertyRoutineDependencies';
+import type {PropertyEditContext} from '../models/PropertyRoutineEdit';
 import {createPublishedListingWorkflow} from './publishedListingWorkflow';
 import {publishedListingService} from '../services/publishedListingDependencies';
 import { measureHydration, traceHydration } from '../services/draftHydrationDiagnostics';
@@ -25,7 +30,7 @@ import { listingPublicationService } from '../services/listingPublicationDepende
 import { publicationEligibility, publicationReviewSummary } from '../models/ListingPublication';
 import { createListingDraftWorkflow } from './listingDraftWorkflow';
 import { listingDraftService } from '../services/listingDraftDependencies';
-import { applySavedListing, hasListingMinimum, listingNumber, listingFieldIssue } from '../models/PersistedListingDraft';
+import { applySavedListing, listingFieldsEqual, hasListingMinimum, listingNumber, listingFieldIssue } from '../models/PersistedListingDraft';
 import { createPropertyPhotoWorkflow } from './propertyPhotoWorkflow';
 import { propertyPhotoService, selectPropertyPhoto, selectPropertyPhotos } from '../services/propertyPhotoDependencies';
 import { createPropertyCreationWorkflow } from './propertyCreationWorkflow';
@@ -60,7 +65,21 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const [hydrationDeadline,setHydrationDeadline]=useState<number|null>(null);
   const workspaceRef = useRef(workspace), workspaceGeneration = useRef(0);
   const pendingPortfolioReview=useRef<{propertyId:string;listingId:string;generation:number}|null>(null);
-  const selectWorkspace = (next: Workspace) => { pendingPortfolioReview.current=null; propertyVerification.setProperty(next.propertyId); workspaceGeneration.current++; hydrationStarted.current=Date.now();setHydrationDeadline(null);setWorkspaceEpoch(workspaceGeneration.current); workspaceRef.current = next; setWorkspace(next); };
+  const selectWorkspace = (next: Workspace) => { propertyRoutine.close(); propertyIdentity.close(); setEditedProperty(null); pendingPortfolioReview.current=null; propertyVerification.setProperty(next.propertyId); workspaceGeneration.current++; hydrationStarted.current=Date.now();setHydrationDeadline(null);setWorkspaceEpoch(workspaceGeneration.current); workspaceRef.current = next; setWorkspace(next); };
+  const [editedProperty,setEditedProperty]=useState<PropertyEditContext|null>(null);
+  const [propertyRoutine]=useState(()=>createPropertyRoutineWorkflow(propertyRoutineService,row=>{
+    if(!active.current||workspaceRef.current.propertyId!==row.property_id)return;
+    setEditedProperty(row);portfolio.invalidate();
+    propertyAmenities.setProperty(null);propertyAmenities.setProperty(row.property_id);void propertyAmenities.load();
+    void publication.restore(workspaceRef.current.listingId);
+  }));
+  const [propertyIdentity]=useState(()=>createPropertyIdentityWorkflow(propertyIdentityService,propertyLocationService,()=>{portfolio.invalidate();void propertyVerification.refresh();}));
+  const propertyIdentityState=useSyncExternalStore(propertyIdentity.subscribe,propertyIdentity.getSnapshot);
+  const identityLocationState=useSyncExternalStore(propertyIdentity.location.subscribe,propertyIdentity.location.getSnapshot);
+  useEffect(()=>{propertyIdentity.activate();return()=>propertyIdentity.dispose();},[propertyIdentity]);
+  const propertyRoutineState=useSyncExternalStore(propertyRoutine.subscribe,propertyRoutine.getSnapshot);
+  useEffect(()=>{propertyRoutine.activate();return()=>propertyRoutine.dispose();},[propertyRoutine]);
+  useEffect(()=>{const c=propertyRoutineState.context;if(c&&c.property_id===workspaceRef.current.propertyId)setEditedProperty(c);},[propertyRoutineState.context]);
   const [portfolio] = useState(() => createLandlordPortfolioWorkflow(landlordPortfolioService));
   const portfolioState = useSyncExternalStore(portfolio.subscribe, portfolio.getSnapshot);
   useEffect(() => { portfolio.activate(); return () => portfolio.dispose(); }, [portfolio]);
@@ -186,13 +205,13 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   },[workspace.propertyId,workspace.item,propertyState.draft.propertyType,portfolioState.items,portfolioState.loaded,portfolioState.busy,portfolioState.error]);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  const operationBusy = ():boolean => publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy || publication.getSnapshot().busy || lifecycle.getSnapshot().busy;
+  const operationBusy = ():boolean => propertyIdentity.getSnapshot().busy || propertyRoutine.getSnapshot().busy || publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy || publication.getSnapshot().busy || lifecycle.getSnapshot().busy;
   function canWriteListing(): boolean {
     const current = lifecycle.getSnapshot();
-    return active.current && workspaceRef.current.item?.property.is_active !== false && !current.busy && !current.uncertain && current.loaded && (!current.row || current.row.status === 'draft');
+    return active.current && propertyRoutine.getSnapshot().status==='idle' && !propertyRoutine.getSnapshot().busy && workspaceRef.current.item?.property.is_active !== false && !current.busy && !current.uncertain && current.loaded && (!current.row || current.row.status === 'draft');
   }
   function canChangeLifecycle(): boolean {
-    return active.current && !propertyCreation.getSnapshot().busy && !propertyPhotos.getSnapshot().busy && !listingDraftPersistence.getSnapshot().busy && !listingDraftPersistence.getSnapshot().uncertain && !publication.getSnapshot().busy && !publication.getSnapshot().uncertain;
+    return active.current && propertyRoutine.getSnapshot().status==='idle' && !propertyRoutine.getSnapshot().busy && !propertyCreation.getSnapshot().busy && !propertyPhotos.getSnapshot().busy && !listingDraftPersistence.getSnapshot().busy && !listingDraftPersistence.getSnapshot().uncertain && !publication.getSnapshot().busy && !publication.getSnapshot().uncertain;
   }
   const publicationReadOnly = () => workspaceRef.current.mode==='editPublished'? !publishedContent.getSnapshot().loaded||publishedContent.getSnapshot().uncertain||!['active','paused'].includes(publishedContent.getSnapshot().lastConfirmed?.status??'') : !!workspaceRef.current.propertyId && (!canWriteListing() || !publication.getSnapshot().loaded || publication.getSnapshot().uncertain || (!!publication.getSnapshot().status && publication.getSnapshot().status !== 'draft'));
   const editingPublished=workspace.mode==='editPublished';
@@ -208,10 +227,11 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if(draftHydration.status==='loading'){const timer=setTimeout(()=>setHydrationDeadline(workspaceEpoch),30000);return()=>clearTimeout(timer);}
   },[workspaceEpoch,draftHydration.status,savedDraftEntry]);
   const initialHydrationPending=()=>(workspaceRef.current.mode==='editPublished'||workspaceRef.current.mode==='compose'&&workspaceRef.current.item?.currentListing?.status==='draft')&&hydrationReady.current!==workspaceGeneration.current;
-  const leaveInitialHydration=()=>{if(!initialHydrationPending())return false;traceHydration({stage:'total',request:workspaceGeneration.current,durationMs:Date.now()-hydrationStarted.current,result:'cancelled',code:'none'});detachWorkspace();propertyAmenities.setProperty(null);setHistory([]);setScreen('dashboard');return true;};
+  const leaveInitialHydration=()=>{if(!initialHydrationPending())return false;if(workspaceRef.current.mode==='editPublished'&&history.at(-1)==='published'){returnToManagedListing();return true;}traceHydration({stage:'total',request:workspaceGeneration.current,durationMs:Date.now()-hydrationStarted.current,result:'cancelled',code:'none'});detachWorkspace();propertyAmenities.setProperty(null);setHistory([]);setScreen('dashboard');return true;};
   const displayDraft = workspace.propertyId ? { ...draft, photoCount: photoState.photos.length, coverPhotoIndex: Math.max(0, photoState.photos.findIndex(p => p.is_cover)) } : draft;
-  const listingDraftDirty = JSON.stringify(draft) !== JSON.stringify(savedDraft.current);
-  const navigation = useNavigationConfirmation(() => listingDraftDirty || ((workspaceRef.current.mode === 'create' || ['propertySetup', 'postingType'].includes(screen)) && propertyCreation.dirty()) || propertyPhotos.dirty());
+  const listingDraftDirty = contentState.lastConfirmed ? !listingFieldsEqual(draft,savedDraft.current) : JSON.stringify(draft) !== JSON.stringify(savedDraft.current);
+  const navigationScope=useRef<'workspace'|'propertyReturn'>('workspace');
+  const navigation = useNavigationConfirmation(() => navigationScope.current==='propertyReturn'?(propertyIdentity.dirty()||propertyRoutine.dirty()):propertyIdentity.dirty() || propertyRoutine.dirty() || listingDraftDirty || ((workspaceRef.current.mode === 'create' || ['propertySetup', 'postingType'].includes(screen)) && propertyCreation.dirty()) || propertyPhotos.dirty());
   const [listing, setListing] = useState<PropertyListingSummary>(initialPreviewListing);
   const [notice, setNotice] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -238,13 +258,25 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if(active.current&&initialHydrationPending()){leaveInitialHydration();action();return;}
     if (!active.current || propertyVerification.getSnapshot().entryPropertyId || propertyCreation.getSnapshot().busy || (!detach && operationBusy())) return;
     if (!detach && lifecycle.getSnapshot().confirmation) { lifecycle.cancel(); return; }
+    navigationScope.current='workspace';
     navigation.requestNavigation(() => {
       if (!active.current || propertyCreation.getSnapshot().busy || (!detach && operationBusy())) return;
       propertyLocation.close();
       propertyCreation.discardLocalEdits();
       propertyPhotos.discardLocalEdits();
+      propertyRoutine.discard();
+      propertyRoutine.close();propertyIdentity.discard();propertyIdentity.close();
       setDraft(savedDraft.current);
       action();
+    });
+  };
+
+  const requestPropertyNavigation=(action:()=>void)=>{
+    if(!active.current||operationBusy())return;
+    navigationScope.current='propertyReturn';
+    navigation.requestNavigation(()=>{
+      if(!active.current||operationBusy())return;
+      propertyRoutine.discard();propertyRoutine.close();propertyIdentity.discard();propertyIdentity.close();navigationScope.current='workspace';action();
     });
   };
 
@@ -262,7 +294,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   }
 
   const navigate = (nextScreen: ListingScreen) => {
-    if (initialHydrationPending() || operationBusy()) return;
+    if (initialHydrationPending() || operationBusy() || propertyRoutine.getSnapshot().status==='loading') return;
     if(['photoUpload','photoManager','listingComposer','listingDetails'].includes(nextScreen))adoptCreatedProperty();
     if (screen === 'propertySetup' && nextScreen !== 'propertySetup') propertyLocation.close();
     setHistory((current) => [...current, screen]);
@@ -274,7 +306,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if(leaveInitialHydration())return;
     if (propertyPhotos.getSnapshot().mediaViewerOpen) { propertyPhotos.closeMedia(); return; }
     if (operationBusy()) return;
-    if(screen==='listingDetails'&&workspaceRef.current.mode==='editPublished'){requestNavigation(goDashboard);return;}
+    if(screen==='identityEdit'){if(['searching','candidates','map'].includes(propertyIdentity.location.getSnapshot().stage)){propertyIdentity.location.cancel();return;}const id=workspaceRef.current.propertyId;requestPropertyNavigation(()=>{setHistory(current=>current.slice(0,-1));setScreen('propertyEdit');if(id)void propertyRoutine.open(id);});return;}
+    if(screen==='propertyEdit'){requestPropertyNavigation(()=>{setHistory(current=>{setScreen(current.at(-1)??'dashboard');return current.slice(0,-1);});});return;}
+    if(screen==='listingDetails'&&workspaceRef.current.mode==='editPublished'){requestNavigation(history.at(-1)==='published'?returnToManagedListing:goDashboard);return;}
     if (screen === 'listingDetails') { setScreen('listingComposer'); setHistory(current => current.at(-1) === 'listingComposer' ? current.slice(0, -1) : current); return; }
     if (lifecycle.getSnapshot().confirmation) { lifecycle.cancel(); return; }
     if (['propertySetup', 'listingComposer'].includes(screen) && ['searching', 'candidates', 'map'].includes(propertyLocation.getSnapshot().stage)) { propertyLocation.cancel(); return; }
@@ -287,6 +321,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
         return current.slice(0, -1);
       });
       setNotice(null);
+      if(screen==='photoManager' && workspaceRef.current.propertyId){portfolio.invalidate();if(workspaceRef.current.mode==='manage')void lifecycle.restore();}
     };
     if (leavesListingEditor(screen, history.at(-1) ?? 'dashboard')) requestNavigation(applyBack);
     else applyBack();
@@ -323,10 +358,12 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     detachWorkspace(); setHistory([]); setScreen(nextScreen);
     void propertyCreation.startNew();
   };
-  const openPortfolioItem = (propertyId: string, publishedEdit=false) => {
+  const openPortfolioItem = (propertyId: string, publishedEdit=false,fromManagement=false) => {
     savedConfirmation.current = null;
     if (!active.current) return;
-    const item = portfolio.select(propertyId); if (!item) return;
+    const selected=portfolio.select(propertyId);
+    const managedRow=lifecycle.getSnapshot().row??publication.getSnapshot().lastConfirmed;
+    const item=fromManagement&&workspaceRef.current.item&&managedRow?.property_id===propertyId?{...workspaceRef.current.item,currentListing:managedRow}:selected;if(!item)return;
     setPropertyValidationTarget(null);
     const row = item.currentListing;
     if(publishedEdit&&(!row||!['active','paused'].includes(row.status)||!item.property.is_active))return;
@@ -334,11 +371,21 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     propertyPhotos.setProperty(null); publishedContent.setProperty(null); propertyAmenities.setProperty(null); listingDraftPersistence.setProperty(null); publication.setProperty(null); lifecycle.setListing(null);
     selectWorkspace({ propertyId, listingId: row?.id ?? null, mode: publishedEdit?'editPublished':row && row.status !== 'draft' ? 'manage' : 'compose', item });
     savedDraft.current = emptyListingDraft; setDraft(emptyListingDraft); setNotice(null);
-    setShowRealPublication(!!row && row.status !== 'draft'); setHistory(['dashboard']);
+    setShowRealPublication(!!row && row.status !== 'draft'); setHistory(fromManagement?['dashboard','published']:['dashboard']);
     if(publishedEdit)setScreen('listingDetails');
     else if (row && row.status !== 'draft') { lifecycle.setListing(row); setScreen('published'); }
     else setScreen(row?.status === 'draft' ? 'listingDetails' : 'listingComposer');
   };
+
+  function returnToManagedListing() {
+    const current=workspaceRef.current;
+    const row=publishedContent.getSnapshot().lastConfirmed??publication.getSnapshot().lastConfirmed??current.item?.currentListing;
+    if(!row||!current.propertyId){goDashboard();return;}
+    const physical=editedProperty;
+    publishedContent.setProperty(null);
+    selectWorkspace({...current,mode:'manage',item:current.item?{...current.item,currentListing:row}:null});
+    setEditedProperty(physical);lifecycle.setListing(row);setShowRealPublication(true);setHistory(['dashboard']);setScreen('published');
+  }
 
   const choosePropertyType = (propertyType: PropertyType) => updateDraft('propertyType', propertyType);
 
@@ -430,7 +477,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if(!workspaceRef.current.propertyId&&issue){focusPropertyIssue(issue);return false;}setPropertyValidationTarget(null);return true;
   }
   const savePublishedChanges=async()=>{
-    if(initialHydrationPending()||operationBusy()||publishedContent.getSnapshot().uncertain||publishedContent.getSnapshot().conflict)return;
+    if(initialHydrationPending()||operationBusy()||publishedContent.getSnapshot().uncertain||publishedContent.getSnapshot().conflict||!listingDraftDirty||listingFieldIssue(draft))return;
     const token=workspaceGeneration.current;const result=await publishedContent.save({...draft});
     if(!active.current||token!==workspaceGeneration.current||result!=='saved')return;
     const row=publishedContent.getSnapshot().lastConfirmed;if(!row)return;
@@ -442,6 +489,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if(initialHydrationPending())return;
     if(workspaceRef.current.mode==='editPublished'){await savePublishedChanges();return;}
     if (operationBusy() || savedConfirmation.current || propertyCreation.getSnapshot().uncertain || (listingDraftPersistence.getSnapshot().uncertain || listingDraftPersistence.getSnapshot().conflict) || (workspaceRef.current.propertyId && publicationReadOnly())) return;
+    if(workspaceRef.current.propertyId&&listingDraftPersistence.getSnapshot().lastConfirmed&&(!listingDraftDirty&&!propertyPhotos.getSnapshot().pendingSelections.length||!!listingFieldIssue(draft)))return;
     if(!requestPropertyValidation())return;
     const submittedDraft = { ...draft };
     composerSaving.current = true; setComposerNotice(null); setComposerPhase(workspaceRef.current.propertyId ? 'draft' : 'property');
@@ -505,6 +553,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const closePropertyVerification = async () => {
     const token=workspaceGeneration.current;
     await propertyVerification.close();
+    if(active.current&&token===workspaceGeneration.current&&screen==='identityEdit')await propertyIdentity.reload();
     if(active.current&&token===workspaceGeneration.current&&(screen==='dashboard'||screen==='empty'))await portfolio.load();
   };
   const reviewPortfolioPublication = (propertyId:string) => {
@@ -590,7 +639,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const selectedAmenityIds = workspace.propertyId ? amenityState.selectedIds : propertyState.draft.amenityIds;
-  const physical = workspace.item?.property;
+  const physical = editedProperty?.property_id===workspace.propertyId?editedProperty:workspace.item?.property;
   const confirmedListing = contentState.lastConfirmed?.property_id === workspace.propertyId && (!workspace.listingId || contentState.lastConfirmed.id===workspace.listingId) ? contentState.lastConfirmed : null;
   const completeness = listingCompleteness({title:draft.title,description:draft.description,rent:listingNumber(draft.askingRent),availableDate:!!availabilityDateToLocal(draft.availableDate),
     floorArea:physical ? physical.floor_area_sqm!==null : !!propertyState.draft.floorAreaSqm.trim()&&Number.isFinite(Number(propertyState.draft.floorAreaSqm))&&Number(propertyState.draft.floorAreaSqm)>0,
@@ -611,6 +660,14 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     :workspace.propertyId?'Saved property selected. Continue to listing details.':'Property information is ready. It is not saved yet.';
 
   return {
+    propertyIdentity,propertyIdentityState,identityLocationState,
+    reloadIdentityCorrection:()=>{const id=propertyIdentity.getSnapshot().propertyId;if(id)requestPropertyNavigation(()=>{void propertyIdentity.open(id);});},
+    openIdentityCorrection:()=>{const id=workspaceRef.current.propertyId;if(!id||operationBusy()||propertyIdentity.getSnapshot().status!=='idle')return;requestPropertyNavigation(()=>{navigate('identityEdit');void propertyIdentity.open(id);});},
+    openIdentityVerification:()=>{if(!operationBusy()&&['draft','submitted','rejected'].includes(propertyIdentity.getSnapshot().context?.correction?.status??''))void propertyVerification.openCorrection();},
+    propertyRoutine,propertyRoutineState,
+    propertyEditAvailable:!!workspace.propertyId&&workspace.item?.property.is_active!==false&&!initialHydrationPending(),
+    openPropertyDetails:()=>{const id=workspaceRef.current.propertyId;if(operationBusy()||initialHydrationPending()||!id||propertyRoutine.getSnapshot().status!=='idle')return;navigate('propertyEdit');void propertyRoutine.open(id);},
+    reloadPropertyDetails:()=>{const id=propertyRoutine.getSnapshot().propertyId;if(id)requestPropertyNavigation(()=>void propertyRoutine.open(id));},
     propertyValidationIssues:propertyIssues,propertyVisibleValidationIssues:propertyVisibleIssues,
     propertyFormReady,propertyNextDisabled,propertyNextStatus,
     propertyReadinessReviewAvailable:!operationBusy()&&!workspace.propertyId&&propertyState.loaded&&!propertyState.uncertain&&propertyIssues.length>0,
@@ -622,6 +679,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     propertyAmenities,amenityState,selectedAmenityIds,
     togglePropertyAmenity:(id:number)=>{const state=propertyAmenities.getSnapshot();if(!active.current||operationBusy()||workspaceRef.current.propertyId||!state.loaded||state.busy)return;propertyCreation.updateField('amenityIds',togglePropertyAmenity(propertyCreation.getSnapshot().draft.amenityIds,id,state.catalog));},
     ...navigation,
+    propertyReturnConfirmation:navigationScope.current==='propertyReturn',
+    cancelNavigation:()=>{navigationScope.current='workspace';navigation.cancelNavigation();},
+    confirmNavigation:()=>{navigation.confirmNavigation();navigationScope.current='workspace';},
     requestNavigation,
     propertyCreation,
     propertyState,
@@ -634,11 +694,13 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     composerPhase, composerNotice, saveComposerDraft, openSavedDraft,
     draftHydration,
     retryDraftHydration:()=>{if(!initialHydrationPending())return;propertyPhotos.setProperty(null);propertyAmenities.setProperty(null);publishedContent.setProperty(null);listingDraftPersistence.setProperty(null);publication.setProperty(null);selectWorkspace({...workspaceRef.current});},
-    composerSaveDisabled: editingPublished ? initialHydrationPending()||operationBusy()||publishedContentState.uncertain||publishedContentState.conflict||publicationReadOnly() : initialHydrationPending() || operationBusy() || propertyState.uncertain || listingDraftState.uncertain || listingDraftState.conflict || (!workspace.propertyId ? !propertyState.loaded : publicationReadOnly() || photoState.needsReconcile),
+    composerSaveDisabled: !!(contentState.lastConfirmed&&(!listingDraftDirty&&!photoState.pendingSelections.length||listingValidationIssue)) || (editingPublished ? initialHydrationPending()||operationBusy()||publishedContentState.uncertain||publishedContentState.conflict||publicationReadOnly() : initialHydrationPending() || operationBusy() || propertyState.uncertain || listingDraftState.uncertain || listingDraftState.conflict || (!workspace.propertyId ? !propertyState.loaded : publicationReadOnly() || photoState.needsReconcile)),
     composerPreview: history.includes('listingComposer') || history.includes('listingDetails') || screen === 'listingComposer' || screen === 'listingDetails',
     workspacePropertyId: workspace.propertyId, workspaceListingId: lifecycleState.listingId ?? listingDraftState.listingId ?? workspace.listingId, workspaceMode: workspace.mode,
     workspacePropertyActive: workspace.item?.property.is_active !== false,
     portfolio, portfolioState, portfolioItems: portfolio.filtered(), portfolioStatistics: portfolio.stats(),
+    editManagedListing:()=>{const id=workspaceRef.current.propertyId,row=lifecycle.getSnapshot().row??publication.getSnapshot().lastConfirmed;if(!id||!row||!['active','paused'].includes(row.status)||operationBusy())return;requestNavigation(()=>{const physical=editedProperty;openPortfolioItem(id,true,true);setEditedProperty(physical);});},
+    openPortfolioProperty:(id:string)=>{if(operationBusy())return;requestNavigation(()=>{openPortfolioItem(id);if(workspaceRef.current.propertyId!==id)return;setHistory(['dashboard']);setScreen('propertyEdit');void propertyRoutine.open(id);},true);},
     editPortfolioListing:(id:string)=>requestNavigation(()=>openPortfolioItem(id,true),true),
     openPortfolioItem: (id: string) => requestNavigation(() => openPortfolioItem(id), true),
     propertyLocation,
@@ -652,10 +714,18 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     },
     propertyPhotos: {
       ...propertyPhotos,
-      addPhotos: () => active.current && workspaceRef.current.mode!=='editPublished' && !composerSaving.current ? propertyPhotos.addPhotos() : Promise.resolve(),
-      removePending: (index: number) => { if (active.current && workspaceRef.current.mode!=='editPublished' && !composerSaving.current) propertyPhotos.removePending(index); },
-      requestRemove: (id: string) => { if (active.current && workspaceRef.current.mode!=='editPublished' && !composerSaving.current) propertyPhotos.requestRemove(id); },
-      setCover: (id: string) => active.current && workspaceRef.current.mode!=='editPublished' && !composerSaving.current ? propertyPhotos.setCover(id) : Promise.resolve(),
+      reorder:(ids:string[])=>!operationBusy()?propertyPhotos.reorder(ids):Promise.resolve(),
+      saveDetail:()=>!operationBusy()?propertyPhotos.saveDetail():Promise.resolve(),
+      select: () => !operationBusy() ? propertyPhotos.select() : Promise.resolve(),
+      upload: () => !operationBusy() ? propertyPhotos.upload() : Promise.resolve(),
+      addPhotos: () => !operationBusy() ? propertyPhotos.addPhotos() : Promise.resolve(),
+      resumeQueue: () => !operationBusy() ? propertyPhotos.resumeQueue() : Promise.resolve(),
+      removePending: (index:number) => {if(!operationBusy())propertyPhotos.removePending(index);},
+      requestRemove: (id:string) => {if(!operationBusy())propertyPhotos.requestRemove(id);},
+      confirmRemove: () => !operationBusy() ? propertyPhotos.confirmRemove() : Promise.resolve(),
+      setCover: (id:string) => !operationBusy() ? propertyPhotos.setCover(id) : Promise.resolve(),
+      saveAlt: (id:string) => !operationBusy() ? propertyPhotos.saveAlt(id) : Promise.resolve(),
+      move: (id:string,direction:-1|1) => !operationBusy() ? propertyPhotos.move(id,direction) : Promise.resolve(),
     },
     photoState,
     mediaItems: propertyMediaItems(photoState.photos, photoState.pendingSelections, photoState.uncertainSelection, photoState.busy && photoState.batch.status === 'running'),
@@ -665,12 +735,12 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       navigate('listingDetails');
     },
     editComposerProperty: () => { if(editingPublished)return; if (screen === 'listingDetails') goBack(); else navigate('listingComposer'); },
-    propertySummary: workspace.item ? {
-      floorTotalLabel: workspace.item.property.property_type==='house'?'stories':'floors in building',
-      type: propertyTypeOptions.find(o => o.value === workspace.item!.property.property_type)?.label ?? 'Property',
-      location: [workspace.item.property.barangay, propertyCityOptions.find(o => o.value === workspace.item!.property.city)?.label].filter(Boolean).join(', '),
-      bedrooms: String(workspace.item.property.bedrooms), bathrooms: String(workspace.item.property.bathrooms), floorAreaSqm: String(workspace.item.property.floor_area_sqm ?? ''), floorNumber: workspace.item.property.property_type==='house'?'':String(workspace.item.property.floor_number ?? ''), totalFloors: String(workspace.item.property.total_floors ?? ''), maxOccupants: String(workspace.item.property.max_occupants ?? ''),
-      furnishing: furnishingOptions.find(o => o.value === workspace.item!.property.furnishing_status)?.label ?? '', detailsAvailable: true,
+    propertySummary: physical ? {
+      floorTotalLabel: physical.property_type==='house'?'stories':'floors in building',
+      type: propertyTypeOptions.find(o => o.value === physical.property_type)?.label ?? 'Property',
+      location: [physical.barangay, propertyCityOptions.find(o => o.value === physical.city)?.label].filter(Boolean).join(', '),
+      bedrooms: String(physical.bedrooms), bathrooms: String(physical.bathrooms), floorAreaSqm: String(physical.floor_area_sqm ?? ''), floorNumber: physical.property_type==='house'?'':String(physical.floor_number ?? ''), totalFloors: String(physical.total_floors ?? ''), maxOccupants: String(physical.max_occupants ?? ''),
+      furnishing: furnishingOptions.find(o => o.value === physical.furnishing_status)?.label ?? '', detailsAvailable: true,
     } : {
       floorTotalLabel: propertyState.draft.propertyType==='house'?'stories':'floors in building',
       type: propertyTypeOptions.find(o => o.value === propertyState.draft.propertyType)?.label ?? 'Saved property',

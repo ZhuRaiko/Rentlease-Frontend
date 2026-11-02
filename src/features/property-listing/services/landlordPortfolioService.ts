@@ -42,6 +42,16 @@ export function createLandlordPortfolioService(getClient: () => SupabaseClient<D
       if (properties.error || listings.error || verifications.error || !properties.data || !listings.data || !verifications.data) throw new PortfolioError('Could not load your properties. Check your connection and try again.');
       if (properties.data.some(p => p.landlord_id !== ownerId) || listings.data.some(l => l.landlord_id !== ownerId) || verifications.data.some(v => v.user_id !== ownerId || v.tier !== 'tier_3_property')) throw failed('hydration',null,true);
       const ids = properties.data.map(p => p.id), covers = new Map<string, { id: string; publicUrl: string }>();
+      const bindings=new Map<string,{verified:boolean;requires_repair:boolean;current_submission_id:string|null}>();let bindingAvailable=true;
+      for(let offset=0;offset<ids.length;offset+=100){
+        const requested=ids.slice(offset,offset+100);let result;
+        try{result=await client.rpc('get_owned_property_identity_statuses',{p_property_ids:requested});}catch(error){throw failed('verifications',error);}
+        await assertUser(ownerId);
+        if(result.error?.code==='PGRST202'){bindingAvailable=false;break;}
+        if(result.error||!result.data)throw failed('verifications',result.error);
+        if(result.data.length!==requested.length||new Set(result.data.map(row=>row.property_id)).size!==requested.length||result.data.some(row=>!requested.includes(row.property_id)||typeof row.verified!=='boolean'||typeof row.requires_repair!=='boolean'))throw failed('hydration',null,true);
+        for(const row of result.data)bindings.set(row.property_id,row);
+      }
       // Only owner-confirmed property IDs enter the photo query. No private location is read.
       for (let offset = 0; offset < ids.length; offset += 100) {
         let result; try { result = await client.from('property_photos').select('id,property_id,storage_path,alt_text,sort_order,is_cover,created_at').in('property_id', ids.slice(offset, offset + 100)).eq('is_cover', true); } catch(error) { throw failed('covers',error); }
@@ -58,7 +68,15 @@ export function createLandlordPortfolioService(getClient: () => SupabaseClient<D
         }
       }
       await assertUser(ownerId);
-      return assemblePortfolio(properties.data, listings.data, verifications.data, covers);
+      return assemblePortfolio(properties.data, listings.data, verifications.data, covers).map(item=>{
+        const b=bindings.get(item.propertyId);
+        if(!bindingAvailable)return {...item,tier3:{...item.tier3,identityBindingAvailable:false}};
+        if(!b)throw failed('hydration',null,true);
+        const approved=b.verified?verifications.data.find(v=>v.id===b.current_submission_id):null;
+        return {...item,tier3:{...item.tier3,identityBindingAvailable:true,identityBound:b.verified,requiresRepair:b.requires_repair,
+          status:b.verified?'approved' as const:item.tier3.status==='approved'?'not_submitted' as const:item.tier3.status,
+          ...(approved?{submissionId:approved.id,updatedAt:approved.updated_at}:{})}};
+      });
     },
   };
 }

@@ -6,11 +6,12 @@ import type { Database } from '../src/shared/services/supabase/database.types';
 import { createTierThreeVerificationService } from '../src/features/user-verification/services/tierThreeVerificationService';
 
 function fixture() {
-  const calls: unknown[][] = []; let identity: string | null = 'owner'; let role = 'landlord'; let tierOne = true; let active = true; let propertyOwner = 'owner'; let fail = '';
+  const calls: unknown[][] = []; let identity: string | null = 'owner'; let role = 'landlord'; let tierOne = true; let active = true; let propertyOwner = 'owner'; let fail = ''; let missingContract=false;
   const property = () => ({ id: 'p', landlord_id: propertyOwner, property_type: 'apartment', barangay: 'Test', city: 'imus' });
   const submission = { id: 's', property_id: 'p', status: 'pending', rejection_reason: null, review_note: null, submitted_at: '', reviewed_at: null };
   const client = {
     auth: { getUser: async () => ({ data: { user: identity ? { id: identity } : null }, error: null }) },
+    rpc:async(name:string,args:unknown)=>{calls.push(['rpc',name,args]);if(fail==='verification_submissions')return {data:null,error:Error('denied')};if(missingContract)return {data:null,error:{code:'PGRST202'}};return {data:name==='get_property_identity_context'?{property_id:'p',owner_id:'owner',current_revision_id:'revision'}:name==='attach_property_identity_document'?null:{...submission,hasDocument:name==='get_property_identity_submission',ready_for_review_at:null},error:null};},
     from: (table: string) => {
       calls.push(['from', table]); let inserted: unknown;
       const response = () => {
@@ -31,7 +32,7 @@ function fixture() {
       }; return query;
     },
   } as unknown as SupabaseClient<Database>;
-  return { calls, service: createTierThreeVerificationService(() => client), noAuth: () => { identity = null; }, switchUser: () => { identity = 'another'; }, tenant: () => { role = 'tenant'; }, noTierOne: () => { tierOne = false; }, restricted: () => { active = false; }, foreignProperty: () => { propertyOwner = 'other'; }, fail: (table: string) => { fail = table; } };
+  return { missingContract:()=>{missingContract=true;}, calls, service: createTierThreeVerificationService(() => client), noAuth: () => { identity = null; }, switchUser: () => { identity = 'another'; }, tenant: () => { role = 'tenant'; }, noTierOne: () => { tierOne = false; }, restricted: () => { active = false; }, foreignProperty: () => { propertyOwner = 'other'; }, fail: (table: string) => { fail = table; } };
 }
 test('service verifies Auth, own active Tier 1 profile and landlord role without requiring Tier 2', async () => {
   const h = fixture(); assert.equal(await h.service.getEligibleUserId(), 'owner');
@@ -45,19 +46,19 @@ test('property service explicitly filters landlord_id and excludes foreign rows 
   h.foreignProperty(); assert.deepEqual(await h.service.fetchOwnedProperties('owner'), []);
   await assert.rejects(h.service.createSubmission('owner', 'p')); assert.ok(!h.calls.some(c => c[0] === 'insert'));
 });
-test('latest status query is scoped to user, Tier 3 and selected property, ordered and limited', async () => {
-  const h = fixture(); const result = await h.service.fetchLatest('owner', 'p'); assert.equal(result?.hasDocument, true);
+test('before deployment read-only fallback remains scoped to user, Tier 3 and selected property', async () => {
+  const h = fixture();h.missingContract(); const result = await h.service.fetchLatest('owner', 'p'); assert.equal(result?.hasDocument, true);
   for (const pair of [['user_id', 'owner'], ['tier', 'tier_3_property'], ['property_id', 'p']]) assert.ok(h.calls.some(c => c[0] === 'eq' && c[1] === 'verification_submissions' && c[2] === pair[0] && c[3] === pair[1]));
   assert.ok(h.calls.some(c => c[0] === 'limit' && c[2] === 1));
 });
-test('create writes only user_id, tier and property_id; no client review, profile or trust writes', async () => {
+test('controlled start passes physical property UUID only; no direct review or trust writes', async () => {
   const h = fixture(); const result = await h.service.createSubmission('owner', 'p'); assert.equal(result.hasDocument, false);
-  assert.deepEqual(h.calls.filter(c => c[0] === 'insert'), [['insert', 'verification_submissions', { user_id: 'owner', tier: 'tier_3_property', property_id: 'p' }]]);
+  assert.deepEqual(h.calls.filter(c=>c[0]==='rpc'),[['rpc','get_property_identity_context',{p_property_id:'p'}],['rpc','begin_property_identity_verification',{p_property_id:'p',p_expected_revision:'revision'}]]);assert.equal(h.calls.some(c=>c[0]==='insert'),false);
 });
 test('metadata uses created submission and existing private path with one of four qualifying enums', async () => {
   const h = fixture(); const uploaded = { storagePath: 'owner/s/uuid.jpeg', fileName: 'file.jpeg', mimeType: 'image/jpeg', size: 12 };
   await h.service.insertDocument('owner', 's', 'authorization_to_lease', uploaded);
-  assert.deepEqual(h.calls.filter(c => c[0] === 'insert'), [['insert', 'verification_documents', { submission_id: 's', document_type: 'authorization_to_lease', storage_path: uploaded.storagePath, file_name: uploaded.fileName, mime_type: uploaded.mimeType }]]);
+  assert.deepEqual(h.calls.filter(c=>c[0]==='rpc'),[['rpc','attach_property_identity_document',{p_submission_id:'s',p_document_type:'authorization_to_lease',p_storage_path:uploaded.storagePath,p_file_name:uploaded.fileName,p_mime_type:uploaded.mimeType}]]);assert.equal(h.calls.some(c=>c[0]==='insert'),false);
   assert.ok(h.calls.some(c => c[0] === 'eq' && c[1] === 'verification_submissions' && c[2] === 'user_id' && c[3] === 'owner'));
 });
 test('changed identity and query errors cannot become eligible empty state or create', async () => {
@@ -69,3 +70,9 @@ test('changed identity and query errors cannot become eligible empty state or cr
 test('Tier 3 picker reads physical properties without listing-status or submission-existence filters',async()=>{
  const h=fixture();const properties=await h.service.fetchOwnedProperties('owner');assert.equal(properties[0]?.id,'p');assert.ok(h.calls.some(c=>c[0]==='eq'&&c[1]==='properties'&&c[2]==='landlord_id'&&c[3]==='owner'));assert.equal(h.calls.some(c=>c[0]==='from'&&(c[1]==='listings'||c[1]==='verification_submissions')),false);assert.equal(h.calls.some(c=>c[0]==='insert'),false);assert.equal(h.calls.some(c=>c[0]==='eq'&&c[2]==='status'),false);
 });
+
+
+test('revision-aware status uses server target selection without trusting a listing ID or account badge',async()=>{const h=fixture();const result=await h.service.fetchLatest('owner','p');assert.equal(result?.property_id,'p');assert.deepEqual(h.calls.filter(c=>c[0]==='rpc'),[['rpc','get_property_identity_submission',{p_property_id:'p'}]]);});
+
+
+test('canonical verification reads are separate from proposed evidence targeting',async()=>{const h=fixture();await h.service.fetchCurrent('owner','p');assert.deepEqual(h.calls.filter(c=>c[0]==='rpc'),[['rpc','get_property_identity_submission',{p_property_id:'p',p_current_only:true}]]);});

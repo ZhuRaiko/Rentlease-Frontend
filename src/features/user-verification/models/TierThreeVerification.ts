@@ -16,5 +16,5 @@ export const canEnterTierThree = (tierOneVerified: boolean, hasLandlordRole: boo
 export type VerificationProperty = Pick<Tables<'properties'>, 'id' | 'landlord_id' | 'property_type' | 'barangay' | 'city'>;
 const readable = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 export const verificationPropertyLabel = (property: VerificationProperty) => `${readable(property.property_type)} - ${property.barangay}, ${readable(property.city)}`;
-export type TierThreeSubmission = TierTwoSubmission & Pick<Tables<'verification_submissions'>, 'property_id'>;
+export type TierThreeSubmission = TierTwoSubmission & Pick<Tables<'verification_submissions'>, 'property_id'> & {ready_for_review_at?:string|null;identityCorrection?:boolean};
 export type TierThreeScreen = 'intro' | 'property' | 'documentType' | 'document' | 'review' | 'status';

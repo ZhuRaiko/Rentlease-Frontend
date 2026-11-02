@@ -11,7 +11,6 @@ import { ListingWorkspaceFeedback } from '../components/ListingWorkspaceFeedback
 import { ChoiceChip, ListingField } from '../components/ListingControls';
 import { ListingButton } from '../components/ListingButton';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
-import { hasConfirmedPropertyLocation } from '../models/DraftProperty';
 import { rentalTermOptions } from '../models/PersistedListingDraft';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
@@ -32,16 +31,23 @@ export function ListingDetailsView({ viewModel: vm, onClose }: { viewModel: Prop
     {vm.composerPhase && !vm.listingDraftState.busy ? <FeedbackNotice message="Saving your progress. Keep this screen open until saving finishes." /> : null}
     {!vm.composerPhase && !vm.listingDraftState.error && vm.listingValidationIssue ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{vm.listingValidationIssue.message}</Text> : null}
   </>} />;
-  return <ListingWizardScaffold title="Listing details" onBack={vm.goBack} onClose={onClose} footer={footer}>
+  return <ListingWizardScaffold title={vm.listingDraftState.lastConfirmed?"Edit Listing":"Listing Details"} onBack={vm.goBack} onClose={onClose} footer={footer}>
     {vm.publishedEditing?<Text accessibilityLiveRegion="polite" style={styles.copy}>Editing {vm.listingDraftState.lastConfirmed?.status==='paused'?'Paused':'Published'} listing. Saving changes preserves this status.</Text>:null}
     <Text style={styles.copy}>{vm.publishedEditing?'* Required to save changes':'* Required to save a listing draft'}</Text>
     <View style={styles.summary}>
-      <Text style={styles.heading}>{property.type}</Text>
-      <Text style={styles.body}>{property.bedrooms} bedrooms · {property.bathrooms} bathrooms</Text>
+      <Text accessibilityRole="header" style={styles.heading}>Property Details</Text>
+      <Text style={styles.body}>{property.type}</Text>
+      <Text style={styles.copy}>{property.bedrooms} bedrooms ? {property.bathrooms} bathrooms</Text>
       <Text style={styles.copy}>{property.location || 'Location not entered'}</Text>
-      <Text style={styles.copy}>{vm.mediaItems.length} photos · {vm.workspacePropertyId ? 'Saved property location' : hasConfirmedPropertyLocation(vm.propertyState.draft) ? 'Location confirmed' : 'Location not confirmed'}</Text>
-      {!vm.publishedEditing?<ListingButton label={vm.workspacePropertyId ? "Property and photos" : "Edit property"} tone="outline" onPress={vm.editComposerProperty} />:null}
+      {vm.propertyEditAvailable?<ListingButton label="Edit Property Details" tone="outline" disabled={!editable} onPress={vm.openPropertyDetails}/>:null}
+      {!vm.workspacePropertyId?<ListingButton label="Edit property" tone="outline" onPress={vm.editComposerProperty}/>:null}
     </View>
+    {vm.workspacePropertyId?<View style={styles.section}>
+      <Text accessibilityRole="header" style={styles.heading}>Property Photos</Text>
+      <Text style={styles.copy}>{vm.mediaItems.length} photos. Shared by listings for this physical property.</Text>
+      <ListingButton label="Manage Property Photos" tone="outline" disabled={!editable} onPress={()=>vm.navigate('photoManager')}/>
+    </View>:null}
+    <Text accessibilityRole="header" style={styles.heading}>Listing Details</Text>
     {vm.listingEditExplanation ? <FeedbackNotice message={vm.listingEditExplanation} /> : null}
     {!vm.publishedEditing?<PropertyVerificationAction viewModel={vm} />:null}
     <ComposerRecoveryFeedback viewModel={vm} />

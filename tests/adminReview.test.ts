@@ -21,7 +21,7 @@ function fixture(status: 'pending' | 'under_review' = 'pending') {
       else active = false;
     },
   });
-  return { queue, calls, select: () => queue.select('s'), fail: () => { fail = true; }, failRefresh: () => { failRefresh = true; }, pause: () => { paused = true; }, release: () => release?.(), retainStatus: () => { retainStatus = true; }, change: (next: Partial<typeof detail.item>) => { detail = { ...detail, item: { ...detail.item, ...next } }; } };
+  return { identity:(value:NonNullable<AdminVerificationSubmissionDetail['identity']>)=>{detail={...detail,identity:value,item:{...detail.item,tier:'tier_3_property'}};}, queue, calls, select: () => queue.select('s'), fail: () => { fail = true; }, failRefresh: () => { failRefresh = true; }, pause: () => { paused = true; }, release: () => release?.(), retainStatus: () => { retainStatus = true; }, change: (next: Partial<typeof detail.item>) => { detail = { ...detail, item: { ...detail.item, ...next } }; } };
 }
 test('pending permits only Start review and first tap never calls RPC', async () => {
   const h = fixture(); await h.select();
@@ -118,4 +118,17 @@ test('service normalizes denied, invalid transition, missing-document and networ
     const service = createAdminVerificationService(() => ({ rpc: async () => ({ data: null, error: { message, code: '42501' } }) } as unknown as SupabaseClient<Database>));
     await assert.rejects(service.reviewSubmission({ submissionId: 's', status: 'approved' }), (error: { message: string }) => /refresh/i.test(error.message) && !error.message.includes('42501'));
   }
+});
+
+
+test('identity correction approval needs explicit same-property attestation and forwards exact review versions',async()=>{
+ const h=fixture('under_review');const snapshot={property_type:'apartment' as const,city:'imus' as const,barangay:'Fixture',floor_number:2,address_line_1:'Fixture',address_line_2:null,postal_code:null,exact_lat:14.4,exact_lng:120.9,public_lat:14.4,public_lng:120.9};
+ const identity={submission_version:'submission-version',property_version:'property-version',current_revision_id:'current-revision',current:snapshot,proposed:{...snapshot,floor_number:3},correction_id:'correction',correction_version:'correction-version',same_asset_required:true,requires_repair:false};
+ h.identity(identity);await h.select();h.queue.requestReview('approved');assert.equal(await h.queue.confirmReview(),false);assert.equal(h.calls.length,0);h.queue.setSameAssetConfirmed(true);await h.queue.confirmReview();assert.deepEqual(h.calls[0],{submissionId:'s',status:'approved',identity,sameAssetConfirmed:true});
+});
+test('identity review service sends only the controlled token-aware RPC, never direct canonical writes',async()=>{
+ const calls:any[]=[];const client={rpc:async(name:string,args:any)=>{calls.push({name,args});return {data:null,error:null};}} as unknown as SupabaseClient<Database>;
+ const snapshot={property_type:'apartment' as const,city:'imus' as const,barangay:'Fixture',floor_number:2,address_line_1:'Fixture',address_line_2:null,postal_code:null,exact_lat:14.4,exact_lng:120.9,public_lat:14.4,public_lng:120.9};
+ await createAdminVerificationService(()=>client).reviewSubmission({submissionId:'s',status:'approved',sameAssetConfirmed:true,identity:{submission_version:'s-version',property_version:'p-version',current_revision_id:'r',current:snapshot,proposed:snapshot,correction_id:'c',correction_version:'c-version',same_asset_required:true,requires_repair:false}});
+ assert.deepEqual(calls,[{name:'review_property_identity_verification',args:{p_submission_id:'s',p_expected_submission_version:'s-version',p_expected_property_version:'p-version',p_expected_correction_version:'c-version',p_status:'approved',p_same_asset_confirmed:true}}]);
 });

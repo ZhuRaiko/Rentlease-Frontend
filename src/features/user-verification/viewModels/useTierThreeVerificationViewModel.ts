@@ -14,6 +14,6 @@ export function useTierThreeVerificationViewModel(enabled: boolean, initialPrope
     return () => workflow.dispose();
   }, [workflow]);
   useEffect(() => { void workflow.setEnabled(enabled,initialPropertyId); }, [workflow, enabled, initialPropertyId]);
-  return { ...state, ...workflow, showRecovery: needsVerificationRecovery(state), canSubmit: workflow.canSubmit(), busy: state.isLoading || state.isSelectingDocument || state.isSubmitting };
+  return { ...state, ...workflow, showRecovery: needsVerificationRecovery(state), canSubmit: workflow.canSubmit(), canResume:workflow.canResume(), busy: state.isLoading || state.isSelectingDocument || state.isSubmitting };
 }
 export type TierThreeVerificationViewModel = ReturnType<typeof useTierThreeVerificationViewModel>;

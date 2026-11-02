@@ -17,11 +17,15 @@ function harness() {
   let uploadError = false, removalError = false, refreshError = false, coverError = false, deletionError = false, storageFail = false;
   let wait: Promise<void> | null = null, bytes = 24, pickerCount = 0, pickResult: SelectedDocument | null = file;
   const journal = new Map<string, string>(), calls: { name: string; value: unknown }[] = [];
+  let unavailableContract=false;let unknownReceipt=false;let cancelConflict=false;let reorderUnavailable=false;
+  let serial=1;const receipts=new Map<string,unknown>();let mediaVersion='50000000-0000-4000-8000-000000000001';
   const client = {
-    auth: { getUser: async () => ({ data: { user: user ? { id: user } : null }, error: null }) },
+    auth: { getUser: async () => {calls.push({name:'request:auth',value:null});return { data: { user: user ? { id: user } : null }, error: null };} },
     from(table: string) {
       let operation = 'read', payload: Record<string, unknown> = {}, filters: Record<string, unknown> = {};
       const execute = async () => {
+        if(table==='properties')calls.push({name:'request:property',value:null});
+        if(table==='property_photos'&&operation==='read')calls.push({name:'request:metadata',value:null});
         if (table === 'properties') return { data: user === owner ? { id: property, landlord_id: owner } : null, error: null };
         const matches = (p: PropertyPhotoRow) => Object.entries(filters).every(([k, v]) => p[k as keyof PropertyPhotoRow] === v);
         if (operation === 'insert') { calls.push({ name: 'insert', value: payload }); if (error) return { data: null, error }; rows.push({ ...row(), ...payload } as PropertyPhotoRow); return { data: rows.at(-1), error: null }; }
@@ -41,17 +45,38 @@ function harness() {
         then: (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) => execute().then(resolve, reject),
       }; return query;
     },
-    rpc: async (name: string, args: { p_photo_id: string }) => { calls.push({ name, value: args }); if (coverError) return { error: { message: 'private cover failure' } }; rows = rows.map(p => ({ ...p, is_cover: p.id === args.p_photo_id })); return { error: null }; },
+    rpc: async(name:string,args:any)=>{
+      calls.push({name,value:args});
+      if(name==='get_property_media_state'&&unavailableContract)return {data:null,error:{code:'PGRST202'}};
+      if(name==='get_property_media_state')return {data:mediaVersion,error:null};
+      if(name==='get_property_media_operation'&&unknownReceipt)return {data:null,error:null};
+      if(name==='get_property_media_operation')return {data:receipts.get(args.p_request_id)??null,error:null};
+      assert.equal(name,'manage_property_media');const action=args.p_action,p=args.p_args;
+      if(action==='reorder_cover'&&reorderUnavailable)return {data:null,error:{code:'22023',message:'Unexpected fields'}};
+      if(action==='register'&&error&&error.code)return {data:null,error};
+      if(action==='cancel'&&cancelConflict)return {data:null,error:{code:'40001',message:'stale'}};
+      let path:string|null=null,id:string|null=p.photo_id??null;
+      if(action==='reserve'){id=photoId;path=`${owner}/${property}/${photoId}.jpg`;}
+      if(action==='register')rows.push({...row(),alt_text:p.alt_text,is_cover:!rows.length,sort_order:Math.max(-1,...rows.map(r=>r.sort_order))+1});
+      if(action==='cover')rows=rows.map(r=>({...r,is_cover:r.id===p.photo_id}));
+      if(action==='alt')rows=rows.map(r=>r.id===p.photo_id?{...r,alt_text:p.alt_text}:r);
+      if(action==='reorder'||action==='reorder_cover')rows=rows.map(r=>({...r,sort_order:p.photo_ids.indexOf(r.id),is_cover:p.photo_ids[0]===r.id}));
+      if(action==='remove'){path=`${owner}/${property}/${p.photo_id}.jpg`;rows=rows.filter(r=>r.id!==p.photo_id);}
+      mediaVersion=`50000000-0000-4000-8000-${String(++serial).padStart(12,'0')}`;
+      const result={property_id:property,media_version:mediaVersion,action,photo_id:id,path};receipts.set(args.p_request_id,result);
+      if((action==='register'&&(coverError||error))||(action==='cover'&&coverError)||(action==='remove'&&deletionError))return {data:null,error:{code:'',message:'reply lost'}};
+      return {data:result,error:null};
+    },
     storage: { from: (bucket: string) => { assert.equal(bucket, 'property-media'); return {
       getPublicUrl: (path: string) => { calls.push({ name: 'url', value: path }); return { data: { publicUrl: `https://example.invalid/${path}` } }; },
       upload: async (path: string, body: ArrayBuffer, options: unknown) => { calls.push({ name: 'upload', value: { path, length: body.byteLength, options } }); if (wait) await wait; return { data: { path }, error: uploadError ? { message: 'unknown response' } : null }; },
       remove: async (paths: string[]) => { calls.push({ name: 'removeObject', value: paths }); return { error: removalError ? { message: 'private cleanup failure' } : null }; },
     }; } },
   } as unknown as SupabaseClient<Database>;
-  const service = createPropertyPhotoService(() => client, { getItem: async k => journal.get(k) ?? null, setItem: async (k, v) => { if (storageFail) throw Error('private disk error'); journal.set(k, v); }, removeItem: async k => { journal.delete(k); } }, { uuid: () => photoId, read: async () => new ArrayBuffer(bytes) });
+  const service = createPropertyPhotoService(() => client, { getItem: async k => journal.get(k) ?? null, setItem: async (k, v) => { if (storageFail) throw Error('private disk error'); journal.set(k, v); }, removeItem: async k => { journal.delete(k); } }, { uuid: () => `60000000-0000-4000-8000-${String(++serial).padStart(12,'0')}`, read: async () => new ArrayBuffer(bytes) });
   const flow = createPropertyPhotoWorkflow(service, async () => { pickerCount++; return pickResult; });
   const ready = async () => { flow.setProperty(property); await flow.load(); };
-  return { service, flow, ready, calls, journal, rows: () => rows, setRows: (r: PropertyPhotoRow[]) => { rows = r; }, setUser: (u: string) => { user = u; }, setError: (e: typeof error) => { error = e; }, uploadFail: (v: boolean) => { uploadError = v; }, removeFail: (v: boolean) => { removalError = v; }, refreshFail: (v: boolean) => { refreshError = v; }, coverFail: (v: boolean) => { coverError = v; }, deleteFail: (v: boolean) => { deletionError = v; }, journalFail: () => { storageFail = true; }, bytes: (v: number) => { bytes = v; }, delay: (v: Promise<void>) => { wait = v; }, picks: () => pickerCount, pickResult: (v: SelectedDocument | null) => { pickResult = v; } };
+  return { reorderUnavailable:()=>{reorderUnavailable=true;}, cancelConflict:()=>{cancelConflict=true;}, unavailable:()=>{unavailableContract=true;}, unknownReceipt:()=>{unknownReceipt=true;}, service, flow, ready, calls, journal, rows: () => rows, setRows: (r: PropertyPhotoRow[]) => { rows = r; }, setUser: (u: string) => { user = u; }, setError: (e: typeof error) => { error = e; }, uploadFail: (v: boolean) => { uploadError = v; }, removeFail: (v: boolean) => { removalError = v; }, refreshFail: (v: boolean) => { refreshError = v; }, coverFail: (v: boolean) => { coverError = v; }, deleteFail: (v: boolean) => { deletionError = v; }, journalFail: () => { storageFail = true; }, bytes: (v: number) => { bytes = v; }, delay: (v: Promise<void>) => { wait = v; }, picks: () => pickerCount, pickResult: (v: SelectedDocument | null) => { pickResult = v; } };
 }
 const callsOf = (h: ReturnType<typeof harness>, name: string) => h.calls.filter(c => c.name === name);
 
@@ -78,11 +103,11 @@ test('upload requires a persisted owned UUID and non-owner errors expose no raw 
   const h = harness(); await assert.rejects(h.service.context('sample-property')); h.setUser('another');
   await assert.rejects(h.service.upload(context, file, ''), /unavailable/); assert.equal(callsOf(h, 'upload').length, 0);
 });
-test('upload sends ArrayBuffer, upsert false and path metadata; first photo uses the atomic cover RPC', async () => {
+test('upload sends ArrayBuffer and upsert false; atomic registration assigns the first cover', async () => {
   const h = harness(); await h.service.upload(context, file, ' Bedroom ');
   assert.deepEqual(callsOf(h, 'upload')[0]?.value, { path: `${owner}/${property}/${photoId}.jpg`, length: 24, options: { upsert: false, contentType: 'image/jpeg' } });
-  assert.deepEqual(callsOf(h, 'insert')[0]?.value, { id: photoId, property_id: property, storage_path: `property-media/${owner}/${property}/${photoId}.jpg`, alt_text: 'Bedroom', sort_order: 0, is_cover: false });
-  assert.deepEqual(callsOf(h, 'set_property_cover_photo')[0]?.value, { p_photo_id: photoId }); assert.equal(h.journal.size, 0);
+  assert.deepEqual((callsOf(h,'manage_property_media').find(c=>(c.value as any).p_action==='register')?.value as any).p_args,{photo_id:photoId,alt_text:'Bedroom'});
+  assert.equal(h.rows()[0]?.is_cover,true); assert.equal(h.journal.size, 0);
 });
 test('subsequent uploads preserve the current cover and append after persisted order', async () => {
   const h = harness(); h.setRows([{ ...row('40000000-0000-4000-8000-000000000001', 4), is_cover: true }]);
@@ -120,10 +145,10 @@ test('service also blocks duplicate upload from another workflow in the same pro
   const h = harness(); let release!: () => void; h.delay(new Promise<void>(resolve => { release = resolve; }));
   const first = h.service.upload(context, file, ''); await assert.rejects(h.service.upload(context, file, '')); release(); await first; assert.equal(callsOf(h, 'upload').length, 1);
 });
-test('uncertain Storage response retains a durable journal, blocks blind retry and does not insert metadata', async () => {
+test('uncertain Storage response blocks blind retry; explicit reconciliation cancels exact reservation before cleanup', async () => {
   const h = harness(); h.uploadFail(true); await assert.rejects(h.service.upload(context, file, ''));
-  await assert.rejects(h.service.upload(context, file, '')); await assert.rejects(h.service.reconcile(context), /unknown/);
-  assert.equal(callsOf(h, 'upload').length, 1); assert.equal(callsOf(h, 'insert').length, 0); assert.equal(callsOf(h, 'removeObject').length, 0); assert.equal(h.journal.size, 1);
+  await assert.rejects(h.service.upload(context, file, '')); await h.service.reconcile(context);
+  assert.equal(callsOf(h, 'upload').length, 1); assert.equal(callsOf(h, 'insert').length, 0); assert.equal(callsOf(h, 'removeObject').length, 1); assert.equal(h.journal.size, 0);
 });
 test('uncertain metadata response never deletes possibly registered Storage and reconciles by known photo ID', async () => {
   const h = harness(); h.setError({ code: '', message: 'response lost' }); await assert.rejects(h.service.upload(context, file, ''));
@@ -147,15 +172,15 @@ test('cover UI changes only after RPC confirmation and authoritative reload', as
   assert.equal(h.flow.getSnapshot().photos[0]?.is_cover, false); assert.equal(h.flow.getSnapshot().needsReconcile, true);
   h.coverFail(false); await h.flow.checkStatus(); await h.flow.setCover(photoId); assert.equal(h.flow.getSnapshot().photos[0]?.is_cover, true);
 });
-test('order actions persist dense order and optional alt text edits touch only allowed columns', async () => {
+test('atomic order command sends exact photo IDs and alt command touches only permitted text', async () => {
   const h = harness(); const other = '40000000-0000-4000-8000-000000000001'; h.setRows([row(), row(other, 7)]);
   await h.service.move(context, other, -1); const photos = await h.service.list(context); assert.deepEqual(photos.map(p => [p.id, p.sort_order]), [[other, 0], [photoId, 1]]);
   await h.service.updateAlt(context, photoId, ' Window '); assert.equal(h.rows().find(p => p.id === photoId)?.alt_text, 'Window');
   assert.ok(callsOf(h, 'update').every(c => Object.keys(c.value as object).every(k => ['sort_order', 'alt_text'].includes(k))));
 });
-test('deletion confirms metadata removal before removing exact known Storage object; no fake cover fallback', async () => {
+test('deletion confirms versioned metadata removal before deleting exact known Storage object', async () => {
   const h = harness(); h.setRows([{ ...row(), is_cover: true }]); await h.service.remove(context, photoId);
-  assert.equal(h.rows().length, 0); assert.ok(h.calls.findIndex(c => c.name === 'delete') < h.calls.findIndex(c => c.name === 'removeObject'));
+  assert.equal(h.rows().length, 0); assert.ok(h.calls.findIndex(c => c.name === 'manage_property_media' && (c.value as any).p_action==='remove') < h.calls.findIndex(c => c.name === 'removeObject'));
   assert.deepEqual(callsOf(h, 'removeObject')[0]?.value, [`${owner}/${property}/${photoId}.jpg`]); assert.equal(callsOf(h, 'set_property_cover_photo').length, 0);
 });
 test('failed Storage deletion remains recoverable across reopen and is not hidden', async () => {
@@ -224,4 +249,59 @@ test('temporary photo identity-read failure retains property binding and Check s
   unavailable=true;await flow.load();assert.equal(flow.getSnapshot().propertyId,property);assert.equal(flow.getSnapshot().photos.length,0);assert.equal(flow.getSnapshot().needsReconcile,true);
   unavailable=false;await flow.checkStatus();assert.equal(flow.getSnapshot().propertyId,property);assert.equal(flow.getSnapshot().loaded,true);assert.equal(flow.getSnapshot().needsReconcile,false);assert.match(flow.getSnapshot().notice??'',/refreshed/);assert.ok(reads>=3);
   ownerId='another-owner';await flow.checkStatus();assert.equal(flow.getSnapshot().photos.length,0);assert.equal(flow.getSnapshot().propertyId,null);flow.dispose();
+});
+
+
+test('photo commands require versioned server contract, never fallback to direct metadata writes', async () => {
+  const h=harness();await h.service.upload(context,file,'');
+  assert.equal(callsOf(h,'insert').length,0);
+  assert.ok(callsOf(h,'manage_property_media').length>=2);
+});
+test('cover, description and reorder use exact-target media commands', async () => {
+ const h=harness();h.setRows([row(),row('40000000-0000-4000-8000-000000000001',1)]);await h.service.list(context);
+ await h.service.setCover(context,photoId);await h.service.updateAlt(context,photoId,'New');await h.service.move(context,photoId,1);
+ assert.equal(callsOf(h,'update').length,0);
+ assert.ok(callsOf(h,'manage_property_media').length>=3);
+});
+
+
+test('true unknown command retains its journal and reconciliation never resends that command',async()=>{
+ const h=harness();h.setRows([row()]);await h.ready();h.coverFail(true);await h.flow.setCover(photoId);
+ const sent=callsOf(h,'manage_property_media').length;assert.equal(h.journal.size,1);await h.service.reconcile(context);
+ assert.equal(callsOf(h,'manage_property_media').length,sent);assert.equal(h.journal.size,0);
+});
+test('versioned cover supplies the loaded snapshot token and exact property and photo IDs',async()=>{
+ const h=harness();h.setRows([row()]);await h.service.list(context);await h.service.setCover(context,photoId);
+ const p=callsOf(h,'manage_property_media')[0]?.value as any;
+ assert.equal(p.p_property_id,property);assert.equal(p.p_expected_version,'50000000-0000-4000-8000-000000000001');assert.equal(p.p_args.photo_id,photoId);assert.equal(p.p_action,'cover');assert.match(p.p_request_id,/^60000000/);
+});
+test('published management routes editing to the shared editor and photo manager without publication or verification calls',()=>{
+ const source=readFileSync('src/features/property-listing/views/PublishedListingStatusView.tsx','utf8');assert.match(source,/editManagedListing/);assert.match(source,/\['active','paused'\]/);assert.doesNotMatch(source,/navigate\('photoManager'\)/);const editor=readFileSync('src/features/property-listing/views/ListingDetailsView.tsx','utf8');assert.match(editor,/Manage Property Photos/);assert.match(editor,/navigate\('photoManager'\)/);
+});
+
+test('undeployed media contract preserves read-only saved photos but prevents new writes',async()=>{
+ const h=harness();h.setRows([row()]);h.unavailable();assert.equal((await h.service.list(context)).length,1);
+ await assert.rejects(h.service.setCover(context,photoId),/awaiting/);assert.equal(callsOf(h,'manage_property_media').length,0);
+});
+test('missing receipt after unknown command keeps journal and never retries mutation',async()=>{
+ const h=harness();h.setRows([row()]);await h.ready();h.coverFail(true);await h.flow.setCover(photoId);h.unknownReceipt();const sent=callsOf(h,'manage_property_media').length;
+ await assert.rejects(h.service.reconcile(context),/could not be confirmed/);assert.equal(h.journal.size,1);assert.equal(callsOf(h,'manage_property_media').length,sent);
+});
+
+test('cleanup conflict retains known immutable path rather than abandoning a reserved upload',async()=>{
+ const h=harness();h.uploadFail(true);await assert.rejects(h.service.upload(context,file,''));h.cancelConflict();
+ await assert.rejects(h.service.reconcile(context));assert.equal(h.journal.size,1);const pending=JSON.parse([...h.journal.values()][0]!);assert.equal(pending.kind,'cleanup');assert.equal(pending.photoId,photoId);assert.equal(callsOf(h,'removeObject').length,0);
+});
+
+test('photo metadata load brackets the read with tokens without duplicate owner checks (7 requests)',async()=>{
+ const h=harness();h.setRows([row()]);await h.service.list(context);
+ assert.equal(h.calls.filter(c=>c.name.startsWith('request:')||c.name==='get_property_media_state').length,7);
+});
+
+test('grid reorder sends one complete atomic reorder_cover command, never separate cover writes',async()=>{
+ const h=harness(),other='40000000-0000-4000-8000-000000000001';h.setRows([row(),row(other,1)]);await h.service.list(context);await h.service.reorder(context,[other,photoId]);
+ const cmds=callsOf(h,'manage_property_media');assert.equal(cmds.length,1);assert.equal((cmds[0]?.value as any).p_action,'reorder_cover');assert.deepEqual((cmds[0]?.value as any).p_args.photo_ids,[other,photoId]);assert.equal(h.rows().find(p=>p.id===other)?.is_cover,true);
+});
+test('old deployed backend rejects new atomic action without falling back to two unsafe commands',async()=>{
+ const h=harness();h.setRows([row()]);h.reorderUnavailable();await h.service.list(context);await assert.rejects(h.service.reorder(context,[photoId]),/backend update/);assert.equal(callsOf(h,'manage_property_media').length,1);assert.equal(h.journal.size,0);
 });

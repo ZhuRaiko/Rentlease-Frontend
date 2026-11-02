@@ -1,4 +1,6 @@
 import { PropertyLocationMapView } from './PropertyLocationMapView';
+import {useSyncExternalStore} from 'react';
+import type {createPropertyLocationWorkflow} from '../viewModels/propertyLocationWorkflow';
 import { Text } from 'react-native';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { ui } from '../../../shared/theme/ui';
@@ -8,7 +10,10 @@ import { ListingButton } from '../components/ListingButton';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
 export function PropertyLocationToolView({ viewModel: vm, onClose }: { viewModel: PropertyListingViewModel; onClose: () => void }) {
-  const location = vm.locationState, locationFlow = vm.propertyLocation;
+  return <PropertyLocationTool locationFlow={vm.propertyLocation} onClose={onClose}/>;
+}
+export function PropertyLocationTool({locationFlow,onClose}:{locationFlow:ReturnType<typeof createPropertyLocationWorkflow>;onClose:()=>void}){
+  const location=useSyncExternalStore(locationFlow.subscribe,locationFlow.getSnapshot);
   const token = locationFlow.generationToken();
   if (location.stage === 'map' && location.workingPoint && location.selected && location.styleUrl) return <PropertyLocationMapView key={token} styleUrl={location.styleUrl} point={location.workingPoint} initialPoint={location.selected} ready={location.mapReady} error={location.error} onMove={point => locationFlow.movePoint(point, token)} onLoaded={() => locationFlow.mapLoaded(token)} onFailed={() => locationFlow.mapFailed(token)} onCancel={locationFlow.cancel} onConfirm={() => locationFlow.confirmExact(token)} />;
   if ((location.stage === 'searching' || location.stage === 'candidates')) return <ListingWizardScaffold title="Find your property" description="Search the address, then choose a result to adjust its exact pin." onBack={locationFlow.cancel} onClose={onClose}>

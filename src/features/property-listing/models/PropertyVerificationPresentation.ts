@@ -6,5 +6,5 @@ export function propertyVerificationActionLabel(status:Enums<'verification_statu
 // A review entry point, never a replacement for publish_listing authorization.
 export function canReviewPortfolioPublication(item:LandlordPortfolioItem){
  const row=item.currentListing;
- return item.property.is_active&&item.tier3.status==='approved'&&row?.status==='draft'&&Number.isFinite(row.completeness_score)&&row.completeness_score>=0.80;
+ return !item.tier3.requiresRepair&&item.tier3.identityBindingAvailable!==false&&item.tier3.identityBound!==false&&item.property.is_active&&item.tier3.status==='approved'&&row?.status==='draft'&&Number.isFinite(row.completeness_score)&&row.completeness_score>=0.80;
 }

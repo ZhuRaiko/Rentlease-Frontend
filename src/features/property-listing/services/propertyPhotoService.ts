@@ -1,19 +1,21 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Json } from '../../../shared/services/supabase/database.types';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import type { SelectedDocument } from '../../../shared/models/SelectedDocument';
 import { isPropertyUuid } from '../models/DraftProperty';
-import { MAX_PHOTO_BYTES, MAX_PROPERTY_PHOTOS, PROPERTY_PHOTO_BUCKET, PropertyPhotoError, orderedPropertyPhotos, propertyPhotoObjectPath, propertyPhotoPath, validatePropertyPhoto, type PropertyPhoto, type PropertyPhotoRow } from '../models/PropertyPhoto';
+import { MAX_PHOTO_BYTES, MAX_PROPERTY_PHOTOS, PROPERTY_PHOTO_BUCKET, PropertyPhotoError, orderedPropertyPhotos, propertyPhotoObjectPath, validatePropertyPhoto, type PropertyPhoto, type PropertyPhotoRow } from '../models/PropertyPhoto';
 
 interface Journal { getItem(key: string): Promise<string | null>; setItem(key: string, value: string): Promise<void>; removeItem(key: string): Promise<void> }
-interface PendingPhoto { kind: 'upload' | 'delete' | 'cleanup'; photoId: string; path: string }
+interface PendingPhoto { kind: 'upload' | 'delete' | 'cleanup' | 'command'; photoId: string; path: string; requestId?: string; version?: string; action?: string; args?: Json }
+interface MediaReceipt { property_id: string; media_version: string; action: string; photo_id: string | null; path: string | null }
 export interface PhotoContext { ownerId: string; propertyId: string }
 export interface PhotoDevice { read(file: SelectedDocument): Promise<ArrayBuffer>; uuid(): string }
 const inFlight = new Set<string>();
 const columns = 'id,property_id,storage_path,alt_text,sort_order,is_cover,created_at';
 const uncertain = () => new PropertyPhotoError('The photo operation could not be confirmed. Check photo status before making further changes.', true);
-const rejected = (error: { code?: string }) => /^(22|23|42|P0001)/.test(error.code ?? '');
+const rejected = (error: { code?: string }) => /^(22|23|40|42|P0001|PGRST202)/.test(error.code ?? '');
 const dbError = (error: { code?: string; message?: string }) => new PropertyPhotoError(
-  ['22023', 'P0001'].includes(error.code ?? '') && /10|limit|maximum/i.test(error.message ?? '') ? 'This property has reached the 10-photo limit. Check photo status.' : 'The photo change was rejected. Check your access and photo limits.');
+  error.code === '40001' ? 'Photos changed on another device. Check saved photos before trying again.' : error.code === 'PGRST202' ? 'Photo management is awaiting its backend update. Your saved photos are retained.' : error.code === 'P0001' ? 'This change would leave an active listing incomplete. Add a replacement photo before removing this one.' : ['22023'].includes(error.code ?? '') && /10|limit|maximum/i.test(error.message ?? '') ? 'This property has reached the 10-photo limit. Check photo status.' : 'The photo change was rejected. Check your access and photo limits.');
 
 export function createPropertyPhotoService(getClient: () => SupabaseClient<Database>, journal: Journal, device: PhotoDevice) {
   const key = (c: PhotoContext) => `rentlease:property-photos:${c.ownerId}:${c.propertyId}`;
@@ -31,15 +33,45 @@ export function createPropertyPhotoService(getClient: () => SupabaseClient<Datab
     if (current.ownerId !== c.ownerId) throw new PropertyPhotoError('Your account changed. Reopen property photos.');
   };
   const bucket = () => getClient().storage.from(PROPERTY_PHOTO_BUCKET);
+  const versions = new Map<string,string>();
+  const readVersion = async(c:PhotoContext, optional=false,validateIdentity=true):Promise<string|null> => {
+    if(validateIdentity)await assertContext(c);
+    const {data,error}=await getClient().rpc('get_property_media_state',{p_property_id:c.propertyId});
+    if(optional && error?.code==='PGRST202'){versions.delete(key(c));return null;}
+    if(error || !isPropertyUuid(data)) throw new PropertyPhotoError(error?.code==='PGRST202'?'Photo management is awaiting its backend update. Saved records are retained.':'Could not verify saved photos. Check your connection and access.');
+    if(validateIdentity)await assertContext(c);return data;
+  };
+  const receipt = (value:unknown,c:PhotoContext,action:string):MediaReceipt => {
+    if(!value || typeof value!=='object' || Array.isArray(value))throw uncertain();
+    const r=value as Partial<MediaReceipt>;
+    if(r.property_id!==c.propertyId || !isPropertyUuid(r.media_version) || r.action!==action || (r.photo_id!==null&&!isPropertyUuid(r.photo_id)) || (r.path!==null&&typeof r.path!=='string'))throw uncertain();
+    if(r.photo_id&&r.path)propertyPhotoObjectPath(r.path,c.ownerId,c.propertyId,r.photo_id);
+    return r as MediaReceipt;
+  };
+  const command = async(c:PhotoContext,action:string,args:Json,photoId=c.propertyId,path=''):Promise<MediaReceipt> => {
+    await assertContext(c);
+    const version=versions.get(key(c))??await readVersion(c);if(!version)throw new PropertyPhotoError('Photo management is awaiting its backend update.');
+    const pending:PendingPhoto={kind:'command',photoId,path,requestId:device.uuid(),version,action,args};
+    await journal.setItem(key(c),JSON.stringify(pending));
+    const {data,error}=await getClient().rpc('manage_property_media',{p_property_id:c.propertyId,p_expected_version:version,p_request_id:pending.requestId!,p_action:action,p_args:args});
+    await assertContext(c);
+    if(error){if(rejected(error)){await journal.removeItem(key(c));if(action==='reorder_cover'&&error.code==='22023'&&/Unknown media action|Unexpected fields/.test(error.message??''))throw new PropertyPhotoError('Photo ordering is waiting for its backend update. Saved photos are unchanged.');throw dbError(error);}throw uncertain();}
+    const r=receipt(data,c,action);versions.set(key(c),r.media_version);
+    // Caller replaces the marker or clears it only after the next safe boundary.
+    return r;
+  };
   const list = async (c: PhotoContext): Promise<PropertyPhoto[]> => {
+    const started=Date.now();let result='error';try{
     await assertContext(c);
+    const before=await readVersion(c,true,false);
     const { data, error } = await getClient().from('property_photos').select(columns).eq('property_id', c.propertyId).order('sort_order', { ascending: true }).order('created_at', { ascending: true }).order('id', { ascending: true });
-    await assertContext(c);
     if (error || !data) throw new PropertyPhotoError('Could not load saved photos. Check your connection.');
-    return orderedPropertyPhotos(data).map(row => {
+    const after=await readVersion(c,true,false);await assertContext(c);if(before!==after)throw new PropertyPhotoError('Photos changed while loading. Check saved photos again.');if(after)versions.set(key(c),after);
+    result='success';return orderedPropertyPhotos(data).map(row => {
       const path = propertyPhotoObjectPath(row.storage_path, c.ownerId, c.propertyId, row.id);
       return { ...row, publicUrl: bucket().getPublicUrl(path).data.publicUrl };
     });
+    }finally{if(typeof __DEV__!=='undefined'&&__DEV__)console.info('[PHOTO-PERF]',{stage:'metadata',durationMs:Date.now()-started,result,requests:7});}
   };
   const find = async (c: PhotoContext, id: string): Promise<PropertyPhotoRow | null> => {
     await assertContext(c);
@@ -50,8 +82,8 @@ export function createPropertyPhotoService(getClient: () => SupabaseClient<Datab
     const value = await journal.getItem(key(c)); if (!value) return null;
     let pending: PendingPhoto;
     try { pending = JSON.parse(value); } catch { throw uncertain(); }
-    if (!pending || !['upload', 'delete', 'cleanup'].includes(pending.kind) || !isPropertyUuid(pending.photoId)) throw uncertain();
-    propertyPhotoObjectPath(pending.path, c.ownerId, c.propertyId, pending.photoId);
+    if (!pending || !['upload', 'delete', 'cleanup', 'command'].includes(pending.kind) || !isPropertyUuid(pending.photoId)) throw uncertain();
+    if(pending.path)propertyPhotoObjectPath(pending.path, c.ownerId, c.propertyId, pending.photoId);
     return pending;
   };
   const lock = async <T>(c: PhotoContext, action: () => Promise<T>, recovery = false): Promise<T> => {
@@ -66,92 +98,76 @@ export function createPropertyPhotoService(getClient: () => SupabaseClient<Datab
     if (error) throw new PropertyPhotoError('Photo cleanup is incomplete. Check photo status to retry removal.', true);
     await assertContext(c); await journal.removeItem(key(c));
   };
-  const deleteRecord = async (c: PhotoContext, id: string) => {
-    await assertContext(c);
-    const { error } = await getClient().from('property_photos').delete().eq('property_id', c.propertyId).eq('id', id).select('id');
-    if (error) throw uncertain();
-    if (await find(c, id)) throw new PropertyPhotoError('The photo could not be removed. Check your access.', true);
+  const cleanup = async(c:PhotoContext,pending:PendingPhoto) => {
+    const version=await readVersion(c);if(!version)throw uncertain();versions.set(key(c),version);
+    try{await command(c,'cancel',{photo_id:pending.photoId},pending.photoId,pending.path);}
+    catch(error){
+      if(error instanceof PropertyPhotoError&&!error.reconcile)await journal.setItem(key(c),JSON.stringify({...pending,kind:'cleanup'}));
+      throw error;
+    }
+    await journal.setItem(key(c),JSON.stringify({...pending,kind:'cleanup'}));
+    await removeObject(c,pending);
   };
-  const cover = async (c: PhotoContext, id: string) => {
-    if (!await find(c, id)) throw new PropertyPhotoError('This photo is no longer available.');
-    await assertContext(c);
-    const { error } = await getClient().rpc('set_property_cover_photo', { p_photo_id: id });
-    await assertContext(c); if (error) throw new PropertyPhotoError('Cover change could not be confirmed. Check photo status.', true);
+  const change = async(c:PhotoContext,action:string,args:Json,id=c.propertyId,path='') => {
+    await command(c,action,args,id,path);await journal.removeItem(key(c));
   };
   return {
     context, assertContext, list,
     hasPending: async (c: PhotoContext) => !!await readPending(c),
-    async upload(c: PhotoContext, file: SelectedDocument, altText: string) {
-      return lock(c, async () => {
-        const mime = validatePropertyPhoto(file);
-        const existing = await list(c); if (existing.length >= MAX_PROPERTY_PHOTOS) throw new PropertyPhotoError('This property already has 10 photos.');
-        const body = await device.read(file);
-        if (!body.byteLength || body.byteLength > MAX_PHOTO_BYTES) throw new PropertyPhotoError('Choose a photo no larger than 10 MB.');
-        const id = device.uuid(); const path = propertyPhotoPath(c.ownerId, c.propertyId, id, mime);
-        await assertContext(c);
-        const pending: PendingPhoto = { kind: 'upload', photoId: id, path };
-        await journal.setItem(key(c), JSON.stringify(pending));
-        // Unknown responses remain journaled. Never remove an object if metadata may have committed.
-        const { error: uploadError } = await bucket().upload(path, body, { upsert: false, contentType: mime });
-        if (uploadError) throw uncertain();
-        await assertContext(c);
-        const nextOrder = Math.max(-1, ...existing.map(p => p.sort_order)) + 1;
-        const { data, error } = await getClient().from('property_photos').insert({ id, property_id: c.propertyId, storage_path: `${PROPERTY_PHOTO_BUCKET}/${path}`, alt_text: altText.trim() || null, sort_order: Math.min(32767, nextOrder), is_cover: false }).select(columns).single();
-        if (error) {
-          if (!rejected(error)) throw uncertain();
-          await journal.setItem(key(c), JSON.stringify({ ...pending, kind: 'cleanup' }));
-          await removeObject(c, pending); throw dbError(error);
-        }
-        if (!data || data.id !== id || data.property_id !== c.propertyId) throw uncertain();
-        await assertContext(c); await journal.removeItem(key(c));
-        if (!existing.length) await cover(c, id);
+    async upload(c:PhotoContext,file:SelectedDocument,altText:string){
+      return lock(c,async()=>{
+        const mime=validatePropertyPhoto(file),existing=await list(c);
+        if(existing.length>=MAX_PROPERTY_PHOTOS)throw new PropertyPhotoError('This property already has 10 photos.');
+        const body=await device.read(file);if(!body.byteLength||body.byteLength>MAX_PHOTO_BYTES)throw new PropertyPhotoError('Choose a photo no larger than 10 MB.');
+        const reserved=await command(c,'reserve',{mime});
+        if(!reserved.photo_id||!reserved.path)throw uncertain();
+        const pending:PendingPhoto={kind:'upload',photoId:reserved.photo_id,path:reserved.path};
+        await journal.setItem(key(c),JSON.stringify(pending));
+        const {error}=await bucket().upload(pending.path,body,{upsert:false,contentType:mime});
+        if(error)throw uncertain();await assertContext(c);
+        try{await command(c,'register',{photo_id:pending.photoId,alt_text:altText.trim()||null},pending.photoId,pending.path);}
+        catch(error){if(error instanceof PropertyPhotoError&&!error.reconcile){await journal.setItem(key(c),JSON.stringify({...pending,kind:'cleanup'}));await cleanup(c,pending);}throw error;}
+        await journal.removeItem(key(c));
       });
     },
-    async setCover(c: PhotoContext, id: string) { return lock(c, () => cover(c, id)); },
-    async updateAlt(c: PhotoContext, id: string, altText: string) {
-      return lock(c, async () => {
-        const { data, error } = await getClient().from('property_photos').update({ alt_text: altText.trim() || null }).eq('property_id', c.propertyId).eq('id', id).select('id').maybeSingle();
-        await assertContext(c); if (error || !data) throw new PropertyPhotoError('Photo description could not be confirmed. Check photo status.', true);
-      });
-    },
-    async move(c: PhotoContext, id: string, direction: -1 | 1) {
-      return lock(c, async () => {
-        const photos = await list(c); const index = photos.findIndex(p => p.id === id); const target = index + direction;
-        if (index < 0 || target < 0 || target >= photos.length) return;
-        const moved = photos.splice(index, 1)[0]!; photos.splice(target, 0, moved);
-        // No order uniqueness constraint. Sequential updates can partially succeed; always reload on failure.
-        for (const [sort_order, photo] of photos.entries()) {
-          await assertContext(c);
-          const { data, error } = await getClient().from('property_photos').update({ sort_order }).eq('property_id', c.propertyId).eq('id', photo.id).select('id').maybeSingle();
-          if (error || !data) throw new PropertyPhotoError('Photo order may be partially updated. Check photo status before continuing.', true);
-        }
-        await assertContext(c);
-      });
-    },
-    async remove(c: PhotoContext, id: string) {
-      return lock(c, async () => {
-        const photo = await find(c, id); if (!photo) return;
-        const path = propertyPhotoObjectPath(photo.storage_path, c.ownerId, c.propertyId, photo.id);
-        const pending: PendingPhoto = { kind: 'delete', photoId: id, path };
-        await journal.setItem(key(c), JSON.stringify(pending));
-        // Confirm metadata removal before touching Storage; known namespace retained for cleanup.
-        await deleteRecord(c, id); await removeObject(c, pending);
-      });
-    },
-    async reconcile(c: PhotoContext) {
-      return lock(c, async () => {
-        const pending = await readPending(c); if (!pending) return;
-        const photo = await find(c, pending.photoId);
-        if (pending.kind === 'upload') {
-          if (!photo) throw new PropertyPhotoError('Upload outcome remains unknown. Do not upload another copy. Backend outcome confirmation is needed if this persists.', true);
-          propertyPhotoObjectPath(photo.storage_path, c.ownerId, c.propertyId, photo.id);
-          await journal.removeItem(key(c)); return;
-        }
-        if (pending.kind === 'cleanup' && photo) throw uncertain();
-        if (photo) await deleteRecord(c, pending.photoId);
-        await removeObject(c, pending);
-      }, true);
-    },
+    async setCover(c:PhotoContext,id:string){return lock(c,async()=>{if(!await find(c,id))throw new PropertyPhotoError('This photo is no longer available.');await change(c,'cover',{photo_id:id},id);});},
+    async updateAlt(c:PhotoContext,id:string,altText:string){return lock(c,()=>change(c,'alt',{photo_id:id,alt_text:altText.trim()||null},id));},
+    async move(c:PhotoContext,id:string,direction:-1|1){return lock(c,async()=>{
+      // Preserve the version of the editor snapshot; do not silently adopt another writer's order.
+      const version=versions.get(key(c));const photos=await list(c);if(version&&version!==versions.get(key(c)))throw new PropertyPhotoError('Photos changed. Review the saved order before trying again.');
+      const index=photos.findIndex(p=>p.id===id),target=index+direction;if(index<0||target<0||target>=photos.length)return;
+      photos.splice(target,0,photos.splice(index,1)[0]!);await change(c,'reorder',{photo_ids:photos.map(p=>p.id)});
+    });},
+    async reorder(c:PhotoContext,ids:string[]){return lock(c,async()=>{
+      if(new Set(ids).size!==ids.length||ids.some(id=>!isPropertyUuid(id)))throw new PropertyPhotoError('Check the saved photo order.');
+      await change(c,'reorder_cover',{photo_ids:ids});
+    });},
+    async remove(c:PhotoContext,id:string){return lock(c,async()=>{
+      const photo=await find(c,id);if(!photo)return;
+      const path=propertyPhotoObjectPath(photo.storage_path,c.ownerId,c.propertyId,id);
+      await command(c,'remove',{photo_id:id},id,path);
+      const pending:PendingPhoto={kind:'cleanup',photoId:id,path};await journal.setItem(key(c),JSON.stringify(pending));await removeObject(c,pending);
+    });},
+    async reconcile(c:PhotoContext){return lock(c,async()=>{
+      const pending=await readPending(c);if(!pending)return;
+      if(pending.kind==='command'&&pending.requestId&&pending.action){
+        const {data,error}=await getClient().rpc('get_property_media_operation',{p_property_id:c.propertyId,p_request_id:pending.requestId});
+        await assertContext(c);if(error||!data)throw uncertain();
+        const r=receipt(data,c,pending.action);versions.set(key(c),r.media_version);
+        if(r.action==='reserve'&&r.photo_id&&r.path){await cleanup(c,{kind:'cleanup',photoId:r.photo_id,path:r.path});return;}
+        if(['remove','cancel'].includes(r.action)&&r.photo_id&&r.path){await journal.setItem(key(c),JSON.stringify({kind:'cleanup',photoId:r.photo_id,path:r.path}));await removeObject(c,{kind:'cleanup',photoId:r.photo_id,path:r.path});return;}
+        await journal.removeItem(key(c));return;
+      }
+      const photo=await find(c,pending.photoId);
+      if(pending.kind==='upload'){
+        if(photo){propertyPhotoObjectPath(photo.storage_path,c.ownerId,c.propertyId,photo.id);await journal.removeItem(key(c));return;}
+        // Cancel exact reservation under the server gate before cleanup. A late register cannot commit afterward.
+        await cleanup(c,pending);return;
+      }
+      if(pending.kind==='delete'&&photo){await command(c,'remove',{photo_id:pending.photoId},pending.photoId,pending.path);}
+      else if(photo)throw uncertain();
+      if(pending.kind==='cleanup')await cleanup(c,pending);else await removeObject(c,pending);
+    },true);},
   };
 }
 export type PropertyPhotoService = ReturnType<typeof createPropertyPhotoService>;

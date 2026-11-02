@@ -1,3 +1,5 @@
+import {PropertyIdentityEditView} from './PropertyIdentityEditView';
+import {PropertyRoutineEditView} from './PropertyRoutineEditView';
 import { ListingDraftSavedView } from './ListingDraftSavedView';
 import { PublishedListingStatusView } from './PublishedListingStatusView';
 import { useEffect, useRef, type ReactNode } from 'react';
@@ -80,6 +82,10 @@ export function PropertyListingFlowView({
     content = <PropertyDashboardView viewModel={viewModel} />;
   } else if (viewModel.screen === 'published' && viewModel.showRealPublication && viewModel.realListing) {
     content = <PublishedListingStatusView viewModel={viewModel} onClose={close} />;
+  } else if (viewModel.screen === 'identityEdit') {
+    content=<PropertyIdentityEditView viewModel={viewModel} onClose={close}/>;
+  } else if (viewModel.screen === 'propertyEdit') {
+    content=<PropertyRoutineEditView viewModel={viewModel} onClose={close}/>;
   } else if (viewModel.screen === 'draftSaved') {
     content = <ListingDraftSavedView viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'listingComposer') {
@@ -116,7 +122,7 @@ export function PropertyListingFlowView({
       </Modal> : null}
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
-      <NavigationConfirmation title="Leave Property & Listing Management?" body="You have unsaved property, photo, or listing changes. Stay to continue editing, or leave without saving." visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
+      <NavigationConfirmation title={viewModel.propertyReturnConfirmation?"Discard property edits?":"Leave Property & Listing Management?"} body={viewModel.propertyReturnConfirmation?"Your listing edits will be kept. Continue without saving these property changes?":"You have unsaved property, photo, or listing changes. Stay to continue editing, or leave without saving."} visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
       <RentLeaseBottomNavigation
         active={viewModel.activeTab}
         onChat={() => viewModel.requestNavigation(onOpenChat)}
