@@ -43,6 +43,23 @@ test('real Discovery hook explains first; explicit Allow searches; Back clears G
 test('Not now returns to manual search with no permission or backend call', () => {
   const d = deps(), h = mount(d.dependency); h.vm().navigate('searchLocation'); h.flush(); h.vm().requestCurrentLocation(); h.flush(); h.vm().declineCurrentLocation(); h.flush(); assert.equal(h.vm().screen, 'searchLocation'); assert.equal(d.calls(), 0); h.unmount();
 });
+
+test('nearby detail Back preserves radius, results and location; account switch clears them', async () => {
+  const d=deps(), row={listingId:'00000000-0000-0000-0000-000000000001',propertyId:'00000000-0000-0000-0000-000000000100',title:'Real rental',askingRentMonthly:'9000',propertyType:'studio',city:'imus',barangay:'Alapan',availableFrom:null,publicLocation:{latitude:14.4,longitude:120.9},distanceMeters:500};
+  const h=mount({...d.dependency,search:async()=>[row]});
+  h.vm().navigate('searchLocation');h.flush();h.vm().requestCurrentLocation();h.flush();h.vm().allowCurrentLocation();await h.settle();
+  await h.vm().gps.setRadius(20);h.vm().gps.selectListing(row.listingId);h.vm().gps.setCamera({center:[120.91,14.42],zoom:13});h.flush();const before=h.vm().gpsState;
+  h.vm().openProperty(row.listingId);await h.settle();assert.equal(h.vm().screen,'propertyDetails');assert.equal(h.vm().manualState.selectedId,row.listingId);
+  h.vm().goBack();h.flush();assert.equal(h.vm().screen,'nearbyResults');assert.equal(h.vm().gpsState,before);assert.equal(h.vm().gpsState.selectedListingId,row.listingId);assert.deepEqual(h.vm().gps.getCamera(),{center:[120.91,14.42],zoom:13});assert.equal(d.calls(),1);
+  h.account('another');assert.deepEqual(h.vm().gpsState.rows,[]);assert.equal(h.vm().gpsState.radiusKm,3);h.unmount();
+});
+
+test('nearby card is pressable and renders the actual thumbnail with neutral fallback',()=>{
+  const render=presentation('src/features/search-discovery/components/NearbyListingCard.tsx','NearbyListingCard');let pressed=0;
+  const tree=render({listing:{title:'Actual listing',thumbnailUrl:'https://example.test/real.jpg',distanceMeters:100},onPress:()=>pressed++});
+  assert.equal(tree.type,'Pressable');tree.props.onPress();assert.equal(pressed,1);assert.match(JSON.stringify(tree),/real.jpg/);assert.match(tree.props.accessibilityLabel,/100 meters away/);
+  assert.match(JSON.stringify(render({listing:{title:'No photo',distanceMeters:100},onPress(){}})),/Photo unavailable/);
+});
 test('actual manual hook searches backend and applies filters/sort without duplicate Back screens', async () => {
   const d=deps(),h=mount(d.dependency);h.vm().navigate('searchLocation');h.flush();h.vm().setQuery('Alapan');h.flush();h.vm().submitSearch();await h.settle();assert.equal(h.manualCalls.at(-1).query,'Alapan');assert.deepEqual(h.vm().manualState.rows,[]);
   h.vm().openLiveFilters();h.flush();h.vm().setLiveFilterDraft({...h.vm().liveFilterDraft,minBeds:2});h.flush();h.vm().applyLiveFilters();await h.settle();assert.equal(h.manualCalls.at(-1).filters.minBeds,2);h.vm().navigate('sort');h.flush();h.vm().chooseLiveSort('Price: Low to High');await h.settle();assert.equal(h.manualCalls.at(-1).sort,'Price: Low to High');h.vm().goBack();h.flush();assert.equal(h.vm().screen,'searchLocation');assert.equal(d.calls(),0);h.unmount();
@@ -62,8 +79,11 @@ for (const change of ['back', 'account', 'unmount'] as const) test(`${change} in
 function presentation(path: string, name: string) {
   const absolute = resolve(path), actual = createRequire(absolute), mod = { exports: {} as any };
   const req = (key: string): any => {
+    if (key === 'react') return {useState:(v:any)=>[v,()=>{}],useEffect:()=>{}};
     if (key === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
-    if (key === 'react-native') return { ActivityIndicator: 'ActivityIndicator', FlatList: 'FlatList', Text: 'Text', View: 'View', StyleSheet: { create: (v: any) => v } };
+    if (key === 'react-native') return { Image:'Image',Pressable:'Pressable',ActivityIndicator: 'ActivityIndicator', FlatList: 'FlatList', Text: 'Text', View: 'View', StyleSheet: { create: (v: any) => v } };
+    if (key.endsWith('/NearbyRadiusSlider')) return { NearbyRadiusSlider:'NearbyRadiusSlider' };
+    if (key.endsWith('/NearbyMapResultsView')) return {NearbyMapResultsView:'NearbyMapResultsView'};
     if (key.endsWith('/DiscoveryControls')) return { DiscoveryButton: 'DiscoveryButton', DiscoveryChip: 'DiscoveryChip', DiscoveryHeader: 'DiscoveryHeader' };
     if (key.endsWith('/DiscoveryIcon')) return { DiscoveryIcon: 'DiscoveryIcon' };
     if (key.endsWith('/NearbyListingCard')) return { NearbyListingCard: 'NearbyListingCard' };
@@ -82,8 +102,8 @@ test('GPS cards render only RPC-supported data, nullable fallbacks and exact dec
 test('GPS results bind radius, retry, settings, more and manual-search actions with no preview ranking', () => {
   const render = presentation('src/features/search-discovery/views/NearbyListingsView.tsx', 'NearbyListingsView'); const calls: unknown[] = [];
   const vm = { gpsState: { phase: 'error', rows: [], radiusKm: 3, error: { kind: 'blocked', message: 'Enable access' }, hasMore: false }, gps: { setRadius: (r: number) => calls.push(r), retry: () => calls.push('retry'), openSettings: () => calls.push('settings'), start: () => calls.push('location') }, navigate: (screen: string) => calls.push(screen) };
-  const tree = render({ viewModel: vm }); const all = nodes(tree); all.find(n => n.type === 'DiscoveryChip' && n.props.label === '5 km').props.onPress(); all.find(n => n.props?.label === 'Open app settings').props.onPress(); all.find(n => n.props?.label === 'Search by city').props.onPress();
-  assert.deepEqual(calls, [5, 'settings', 'searchLocation']); assert.doesNotMatch(JSON.stringify(tree), /Recommended|Best Match|previewDiscoveryProperties|resultsMap/);
+  const tree = render({ viewModel: vm }); const all = nodes(tree); all.find(n => n.type === 'NearbyRadiusSlider').props.onComplete(20); all.find(n => n.props?.label === 'Open app settings').props.onPress(); all.find(n => n.props?.label === 'Search by city').props.onPress();
+  assert.deepEqual(calls, [20, 'settings', 'searchLocation']); assert.doesNotMatch(JSON.stringify(tree), /Recommended|Best Match|previewDiscoveryProperties|resultsMap/);
 });
 test('explanation and nearby Views contain no external clients or simulation imports', () => {
   for (const path of ['views/SearchLocationView.tsx', 'views/NearbyListingsView.tsx', 'components/NearbyListingCard.tsx']) { const source = readFileSync(`src/features/search-discovery/${path}`, 'utf8'); assert.doesNotMatch(source, /getSupabaseClient|\.rpc\(|expo-location|gps-local\/local/); }

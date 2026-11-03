@@ -27,7 +27,7 @@ export function SearchLocationView({ viewModel }: SearchLocationViewProps) {
           <Text style={styles.permissionBody}>
             RentLease uses your current location only while you search for nearby rentals. Your location is not saved to your profile or listing history.
           </Text>
-          <Text style={styles.permissionBody}>Nearby search requires a Tier 1-verified Tenant account. You can also keep searching by city.</Text>
+          <Text style={styles.permissionBody}>Nearby search requires an active Tier 1-verified account. You can also keep searching by city.</Text>
           <DiscoveryButton label="Use current location" onPress={viewModel.allowCurrentLocation} />
           <DiscoveryButton label="Not now" onPress={viewModel.declineCurrentLocation} tone="outline" />
         </ScrollView>
@@ -49,7 +49,7 @@ export function SearchLocationView({ viewModel }: SearchLocationViewProps) {
           <View style={styles.iconCircle}><DiscoveryIcon color={colors.primary} name="location" size={21} /></View>
           <View style={styles.rowCopy}>
             <Text style={styles.rowTitle}>Use my current location</Text>
-            <Text style={styles.rowDetail}>Find rentals within 1, 3 or 5 km</Text>
+            <Text style={styles.rowDetail}>Find rentals within 1–20 km</Text>
           </View>
           <Text style={styles.rowAction}>Use</Text>
         </Pressable>

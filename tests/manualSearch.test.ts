@@ -51,6 +51,21 @@ test('zero available locations and listings stay empty', async () => { const b=b
 test('case-insensitive barangay query uses escaped backend ilike and no manual GPS call', async () => { const b=backend();await b.service.search('tenant',{query:'aLaPaN',filters:defaultSearchFilters(),sort:'Recently Listed',offset:0});assert.ok(b.calls.some(c=>c.method==='ilike'&&c.args[0]==='properties.barangay'&&c.args[1]==='%aLaPaN%')); });
 test('real namespaced property photo becomes thumbnail and detail photo; missing photos stay neutral', async () => {const b=backend();const photoId='00000000-0000-0000-0000-000000000300';b.data.property_photos=[{id:photoId,property_id:propertyId,storage_path:`${raw().properties.landlord_id}/${propertyId}/${photoId}.jpg`,alt_text:'Actual room',sort_order:0,is_cover:true,created_at:'2026-10-30'}];b.data.property_amenities=[{amenity:{name:'Wi-Fi'}}];const result=await b.service.search('tenant',{query:'',filters:defaultSearchFilters(),sort:'Recently Listed',offset:0});assert.match(result[0]?.thumbnailUrl??'',new RegExp(photoId));const detail=await b.service.detail('tenant',raw().id);assert.equal(detail.photos[0]?.alt,'Actual room');assert.deepEqual(detail.amenities,['Wi-Fi']);assert.equal(detail.description,'Actual description'); });
 test('untrusted stored photo URL never becomes a thumbnail', async()=>{const b=backend();b.data.property_photos=[{id:'wrong',property_id:propertyId,storage_path:'https://untrusted.test/file.jpg',alt_text:null}];const rows=await b.service.search('tenant',{query:'',filters:defaultSearchFilters(),sort:'Recently Listed',offset:0});assert.equal(rows[0]?.thumbnailUrl,null);});
+
+test('nearby thumbnails batch parents/photos, retain first cover and support missing-cover fallback',async()=>{
+  const b=backend(),other='00000000-0000-0000-0000-000000000101',owner=raw().properties.landlord_id;
+  b.data.properties=[{id:propertyId,landlord_id:owner},{id:other,landlord_id:owner}];
+  b.data.property_photos=[propertyId,propertyId,other].map((p,i)=>{const id=`00000000-0000-0000-0000-00000000030${i}`;return {id,property_id:p,storage_path:`${owner}/${p}/${id}.jpg`,alt_text:null,is_cover:i===0,sort_order:i};});
+  const result=await b.service.nearbyThumbnails('tenant',[{propertyId},{propertyId:other},{propertyId}]);
+  assert.match(result[propertyId]??'',/300.jpg$/);assert.match(result[other]??'',/302.jpg$/);
+  assert.equal(b.calls.filter(c=>c.table==='property_photos'&&c.method==='select').length,1);
+  assert.deepEqual(b.calls.find(c=>c.table==='properties'&&c.method==='in')?.args,['id',[propertyId,other]]);
+  b.user('changed');b.calls.length=0;await assert.rejects(()=>b.service.nearbyThumbnails('tenant',[{propertyId}]));assert.equal(b.calls.length,0);
+});
+
+test('malformed detail IDs are rejected before querying backend',async()=>{
+  const b=backend();for(const id of ['', '../private','-'.repeat(36),'00000000-0000-0000-0000-00000000000z'])await assert.rejects(()=>b.service.detail('tenant',id));assert.equal(b.calls.length,0);
+});
 test('missing real detail is unavailable, not a fixture substitution',async()=>{const b=backend();b.data.listings=[];await assert.rejects(()=>b.service.detail('tenant',raw().id),/no longer available/);});
 test('catalogue uses actual active controlled amenity IDs',async()=>{const b=backend();b.data.amenities=[{id:16,name:'Water supply'}];assert.deepEqual(await b.service.catalogue(),[{id:16,name:'Water supply'}]);assert.ok(b.calls.some(c=>c.table==='amenities'&&c.method==='eq'&&c.args[0]==='is_active'));});
 test('Philippine availability day crosses UTC boundary correctly',()=>{assert.equal(searchAvailabilityDate(new Date('2026-10-29T16:01:00Z')),'2026-10-30');assert.equal(searchAvailabilityDate(new Date('2026-10-29T15:59:00Z')),'2026-10-29');});
@@ -62,12 +77,12 @@ test('punctuation-only location input does not silently search everywhere',()=>{
 test('stale real-detail completion is discarded after cancellation',async()=>{let release!:(row:any)=>void;const f=createManualSearchWorkflow({user:async()=>'tenant',search:async()=>[],locations:async()=>({locations:[],received:0}),catalogue:async()=>[],detail:async()=>new Promise(r=>{release=r;})});const pending=f.openDetail(raw().id);await new Promise(r=>setImmediate(r));f.cancelDetail();release({...parseSearchListing(raw()),photos:[],amenities:[]});await pending;assert.equal(f.getSnapshot().detail,null);assert.equal(f.getSnapshot().selectedId,null);});
 test('available-location pagination deduplicates names while raw offset advances',async()=>{const calls:number[]=[];const location={key:'imus',city:'imus',barangay:'',label:'Imus, Cavite',query:'Imus'};const f=createManualSearchWorkflow({user:async()=>'tenant',search:async()=>[],detail:async()=>{throw Error();},catalogue:async()=>[],locations:async(_owner,_text,offset)=>{calls.push(offset);return {locations:[location],received:offset?1:20};}});await f.locations('');await f.locations('',true);assert.deepEqual(calls,[0,20]);assert.equal(f.getSnapshot().locations.length,1);assert.equal(f.getSnapshot().locationsMore,false);});
 test('location query races cannot repopulate an old set of suggestions',async()=>{let release!:(rows:any)=>void;const f=createManualSearchWorkflow({user:async()=>'tenant',search:async()=>[],detail:async()=>{throw Error();},catalogue:async()=>[],locations:async(_owner,text)=>text==='old'?new Promise(r=>{release=r;}):({locations:[],received:0})});const pending=f.locations('old');await new Promise(r=>setImmediate(r));await f.locations('new');release({locations:[{key:'old'}],received:1});await pending;assert.deepEqual(f.getSnapshot().locations,[]);});
-function renderSource(path:string,name:string) {
+function renderSource(path:string,name:string,state?:{value:any}) {
   const full=resolve(path),actual=createRequire(full),mod={exports:{} as any};
   const requireMock=(key:string):any=>{
-    if(key==='react')return {useState:(v:any)=>[v,()=>{}],useEffect:()=>{}};
+    if(key==='react')return {useState:(v:any)=>[state?state.value:v,(next:any)=>{if(state)state.value=next;}],useEffect:()=>{}};
     if(key==='react/jsx-runtime')return {jsx:(type:any,props:any)=>({type,props}),jsxs:(type:any,props:any)=>({type,props})};
-    if(key==='react-native')return {View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',FlatList:'FlatList',StyleSheet:{create:(v:any)=>v}};
+    if(key==='react-native')return {useWindowDimensions:()=>({width:360,height:800}),View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',FlatList:'FlatList',StyleSheet:{create:(v:any)=>v}};
     if(key.endsWith('/FullscreenDocumentImage'))return {FullscreenDocumentImage:'FullscreenDocumentImage'};
     if(key.endsWith('/DiscoveryControls'))return {DiscoveryHeader:'DiscoveryHeader',DiscoveryButton:'DiscoveryButton',DiscoveryChip:'DiscoveryChip',DiscoverySearchBar:'DiscoverySearchBar'};
     if(key.endsWith('/SearchListingCard'))return {SearchListingCard:'SearchListingCard'};
@@ -78,3 +93,13 @@ function renderSource(path:string,name:string) {
 }
 test('real card renders backend image and fields without invented metrics; no-image state is neutral',()=>{const render=renderSource('src/features/search-discovery/components/SearchListingCard.tsx','SearchListingCard');const item=parseSearchListing(raw());const empty=JSON.stringify(render({listing:item,onPress(){}}));assert.match(empty,/No property photo/);assert.match(empty,/Actual rental/);assert.match(empty,/42 sqm/);assert.doesNotMatch(empty,/matchScore|reviewCount|rating|nearbyPlaces/);const actual=JSON.stringify(render({listing:{...item,thumbnailUrl:'https://example.test/actual.jpg'},onPress(){}}));assert.match(actual,/actual.jpg/);assert.doesNotMatch(actual,/No property photo/);});
 test('real detail View renders loaded record, photos and property amenities without prototype sections',()=>{const render=renderSource('src/features/search-discovery/views/LiveSearchViews.tsx','LivePropertyDetailView');const tree=JSON.stringify(render({viewModel:{manualState:{detail:{...parseSearchListing(raw()),photos:[{id:'photo',url:'https://example.test/room.jpg',alt:'Room'}],amenities:['Wi-Fi']}},manual:{},goBack(){}}}));assert.match(tree,/Actual description/);assert.match(tree,/room.jpg/);assert.match(tree,/Wi-Fi/);assert.doesNotMatch(tree,/matchScore|reviewCount|rating|DiscoveryPropertyImage|nearbyPlaces/);});
+
+test('detail gallery opens real full-screen photo, advances and closes independently of tenancy',()=>{
+  const state={value:null as number|null},render=renderSource('src/features/search-discovery/views/LiveSearchViews.tsx','LivePropertyDetailView',state);
+  const props={viewModel:{manualState:{detail:{...parseSearchListing(raw()),photos:[{id:'a',url:'https://example.test/a.jpg',alt:'Room'},{id:'b',url:'https://example.test/b.jpg',alt:'Kitchen'}],amenities:[]}},manual:{},goBack(){}}};
+  const nodes=(tree:any):any[]=>tree&&typeof tree==='object'?[tree,...[tree.props?.children].flat(Infinity).flatMap(nodes)]:[];
+  const find=(type:string)=>nodes(render(props)).find(n=>n.type===type);
+  nodes(render(props)).find(n=>n.props?.label==='View photo 1 of 2').props.onPress();assert.equal(find('FullscreenDocumentImage').props.uri,'https://example.test/a.jpg');
+  find('FullscreenDocumentImage').props.onNext();assert.equal(find('FullscreenDocumentImage').props.uri,'https://example.test/b.jpg');
+  find('FullscreenDocumentImage').props.onClose();assert.equal(find('FullscreenDocumentImage').props.visible,false);
+});

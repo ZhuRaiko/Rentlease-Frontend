@@ -1,5 +1,7 @@
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { DiscoveryButton, DiscoveryChip, DiscoveryHeader } from '../components/DiscoveryControls';
+import {NearbyMapResultsView} from './NearbyMapResultsView';
+import { NearbyRadiusSlider } from '../components/NearbyRadiusSlider';
 import { NearbyListingCard } from '../components/NearbyListingCard';
 import type { SearchDiscoveryViewModel } from '../viewModels/useSearchDiscoveryViewModel';
 import { colors } from '../../../shared/theme/colors';
@@ -8,14 +10,17 @@ import { typography } from '../../../shared/theme/typography';
 
 export function NearbyListingsView({ viewModel: vm }: { viewModel: SearchDiscoveryViewModel }) {
   const state = vm.gpsState;
+  if(state.presentation==='map')return <NearbyMapResultsView viewModel={vm}/>;
   const busy = state.phase === 'locating' || state.phase === 'searching' || state.loadingMore;
   return <View style={styles.screen}>
     <DiscoveryHeader title="Nearby rentals" onBack={vm.goBack} />
     <FlatList data={state.rows} keyExtractor={item => item.listingId} contentContainerStyle={styles.content}
-      renderItem={({ item }) => <NearbyListingCard listing={item} />}
+      renderItem={({ item }) => <NearbyListingCard listing={item} onPress={()=>vm.openProperty(item.listingId)} />}
       ListHeaderComponent={<View style={styles.header}>
+        <View style={styles.switcher}><DiscoveryChip label="Map" selected={false} onPress={()=>vm.gps.setPresentation('map')}/><DiscoveryChip label="List" selected onPress={()=>vm.gps.setPresentation('list')}/></View>
         <Text style={styles.copy}>Nearest first · Distances use approximate public property locations.</Text>
-        <View style={styles.radii}>{([1, 3, 5] as const).map(radius => <DiscoveryChip key={radius} label={`${radius} km`} selected={state.radiusKm === radius} disabled={state.phase === 'locating'} onPress={() => void vm.gps.setRadius(radius)} />)}</View>
+        <NearbyRadiusSlider value={state.radiusKm} disabled={state.phase==='locating'} onComplete={radius=>void vm.gps.setRadius(radius)}/>
+        {state.photoError?<Text accessibilityRole="alert" style={styles.copy}>{state.photoError}</Text>:null}
         {busy ? <View accessibilityLiveRegion="polite" style={styles.progress}><ActivityIndicator color={colors.primary} /><Text style={styles.copy}>{state.phase === 'locating' ? 'Getting your current location…' : state.loadingMore ? 'Loading more rentals…' : 'Searching nearby rentals…'}</Text></View> : null}
         {state.error ? <View style={styles.header}>
           <Text accessibilityRole="alert" style={styles.error}>{state.error.message}</Text>
@@ -35,7 +40,7 @@ export function NearbyListingsView({ viewModel: vm }: { viewModel: SearchDiscove
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg }, header: { gap: spacing.md },
-  radii: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  switcher:{flexDirection:'row',gap:spacing.sm},
   progress: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   copy: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21, flexShrink: 1 },
   title: { color: colors.text, fontFamily: typography.family, fontSize: 20, fontWeight: '700' },

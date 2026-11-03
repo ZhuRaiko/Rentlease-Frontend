@@ -13,7 +13,7 @@ export function searchAvailabilityDate(date = new Date()) {
 export function createManualSearchService(getClient: () => SupabaseClient<Database>, diagnose: (event:SearchDiagnostic)=>void = traceSearchDiagnostic) {
   const user = async () => { const { data,error } = await getClient().auth.getUser(); if (error || !data.user) throw new ManualSearchError('Sign in again to search rentals.',true); return data.user.id; };
   const identity = async (owner: string) => { if (await user() !== owner) throw new ManualSearchError('Your account changed. Start a new search.',true); };
-  const photoRows = async (owner: string, listings: SearchListing[], signal?: AbortSignal) => {
+  const photoRows = async (owner: string, listings: readonly Pick<SearchListing,'propertyId'|'ownerId'>[], signal?: AbortSignal) => {
     if (!listings.length) return [];
     let query = getClient().from('property_photos').select('id,property_id,storage_path,alt_text,sort_order,is_cover,created_at').in('property_id', [...new Set(listings.map(r => r.propertyId))]).order('is_cover',{ ascending:false }).order('sort_order').order('id').limit(200);
     if (signal) query = query.abortSignal(signal);
@@ -33,6 +33,21 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
   };
   return {
     user,
+    async nearbyThumbnails(owner: string, listings: readonly {propertyId:string}[], signal?: AbortSignal): Promise<Record<string,string>> {
+      await identity(owner);
+      const ids=[...new Set(listings.map(row=>row.propertyId))];
+      if(!ids.length)return {};
+      if(ids.length>50)throw new ManualSearchError('Too many nearby properties. Start a new search.');
+      let query=getClient().from('properties').select('id,landlord_id').in('id',ids).limit(50);
+      if(signal)query=query.abortSignal(signal);
+      const {data,error}=await query;await identity(owner);
+      if(error||!data)throw new ManualSearchError('Could not load property photos.');
+      const parents=data.filter(p=>ids.includes(p.id)).map(p=>({propertyId:p.id,ownerId:p.landlord_id}));
+      const photos=await photoRows(owner,parents,signal);
+      const thumbnails:Record<string,string>={};
+      for(const row of photos) if(!thumbnails[row.propertyId])thumbnails[row.propertyId]=row.photo.url;
+      return thumbnails;
+    },
     async search(owner: string, input: SearchInput, signal?: AbortSignal): Promise<SearchListing[]> {
       validateSearchInput(input); await identity(owner);
       const f = input.filters;
@@ -82,7 +97,7 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
     },
     async catalogue() { const { data,error } = await getClient().from('amenities').select('id,name').eq('is_active',true).order('name').limit(100); if (error || !data) throw new ManualSearchError('Could not load property amenities.'); return data; },
     async detail(owner: string, id: string, signal?: AbortSignal): Promise<SearchDetail> {
-      if (!/^[0-9a-f-]{36}$/i.test(id)) throw new ManualSearchError('Choose a valid listing.');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new ManualSearchError('Choose a valid listing.');
       await identity(owner); let query = base(`${LISTING_FIELDS},properties!inner(${PROPERTY_FIELDS})`).eq('id',id).limit(1); if (signal) query = query.abortSignal(signal);
       const { data,error } = await query; await identity(owner); if (error || !data?.length) throw new ManualSearchError('This rental is no longer available or could not be loaded.');
       const row = parseSearchListing(data[0]), photos = await photoRows(owner,[row],signal);

@@ -63,6 +63,7 @@ export function SearchDiscoveryFlowView({
     return () => registerBackAction?.(null);
   });
   let content;
+  const immersiveMap=viewModel.screen==='nearbyResults'&&viewModel.gpsState.presentation==='map';
 
   if (viewModel.screen === 'nearbyResults') {
     content = <NearbyListingsView viewModel={viewModel} />;
@@ -81,11 +82,11 @@ export function SearchDiscoveryFlowView({
   }
 
   return (
-    <ScreenContainer includeBottomInset={false} padded={false}>
+    <ScreenContainer includeBottomInset={immersiveMap} padded={false}>
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
       <NavigationConfirmation visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
-      <RentLeaseBottomNavigation
+      {!immersiveMap?<RentLeaseBottomNavigation
         disabled={viewModel.isCompletingIntroduction}
         active={viewModel.screen === 'matchingPreferences' ? null : 'discover'}
         onChat={() => viewModel.requestNavigation(onOpenChat)}
@@ -105,7 +106,7 @@ export function SearchDiscoveryFlowView({
           viewModel.setNotice('Complete account verification before posting.');
         }}
         onTenancy={() => viewModel.requestNavigation(onOpenMaintenance)}
-      />
+      />:null}
     </ScreenContainer>
   );
 }

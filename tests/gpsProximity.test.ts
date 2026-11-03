@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createGpsProximityWorkflow } from '../src/features/search-discovery/viewModels/gpsProximityWorkflow';
 import { createGpsProximityService } from '../src/features/search-discovery/services/gpsProximityService';
+import type { GpsError } from '../src/features/search-discovery/models/GpsProximity';
 import { createDeviceLocationAdapter } from '../src/shared/services/location/deviceLocationAdapter';
 import { mapSearchNearbyListingsRpcResponse, toSearchNearbyListingsRpcParams } from '@rentlease/gps-local/rpc';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -10,6 +11,10 @@ import type { Database } from '../src/shared/services/supabase/database.types';
 import { readFileSync } from 'node:fs';
 
 const coordinates = { latitude: 14.43, longitude: 120.94 };
+test('GPS package maps every integer radius from 1 through 20 without changing coordinate units', () => {
+  for(let radius=1;radius<=20;radius++) assert.equal(toSearchNearbyListingsRpcParams({...coordinates,radiusKm:radius as any}).p_radius_km,radius);
+  for(const radius of [0,21,1.5,NaN,Infinity,'20',null]) assert.throws(()=>toSearchNearbyListingsRpcParams({...coordinates,radiusKm:radius as any}));
+});
 const raw = (id = 1) => ({ listing_id: `00000000-0000-0000-0000-${String(id).padStart(12, '0')}`, property_id: '00000000-0000-0000-0000-000000000100', title: 'Real rental', asking_rent_monthly: '18500.50', property_type: 'studio', city: 'dasmarinas', barangay: 'Burol Main', available_from: null, public_latitude: 14.44, public_longitude: 120.95, distance_meters: '850.25' });
 const mapped = (ids: number[]) => mapSearchNearbyListingsRpcResponse(ids.map(raw));
 const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>(r => { resolve = r; }); return { resolve, promise }; };
@@ -24,11 +29,21 @@ test('GPS construction and snapshots do not request permission or retain coordin
 test('explicit start obtains one position and uses default page and radius', async () => {
   const h = harness(); await h.flow.start(); assert.equal(h.locations(), 1); assert.equal(h.calls.length, 1); assert.equal(h.calls[0]?.radiusKm, 3); assert.equal(h.calls[0]?.offset, 0); assert.equal(h.flow.getSnapshot().phase, 'success');
 });
-for (const radius of [1, 3, 5] as const) test(`radius ${radius} requests authoritative page zero without acquiring another position`, async () => {
+for (const radius of [1, 2, 3, 4, 5, 6, 10, 15, 20] as const) test(`radius ${radius} requests authoritative page zero without acquiring another position`, async () => {
   const h = harness(); await h.flow.start(); await h.flow.setRadius(radius); assert.equal(h.calls.at(-1)?.radiusKm, radius); assert.equal(h.calls.at(-1)?.offset, 0); assert.equal(h.locations(), 1);
 });
+
+test('photo failures retain authoritative GPS rows and give a localized warning',async()=>{
+  const f=createGpsProximityWorkflow({user:async()=>'account',locate:async()=>({kind:'granted',coordinates}),search:async()=>mapped([1]),settings:async()=>{},thumbnails:async()=>{throw Error('private transport');}});
+  await f.start();assert.equal(f.getSnapshot().rows.length,1);assert.equal(f.getSnapshot().phase,'success');assert.match(f.getSnapshot().photoError??'',/Photos could not load/);
+});
+test('reset cancels pending thumbnails without restoring stale GPS results',async()=>{
+  const wait=deferred<Record<string,string>>();let signal:AbortSignal|undefined;
+  const f=createGpsProximityWorkflow({user:async()=>'account',locate:async()=>({kind:'granted',coordinates}),search:async()=>mapped([1]),settings:async()=>{},thumbnails:async(_o,_r,s)=>{signal=s;return wait.promise;}});
+  const pending=f.start();await new Promise(r=>setImmediate(r));f.reset();assert.equal(signal?.aborted,true);wait.resolve({[raw().property_id]:'https://example.test/photo.jpg'});await pending;assert.deepEqual(f.getSnapshot().rows,[]);
+});
 test('invalid radius produces safe validation failure and no RPC', async () => {
-  const h = harness(); await h.flow.start(); await assert.rejects(() => h.flow.setRadius(2)); assert.equal(h.calls.length, 1);
+  const h = harness(); await h.flow.start(); await assert.rejects(() => h.flow.setRadius(21)); assert.equal(h.calls.length, 1);
 });
 test('rapid explicit starts acquire just one position', async () => {
   const wait = deferred<ReturnType<typeof mapped>>(); const h = harness(async () => wait.promise); const first = h.flow.start(); await Promise.resolve(); await h.flow.start(); wait.resolve(mapped([1])); await first; assert.equal(h.locations(), 1); assert.equal(h.calls.length, 1);
@@ -91,4 +106,28 @@ for (const code of ['42501', '28000', 'XX000']) test(`RPC ${code} is safe and ac
 test('signed out or changed account does not issue RPC', async () => { const t = transport([]); t.user(''); await assert.rejects(() => t.service.search('tenant', coordinates)); t.user('another'); await assert.rejects(() => t.service.search('tenant', coordinates)); assert.deepEqual(t.calls, []); });
 test('production source excludes local simulation, persistence and coordinate logging', () => {
   for (const path of ['services/gpsProximityService.ts', 'viewModels/gpsProximityWorkflow.ts']) { const source = readFileSync(`src/features/search-discovery/${path}`, 'utf8'); assert.doesNotMatch(source, /gps-local\/local|haversine|AsyncStorage|console\.|analytics/); }
+});
+
+test('deployed active Tier 1 denial explains eligibility without requiring a normal role', async () => {
+  const t = transport(null, { code: '42501', message: 'Active Tier 1 verification required' });
+  await assert.rejects(() => t.service.search('tenant', coordinates), error => {
+    assert.equal((error as GpsError).kind, 'eligibility');
+    assert.match(String(error), /active.*Tier 1/i);
+    assert.doesNotMatch(String(error), /Tenant role|Landlord role/);
+    return true;
+  });
+});
+
+test('real empty RPC response remains success with zero rows rather than fabricated matches', async () => {
+  const t = transport([]);
+  assert.deepEqual(await t.service.search('tenant', { ...coordinates, radiusKm: 5 }), []);
+  assert.deepEqual(t.calls, [['search_nearby_listings', { p_latitude: coordinates.latitude, p_longitude: coordinates.longitude, p_radius_km: 5, p_limit: 20, p_offset: 0 }]]);
+});
+
+
+test('legacy radius and invalid SQL parameters are distinct from connection failures',async()=>{
+ for(const message of ['Radius must be 1, 3, or 5 km','Invalid latitude']){
+   const t=transport(null,{code:'22023',message});await assert.rejects(()=>t.service.search('tenant',{...coordinates,radiusKm:2}),e=>e instanceof Error&&'kind' in e&&e.kind==='parameters'&&!/connection/.test(e.message));assert.equal((t.calls[0]?.[1] as any).p_radius_km,2);
+ }
+ const t=transport(null,{code:'XX000',message:'network request failed'});await assert.rejects(()=>t.service.search('tenant',coordinates),e=>e instanceof Error&&'kind' in e&&e.kind==='network');
 });

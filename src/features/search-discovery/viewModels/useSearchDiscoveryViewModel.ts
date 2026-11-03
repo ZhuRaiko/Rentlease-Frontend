@@ -39,6 +39,7 @@ export function useSearchDiscoveryViewModel(
   const navigation = useNavigationConfirmation(screen === 'matchingPreferences' && JSON.stringify(matchingPreferences) !== JSON.stringify(savedPreferences.current));
   const [sortOption, setSortOption] = useState<SortOption>('Recommended');
   const gps = useMemo(() => createGpsProximityWorkflow(gpsProximityDependencies), [options.accountId]);
+  const nearbyMapStyle = useMemo(()=>{try{return gpsProximityDependencies.mapStyle?.()??null;}catch{return null;}},[gps]);
   const manual = useMemo(() => createManualSearchWorkflow(manualSearchService), [options.accountId]);
   const manualState = useSyncExternalStore(manual.subscribe, manual.getSnapshot, manual.getSnapshot);
   const [liveFilterDraft,setLiveFilterDraft] = useState<SearchFilters>(defaultSearchFilters);
@@ -48,8 +49,11 @@ export function useSearchDiscoveryViewModel(
   useEffect(() => { gps.activate(); return () => gps.dispose(); }, [gps]);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  const nearbyDetail = useRef(false);
+  useEffect(() => { nearbyDetail.current=false; }, [options.accountId]);
 
   const navigate = (nextScreen: DiscoveryScreen) => {
+    nearbyDetail.current=false;
     if (nextScreen !== 'nearbyResults' && nextScreen !== 'locationPermission') gps.reset();
     setHistory((current) => [...current, screen]);
     setScreen(nextScreen);
@@ -57,6 +61,10 @@ export function useSearchDiscoveryViewModel(
   };
 
   const goBack = () => {
+    if(screen==='propertyDetails' && nearbyDetail.current) {
+      nearbyDetail.current=false;manual.cancelDetail();
+      setHistory(current=>current.slice(0,-1));setScreen('nearbyResults');setNotice(null);return;
+    }
     gps.reset();
     if (screen === 'propertyDetails') manual.cancelDetail();
     if (screen === 'matchingPreferences') setMatchingPreferences(savedPreferences.current);
@@ -209,7 +217,12 @@ export function useSearchDiscoveryViewModel(
 
   const declineCurrentLocation = () => goBack();
 
-  const openProperty = (listingId: string) => { setGalleryIndex(0); navigate('propertyDetails'); void manual.openDetail(listingId); };
+  const openProperty = (listingId: string) => {
+    setGalleryIndex(0);
+    if(screen==='nearbyResults') { nearbyDetail.current=true;setHistory(current=>[...current,screen]);setScreen('propertyDetails');setNotice(null); }
+    else navigate('propertyDetails');
+    void manual.openDetail(listingId);
+  };
   const toggleSaved = (_listingId: string) => setNotice('Saved rentals are not connected yet.');
   const isSaved = (_listingId: string) => false;
   const showNoResultsPreview = () => { navigate('resultsList'); void manual.search(query); };
@@ -266,6 +279,7 @@ export function useSearchDiscoveryViewModel(
     savedProperties,
     suggestions,
     gps,
+    nearbyMapStyle,
     gpsState,
     manual, manualState, liveFilterDraft, setLiveFilterDraft, openLiveFilters, applyLiveFilters, chooseLiveSort,
     resetLiveFilters: () => setLiveFilterDraft(defaultSearchFilters()),

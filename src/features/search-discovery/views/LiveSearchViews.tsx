@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { DiscoveryButton, DiscoveryChip, DiscoveryHeader, DiscoverySearchBar } from '../components/DiscoveryControls';
 import { SearchListingCard } from '../components/SearchListingCard';
 import { cityLabels, type SearchFilters, type SearchSort } from '../models/ManualSearch';
@@ -37,19 +37,33 @@ export function LiveSearchFiltersView({viewModel:vm}:{viewModel:SearchDiscoveryV
     <DiscoveryButton label="Apply filters" onPress={vm.applyLiveFilters}/><DiscoveryButton label="Reset filters" tone="outline" onPress={vm.resetLiveFilters}/>
   </ScrollView></View>;
 }
+function DetailGalleryPhoto({url,label,width,onPress}:{url:string;label:string;width:number;onPress:()=>void}) {
+  const [failed,setFailed]=useState(false);
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={{width}}>
+    {failed?<View style={[styles.heroImage,styles.placeholder]}><Text style={styles.copy}>Photo unavailable</Text></View>:<Image source={{uri:url}} onError={()=>setFailed(true)} accessibilityLabel="Property photo" style={styles.heroImage}/>}
+    <Text style={styles.photoCaption}>{label}</Text>
+  </Pressable>;
+}
 export function LivePropertyDetailView({viewModel:vm}:{viewModel:SearchDiscoveryViewModel}) {
   const s=vm.manualState,d=s.detail;const [imageIndex,setImageIndex]=useState<number|null>(null);const photo=imageIndex===null?null:d?.photos[imageIndex];
-  return <View style={styles.screen}><DiscoveryHeader title="Rental details" onBack={vm.goBack}/><ScrollView contentContainerStyle={styles.content}>
+  const photoWidth=Math.max(240,useWindowDimensions().width-32);
+  return <View style={styles.screen}><DiscoveryHeader title="Rental details" onBack={vm.goBack}/><ScrollView contentContainerStyle={styles.detailContent}>
     {s.detailBusy?<ActivityIndicator accessibilityLabel="Loading rental" color={colors.primary}/>:null}
-    {s.detailError?<><Text accessibilityRole="alert" style={styles.error}>{s.detailError}</Text><DiscoveryButton label="Retry details" onPress={()=>{if(s.selectedId)void vm.manual.openDetail(s.selectedId);}}/></>:null}
-    {d?<><Text style={styles.heading}>{d.title}</Text><Text style={styles.price}>₱{d.rent.toLocaleString('en-PH')} /mo</Text>
-      {d.photos.length?<ScrollView horizontal contentContainerStyle={styles.row}>{d.photos.map((p,i)=><View key={p.id} style={styles.photo}><Image source={{uri:p.url}} accessibilityLabel={p.alt??'Property photo'} style={styles.image}/><DiscoveryButton label={`View photo ${i+1}`} tone="outline" onPress={()=>setImageIndex(i)}/></View>)}</ScrollView>:<View style={styles.placeholder}><Text style={styles.copy}>No property photos available</Text></View>}
-      <Text style={styles.copy}>{d.propertyType.replace(/_/g,' ')} · {d.barangay}, {cityLabels[d.city]??d.city}</Text><Text style={styles.copy}>{d.bedrooms} bedrooms · {d.bathrooms} bathrooms{d.floorArea===null?'':` · ${d.floorArea} sqm floor area`}</Text><Text style={styles.copy}>{d.furnishing.replace(/_/g,' ')}</Text>
-      <Text style={styles.heading}>About this rental</Text><Text style={styles.copy}>{d.description}</Text><Text style={styles.copy}>{d.availableFrom?`Available from ${d.availableFrom}`:'Availability date not specified'}</Text><Text style={styles.copy}>{d.rentalTerm.replace(/_/g,' ')} · Deposit {d.depositMonths} month(s) · Advance {d.advanceMonths} month(s){d.minimumStay===null?'':` · Minimum stay ${d.minimumStay} month(s)`}</Text>
-      {d.houseRules?<><Text style={styles.heading}>House rules</Text><Text style={styles.copy}>{d.houseRules}</Text></>:null}
-      <Text style={styles.heading}>Property amenities</Text>{d.amenities.length?d.amenities.map((a,i)=><Text key={i} style={styles.copy}>{a}</Text>):<Text style={styles.copy}>No property amenities recorded.</Text>}
-      <Text style={styles.copy}>Map presentation and nearby places are not available yet. Exact property locations are private.</Text>
+    {s.detailError?<View style={styles.detailSection}><Text accessibilityRole="alert" style={styles.error}>{s.detailError}</Text><DiscoveryButton label="Retry details" onPress={()=>{if(s.selectedId)void vm.manual.openDetail(s.selectedId);}}/></View>:null}
+    {d?<>
+      {d.photos.length?<ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator contentContainerStyle={styles.gallery}>{d.photos.map((p,i)=><DetailGalleryPhoto key={p.id} url={p.url} width={photoWidth} label={`View photo ${i+1} of ${d.photos.length}`} onPress={()=>setImageIndex(i)}/>)}</ScrollView>:<View style={[styles.heroImage,styles.placeholder]}><Text style={styles.copy}>No property photos available</Text></View>}
+      <View style={styles.summary}><Text style={styles.detailPrice}>₱{d.rent.toLocaleString('en-PH')}<Text style={styles.copy}> / month</Text></Text>
+        <Text accessibilityRole="header" style={styles.detailTitle}>{d.title}</Text>
+        <Text style={styles.copy}>{d.barangay}, {cityLabels[d.city]??d.city}</Text><Text style={styles.small}>Approximate area · Exact property location is private</Text>
+        <View style={styles.facts}><Text style={styles.fact}>{d.bedrooms} bedrooms</Text><Text style={styles.fact}>{d.bathrooms} bathrooms</Text>{d.floorArea!==null?<Text style={styles.fact}>{d.floorArea} sqm</Text>:null}</View>
+        <Text style={styles.copy}>{d.propertyType.replace(/_/g,' ')} · {d.furnishing.replace(/_/g,' ')}</Text>
+      </View>
+      <View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>About this rental</Text><Text style={styles.copy}>{d.description}</Text></View>
+      <View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>Amenities</Text>{d.amenities.length?<View style={styles.row}>{d.amenities.map((a,i)=><Text key={i} style={styles.amenity}>{a}</Text>)}</View>:<Text style={styles.copy}>No property amenities recorded.</Text>}</View>
+      <View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>Availability and terms</Text><Text style={styles.copy}>{d.availableFrom?`Available from ${d.availableFrom}`:'Availability date not specified'}</Text><Text style={styles.copy}>{d.rentalTerm.replace(/_/g,' ')}</Text>{d.minimumStay!==null?<Text style={styles.copy}>Minimum stay: {d.minimumStay} months</Text>:null}<Text style={styles.copy}>Security deposit: {d.depositMonths} months</Text><Text style={styles.copy}>Advance rent: {d.advanceMonths} months</Text></View>
+      {d.houseRules?<View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>House rules</Text><Text style={styles.copy}>{d.houseRules}</Text></View>:null}
     </>:null}
   </ScrollView><FullscreenDocumentImage visible={!!photo} uri={photo?.url??null} title="Property photo" onClose={()=>setImageIndex(null)} {...(imageIndex!==null&&imageIndex>0?{onPrevious:()=>setImageIndex(imageIndex-1)}:{})} {...(imageIndex!==null&&d&&imageIndex<d.photos.length-1?{onNext:()=>setImageIndex(imageIndex+1)}:{})}/></View>;
 }
-const styles=StyleSheet.create({screen:{flex:1,backgroundColor:colors.background},content:{padding:spacing.lg,gap:spacing.md},section:{gap:spacing.sm,paddingVertical:spacing.xs},row:{flexDirection:'row',flexWrap:'wrap',gap:spacing.sm},heading:{fontFamily:typography.family,color:colors.text,fontSize:18,fontWeight:'700'},price:{fontFamily:typography.family,color:colors.primary,fontSize:21,fontWeight:'800'},copy:{fontFamily:typography.family,color:colors.textSecondary,fontSize:14,lineHeight:21},error:{fontFamily:typography.family,color:colors.restricted,fontSize:14,lineHeight:21},input:{borderWidth:1,borderColor:colors.border,borderRadius:8,minHeight:48,padding:spacing.sm,color:colors.text,fontSize:16},photo:{width:260,gap:spacing.sm},image:{width:'100%',aspectRatio:4/3,borderRadius:12},placeholder:{height:150,alignItems:'center',justifyContent:'center',backgroundColor:colors.surface}});
+const styles=StyleSheet.create({
+  detailContent:{padding:16,gap:20,paddingBottom:32},gallery:{alignItems:'flex-start'},heroImage:{width:'100%',aspectRatio:4/3,borderRadius:12,backgroundColor:colors.surface},photoCaption:{fontFamily:typography.family,fontSize:12,lineHeight:20,color:colors.textSecondary,paddingTop:6},summary:{gap:8},detailTitle:{fontFamily:typography.family,fontSize:24,lineHeight:31,fontWeight:'700',color:colors.text},detailPrice:{fontFamily:typography.family,fontSize:26,lineHeight:34,fontWeight:'800',color:colors.primary},small:{fontFamily:typography.family,fontSize:12,lineHeight:18,color:colors.textSecondary},facts:{flexDirection:'row',flexWrap:'wrap',gap:16,paddingVertical:12},fact:{fontFamily:typography.family,fontSize:15,lineHeight:23,fontWeight:'600',color:colors.text},detailSection:{gap:10,borderTopWidth:1,borderTopColor:colors.border,paddingTop:20},amenity:{fontFamily:typography.family,fontSize:14,lineHeight:22,color:colors.text,paddingVertical:6,paddingHorizontal:10,borderRadius:8,backgroundColor:colors.surface},screen:{flex:1,backgroundColor:colors.background},content:{padding:spacing.lg,gap:spacing.md},section:{gap:spacing.sm,paddingVertical:spacing.xs},row:{flexDirection:'row',flexWrap:'wrap',gap:spacing.sm},heading:{fontFamily:typography.family,color:colors.text,fontSize:18,fontWeight:'700'},price:{fontFamily:typography.family,color:colors.primary,fontSize:21,fontWeight:'800'},copy:{fontFamily:typography.family,color:colors.textSecondary,fontSize:14,lineHeight:21},error:{fontFamily:typography.family,color:colors.restricted,fontSize:14,lineHeight:21},input:{borderWidth:1,borderColor:colors.border,borderRadius:8,minHeight:48,padding:spacing.sm,color:colors.text,fontSize:16},photo:{width:260,gap:spacing.sm},image:{width:'100%',aspectRatio:4/3,borderRadius:12},placeholder:{height:150,alignItems:'center',justifyContent:'center',backgroundColor:colors.surface}});
