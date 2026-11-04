@@ -52,6 +52,7 @@ function presentation(path:string,name:string){const full=resolve(path),actual=c
   if(key==='react-native')return{View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',StyleSheet:{create:(v:any)=>v}};
   if(/\.png$/.test(key))return 1;
   if(key.endsWith('/DiscoveryControls'))return{DiscoveryButton:'DiscoveryButton',DiscoveryHeader:'DiscoveryHeader',DiscoverySearchBar:'DiscoverySearchBar'};
+  if(key.endsWith('/SearchListingCard'))return{SearchListingCard:'SearchListingCard'};
   if(key.endsWith('/InterfaceIcon'))return{InterfaceIcon:'InterfaceIcon'};
   if(key.endsWith('/DiscoveryIcon'))return{DiscoveryIcon:'DiscoveryIcon'};
   return actual(key);
@@ -64,7 +65,7 @@ test('Available Locations retry binds a real request and is disabled while loadi
   const render=presentation('src/features/search-discovery/views/SearchLocationView.tsx','SearchLocationView');let requests=0;const tree=render({viewModel:{screen:'searchLocation',query:'area',suggestions:[],manualState:{locationsStatus:'error',locationsBusy:false,locationsError:'Please retry'},manual:{locations:()=>{requests++;}}}});nodes(tree).find(n=>n.props?.label==='Retry locations').props.onPress();assert.equal(requests,1);
 });
 test('For You is a community placeholder with search CTA and no GPS or fabricated content',()=>{
-  const render=presentation('src/features/search-discovery/views/TenantDiscoveryView.tsx','TenantDiscoveryView');const calls:string[]=[];const tree=render({viewModel:{screen:'home',navigate:(screen:string)=>calls.push(screen),openHome(){throw Error('not automatic');}},onClose(){},onOpenNotifications(){}});const text=JSON.stringify(tree);assert.match(text,/No community posts yet/);assert.match(text,/RentLease community/);assert.doesNotMatch(text,/Recommendations are not available yet|matchScore|reviewCount|previewDiscovery|gpsState|latitude|longitude/);assert.deepEqual(calls,[]);nodes(tree).find(n=>n.props?.label==='Discover rentals').props.onPress();assert.deepEqual(calls,['searchLocation']);
+  const render=presentation('src/features/search-discovery/views/TenantDiscoveryView.tsx','TenantDiscoveryView');const calls:string[]=[];const tree=render({viewModel:{screen:'home',homeTab:'forYou',navigate:(screen:string)=>calls.push(screen),openHome(){calls.push('discover');}},onClose(){},onOpenNotifications(){}});const text=JSON.stringify(tree);assert.match(text,/No community posts yet/);assert.match(text,/RentLease community/);assert.doesNotMatch(text,/Recommendations are not available yet|matchScore|reviewCount|previewDiscovery|gpsState|latitude|longitude/);assert.deepEqual(calls,[]);nodes(tree).find(n=>n.props?.label==='Discover rentals').props.onPress();assert.deepEqual(calls,['discover']);
 });
 test('diagnostics retain only code-owned stage, safe code and classification',()=>{
   const event=searchDiagnostic('gps_rpc',{code:'42501',message:'permission denied email secret@example.test latitude 14.4 token PRIVATE',details:'PRIVATE',hint:'PRIVATE'});
@@ -85,7 +86,7 @@ test('location retry control exposes disabled loading state',()=>{
 });
 
 test('For You empty state grows into available space with centered content and scrollable overflow',()=>{
- const render=presentation('src/features/search-discovery/views/TenantDiscoveryView.tsx','TenantDiscoveryView');const tree=render({viewModel:{screen:'home',navigate(){},openHome(){}},onClose(){},onOpenNotifications(){}});const scroll=nodes(tree).find(n=>n.type==='ScrollView');assert.equal(scroll.props.style.flex,1);const content=scroll.props.contentContainerStyle;assert.equal(content.flexGrow,1);assert.equal(content.justifyContent,'center');assert.equal(content.alignItems,'center');assert.equal(content.height,undefined);assert.equal(content.position,undefined);assert.ok(nodes(scroll).some(n=>n.props.label==='Discover rentals'));assert.ok(nodes(tree).some(n=>n.props.children==='For You'));
+ const render=presentation('src/features/search-discovery/views/TenantDiscoveryView.tsx','TenantDiscoveryView');const tree=render({viewModel:{screen:'home',homeTab:'forYou',navigate(){},openHome(){}},onClose(){},onOpenNotifications(){}});const scroll=nodes(tree).find(n=>n.type==='ScrollView');assert.equal(scroll.props.style.flex,1);const content=scroll.props.contentContainerStyle;assert.equal(content.flexGrow,1);assert.equal(content.justifyContent,'center');assert.equal(content.alignItems,'center');assert.equal(content.height,undefined);assert.equal(content.position,undefined);assert.ok(nodes(scroll).some(n=>n.props.label==='Discover rentals'));assert.ok(nodes(tree).some(n=>n.props.children==='For You'));
 });
 
 test('Available Locations does not call an unknown error a verified network failure',()=>{

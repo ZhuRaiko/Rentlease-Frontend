@@ -8,6 +8,16 @@ import {ui} from '../../../shared/theme/ui';
 interface Props {state:GpsProximityState;styleUrl:string|null;onSelect:(id:string)=>void;onCamera:(camera:NearbyCamera)=>void;insets?:MapInsets;initialCamera?:NearbyCamera|null}
 const defaultInsets:MapInsets={top:160,bottom:280,left:16,right:16};
 const sprites={ 'nearby-price':require('../assets/price-pill.png'),'nearby-selected':require('../assets/selected-price-pill.png') };
+// Fixed-height capsules preserve round end caps instead of stretching a circle.
+const clusterSprites={ 'cluster-small':require('../assets/cluster-pill-88.png'),'cluster-medium':require('../assets/cluster-pill-100.png'),'cluster-large':require('../assets/cluster-pill-112.png'),'cluster-wide':require('../assets/cluster-pill-160.png') };
+const clusterLayout:NonNullable<SymbolLayerSpecification['layout']>={
+  'text-field':['concat',['to-string',['get','point_count']],' rentals'],
+  'text-font':['Noto Sans Bold'],'text-size':12,'text-max-width':0,
+  'text-anchor':'center','text-justify':'center',
+  'icon-image':['step',['get','point_count'],'cluster-small',10,'cluster-medium',100,'cluster-large',1000,'cluster-wide'],
+  'icon-size':1/3,'icon-anchor':'center',
+  'text-allow-overlap':true,'text-ignore-placement':true,'icon-allow-overlap':true,'icon-ignore-placement':true,
+};
 const priceLayout:NonNullable<SymbolLayerSpecification['layout']>={ 'text-field':['get','label'] as ['get',string],'text-font':['Noto Sans Bold'],'text-size':14,'text-allow-overlap':true,'text-ignore-placement':true,'icon-image':'nearby-price','icon-text-fit':'both' as const,'icon-text-fit-padding':[7,12,7,12],'icon-allow-overlap':true,'icon-ignore-placement':true };
 const noCluster:FilterSpecification=['!', ['has','point_count']];
 function NearbyPropertyMapView({state,styleUrl,onSelect,onCamera,insets=defaultInsets,initialCamera}:Props){
@@ -48,11 +58,11 @@ function NearbyPropertyMapView({state,styleUrl,onSelect,onCamera,insets=defaultI
       onRegionDidChange={event=>{const {center,zoom,bearing,pitch}=event.nativeEvent;onCamera({center,zoom,bearing,pitch,padding:initial.current!.padding});}}>
       <Camera ref={camera} initialViewState={initial.current} maxZoom={22}/>
       <Images images={sprites}/>
+      <Images images={clusterSprites}/>
       {polygon?<GeoJSONSource id="nearby-radius" data={polygon}><Layer id="nearby-radius-fill" type="fill" paint={{'fill-color':colors.primary,'fill-opacity':0.04}}/><Layer id="nearby-radius-edge" type="line" paint={{'line-color':colors.primary,'line-opacity':0.25,'line-width':1}}/></GeoJSONSource>:null}
       {user?<GeoJSONSource id="nearby-user" data={user}><Layer id="nearby-user-dot" type="circle" paint={{'circle-radius':7,'circle-color':colors.primaryAction,'circle-stroke-width':3,'circle-stroke-color':colors.white}}/></GeoJSONSource>:null}
       <GeoJSONSource id="nearby-rentals" ref={source} data={data.ordinary} cluster clusterRadius={60} clusterMaxZoom={20} clusterMinPoints={2} hitbox={{top:24,right:24,bottom:24,left:24}} onPress={event=>{event.stopPropagation();void choose(event.nativeEvent.features);}}>
-        <Layer id="nearby-cluster-background" type="circle" filter={['has','point_count']} paint={{'circle-radius':23,'circle-color':colors.primaryAction,'circle-stroke-color':colors.white,'circle-stroke-width':2}}/>
-        <Layer id="nearby-cluster-count" type="symbol" filter={['has','point_count']} layout={{'text-field':['concat',['to-string',['get','point_count']],' rentals'],'text-font':['Noto Sans Bold'],'text-size':12,'text-allow-overlap':true,'text-ignore-placement':true}} paint={{'text-color':colors.white}}/>
+        <Layer id="nearby-cluster-count" type="symbol" filter={['has','point_count']} layout={clusterLayout} paint={{'text-color':colors.white}}/>
         <Layer id="nearby-rental-prices" type="symbol" filter={noCluster} layout={priceLayout} paint={{'text-color':colors.ink}}/>
       </GeoJSONSource>
       <GeoJSONSource id="nearby-selected-rental" data={data.selected} hitbox={{top:24,right:24,bottom:24,left:24}} onPress={event=>{event.stopPropagation();void choose(event.nativeEvent.features);}}>

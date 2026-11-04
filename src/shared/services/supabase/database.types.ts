@@ -2234,6 +2234,12 @@ export type Database = {
       }
     }
     Functions: {
+      // Prepared UC-08 migration contract; unavailable remotely until separately deployed.
+      start_property_inquiry: { Args: {p_listing_id:string}; Returns:string }
+      get_messaging_inbox: { Args: {p_offset?:number;p_limit?:number;p_conversation_id?:string}; Returns:Json }
+      get_conversation_messages: { Args: {p_conversation_id:string;p_direction?:string;p_cursor_at?:string;p_cursor_id?:string;p_limit?:number;p_known_ids?:string[]}; Returns:Json }
+      send_property_message: { Args: {p_conversation_id:string;p_message_id:string;p_body:string}; Returns:Json }
+
       get_owned_property_identity_statuses: {Args: {p_property_ids:string[]}; Returns:{property_id:string;verified:boolean;requires_repair:boolean;current_submission_id:string|null}[]}
       get_property_identity_context: {Args: {p_property_id: string}; Returns: Json}
       get_property_identity_operation: {Args: {p_property_id: string; p_operation_id: string}; Returns: Json}

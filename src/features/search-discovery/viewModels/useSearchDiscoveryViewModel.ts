@@ -1,4 +1,5 @@
 import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigationConfirmation';
+import {propertyOwnerLabel} from '../../../shared/models/PublicInquiryIdentity';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { gpsProximityDependencies } from '../services/gpsProximityDependencies';
 import { createGpsProximityWorkflow } from './gpsProximityWorkflow';
@@ -20,10 +21,11 @@ import {
 
 export function useSearchDiscoveryViewModel(
   initialScreen: 'home' | 'matchingPreferences' = 'home',
-  options: { accountId?: string | undefined; initialPreferences?: MatchingPreferences | undefined; introduction?: boolean; onSavePreferences?: ((value: MatchingPreferences) => void) | undefined; onIntroductionComplete?: (() => Promise<boolean>) | undefined } = {},
+  options: { onStartInquiry?:((conversationId:string)=>void)|undefined; accountId?: string | undefined; initialPreferences?: MatchingPreferences | undefined; introduction?: boolean; onSavePreferences?: ((value: MatchingPreferences) => void) | undefined; onIntroductionComplete?: (() => Promise<boolean>) | undefined } = {},
 ) {
   const [screen, setScreen] = useState<DiscoveryScreen>(initialScreen);
   const [history, setHistory] = useState<DiscoveryScreen[]>([]);
+  const [homeTab,setHomeTab]=useState<'discover'|'forYou'>('discover');
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<DiscoveryFilters>(() => options.initialPreferences ? matchingPreferenceFilters(options.initialPreferences) : defaultDiscoveryFilters);
   const [filterDraft, setFilterDraft] = useState<DiscoveryFilters>(() => options.initialPreferences ? matchingPreferenceFilters(options.initialPreferences) : defaultDiscoveryFilters);
@@ -41,6 +43,10 @@ export function useSearchDiscoveryViewModel(
   const gps = useMemo(() => createGpsProximityWorkflow(gpsProximityDependencies), [options.accountId]);
   const nearbyMapStyle = useMemo(()=>{try{return gpsProximityDependencies.mapStyle?.()??null;}catch{return null;}},[gps]);
   const manual = useMemo(() => createManualSearchWorkflow(manualSearchService), [options.accountId]);
+  const discover=useMemo(()=>createManualSearchWorkflow(manualSearchService,{publishedOnly:true}),[options.accountId]);
+  const discoverState=useSyncExternalStore(discover.subscribe,discover.getSnapshot,discover.getSnapshot);
+  useEffect(()=>{discover.activate();setHomeTab('discover');return()=>discover.dispose();},[discover]);
+  useEffect(()=>{if(screen==='home'&&homeTab==='discover')void discover.ensureLoaded();},[discover,screen,homeTab]);
   const manualState = useSyncExternalStore(manual.subscribe, manual.getSnapshot, manual.getSnapshot);
   const [liveFilterDraft,setLiveFilterDraft] = useState<SearchFilters>(defaultSearchFilters);
   useEffect(() => { manual.activate(); return () => manual.dispose(); }, [manual]);
@@ -230,6 +236,7 @@ export function useSearchDiscoveryViewModel(
   const retrySearch = () => { setScreen('resultsList'); void manual.retry(); };
 
   const openHome = () => {
+    setHomeTab('discover');setQuery('');
     manual.reset();
     suggestedCity.current = false;
     gps.reset();
@@ -269,6 +276,7 @@ export function useSearchDiscoveryViewModel(
       else navigation.requestNavigation(goBack);
     },
     screen,
+    homeTab,openForYou:()=>setHomeTab('forYou'),discover,discoverState,
     query,
     filters,
     filterDraft,
@@ -307,6 +315,9 @@ export function useSearchDiscoveryViewModel(
     allowCurrentLocation,
     declineCurrentLocation,
     openProperty,
+    listingOwnerLabel:propertyOwnerLabel,
+    isOwnListing:!!manualState.detail&&manualState.detail.ownerId===options.accountId,
+    contactOwner:async()=>{const id=await manual.startInquiry();if(id)options.onStartInquiry?.(id);},
     toggleSaved,
     isSaved,
     setGalleryIndex,

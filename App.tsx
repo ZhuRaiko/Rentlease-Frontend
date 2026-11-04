@@ -2,7 +2,7 @@ import { useMarketplaceExitConfirmation } from './src/shared/viewModels/useMarke
 import { profileAfterDismissal, profileBackTarget, resolveProfileReturn, type ProfileReturnTarget } from './src/shared/models/profileReturn';
 import { RentLeaseBottomNavigation } from './src/shared/components/RentLeaseBottomNavigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BackHandler, Modal } from 'react-native';
+import { BackHandler, Modal, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { traceAuthBoot } from './src/shared/utils/authBootTrace';
 
@@ -26,6 +26,8 @@ traceAuthBoot('APP_MODULE_READY');
 
 export default function App() {
   const auth = useAuthProfilesViewModel();
+  const discoveryHomeAction=useRef<(()=>void)|null>(null);
+  const [inquiryConversation,setInquiryConversation]=useState<{userId:string;id:string}|null>(null);
   const [activityMode, setActivityMode] = useState<UserRole>('tenant');
   const previewActor: UserRole = activityMode;
   const [workspace, setWorkspace] = useState<AppWorkspace>(null);
@@ -51,6 +53,7 @@ export default function App() {
       accountPresent: auth.account !== null, destination: workspaceDestination, workspace: workspace?.type ?? null,
       modalVisible: workspace !== null && (workspace.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace) });
   }, [auth.screen, auth.asyncState, auth.account, workspaceDestination, workspace, canEnterAdmin, canEnterMarketplace]);
+  useEffect(()=>{if(workspace?.type!=='discovery'||inquiryConversation?.userId!==auth.account?.user.id)setInquiryConversation(null);},[workspace?.type,auth.account?.user.id]);
   const validProfileReturn = resolveProfileReturn(profileReturnTarget, auth.account?.user.id ?? null, access);
   const allowedProfileReturn = profileBackTarget(profileReturnTarget, auth.account?.user.id ?? null, previewActor, access);
   const openProfile = () => {
@@ -167,7 +170,7 @@ export default function App() {
           <UserVerificationFlowView tierOneVerified={!!auth.account?.profile.tier1_verified_at} onClose={openProfile} registerBackAction={registerWorkspaceBack} />
         ) : null}
         {workspace?.type === 'discovery' ? (
-          <SearchDiscoveryFlowView
+          <View style={{flex:1}}><SearchDiscoveryFlowView
             accountId={auth.account?.user.id}
             onRootBack={requestMarketplaceExit}
             initialScreen={workspace.initialScreen}
@@ -175,7 +178,8 @@ export default function App() {
             initialPreferences={savedPreferences && savedPreferences.userId === auth.account?.user.id ? savedPreferences.value : undefined}
             onSavePreferences={(value) => { if (auth.account) setSavedPreferences({ userId: auth.account.user.id, value }); }}
             onIntroductionComplete={finishMatchingIntroduction}
-            registerBackAction={registerWorkspaceBack}
+            registerHomeAction={action=>{discoveryHomeAction.current=action;}}
+            registerBackAction={inquiryConversation?undefined:registerWorkspaceBack}
             canPostProperty={canEnterMarketplace}
             onClose={openProfile}
             onCreateListing={() =>
@@ -190,10 +194,13 @@ export default function App() {
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
             onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
             onOpenNotifications={() => { if (canEnterMarketplace) setWorkspace({ type: 'notifications' }); }}
-            onStartInquiry={() =>
-              setWorkspace({ type: 'messages', initialScreen: 'newInquiry' })
-            }
+            onStartInquiry={(id) => { if(auth.account) setInquiryConversation({userId:auth.account.user.id,id}); }}
           />
+          {inquiryConversation&&inquiryConversation.userId===auth.account?.user.id?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><MessagingViewingFlowView
+            accountId={auth.account?.user.id} conversationId={inquiryConversation.id} returnToListing
+            canPostProperty={canEnterMarketplace} onRootBack={()=>setInquiryConversation(null)} onClose={openProfile} registerBackAction={registerWorkspaceBack}
+            onOpenDiscover={()=>{setInquiryConversation(null);discoveryHomeAction.current?.();}} onCreateListing={()=>openProperties('postingType')}
+            onOpenListings={()=>openProperties('dashboard')} onOpenMaintenance={()=>setWorkspace({type:'maintenance'})}/></View>:null}</View>
         ) : null}
         {workspace?.type === 'properties' && canEnterMarketplace ? (
           <PropertyListingFlowView
@@ -235,6 +242,7 @@ export default function App() {
         ) : null}
         {workspace?.type === 'messages' ? (
           <MessagingViewingFlowView
+            accountId={auth.account?.user.id}
             onRootBack={openDiscovery}
             registerBackAction={registerWorkspaceBack}
             actor={previewActor}

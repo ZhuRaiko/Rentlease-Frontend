@@ -21,6 +21,7 @@ interface SearchDiscoveryFlowViewProps {
   initialPreferences?: MatchingPreferences | undefined;
   onSavePreferences?: ((value: MatchingPreferences) => void) | undefined;
   onIntroductionComplete?: (() => Promise<boolean>) | undefined;
+  registerHomeAction?:((action:(()=>void)|null)=>void)|undefined;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onClose: () => void;
   onRootBack: () => void;
@@ -29,7 +30,7 @@ interface SearchDiscoveryFlowViewProps {
   onOpenPriceEstimate: () => void;
   onOpenChat: () => void;
   onOpenMaintenance: () => void;
-  onStartInquiry: () => void;
+  onStartInquiry: (conversationId:string) => void;
   onOpenNotifications: () => void;
 }
 
@@ -46,7 +47,7 @@ export function SearchDiscoveryFlowView({
   accountId,
   canPostProperty,
   initialScreen = 'home',
-  introduction = false, initialPreferences, onSavePreferences, onIntroductionComplete, registerBackAction,
+  introduction = false, initialPreferences, onSavePreferences, onIntroductionComplete, registerBackAction, registerHomeAction,
   onClose,
   onRootBack,
   onCreateListing,
@@ -56,7 +57,8 @@ export function SearchDiscoveryFlowView({
   onOpenMaintenance,
   onStartInquiry, onOpenNotifications,
 }: SearchDiscoveryFlowViewProps) {
-  const viewModel = useSearchDiscoveryViewModel(initialScreen, { accountId, introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
+  const viewModel = useSearchDiscoveryViewModel(initialScreen, { accountId, onStartInquiry, introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
+  useEffect(()=>{registerHomeAction?.(viewModel.openHome);return()=>registerHomeAction?.(null);});
   const close = () => viewModel.closeFromWorkspace(onClose);
   useEffect(() => {
     registerBackAction?.(() => viewModel.backFromWorkspace(onClose, onRootBack));

@@ -1,0 +1,51 @@
+# Messaging and property inquiries (UC-08)
+
+Last checked: November 4, 2026 (Asia/Singapore), uncommitted implementation on fix/gps-nearby-results.
+
+## Status and scope
+
+IMPLEMENTED / AUTOMATED-TESTED locally; backend DEPLOYED / READ-ONLY LIVE-VERIFIED as 20261103192848_property_inquiry_messaging on November 4, 2026 (Asia/Singapore). Agent-observed one-account Android send/persist/reopen and Contact Owner reuse/Back checks passed; second-account receipt/reply and account-switch acceptance remain pending. Direct authenticated conversation/message table privileges remain absent; the four protected messaging RPCs are now deployed. Read-only verification alone does not establish message delivery; the later emulator checks below used real authenticated sends.
+
+Discover, manual search and GPS all use LivePropertyDetailView. Contact Owner uses its real selected listing, waits for a server conversation ID and opens real Chat. Own listings show a self-listing notice instead. App composes Chat over the retained Discovery flow; hardware/visible Back dismisses it to the original details/results context. Bottom Discover calls the retained homepage action. The ordinary Chat tab opens the real inbox. Post and other bottom destinations retain account eligibility.
+
+The real inbox shows only actual participant conversations, actual listing title, a privacy-safe relationship label, latest message and activity timestamp. Registration display_name can fall back to a legal name and has no stored public-name consent. Listing Details and renter-facing Chat show Property Owner; owner-facing Chat shows Renter. Existing RPC participant_name is discarded; no profile or avatar query is added. The unchanged server RPC still projects display_name, so frontend redaction does not establish network-level name minimization. Missing/deleted context uses neutral unavailable labels. No online/read/typing claims, ratings or invented conversations. Empty threads are allowed after a confirmed inquiry; a real first text is sent only when the user submits it.
+
+Persistent messages have server IDs/timestamps, sender/recipient styling and one composer. Text is 1-4,000 characters; no fake attachment/viewing actions. History loads latest50, supports earlier pages and incremental new rows. Pending sends are guarded, receipt-confirmed and idempotent: an uncertain retry uses the same UUID/body, locks composer changes and never claims delivery before confirmation. No persistent unsent-draft recovery is implemented.
+
+## Architecture and contracts
+
+- PersistentMessaging.ts: normalized conversation/message models, UUID/text validation and safe errors.
+- messagingService.ts: typed Supabase RPC calls, authenticated identity checks before/after reads, 20-second transport bounds, response parsing and safe errors. No raw messages, tokens or private locations are logged.
+- messagingWorkflow.ts: inbox/history/cursors, sending/idempotency, cancellation and generation checks, private-cache cleanup, deletion reconciliation. useMessagingViewingViewModel owns account-keyed lifecycle and a 15-second foreground-only polling timer; disposed/background work does not start new polling reads. No Realtime setup or publication change.
+- MessagingInboxView / MessagingConversationView / MessagingViewingFlowView render real state. Existing viewing preview moved to useViewingPreviewViewModel and remains disconnected from real Chat. Old preview models/components are legacy-only.
+- Existing manualSearchService/manualSearchWorkflow handle start_property_inquiry from details. Root App owns cross-feature Chat presentation; Views contain no backend clients.
+
+Deployed migration: [20261103192848_property_inquiry_messaging.sql](../../supabase/migrations/20261103192848_property_inquiry_messaging.sql). Reviewed preparation header retained to preserve the exact authorized checksum.
+
+| RPC | Contract |
+| --- | --- |
+| start_property_inquiry(listing UUID) | Authenticated active Tier1; eligible active/published/available listing and active property; listing owner must match actual property owner and be eligible; self inquiry denied; existing UNIQUE(listing_id,tenant_id) prevents duplicate threads. |
+| get_messaging_inbox(offset,limit,optional conversation UUID) | Actual participants only; bounded pages, deterministic activity/id order; public profile display name and listing context only. |
+| get_conversation_messages(conversation,direction,cursor timestamp/id,limit,optional known UUIDs) | Participant/Tier1 read; latest/older/newer cursor pages and reconcile batches up to100; deleted bodies redacted. |
+| send_property_message(conversation,message UUID,body) | auth.uid() is the sender; verified participant/open status, bounded text; conversation lock and monotonic server timestamps; repeated same UUID/body returns existing receipt, mismatched reuse denied. |
+
+Consumer RPCs are SECURITY DEFINER with empty search_path and explicit qualified objects, PUBLIC/anon execute revoked and authenticated execute granted. No direct table grants, RLS changes, legacy-role writes, verification/publication/Admin changes or private-document/location access. Existing participant, identity-immutability, sender and conversation-touch triggers remain. Consumer reads do not give Admin a participant bypass; existing separately authorized Admin contracts are untouched. Existing frontend RPC calls and generated function argument contracts match the deployed signatures/defaults; no frontend implementation changes were needed for deployment.
+
+Polling reads newer rows and reconciles one round-robin batch of100 loaded IDs per refresh, so deleted cached bodies are replaced with tombstones (or removed for hard deletion). Large loaded histories require more than one poll cycle to reconcile all older rows. Revoked access clears cached private history. No edits/deletion UI, attachments, viewing scheduling, notifications or Tenancy integration is included.
+
+## Validation and deployment boundary
+
+96 targeted frontend tests / TypeScript / whitespace passed. 49 disposable local PostgreSQL tests passed, including role-free and legacy users, two-account persisted messages/history, self/foreign/anonymous/restricted denial, idempotency, cursor pages, tombstones, exact ownership, invalid inputs and record-preserving rollback. Tests use a minimal local schema plus inspected live trigger/helper definitions, not a restored production database. Security guidance: [Supabase database functions](https://supabase.com/docs/guides/database/functions).
+
+[Implementation history](../implementation-reports/phases/MESSAGING_VIEWING_IMPLEMENTATION.md) and [backend ledger](../implementation-reports/database/MESSAGING_VIEWING_BACKEND_LEDGER.md). The authorized deployment added only the four RPCs and their EXECUTE privileges; existing table policies/grants, helpers/triggers and prior migration history were preserved. No message/conversation data was created by deployment verification. No commit/push/merge/build.
+
+Android acceptance procedure now that backend deployment/read-only verification passed: (1) AccountA opens AccountB's published property from Discover/manual/GPS and chooses Contact Owner; (2) A sends a recognizable message; (3) B signs in on another device/session, opens Chat, receives it within the foreground refresh interval or manual refresh, and replies; (4) A refreshes, sees reply, reopens Chat and confirms history; (5) repeat Contact Owner to confirm thread reuse, test own-listing exclusion, Back to details and rapid account switching without old private content. Use actual consenting test accounts; do not share credentials in logs. Physical-device acceptance has not been performed.
+
+
+UC-08 deployment verification: source SHA2560962c3d1ef4bba0bca0d77ea74929be5c52f581f139f4b46924c7bd44fde000f; fresh schema/data/roles backup C:/RentLease-Backups/uc08-messaging-predeploy-20261104-032456 (not restore-tested, no Storage objects exported).85 read-only SQL checks across6 eligible actors including1 without legacy role membership passed; no credentials, message contents or user identifiers logged. All four function body hashes, argument names/defaults and authenticated-only execute ACLs match reviewed SQL. All public/Storage policy and messaging trigger digests unchanged. Full fingerprints/counts unchanged for conversations0/messages0, roles9, listings4, properties13 and verification submissions11. Profile count7 unchanged; full fingerprint changed during the window, but backup-column comparison found only updated_at differs among the13 stored columns (generated trust_score excluded from COPY); exact cause/actor not established. No account-status/tier/identity/preference difference was observed. Do not claim every full profile record was byte-identical. No UC-09 reservations or production messaging fixture was added.
+
+## November 4 - Android acceptance blocker corrections
+
+Removed an inline JSX space between Contact Owner and its error state that became a raw text child of View. Added the restrained Listed by / neutral avatar / Property Owner row before description; gallery and other information remain unchanged. React external-store subscriptions now survive workflow effect cleanup/reactivation: subscribers unsubscribe themselves instead of being silently cleared by dispose. Account/thread generations and cancellation still invalidate stale results. Safe failure diagnostics contain only operation, sanitized code and available HTTP status.
+
+Validation:91 targeted frontend tests, TypeScript and whitespace checks passed;85 read-only live authorization checks passed. Agent emulator observations: Discover real details/self notice, another owner's details/Contact Owner, actual sends, two persisted messages reopening in one conversation, repeated inquiry reuse, hardware Back to the original details, no rendering exception. Two labeled acceptance messages remain in the existing conversation; no SQL data writes or migration deployment occurred. Only one signed-in emulator account was available: owner-side receipt/reply, physical Android, live network-failure retry and account switching remain manual acceptance work. Manual-search/GPS shared detail routing is automated-tested, not separately exercised on Android in this pass.

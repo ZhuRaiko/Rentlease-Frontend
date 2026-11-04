@@ -16,7 +16,7 @@ function functionBody(file: ts.SourceFile, name: string) {
 }
 test('all root toolbar consumers receive account eligibility, independent of legacy membership or preference', () => {
   const file = source('App.tsx'); const values = attributes(file, 'canPostProperty');
-  assert.equal(values.length, 6); assert.ok(values.every(value => value === '{canEnterMarketplace}'));
+  assert.equal(values.length, 7); assert.ok(values.every(value => value === '{canEnterMarketplace}'));
   assert.equal(attributes(file, 'onSwitchRole').length, 0);
   assert.match(file.text, /marketplaceNavigation=/);
   assert.match(functionBody(file, 'openDiscovery'), /setActivityMode\(defaultPreviewActor\(auth.roles\)\)/);

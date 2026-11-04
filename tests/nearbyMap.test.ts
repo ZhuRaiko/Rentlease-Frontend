@@ -53,6 +53,12 @@ test('native symbols preserve public point IDs, selection, clusters and the froz
  assert.deepEqual(selectedSource.props.data.features[0].geometry.coordinates,[120.946,14.432]);assert.equal(selectedSource.props.data.features[0].id,row.listingId);
  map.props.onDidFinishLoadingStyle();selectedSource.props.onPress({stopPropagation(){},nativeEvent:{features:selectedSource.props.data.features}});assert.equal(selected,row.listingId);
  const selectedLayer=all.find(n=>n.props?.id==='nearby-selected-price');assert.equal(selectedLayer.props.layout['icon-image'],'nearby-selected');
+ const cluster=all.find(n=>n.props?.id==='nearby-cluster-count');
+ assert.equal(cluster.props.layout['text-max-width'],0,'cluster labels must never wrap');
+ assert.deepEqual(cluster.props.layout['text-field'],['concat',['to-string',['get','point_count']],' rentals']);
+ assert.deepEqual(cluster.props.layout['icon-image'],['step',['get','point_count'],'cluster-small',10,'cluster-medium',100,'cluster-large',1000,'cluster-wide']);
+ assert.equal(cluster.props.layout['icon-text-fit'],undefined,'capsules keep their end caps instead of stretching');
+ assert.equal(all.some(n=>n.props?.id==='nearby-cluster-background'),false,'no fixed circle behind longer labels');
  const source=all.find(n=>n.type==='GeoJSONSource'&&n.props.id==='nearby-rentals');assert.equal(source.props.cluster,true);assert.equal(source.props.clusterRadius,60);assert.equal(all.find(n=>n.props?.id==='nearby-rental-prices').props.layout['text-allow-overlap'],true);
  let eased:any;source.props.ref.current={getClusterExpansionZoom:async()=>16};all.find(n=>n.type==='Camera').props.ref.current={easeTo:(v:any)=>eased=v};
  source.props.onPress({stopPropagation(){},nativeEvent:{features:[{type:'Feature',geometry:{type:'Point',coordinates:[120.94,14.43]},properties:{cluster_id:1,point_count:2}}]}});await new Promise(r=>setImmediate(r));assert.equal(eased.zoom,16.1);

@@ -1,8 +1,11 @@
+import {parsePublicPoint,placeCategories,type PublicPoint} from '../../../shared/models/NearbyPlace';
+import {fetchNearbyAmenities,cachedNearbyAmenities} from '../../../shared/services/maps/overpass/overpassService';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import { PROPERTY_PHOTO_BUCKET, propertyPhotoObjectPath } from '../../property-listing/models/PropertyPhoto';
 import { cityLabels, locationQuery, ManualSearchError, parseSearchListing, record, validateSearchInput, type AvailableLocation, type SearchDetail, type SearchInput, type SearchListing, type SearchPhoto } from '../models/ManualSearch';
 import { searchDiagnostic, traceSearchDiagnostic, type SearchDiagnostic } from './searchDiagnostics';
+import {inquiryDiagnostic,traceInquiryDiagnostic} from '../../../shared/services/supabase/inquiryDiagnostics';
 
 const LISTING_FIELDS = 'id,property_id,title,description,asking_rent_monthly,available_from,published_at,house_rules,rental_term,minimum_stay_months,security_deposit_months,advance_rent_months,status';
 const PROPERTY_FIELDS = 'id,landlord_id,city,barangay,property_type,bedrooms,bathrooms,floor_area_sqm,furnishing_status,is_active';
@@ -52,6 +55,7 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
       validateSearchInput(input); await identity(owner);
       const f = input.filters;
       let query = base(`${LISTING_FIELDS},properties!inner(${PROPERTY_FIELDS}${f.amenityIds.length ? ',property_amenities!inner(amenity_id)' : ''})`);
+      if(input.publishedOnly) query=query.not('published_at','is',null);
       query = geographic(query,input.query);
       if (f.city) query = query.eq('properties.city',f.city);
       if (f.types.length) query = query.in('properties.property_type',f.types);
@@ -96,15 +100,26 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
       return { locations:[...unique.values()], received:data.length };
     },
     async catalogue() { const { data,error } = await getClient().from('amenities').select('id,name').eq('is_active',true).order('name').limit(100); if (error || !data) throw new ManualSearchError('Could not load property amenities.'); return data; },
+    async inquire(owner:string,listingId:string):Promise<string>{
+      await identity(owner);const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+      try{const {data,error,status}=await getClient().rpc('start_property_inquiry',{p_listing_id:listingId}).abortSignal(controller.signal);await identity(owner);
+        if(error){traceInquiryDiagnostic(inquiryDiagnostic('start_property_inquiry',error,status));if(error.code==='PGRST202'||error.code==='42883')throw new ManualSearchError('Messaging needs the backend update before it can be used.');throw new ManualSearchError('Could not open this inquiry. Check that the listing is available and retry.');}
+        if(typeof data!=='string'||!/^[0-9a-f-]{36}$/i.test(data))throw new ManualSearchError('Conversation confirmation could not be read.');return data;
+      }catch(e){if(!(e instanceof ManualSearchError))traceInquiryDiagnostic(inquiryDiagnostic('start_property_inquiry',e));throw e instanceof ManualSearchError?e:new ManualSearchError('Conversation creation was not confirmed. Retry to reopen the same inquiry.');}finally{clearTimeout(timer);}
+    },
+    cachedPlaces(point:PublicPoint){return cachedNearbyAmenities({...point,radiusMeters:2000,categories:placeCategories});},
+    async places(owner:string,point:PublicPoint,signal?:AbortSignal) {
+      await identity(owner);const rows=await fetchNearbyAmenities({...point,radiusMeters:2000,categories:placeCategories},signal);await identity(owner);return rows;
+    },
     async detail(owner: string, id: string, signal?: AbortSignal): Promise<SearchDetail> {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new ManualSearchError('Choose a valid listing.');
-      await identity(owner); let query = base(`${LISTING_FIELDS},properties!inner(${PROPERTY_FIELDS})`).eq('id',id).limit(1); if (signal) query = query.abortSignal(signal);
+      await identity(owner); let query = base(`${LISTING_FIELDS},properties!inner(${PROPERTY_FIELDS},public_location)`).eq('id',id).limit(1); if (signal) query = query.abortSignal(signal);
       const { data,error } = await query; await identity(owner); if (error || !data?.length) throw new ManualSearchError('This rental is no longer available or could not be loaded.');
       const row = parseSearchListing(data[0]), photos = await photoRows(owner,[row],signal);
       let amenityQuery = getClient().from('property_amenities').select('amenity:amenities(name)').eq('property_id',row.propertyId).limit(100); if (signal) amenityQuery = amenityQuery.abortSignal(signal);
       const { data: amenities,error: amenityError } = await amenityQuery; await identity(owner); if (amenityError || !amenities) throw new ManualSearchError('Could not load rental amenities. Please retry.');
       const names = amenities.flatMap(item => item.amenity ? [item.amenity.name] : []);
-      return { ...row,thumbnailUrl:photos[0]?.photo.url ?? null,photos:photos.map(p => p.photo),amenities:names };
+      return { ...row,thumbnailUrl:photos[0]?.photo.url ?? null,photos:photos.map(p => p.photo),amenities:names,publicLocation:parsePublicPoint(record(record(data[0]).properties).public_location) };
     },
   };
 }

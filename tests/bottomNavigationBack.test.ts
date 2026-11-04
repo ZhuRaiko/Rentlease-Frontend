@@ -9,7 +9,7 @@ test('bottom destination Back is distinct from explicit Profile entry', () => {
   const app = read('App.tsx');
   for (const name of ['PropertyListingFlowView', 'MessagingViewingFlowView', 'MaintenanceRequestsFlowView']) {
     const flow = app.split(`<${name}`)[1]?.split('/>')[0] ?? '';
-    assert.match(flow, /onRootBack=\{openDiscovery\}/);
+    if(name==='MessagingViewingFlowView'){assert.match(app,/onRootBack=\{openDiscovery\}/);assert.match(flow,/returnToListing/);assert.match(flow,/setInquiryConversation\(null\)/);}else assert.match(flow, /onRootBack=\{openDiscovery\}/);
     assert.match(flow, /onClose=\{openProfile\}/);
   }
   assert.match(app.split('<SearchDiscoveryFlowView')[1] ?? '', /onRootBack=\{requestMarketplaceExit\}/);

@@ -45,7 +45,7 @@ test('query/filter/sort resets pages; load more deduplicates and preserves serve
 test('old query completion cannot overwrite a new search', async () => { const h = workflow(); let release!: (v: any) => void; h.search(async input => input.query === 'old' ? new Promise(r => { release = r; }) : [parseSearchListing(raw(2))]); const old = h.f.search('old'); await new Promise(r => setImmediate(r)); await h.f.search('new'); release([parseSearchListing(raw(1))]); await old; assert.equal(h.f.getSnapshot().rows[0]?.listingId, raw(2).id); });
 for (const op of ['reset','dispose'] as const) test(`${op} invalidates pending results`, async () => { const h = workflow(); let release!: (v: any) => void; h.search(async () => new Promise(r => { release = r; })); const pending = h.f.search('old'); await new Promise(r => setImmediate(r)); h.f[op](); release([parseSearchListing(raw())]); await pending; assert.deepEqual(h.f.getSnapshot().rows, []); });
 test('real detail identity is retained without fixture fallback', async () => { const h = workflow(); await h.f.openDetail(raw().id); assert.equal(h.f.getSnapshot().detail?.listingId, raw().id); assert.deepEqual(h.f.getSnapshot().detail?.amenities, []); });
-test('production manual service excludes private coordinates, GPS, OSM, ranking and writes', () => { const s = readFileSync('src/features/search-discovery/services/manualSearchService.ts','utf8'); assert.doesNotMatch(s, /property_private_locations|exact_lat|exact_lng|search_nearby_listings|overpass|\.insert\(|\.update\(|\.delete\(|matchScore|rating/); });
+test('production detail integration excludes private coordinates, GPS RPCs, ranking and writes', () => { const s = readFileSync('src/features/search-discovery/services/manualSearchService.ts','utf8'); assert.doesNotMatch(s, /property_private_locations|exact_lat|exact_lng|search_nearby_listings|\.insert\(|\.update\(|\.delete\(|matchScore|rating/); });
 test('available locations come from eligible paged backend records and have no fabricated counts', async () => { const b=backend();const result=await b.service.locations('tenant','',0);assert.equal(result.received,1);assert.deepEqual(result.locations.map(l=>l.label),['Imus, Cavite','Alapan, Imus']);assert.ok(!('count' in result.locations[0]!));assert.ok(b.calls.some(c=>c.method==='range'&&c.args[1]===19)); });
 test('zero available locations and listings stay empty', async () => { const b=backend();b.data.listings=[];assert.deepEqual((await b.service.locations('tenant','',0)).locations,[]);assert.deepEqual(await b.service.search('tenant',{query:'',filters:defaultSearchFilters(),sort:'Recently Listed',offset:0}),[]); });
 test('case-insensitive barangay query uses escaped backend ilike and no manual GPS call', async () => { const b=backend();await b.service.search('tenant',{query:'aLaPaN',filters:defaultSearchFilters(),sort:'Recently Listed',offset:0});assert.ok(b.calls.some(c=>c.method==='ilike'&&c.args[0]==='properties.barangay'&&c.args[1]==='%aLaPaN%')); });
@@ -102,4 +102,26 @@ test('detail gallery opens real full-screen photo, advances and closes independe
   nodes(render(props)).find(n=>n.props?.label==='View photo 1 of 2').props.onPress();assert.equal(find('FullscreenDocumentImage').props.uri,'https://example.test/a.jpg');
   find('FullscreenDocumentImage').props.onNext();assert.equal(find('FullscreenDocumentImage').props.uri,'https://example.test/b.jpg');
   find('FullscreenDocumentImage').props.onClose();assert.equal(find('FullscreenDocumentImage').props.visible,false);
+});
+
+
+test('detail safely projects only public point; ordinary search does not fetch locations or Overpass',async()=>{
+ const b=backend();const r=raw();b.data.listings=[{...r,properties:{...r.properties,public_location:{type:'Point',coordinates:[120.94,14.43]}}}];
+ const detail=await b.service.detail('tenant',r.id);assert.deepEqual(detail.publicLocation,{latitude:14.43,longitude:120.94});
+ const select=b.calls.find(c=>c.table==='listings'&&c.method==='select');assert.match(String(select?.args[0]),/public_location/);assert.doesNotMatch(String(select?.args[0]),/private/);
+ b.calls.length=0;await b.service.search('tenant',{query:'',filters:defaultSearchFilters(),sort:'Recently Listed',offset:0});assert.doesNotMatch(String(b.calls.find(c=>c.table==='listings'&&c.method==='select')?.args[0]),/public_location/);
+});
+test('automatic real detail presents separate named OSM categories and approximate straight-line distances',()=>{
+ const render=renderSource('src/features/search-discovery/views/LiveSearchViews.tsx','LivePropertyDetailView');
+ const props={viewModel:{manualState:{detail:{...parseSearchListing(raw()),photos:[],amenities:['Wi-Fi'],publicLocation:{latitude:14.43,longitude:120.94}},placesPhase:'success',placesRows:[{osmType:'node',osmId:1,name:'Mapped school',category:'school',distanceMeters:150}]},manual:{},goBack(){}}};
+ const tree=render(props),serialized=JSON.stringify(tree);assert.match(serialized,/Mapped school/);assert.match(serialized,/Approx\./);assert.match(serialized,/150 m/);assert.match(serialized,/straight-line/);assert.match(serialized,/No named places mapped/);assert.match(serialized,/OpenStreetMap contributors/);assert.match(serialized,/Wi-Fi/);
+ const nodes=(t:any):any[]=>t&&typeof t==='object'?[t,...[t.props?.children].flat(Infinity).flatMap(nodes)]:[];assert.equal(nodes(tree).some(n=>n.props?.accessibilityState?.expanded!==undefined),false);
+});
+
+test('Discover projection excludes unpublished rows and orders published_at descending then id',async()=>{const b=backend();await b.service.search('tenant',{query:'',filters:defaultSearchFilters(),sort:'Recently Listed',offset:0,publishedOnly:true});assert.ok(b.calls.some(c=>c.method==='not'&&c.args[0]==='published_at'&&c.args[1]==='is'&&c.args[2]===null));const orders=b.calls.filter(c=>c.method==='order');assert.equal(orders[0]?.args[0],'published_at');assert.equal((orders[0]?.args[1] as any).ascending,false);assert.equal(orders[1]?.args[0],'id');assert.ok(b.calls.some(c=>c.method==='eq'&&c.args[0]==='status'&&c.args[1]==='active'));});
+
+test('Contact Owner is server-confirmed, rejects self inquiries and suppresses stale completion',async()=>{
+ let release!:(id:string)=>void,calls=0,owner='tenant';const detail={...parseSearchListing(raw()),photos:[],amenities:[]};const f=createManualSearchWorkflow({user:async()=>owner,search:async()=>[],locations:async()=>({locations:[],received:0}),catalogue:async()=>[],detail:async()=>detail,inquire:async()=>{calls++;return new Promise(r=>release=r);}});
+ await f.openDetail(raw().id);const pending=f.startInquiry();await new Promise(r=>setImmediate(r));assert.equal(f.getSnapshot().inquiryBusy,true);assert.equal(await f.startInquiry(),null);assert.equal(calls,1);f.cancelDetail();release('00000000-0000-4000-8000-000000000001');assert.equal(await pending,null);
+ owner=detail.ownerId;await f.openDetail(raw().id);assert.equal(await f.startInquiry(),null);assert.equal(calls,1);assert.match(f.getSnapshot().inquiryError??'',/your listing/);
 });

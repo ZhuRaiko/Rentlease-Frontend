@@ -12,10 +12,17 @@ for (const [feature, name] of [
 ]) {
   test(`${name} registers feature-owned hardware Back and cleans it up`, () => {
     const flow = read(`src/features/${feature}/views/${name}FlowView.tsx`);
-    assert.match(flow, /registerBackAction\?\.\(\(\) => viewModel.backFromWorkspace\(on(?:Close|RootBack)\)\)/);
-    assert.match(flow, /return \(\) => registerBackAction\?\.\(null\)/);
     const vm = read(`src/features/${feature}/viewModels/use${name}ViewModel.ts`);
-    assert.match(vm, /backFromWorkspace:.*onClose\(\); else goBack\(\)/);
+    if(feature==='messaging-viewing'){
+      assert.match(flow,/registerBackAction\?\.\(back\)/);
+      assert.match(flow,/if\(returnToListing\)onRootBack\(\);else viewModel.backFromWorkspace\(onRootBack\)/);
+      assert.match(flow,/return\(\)=>registerBackAction\?\.\(null\)/);
+      assert.match(vm,/if\(state.selectedId\)workflow.closeThread\(\);else onClose\(\)/);
+    }else{
+      assert.match(flow, /registerBackAction\?\.\(\(\) => viewModel.backFromWorkspace\(on(?:Close|RootBack)\)\)/);
+      assert.match(flow, /return \(\) => registerBackAction\?\.\(null\)/);
+      assert.match(vm, /backFromWorkspace:.*onClose\(\); else goBack\(\)/);
+    }
   });
 }
 test('Modal only dispatches current account/workspace Back, without bypassing feature guards', () => {
