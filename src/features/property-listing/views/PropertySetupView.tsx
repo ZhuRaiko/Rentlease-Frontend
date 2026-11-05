@@ -61,7 +61,7 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
       <FieldLabel label="Location" required />
       {feedback('location')?<Text accessibilityLiveRegion="polite" style={styles.error}>{feedback('location')}</Text>:null}
       <ListingButton disabled={state.busy || !state.loaded || !d.city || !d.barangay.trim() || !d.addressLine1.trim()} label={location.confirmedPoint ? 'Review exact location on map' : 'Find and confirm location'} tone="outline" onPress={vm.openPropertyLocation} />
-      <Text style={styles.copy}>Exact location: {locationAccepted ? 'Confirmed on map' : 'Not confirmed yet'}</Text>
+      <Text accessibilityLiveRegion="polite" style={styles.copy}>Exact location: {locationAccepted ? 'Confirmed on map' : 'Confirm the current address and location before saving.'}</Text>
       <Text style={styles.copy}>Public map point: {locationAccepted ? 'Approximate discovery location ready' : 'Waiting for location confirmation'}</Text>
       </View>
       <ListingButton disabled={state.busy} label="Review property" onPress={flow.next} />
@@ -74,7 +74,7 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
         {d.floorAreaSqm ? <Text style={styles.copy}>Floor area: {d.floorAreaSqm} sqm</Text> : null}
         <PropertyFloorFields propertyType={d.propertyType} focus={focus} floorNumber={d.floorNumber} totalFloors={d.totalFloors} editable={!state.busy} errors={vm.propertyFloorIssues} onChange={(field,value)=>flow.updateField(field,value)} />
         {[['Maximum occupants', d.maxOccupants], ['Postal code', d.postalCode], ['Private access instructions', d.accessInstructions]].filter(([, value]) => !!value).map(([label, value]) => <Text key={label} style={styles.copy}>{label}: {value}</Text>)}
-        <Text style={styles.copy}>Exact location: {locationAccepted ? 'Confirmed on map' : 'Not confirmed yet'}</Text>
+        <Text accessibilityLiveRegion="polite" style={styles.copy}>Exact location: {locationAccepted ? 'Confirmed on map' : 'Confirm the current address and location before saving.'}</Text>
         <Text style={styles.copy}>Public map point: {locationAccepted ? 'Approximate discovery location ready' : 'Waiting for location confirmation'}</Text>
         {feedback('location')?<Text accessibilityLiveRegion="polite" style={styles.error}>{feedback('location')}</Text>:null}
         {vm.propertyValidationIssues?.length?<PropertyReadinessNotice viewModel={vm}/>:null}

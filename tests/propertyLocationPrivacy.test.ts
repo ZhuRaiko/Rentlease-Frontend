@@ -121,7 +121,7 @@ test('Property Setup/Review readiness follows accepted four-coordinate state wit
   const vm = { propertyState: { draft, step, loaded: true, busy: false, uncertain: false, error: null }, propertyCreation: {}, propertyLocation: { generationToken: () => 1 }, locationState: { stage: 'exactConfirmed', confirmedPoint: exact } };
   const tree = module.exports.PropertySetupView({ viewModel: vm, onClose: () => {} }); const texts: string[] = [], nodes: any[] = [];
   const visit = (node: any) => { if (typeof node === 'string') texts.push(node); if (!node || typeof node !== 'object') return; nodes.push(node); for (const child of [node.props?.children].flat(Infinity)) visit(child); }; visit(tree);
-  const copy = texts.join(''); assert.match(copy, accepted ? /Approximate discovery location ready/ : /Waiting for location confirmation/); assert.match(copy, accepted ? /Confirmed on map/ : /Not confirmed yet/);
+  const copy = texts.join(''); assert.match(copy, accepted ? /Approximate discovery location ready/ : /Waiting for location confirmation/); assert.match(copy, accepted ? /Confirmed on map/ : /Confirm the current address and location before saving/);
   assert.doesNotMatch(copy, /14\.5|121|awaiting.*privacy/i); assert.ok(!copy.includes(String(publicPoint.latitude))); assert.ok(!copy.includes(String(publicPoint.longitude)));
   if (step === 'review') assert.equal(nodes.find(node => node.props?.label === 'Confirm and save property').props.disabled, false);
  }

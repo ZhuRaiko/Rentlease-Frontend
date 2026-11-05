@@ -1,5 +1,13 @@
 # Property & Listing Management
 
+## Location-confirmation correction - November 5, 2026
+
+IMPLEMENTED / AUTOMATED-TESTED, Android acceptance pending. Meaningful address changes retain the existing revision guard and invalidate confirmed coordinates. Changing map search text, selecting a different result (including a different result at the same point), or moving the pin now also invalidates the owning draft and map confirmation; Cancel cannot restore it. Opening/reviewing without meaningful changes preserves the already-saved location. Same-city selection and trimmed whitespace edits do not force reconfirmation. Candidate identity and address revision bind the confirmation; older requests/native callbacks remain canceled or ignored. React owns subscription cleanup so lifecycle replay does not strand address synchronization or UI updates.
+
+Creation uses the existing property setup RPC. Saved draft and published listing summaries remain read-only for identity-sensitive fields; address/location changes still use the versioned identity-correction workflow and its existing verification, tenancy, ownership and repair restrictions. Unrelated listing/routine edits do not change location. Revising rejected/cancelled corrections resets the earlier map confirmation. Private exact coordinates and approved public-point derivation remain separate; no service contract, SQL, RLS, verification rule or discovery projection changed.
+
+Validation:248 targeted creation/location/privacy/identity/routine/draft/published-edit checks, TypeScript and whitespace checks passed. No live backend queries/writes or Android save/approval tests in this pass. See the existing implementation history and backend ledger for scope and evidence.
+
 ## Current editing migrations (reconciled 2026-11-02)
 
 Both editing migrations are DEPLOYED / CATALOG-VERIFIED on RentLease `cxfsbwbwmwmgtqfonqth`. Current repository filenames now match the existing deployment-history versions:

@@ -1,5 +1,11 @@
 # Property & Listing backend interaction ledger
 
+## November 5, 2026 - frontend location-confirmation correction
+
+LOCAL_CONTRACT_REVIEW only: inspected creation/location workflows, propertyCreationService payload coverage, propertyIdentityService versioned manage_property_identity call, and saved draft/published/routine edit boundaries. Existing source contracts remain authoritative: new properties use create_property_setup, saved location corrections use expected property version and owner-scoped identity proposal/recovery, and listing/routine payloads do not update identity coordinates. No new Supabase query, RPC test, data read/write, schema/RLS/Storage modification, migration or deployment was performed. No production fixtures or cleanup.
+
+Client changes invalidate draft confirmation on map edits, preserve saved points for unrelated/no-op edits, retain private/public point separation, and prevent stale observer/callback state. 248 targeted frontend tests and TypeScript/whitespace passed; mocks establish frontend orchestration only. Real Android saves and published correction approval remain pending; no claim of live authorization or backend-rule revalidation in this pass.
+
 ## Current editing migrations (reconciled 2026-11-02)
 
 Both editing migrations are DEPLOYED / CATALOG-VERIFIED on RentLease `cxfsbwbwmwmgtqfonqth`. Current repository filenames now match the existing deployment-history versions:

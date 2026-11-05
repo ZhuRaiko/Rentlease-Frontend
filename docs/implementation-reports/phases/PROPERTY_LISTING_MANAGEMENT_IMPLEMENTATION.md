@@ -1,5 +1,13 @@
 # Property & Listing Management implementation history and roadmap
 
+## November 5, 2026 - stale location confirmation
+
+Confirmed existing creation/identity address edits already clear all four coordinates and guard captured address revisions. Reproduced a separate shared-map defect: query/candidate/pin changes retained confirmedPoint and cancel restored exactConfirmed; owning drafts were never notified. Added explicit invalidation callback into creation and identity workflows, candidate identity binding, and safe hydration of already-confirmed owner-draft points when opening the tool. No suggestions become confirmed until the explicit action. Address no-ops preserve confirmation; reset/rejected-correction revisions and stale callback guards prevent reuse across drafts. Removed listener clearing from these three workflows because useSyncExternalStore owns unsubscription; lifecycle replay now preserves UI/address-sync observers.
+
+Saved draft/published identity changes remain in manage_property_identity with existing expected-version, private proposal, Tier3/tenancy/repair and owner checks. Routine/listing edits remain separate and retain canonical location. Updated only confirmation-state copy and live-region announcements in the existing composer/setup layout. No UC-08/UC-09, service/schema/migration, live backend or deployment work.
+
+248 focused tests passed across propertyCreation, propertyLocation, propertyLocationPrivacy, propertyIdentityWorkflow/Correction/Service, propertyRoutineEdit, listingDraftPersistence and publishedListingEditing; TypeScript and whitespace passed. Regression evidence covers address A/B, same-city/whitespace, candidate/pin/query invalidation, unchanged cancel, stale requests, verified/unverified corrections, rejected correction reload, failed save/retry, privacy and existing account-change guards. Prior cancel-after-moving test intentionally changed to require reconfirmation. Android creation/draft/published acceptance remains unverified. Applied previously read RentLease feature, MVVM, UI/UX, Supabase contract, security, test/runtime, documentation, ledger and artifact SKILL.md files; systematic debugging/TDD guided reproduction and fixes.
+
 ## Current editing migrations (reconciled 2026-11-02)
 
 Both editing migrations are DEPLOYED / CATALOG-VERIFIED on RentLease `cxfsbwbwmwmgtqfonqth`. Current repository filenames now match the existing deployment-history versions:

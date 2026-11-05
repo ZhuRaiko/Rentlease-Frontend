@@ -116,7 +116,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     return accepted.locationRevision === confirmedRevision && hasConfirmedPropertyLocation(accepted.draft)
       && accepted.draft.exactLatitude === location.exactLatitude && accepted.draft.exactLongitude === location.exactLongitude
       && accepted.draft.publicLatitude === location.publicLatitude && accepted.draft.publicLongitude === location.publicLongitude;
-  }));
+  },()=>propertyCreation.invalidateLocation()));
   const locationState = useSyncExternalStore(propertyLocation.subscribe, propertyLocation.getSnapshot);
   useEffect(() => { propertyLocation.activate(); return () => propertyLocation.dispose(); }, [propertyLocation]);
   useEffect(() => {
@@ -710,7 +710,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       if (operationBusy() || !['propertySetup', 'listingComposer'].includes(screen) || (screen === 'propertySetup' && current.step !== 'address') || !current.loaded || current.propertyId || current.uncertain) return;
       if (!current.draft.city || !current.draft.barangay.trim() || !current.draft.addressLine1.trim()) return;
       propertyCreation.markFieldTouched('location');
-      void propertyLocation.open({ addressRevision: current.locationRevision, setupId: 'physical-property-setup', query: propertyAddressQuery(current.draft) });
+      void propertyLocation.open({ addressRevision: current.locationRevision, setupId: 'physical-property-setup', query: propertyAddressQuery(current.draft) },hasConfirmedPropertyLocation(current.draft)?current.draft:undefined);
     },
     propertyPhotos: {
       ...propertyPhotos,
