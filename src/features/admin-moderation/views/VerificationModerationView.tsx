@@ -1,8 +1,9 @@
+import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {identityDisplayFields,identityLocationChanged} from '../../../shared/models/PropertyIdentity';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { VerificationStatusBadge } from '../../../shared/components/VerificationStatusBadge';
 import { verificationStatusPresentation } from '../../../shared/models/verificationPresentation';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, View } from 'react-native';
 import { FullscreenDocumentImage } from '../../../shared/components/FullscreenDocumentImage';
 import { AppButton } from '../../../shared/components/AppButton';
 import { ScreenContainer } from '../../../shared/components/ScreenContainer';

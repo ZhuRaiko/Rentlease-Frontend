@@ -1,6 +1,7 @@
+import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {placeCategories,placeCategoryLabels} from '../../../shared/models/NearbyPlace';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable,  StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { DiscoveryButton, DiscoveryChip, DiscoveryHeader, DiscoverySearchBar } from '../components/DiscoveryControls';
 import { SearchListingCard } from '../components/SearchListingCard';
 import { cityLabels, type SearchFilters, type SearchSort } from '../models/ManualSearch';

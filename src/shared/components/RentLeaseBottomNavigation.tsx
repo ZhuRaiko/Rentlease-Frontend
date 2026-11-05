@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
+import {useKeyboardVisibility} from '../viewModels/useKeyboardVisibility';
 
 export type RentLeaseNavigationTab = 'discover' | 'listing' | 'post' | 'tenancy' | 'chat';
 
@@ -75,6 +76,8 @@ export function RentLeaseBottomNavigation({
 }: RentLeaseBottomNavigationProps) {
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
+  const keyboardVisible=useKeyboardVisibility();
+  if(keyboardVisible)return null;
   const largeText = width / fontScale < 280;
   const items = [
     { key: 'discover' as const, label: 'Discover', icon: 'home' as const, onPress: onDiscover },

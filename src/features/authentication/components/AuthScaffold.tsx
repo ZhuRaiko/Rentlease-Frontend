@@ -1,9 +1,10 @@
+import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import type { PropsWithChildren, ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+
   StyleSheet,
   Text,
   View,
@@ -37,7 +38,7 @@ export function AuthScaffold({
 }: AuthScaffoldProps) {
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : progress || formLayout ? 'height' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.flex}
     >
       <ScreenHeader onBack={onBack} disabled={backDisabled} />

@@ -17,7 +17,8 @@ import {resolve} from 'node:path';
 import ts from 'typescript';
 function renderHome(){const full=resolve('src/features/search-discovery/views/TenantDiscoveryView.tsx'),actual=createRequire(full),mod={exports:{} as any};const req=(key:string):any=>{
  if(key==='react/jsx-runtime')return{jsx:(type:any,props:any)=>({type,props}),jsxs:(type:any,props:any)=>({type,props})};
- if(key==='react-native')return{ActivityIndicator:'ActivityIndicator',FlatList:'FlatList',View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',StyleSheet:{create:(v:any)=>v}};
+ if(key.endsWith('/KeyboardAwareScrollView'))return{KeyboardAwareScrollView:'ScrollView'};
+  if(key==='react-native')return{ActivityIndicator:'ActivityIndicator',FlatList:'FlatList',View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',StyleSheet:{create:(v:any)=>v}};
  if(key.endsWith('/DiscoveryControls'))return{DiscoveryButton:'DiscoveryButton',DiscoveryHeader:'DiscoveryHeader',DiscoverySearchBar:'DiscoverySearchBar'};
  if(key.endsWith('/SearchListingCard'))return{SearchListingCard:'SearchListingCard'};
  if(key.endsWith('/InterfaceIcon'))return{InterfaceIcon:'InterfaceIcon'};

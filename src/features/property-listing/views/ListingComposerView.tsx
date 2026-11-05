@@ -1,4 +1,5 @@
 import {ListingButton} from '../components/ListingButton';
+import {ScreenContainer} from '../../../shared/components/ScreenContainer';
 import { usePropertyFormFocus } from '../components/usePropertyFormFocus';
 import { PropertyProgressFooter } from '../components/PropertyProgressFooter';
 import { PropertyAmenitiesFields } from '../components/PropertyAmenitiesFields';
@@ -17,7 +18,7 @@ export function ListingComposerView({ viewModel: vm, onClose }: { viewModel: Pro
   const focus=usePropertyFormFocus(vm.propertyValidationTarget);
   const mapOpen = ['searching', 'candidates', 'map'].includes(vm.locationState.stage);
   return <>
-    <Modal visible={mapOpen} onRequestClose={vm.propertyLocation.cancel} animationType="slide"><PropertyLocationToolView viewModel={vm} onClose={vm.propertyLocation.cancel} /></Modal>
+    <Modal visible={mapOpen} onRequestClose={vm.propertyLocation.cancel} animationType="slide"><ScreenContainer padded={false}><PropertyLocationToolView viewModel={vm} onClose={vm.propertyLocation.cancel} /></ScreenContainer></Modal>
     <ListingWizardScaffold formFocus={focus} footer={<PropertyProgressFooter viewModel={vm}/>} title="Property" onBack={vm.goBack} onClose={onClose}>
       {!vm.workspacePropertyId ? <Text style={styles.copy}>* Required to save the property</Text> : null}
       <PropertyMediaSection viewModel={vm} />

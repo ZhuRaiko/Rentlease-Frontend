@@ -1,7 +1,7 @@
 """Local disposable UC-08 contract tests. No live URLs, credentials, ports, or data."""
 import argparse,json,subprocess
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--container',required=True);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--container',required=True);p.add_argument('--realtime',action='store_true');a=p.parse_args()
 assert a.container.startswith('rentlease-messaging-test-')
 info=json.loads(subprocess.check_output(['docker','inspect',a.container],text=True))[0]
 assert not info['Mounts'] and not info['HostConfig']['PortBindings'] and info['Config']['Image'].startswith('public.ecr.aws/supabase/postgres:17.')
@@ -105,6 +105,30 @@ reconciled=json.loads(auth(B,f"select public.get_conversation_messages('{cid}','
 check(len(reconciled)==1 and reconciled[0]['body'] is None,'reconciliation returns tombstones for already-loaded messages')
 check(denied(A,f"select public.get_conversation_messages('{cid}','reconcile',null,null,100,array_fill('{mid}'::uuid,array[101]))",'22023'),'reconciliation batch is bounded')
 check(denied(C,f"select public.get_conversation_messages('{cid}','reconcile',null,null,100,array['{mid}']::uuid[])"),'unrelated reconciliation is denied')
+
+if a.realtime:
+ sql("""
+ create function public.can_access_conversation(conversation_uuid uuid,requested_user uuid default auth.uid()) returns boolean language sql stable security definer set search_path='public' as $$ select public.is_admin(requested_user) or exists(select 1 from conversations c where c.id=conversation_uuid and requested_user in(c.tenant_id,c.landlord_id)) $$;
+ create policy messages_read_participants_admin on messages for select to authenticated using(can_access_conversation(conversation_id));
+ create policy conversations_read_participants_admin on conversations for select to authenticated using(auth.uid() in(tenant_id,landlord_id) or is_admin());
+ create publication supabase_realtime for table public.messages;
+ """)
+ load(next((root/'supabase/migrations').glob('*_property_inquiry_realtime_metadata.sql')))
+ for actor in [A,B]:
+  check(auth(actor,f"select count(*) from (select id,conversation_id from messages where conversation_id='{cid}')s")=='2','participant reads only permitted message metadata')
+  check(auth(actor,f"select count(*) from (select id,tenant_id,landlord_id from conversations where id='{cid}')s")=='1','participant reads own conversation metadata')
+  check(denied(actor,f"select body from messages where conversation_id='{cid}'"),'message bodies remain RPC-only')
+ for actor in [C,D,U,S]:
+  check(auth(actor,f"select count(*) from (select id,conversation_id from messages where conversation_id='{cid}')s")=='0','unrelated Admin unverified and suspended metadata readers denied')
+  check(auth(actor,f"select count(*) from (select id,tenant_id,landlord_id from conversations where id='{cid}')s")=='0','foreign conversation metadata denied')
+ check(auth('',"select count(*) from (select id from messages)s")=='0','missing authenticated identity sees no metadata')
+ check(sql("select has_any_column_privilege('anon','messages','select')")=='f','anonymous has no metadata grant')
+ check(sql("select has_table_privilege('authenticated','messages','select')")=='f','no full message-table SELECT grant')
+ check(sql("select has_column_privilege('authenticated','messages','body','select')")=='f','body column privilege absent')
+ check(sql("select count(*) from pg_publication_tables where pubname='supabase_realtime' and tablename in('messages','conversations')")=='2','both metadata sources published')
+ check(denied(A,f"insert into messages(conversation_id,sender_id,body) values('{cid}','{A}','Blocked')"),'no new direct write grants')
+ check(len(json.loads(auth(A,f"select public.get_conversation_messages('{cid}')")))==2,'protected history RPC remains compatible')
+ load(root/'supabase/test-support/property_inquiry_realtime_metadata_rollback.sql')
 
 counts_before=sql('select jsonb_build_array((select count(*) from conversations),(select count(*) from messages))')
 load(root/'supabase/test-support/property_inquiry_messaging_rollback.sql')

@@ -5,8 +5,9 @@ export function createMessagingWorkflow(service:MessagingService,newId:()=>strin
  let state=initial(),disposed=false,generation=0,thread=0,inboxOffset=0,reconcileOffset=0,readCursor:PersistentMessage|null=null;
  let inboxController:AbortController|null=null,messageController:AbortController|null=null,olderController:AbortController|null=null;
  let pending:{id:string;body:string;conversationId:string}|null=null;
+ const waiters=new Set<()=>void>();
  const listeners=new Set<()=>void>();const update=(patch:Partial<typeof state>)=>{if(!disposed){state={...state,...patch};listeners.forEach(fn=>fn());}};
- const clear=()=>{generation++;thread++;inboxController?.abort();messageController?.abort();olderController?.abort();pending=null;readCursor=null;reconcileOffset=0;inboxOffset=0;};
+ const clear=()=>{generation++;thread++;waiters.forEach(done=>done());inboxController?.abort();messageController?.abort();olderController?.abort();pending=null;readCursor=null;reconcileOffset=0;inboxOffset=0;};
  const failure=(e:unknown)=>{if(e instanceof MessagingError&&e.identity){clear();update({...initial(),inboxError:e.message});return true;}return false;};
  const safe=(e:unknown)=>e instanceof MessagingError?e.message:'Could not load messages. Please retry.';
  const merge=(a:PersistentMessage[],b:PersistentMessage[])=>[...new Map([...a,...b].map(m=>[m.id,m])).values()].sort((x,y)=>x.createdAt.localeCompare(y.createdAt)||x.id.localeCompare(y.id));
@@ -30,6 +31,18 @@ export function createMessagingWorkflow(service:MessagingService,newId:()=>strin
  // useSyncExternalStore owns subscription cleanup. Clearing its listeners here
  // strands a retained subscription when React replays the lifecycle effect.
  return{getSnapshot:()=>state,subscribe(fn:()=>void){listeners.add(fn);return()=>{listeners.delete(fn);};},activate(){disposed=false;},dispose(){clear();disposed=true;state=initial();},inbox,open,older,send,refreshMessages,
+ clearAccount(){clear();update({...initial(),inboxError:'Your account changed. Reopen Chat.'});},
+ async synchronize(signal?:AbortSignal){
+  const g=generation,t=thread;
+  if(state.inboxBusy||state.messageBusy)await new Promise<void>(resolve=>{const done=()=>{waiters.delete(done);listeners.delete(check);signal?.removeEventListener('abort',done);resolve();};const check=()=>{if(disposed||g!==generation||t!==thread||(!state.inboxBusy&&!state.messageBusy))done();};waiters.add(done);listeners.add(check);signal?.addEventListener('abort',done,{once:true});if(signal?.aborted)done();else check();});
+  if(disposed||signal?.aborted||g!==generation||t!==thread)return;
+  const owner=state.owner,id=state.selectedId;
+  try{
+   const [, ,selected]=await Promise.all([inbox(),id?refreshMessages():Promise.resolve(),owner&&id?service.inbox(owner,0,signal,id):Promise.resolve(null)]);
+   if(disposed||signal?.aborted||g!==generation||t!==thread)return;
+   if(selected&&id){const conversation=selected.find(row=>row.id===id);if(conversation)update({conversation});else update({conversation:null,messages:[],messageError:'This conversation is unavailable.'});}
+  }catch(e){if(!disposed&&!signal?.aborted&&g===generation&&t===thread&&!failure(e))update({messageError:safe(e)});}
+ },
  setComposer(value:string){if(!state.sending&&!state.uncertain)update({composer:value});},closeThread(){thread++;messageController?.abort();olderController?.abort();pending=null;readCursor=null;reconcileOffset=0;update({selectedId:null,conversation:null,messages:[],messageBusy:false,messageError:null,hasOlder:false,olderBusy:false,composer:'',sending:false,sendError:null,uncertain:false});},
  async poll(){if(state.selectedId){await refreshMessages();}else await inbox();}
  };

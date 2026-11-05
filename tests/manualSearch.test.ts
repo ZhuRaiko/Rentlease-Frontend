@@ -82,7 +82,8 @@ function renderSource(path:string,name:string,state?:{value:any}) {
   const requireMock=(key:string):any=>{
     if(key==='react')return {useState:(v:any)=>[state?state.value:v,(next:any)=>{if(state)state.value=next;}],useEffect:()=>{}};
     if(key==='react/jsx-runtime')return {jsx:(type:any,props:any)=>({type,props}),jsxs:(type:any,props:any)=>({type,props})};
-    if(key==='react-native')return {useWindowDimensions:()=>({width:360,height:800}),View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',FlatList:'FlatList',StyleSheet:{create:(v:any)=>v}};
+    if(key.endsWith('/KeyboardAwareScrollView'))return{KeyboardAwareScrollView:'ScrollView'};
+  if(key==='react-native')return {useWindowDimensions:()=>({width:360,height:800}),View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',FlatList:'FlatList',StyleSheet:{create:(v:any)=>v}};
     if(key.endsWith('/FullscreenDocumentImage'))return {FullscreenDocumentImage:'FullscreenDocumentImage'};
     if(key.endsWith('/DiscoveryControls'))return {DiscoveryHeader:'DiscoveryHeader',DiscoveryButton:'DiscoveryButton',DiscoveryChip:'DiscoveryChip',DiscoverySearchBar:'DiscoverySearchBar'};
     if(key.endsWith('/SearchListingCard'))return {SearchListingCard:'SearchListingCard'};

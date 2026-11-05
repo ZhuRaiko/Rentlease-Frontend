@@ -18,6 +18,7 @@ function loadDetail(){
  const req=(key:string):any=>{
   if(key==='react')return{useState:()=>[null,()=>{}]};
   if(key==='react/jsx-runtime')return{jsx,jsxs:jsx,Fragment:'Fragment'};
+  if(key.endsWith('/KeyboardAwareScrollView'))return{KeyboardAwareScrollView:'ScrollView'};
   if(key==='react-native')return new Proxy({StyleSheet:{create:(s:any)=>s},useWindowDimensions:()=>({width:411})},{get:(o:any,k:string)=>o[k]??k});
   if(key.endsWith('/DiscoveryControls'))return{DiscoveryHeader:'Header',DiscoveryButton:'Button'};
   if(key.endsWith('/SearchListingCard'))return{SearchListingCard:'Card'};

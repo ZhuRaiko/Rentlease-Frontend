@@ -1,8 +1,9 @@
+import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { AppButton } from '../../../shared/components/AppButton';
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable,  StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -447,7 +448,7 @@ export function DiscoveryFilterView({ viewModel, onClose }: DiscoveryFilterViewP
   if (viewModel.screen === 'matchingPreferences') {
     const preferences = viewModel.matchingPreferences;
     return (
-      <KeyboardAvoidingView behavior={Platform.OS === 'android' ? 'height' : 'padding'} style={styles.screen}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.screen}>
         <ScreenHeader onClose={onClose} title="Matching Preferences" disabled={viewModel.isCompletingIntroduction} />
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.preferenceContent} showsVerticalScrollIndicator={false}>
           <FeedbackNotice message={viewModel.notice} />

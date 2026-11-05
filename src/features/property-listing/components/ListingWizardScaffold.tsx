@@ -1,5 +1,7 @@
+import type {ScrollView as NativeScrollView} from 'react-native';
+import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import type { PropsWithChildren, RefObject, ReactNode } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable,  StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
 import { spacing } from '../../../shared/theme/spacing';
@@ -16,7 +18,7 @@ interface ListingWizardScaffoldProps extends PropsWithChildren {
   title?: string;
   description?: string;
   footer?:ReactNode;
-  formFocus?:{scrollRef:RefObject<ScrollView|null>;contentRef:RefObject<View|null>};
+  formFocus?:{scrollRef:RefObject<NativeScrollView|null>;contentRef:RefObject<View|null>};
 }
 
 export function ListingWizardScaffold({

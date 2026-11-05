@@ -69,3 +69,7 @@ Property & Listing composition now separates a Phase 1 creation receipt from act
 ### Manual Discovery read boundary (2026-10-30)
 
 Manual city/barangay search composes an independent feature service/workflow using authenticated SELECT joins, explicit safe field projections and server eligibility/filter/sort/range. Paged Available Locations and detail reads have their own cancellation generations. Real cards/detail never consume fixture contracts or private coordinates. GPS keeps its existing PostGIS RPC workflow. See [Search & Discovery](features/SEARCH_DISCOVERY.md).
+
+### Android keyboard viewport (November 5, 2026)
+
+ScreenContainer composes KeyboardViewport, which measures actual keyboard overlap instead of applying a global fixed offset. Android adjustResize remains unchanged; a resized viewport receives no duplicate inset. KeyboardAwareScrollView preserves native refs/handlers and reveals only its own focused input against the measured scroll viewport and keyboard. Shared form scaffolds and native location/review/photo modals reuse these boundaries. Existing iOS KeyboardAvoidingView behavior remains; redundant Android offsets are disabled. Marketplace navigation hides only for a nonzero software keyboard. Chat uses the same viewport with its fixed composer and flexible message list. Focus/geometry belong to UI components/hooks; messaging subscriptions and synchronization remain in services/ViewModels. Native acceptance is pending; unit geometry tests are not proof of device clearance.

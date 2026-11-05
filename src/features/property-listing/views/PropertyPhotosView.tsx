@@ -1,4 +1,5 @@
-import {Image,KeyboardAvoidingView,Modal,Platform,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
+import {Image,KeyboardAvoidingView,Modal,Platform,Pressable,StyleSheet,Text,View} from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {FeedbackNotice} from '../../../shared/components/FeedbackNotice';
 import {ScreenHeader} from '../../../shared/components/ScreenHeader';
@@ -36,7 +37,7 @@ export function PropertyPhotosView({viewModel:vm,onClose}:{viewModel:PropertyLis
   <Modal visible={!!photo} animationType="slide" presentationStyle="pageSheet" onRequestClose={()=>flow.back()}>
    <ScreenContainer padded={false}>
     <ScreenHeader title={`Photo ${index+1}`} onClose={flow.closeDetail} disabled={state.busy}/>
-    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS==='ios'?'padding':'height'}>
+    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS==='ios'?'padding':undefined}>
      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.detail}>
       {photo?<>
        <Image source={{uri:photo.publicUrl}} resizeMethod="resize" resizeMode="contain" accessibilityLabel={photo.alt_text||`Property photo ${index+1}`} style={styles.preview}/>
