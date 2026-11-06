@@ -9,6 +9,14 @@ import {MessagingConversationView} from './MessagingConversationView';
 import {PropertyViewingsView} from './PropertyViewingsView';
 import {usePropertyViewingsViewModel} from '../viewModels/usePropertyViewingsViewModel';
 import type {Conversation} from '../models/PersistentMessaging';
+import {RentalReservationsView} from './RentalReservationsView';
+import {useRentalReservationsViewModel} from '../viewModels/useRentalReservationsViewModel';
+function ReservationsWorkspace({accountId,conversation,onBack,registerBackAction}:{accountId:string|undefined;conversation:Conversation|null;onBack:()=>void;registerBackAction:Props['registerBackAction']}){
+ const vm=useRentalReservationsViewModel(accountId,conversation);
+ const back=()=>{if(vm.saving)return;if(vm.uncertain){Alert.alert('Reservation outcome not confirmed','Retry the same request to confirm its outcome, or leave and refresh reservations before requesting again.',[{text:'Keep reviewing',style:'cancel'},{text:'Leave reservations',onPress:onBack}]);return;}if(vm.editor){vm.workflow.closeEditor();void vm.workflow.load();}else onBack();};
+ useEffect(()=>{registerBackAction?.(back);return()=>registerBackAction?.(null);});
+ return <RentalReservationsView viewModel={vm} onBack={back}/>;
+}
 function ViewingsWorkspace({accountId,conversation,onBack,registerBackAction}:{accountId:string|undefined;conversation:Conversation|null;onBack:()=>void;registerBackAction:Props['registerBackAction']}){
  const vm=usePropertyViewingsViewModel(accountId,conversation);
  const back=()=>{if(vm.saving)return;if(vm.uncertain){Alert.alert('Viewing outcome not confirmed','Retry the same request to confirm its outcome, or leave and refresh appointments before making another request.',[{text:'Keep reviewing',style:'cancel'},{text:'Leave viewings',onPress:onBack}]);return;}if(vm.editor){vm.workflow.closeEditor();void vm.workflow.load();}else onBack();};
@@ -18,13 +26,15 @@ function ViewingsWorkspace({accountId,conversation,onBack,registerBackAction}:{a
 interface Props {actor?:MessagingActor;accountId?:string|undefined;conversationId?:string|undefined;initialScreen?:'inbox'|'newInquiry';canPostProperty:boolean;onClose:()=>void;onRootBack:()=>void;registerBackAction?:((action:(()=>void)|null)=>void)|undefined;onCreateListing:()=>void;onOpenDiscover:()=>void;onOpenListings:()=>void;onOpenMaintenance:()=>void;returnToListing?:boolean}
 export function MessagingViewingFlowView({accountId,conversationId,canPostProperty,onClose,onRootBack,registerBackAction,onCreateListing,onOpenDiscover,onOpenListings,onOpenMaintenance,returnToListing=false}:Props){
  const viewModel=useMessagingViewingViewModel(accountId,conversationId);
- const [viewings,setViewings]=useState<{accountId:string|undefined;conversation:Conversation|null}|null>(null);
- useEffect(()=>{setViewings(null);},[accountId]);
- const showingViewings=viewings!==null&&viewings.accountId===accountId;
- const openViewings=()=>setViewings({accountId,conversation:viewModel.conversation});
+ const [panel,setPanel]=useState<{kind:'viewings'|'reservations';accountId:string|undefined;conversation:Conversation|null}|null>(null);
+ useEffect(()=>{setPanel(null);},[accountId]);
+ const activePanel=panel?.accountId===accountId?panel:null;
+ const openViewings=()=>setPanel({kind:'viewings',accountId,conversation:viewModel.conversation});
+ const openReservations=()=>setPanel({kind:'reservations',accountId,conversation:viewModel.conversation});
  const back=()=>{if(returnToListing)onRootBack();else viewModel.backFromWorkspace(onRootBack);};
- useEffect(()=>{if(showingViewings)return;registerBackAction?.(back);return()=>registerBackAction?.(null);});
- return <ScreenContainer padded={false} includeBottomInset={false}><View style={styles.content}>{showingViewings?<ViewingsWorkspace key={`${accountId}-${viewings.conversation?.id??'all'}`} accountId={accountId} conversation={viewings.conversation} onBack={()=>{setViewings(null);viewModel.refresh();}} registerBackAction={registerBackAction}/>:viewModel.screen==='inbox'?<MessagingInboxView viewModel={viewModel} onViewings={openViewings} onClose={returnToListing?onRootBack:onClose}/>:<MessagingConversationView viewModel={viewModel} onViewings={openViewings} onBack={back}/>}</View>
- {!showingViewings?<RentLeaseBottomNavigation active="chat" onChat={viewModel.openInbox} onDiscover={onOpenDiscover} onListing={()=>{if(canPostProperty)onOpenListings();}} onPost={()=>{if(canPostProperty)onCreateListing();}} onTenancy={onOpenMaintenance}/>:null}</ScreenContainer>;
+ useEffect(()=>{if(activePanel)return;registerBackAction?.(back);return()=>registerBackAction?.(null);});
+ const closePanel=()=>{setPanel(null);viewModel.refresh();};
+ return <ScreenContainer padded={false} includeBottomInset={!!activePanel}><View style={styles.content}>{activePanel?.kind==='viewings'?<ViewingsWorkspace key={`${accountId}-${activePanel.conversation?.id??'all'}`} accountId={accountId} conversation={activePanel.conversation} onBack={closePanel} registerBackAction={registerBackAction}/>:activePanel?.kind==='reservations'?<ReservationsWorkspace key={`${accountId}-${activePanel.conversation?.id??'all'}`} accountId={accountId} conversation={activePanel.conversation} onBack={closePanel} registerBackAction={registerBackAction}/>:viewModel.screen==='inbox'?<MessagingInboxView viewModel={viewModel} onViewings={openViewings} onReservations={openReservations} onClose={returnToListing?onRootBack:onClose}/>:<MessagingConversationView viewModel={viewModel} onViewings={openViewings} onReservations={openReservations} onBack={back}/>}</View>
+ {!activePanel?<RentLeaseBottomNavigation active="chat" onChat={viewModel.openInbox} onDiscover={onOpenDiscover} onListing={()=>{if(canPostProperty)onOpenListings();}} onPost={()=>{if(canPostProperty)onCreateListing();}} onTenancy={onOpenMaintenance}/>:null}</ScreenContainer>;
 }
 const styles=StyleSheet.create({content:{flex:1}});

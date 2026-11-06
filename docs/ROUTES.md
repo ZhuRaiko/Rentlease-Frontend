@@ -111,7 +111,9 @@ Chat opens the real participant inbox for unified accounts. Contact Owner in sha
 
 `MessagingViewingFlowView` owns the nested appointment workspace; `usePropertyViewingsViewModel` owns its account-keyed persisted workflow. Requests, Upcoming, and Past / cancelled use the same bounded appointment pages. An editor requests, accepts, declines, proposes a different time, or cancels only through the prepared RPC contracts. Editor Back returns to appointments, then Chat, then the original listing origin when present. Unknown writes require retry or an explicit leave confirmation. Account changes unmount and clear the old private workspace; foreground/reentry refresh does not depend on Realtime.
 
-UC-08 persistence and metadata subscriptions are deployed. UC-09A is locally implemented/tested but requires its separately authorized migration deployment. Before deployment the appointment screen reports that backend requirement. See [Messaging & Viewing](features/MESSAGING_VIEWING.md).
+UC-08 persistence and metadata subscriptions are deployed. UC-09A is locally implemented/tested but requires its separately authorized migration deployment. Before deployment the appointment screen reports that backend requirement.
+
+UC-09B is a separate reservation panel in the same account-scoped flow: conversation Request Reservation / Reservation requests, or inbox Rental reservations. It has a move-in/month-duration/message request form, owner decisions, participant cancellation, Pending/Approved/Past categories and history. It does not reuse appointment records or add a bottom tab. Back returns through its editor and management screen to retained Chat/listing context; account switching clears either panel. Its independent prepared migration is also undeployed. Neither missing contract fabricates successful persistence. See [Messaging, Viewing & Reservations](features/MESSAGING_VIEWING.md).
 
 ## Maintenance Requests feature states
 

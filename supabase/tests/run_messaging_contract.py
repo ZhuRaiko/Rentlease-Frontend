@@ -1,7 +1,7 @@
 """Local disposable UC-08 contract tests. No live URLs, credentials, ports, or data."""
 import argparse,json,subprocess
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--container',required=True);p.add_argument('--realtime',action='store_true');p.add_argument('--viewings',action='store_true');a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--container',required=True);p.add_argument('--realtime',action='store_true');p.add_argument('--viewings',action='store_true');p.add_argument('--reservations',action='store_true');a=p.parse_args()
 assert a.container.startswith('rentlease-messaging-test-')
 info=json.loads(subprocess.check_output(['docker','inspect',a.container],text=True))[0]
 assert not info['Mounts'] and not info['HostConfig']['PortBindings'] and info['Config']['Image'].startswith('public.ecr.aws/supabase/postgres:17.')
@@ -132,6 +132,9 @@ if a.realtime:
 
 if a.viewings:
  exec(compile((root/'supabase/tests/viewing_contract_cases.py').read_text(), 'viewing_contract_cases.py', 'exec'))
+
+if a.reservations:
+ exec(compile((root/'supabase/tests/reservation_contract_cases.py').read_text(), 'reservation_contract_cases.py', 'exec'))
 
 counts_before=sql('select jsonb_build_array((select count(*) from conversations),(select count(*) from messages))')
 load(root/'supabase/test-support/property_inquiry_messaging_rollback.sql')

@@ -10,7 +10,7 @@ Status describes frontend implementation, not live runtime validation. Detailed 
 | Search & Discovery | Manual city/barangay search, server filters/sort/pagination, real details/photos/amenities and independent GPS proximity IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED; maps/saved/recommendations DEFERRED | [Search & Discovery](features/SEARCH_DISCOVERY.md) |
 | Property Recommendations | Scaffolded | Not yet created |
 | Rental Price Estimation | PREVIEW UI; FastAPI requests/persistence DEFERRED | Not yet created |
-| Messaging & Viewing Schedules | UC-08 RPC/Realtime metadata DEPLOYED; Android acceptance pending. UC-09A scheduling IMPLEMENTED / AUTOMATED-TESTED locally; migration UNDEPLOYED, Android RUNTIME-UNVERIFIED. Reservations/uploads DEFERRED. | [Messaging & Viewing](features/MESSAGING_VIEWING.md) |
+| Messaging, Viewing & Reservations | UC-08 RPC/Realtime metadata DEPLOYED; Android acceptance pending. UC-09A viewing and UC-09B reservations IMPLEMENTED / AUTOMATED-TESTED locally; separate migrations UNDEPLOYED, Android RUNTIME-UNVERIFIED. Payments/automatic tenancy/uploads excluded. | [Messaging, Viewing & Reservations](features/MESSAGING_VIEWING.md) |
 | Tenancy Management | Scaffolded; current Tenancy tab opens Maintenance preview | Not yet created |
 | Maintenance Requests | PREVIEW UI; persistence/uploads/notifications DEFERRED | Not yet created |
 | Ratings & Reports | PREVIEW UI; publication/moderation/uploads/persistence DEFERRED | Not yet created |
