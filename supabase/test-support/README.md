@@ -125,3 +125,15 @@ docker stop rentlease-identity-test-local
 The runner installs the existing media/completeness/routine fixture chain, PostGIS and the prepared identity migration, then exercises bootstrap exclusion, private revisions, controlled proof finalization, owner/Admin authorization, CAS/recovery, cancellation/rejection/resubmission, open-tenancy denial, actual two-connection races and property/listing/photo preservation. It includes the actual existing versioned routine/media contracts with identity triggers installed. Storage rows represent file metadata/RLS, not live Storage HTTP uploads or private-file contents. Existing Tier 2 behavior retains its original review implementation.
 
 Migration [20261102081459_property_identity_revision_verification.sql](../migrations/20261102081459_property_identity_revision_verification.sql) is deployed as 20261102081459; the test commands remain disposable/local only. Its queue/publication definition checks deliberately abort on unexpected source drift. The separately authorized deployment passed fresh backup, live compatibility and coordinated Tier 3 client-cutover checks. Any future migration requires new review/authorization. Do not use `db push` or replay earlier migrations. [Read-only deployment verification](../tests/verify_property_identity_deployment.sql) was executed read-only after the authorized deployment; no live mutation test was performed.
+
+## UC-09A viewing scheduling (local only)
+
+Use the existing UC-08 fixture runner with `--viewings`. Create a disposable `rentlease-messaging-test-*` PostgreSQL 17 container with no mounts or published ports; prefer `--network none`. Then run:
+
+```powershell
+python supabase/tests/run_messaging_contract.py --container rentlease-messaging-test-viewings --viewings
+```
+
+The runner verifies container isolation, initializes a synthetic messaging database, loads the inspected viewing trigger and prepared scheduling migration, then exercises persistence, relationship/state authorization, idempotency, CAS, real concurrent requests/approvals, history and feature-disable rollback. It never reads .env or connects to production. Stop only that disposable container after completion. The last run passed 104 checks. A minimal fixture is not equivalent to a full production restoration or Android acceptance.
+
+`property_viewing_scheduling_rollback.sql` disables the three new scheduling RPCs and removes only their two restrictive policies. It deliberately keeps appointment records, revision/request notes, indexes and private event history for recovery. Existing grants/policies, messages and Realtime configuration remain unchanged. Do not replay the original migration to reenable it after rollback; use a separately reviewed recovery migration. Deployment requires separate authorization.

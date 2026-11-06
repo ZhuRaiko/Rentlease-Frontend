@@ -2234,6 +2234,10 @@ export type Database = {
       }
     }
     Functions: {
+      // UC-09A prepared contract: requires the local property_viewing_scheduling migration.
+      get_property_viewings: { Args: { p_conversation_id?: string; p_offset?: number; p_limit?: number }; Returns: Json }
+      request_property_viewing: { Args: { p_conversation_id: string; p_request_id: string; p_starts_at: string; p_ends_at: string; p_note?: string | null }; Returns: Json }
+      respond_property_viewing: { Args: { p_viewing_id: string; p_operation_id: string; p_expected_revision: number; p_action: string; p_starts_at?: string; p_ends_at?: string; p_note?: string | null }; Returns: Json }
       // Prepared UC-08 migration contract; unavailable remotely until separately deployed.
       start_property_inquiry: { Args: {p_listing_id:string}; Returns:string }
       get_messaging_inbox: { Args: {p_offset?:number;p_limit?:number;p_conversation_id?:string}; Returns:Json }

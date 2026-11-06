@@ -107,20 +107,11 @@ The current result data and loading transition are local presentation previews. 
 
 ## Messaging & Viewing Schedules feature states
 
-The Chat item in the universal toolbar opens `MessagingViewingFlowView` at the inbox for both Tenant and Landlord accounts. The Message Landlord action in a Discovery property detail opens the same flow at a new listing inquiry. `App` owns these workspace transitions, while the feature ViewModel owns conversation and viewing-schedule state. Discover, landlord Listing/Post and Chat navigation remain available from the same universal safe-area toolbar.
+Chat opens the real participant inbox for unified accounts. Contact Owner in shared real Listing Details creates/reuses a property inquiry and opens its conversation over the retained Discovery context. The conversation offers Schedule Viewing / appointments to its renter and Viewing requests to its owner; the inbox Viewings action opens appointments across conversations. Existing Post and bottom destinations remain unchanged. No attachment, reservation, or completed-viewing preview is mounted in the real flow.
 
-| Flow | Feature states | Component | Actor |
-|---|---|---|---|
-| Messages and empty inbox | `inbox`, `emptyInbox` | `MessagingInboxView` | Tenant / Landlord |
-| Conversation and listing inquiry | `conversation`, `newInquiry` | `MessagingConversationView` | Tenant / Landlord |
-| Message attachment presentation | `attachment` | `MessagingConversationView` | Tenant / Landlord |
-| Viewing proposal setup | `proposeViewing`, `selectDate`, `selectTime`, `reviewProposal` | `ViewingScheduleView` | Tenant / Landlord |
-| Proposal response states | `proposalPending`, `proposalAccepted`, `proposalDeclined`, `counterProposal` | `ViewingScheduleView` | Tenant / Landlord |
-| Confirmed viewing and upcoming appointment | `viewingDetails`, `upcomingViewing` | `ViewingScheduleView` | Tenant / Landlord |
-| Viewing cancellation and completion | `cancelViewing`, `viewingCancelled`, `viewingCompleted` | `ViewingScheduleView` | Tenant / Landlord |
-| Unavailable listing conversation | `listingUnavailable` | `MessagingConversationView` | Tenant / Landlord |
+`MessagingViewingFlowView` owns the nested appointment workspace; `usePropertyViewingsViewModel` owns its account-keyed persisted workflow. Requests, Upcoming, and Past / cancelled use the same bounded appointment pages. An editor requests, accepts, declines, proposes a different time, or cancels only through the prepared RPC contracts. Editor Back returns to appointments, then Chat, then the original listing origin when present. Unknown writes require retry or an explicit leave confirmation. Account changes unmount and clear the old private workspace; foreground/reentry refresh does not depend on Realtime.
 
-All message sending, attachments, schedule proposals and schedule decisions are local frontend previews. Supabase database persistence, Realtime subscriptions, Storage uploads, push notification delivery and server-authoritative availability checks remain disconnected.
+UC-08 persistence and metadata subscriptions are deployed. UC-09A is locally implemented/tested but requires its separately authorized migration deployment. Before deployment the appointment screen reports that backend requirement. See [Messaging & Viewing](features/MESSAGING_VIEWING.md).
 
 ## Maintenance Requests feature states
 
