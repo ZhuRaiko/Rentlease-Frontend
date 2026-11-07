@@ -2234,6 +2234,10 @@ export type Database = {
       }
     }
     Functions: {
+      get_public_identities: { Args: {p_user_ids:string[]}; Returns:Json }
+      get_own_public_identity: { Args:Record<PropertyKey,never>; Returns:Json }
+      get_own_avatar_upload: { Args:{p_path:string}; Returns:Json }
+      set_own_public_identity: { Args:{p_request_id:string;p_expected_version:string;p_nickname:string|null;p_avatar_path:string|null;p_confirm_public:boolean}; Returns:Json }
       // UC-09B prepared contract; independent of the UC-09A migration.
       get_rental_reservations: { Args: { p_conversation_id?: string; p_offset?: number; p_limit?: number }; Returns: Json }
       request_rental_reservation: { Args: { p_conversation_id: string; p_request_id: string; p_move_in_date: string; p_duration_months: number; p_message?: string | null }; Returns: Json }

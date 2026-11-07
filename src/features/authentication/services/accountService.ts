@@ -1,3 +1,5 @@
+import {publicNickname} from '../../../shared/models/PublicIdentity';
+import type {RegistrationIdentityInput} from '../models/AuthProfile';
 import type { AuthChangeEvent, AuthError } from '@supabase/supabase-js';
 
 import { getSupabaseClient } from '../../../shared/services/supabase/client';
@@ -99,11 +101,13 @@ export async function loadAccount(): Promise<AccountSnapshot | null> {
   };
 }
 
-export async function signUp(email: string, password: string, displayName: string) {
+export async function signUp(email: string, password: string, displayName: string, identity: RegistrationIdentityInput) {
+  const nickname=publicNickname(displayName);
+  if(nickname&&!identity.publicNameAcknowledged)throw new Error('Confirm that your Display Name will be public.');
   const { data, error } = await getSupabaseClient().auth.signUp({
     email,
     password,
-    options: { data: { display_name: displayName } },
+    options: { data: { display_name: [identity.firstName,identity.lastName].join(' ').trim(), first_name:identity.firstName,last_name:identity.lastName, public_display_name:nickname, public_display_name_acknowledged:!!nickname&&identity.publicNameAcknowledged,public_identity_source:'registration_v1' } },
   });
   if (error) throw error;
   return data;
@@ -148,7 +152,7 @@ export async function saveUserRoles(requestedRoles: Array<'tenant' | 'landlord'>
 
 export async function updateOwnProfile(
   userId: string,
-  changes: { display_name: string; bio: string; experience_preference: ExperiencePreference },
+  changes: { bio: string; experience_preference: ExperiencePreference },
 ) {
   const { error } = await getSupabaseClient()
     .from('profiles')

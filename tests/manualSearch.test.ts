@@ -87,7 +87,7 @@ function renderSource(path:string,name:string,state?:{value:any}) {
     if(key.endsWith('/FullscreenDocumentImage'))return {FullscreenDocumentImage:'FullscreenDocumentImage'};
     if(key.endsWith('/DiscoveryControls'))return {DiscoveryHeader:'DiscoveryHeader',DiscoveryButton:'DiscoveryButton',DiscoveryChip:'DiscoveryChip',DiscoverySearchBar:'DiscoverySearchBar'};
     if(key.endsWith('/SearchListingCard'))return {SearchListingCard:'SearchListingCard'};
-    return actual(key);
+    if(key.endsWith('/PublicIdentityBadge'))return{PublicAvatar:'Avatar',PublicIdentityBadge:'Identity'};if(key.endsWith('/usePublicIdentitiesViewModel'))return{usePublicIdentitiesViewModel:()=>({})};return actual(key);
   };
   const output=ts.transpileModule(readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
   new Function('require','module','exports',output)(requireMock,mod,mod.exports);return mod.exports[name];

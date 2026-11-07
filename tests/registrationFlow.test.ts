@@ -17,14 +17,14 @@ test('name requires first and last; optional nickname permits continuation and e
   assert.equal(validateRegistrationStep('registrationNickname', valid), null);
   const result = advanceRegistration('registrationNickname', { ...valid, nickname: 'Old name' }, true);
   assert.equal(result.draft.nickname, ''); assert.equal(result.screen, 'registrationEmail');
-  assert.equal(registrationDisplayName(result.draft), 'Ada Santos');
+  assert.equal(registrationDisplayName(result.draft), '');
   assert.equal(registrationDisplayName({ ...valid, nickname: '  Ada S  ' }), 'Ada S');
 });
 test('email validation requires an address and normalizes only the submitted payload', async () => {
   for (const email of ['', 'ada@', '@example.com', 'ada@example', 'ada @example.com']) assert.ok(validateRegistrationStep('registrationEmail', { ...valid, email }));
   assert.equal(validateRegistrationStep('registrationEmail', valid), null);
-  const calls: unknown[] = []; const submission = createRegistrationSubmission(async (...args: string[]) => { calls.push(args); return { user: { id: 'u' }, session: null }; });
-  await submission.submit(valid); assert.deepEqual(calls, [['ada@example.com', 'abcdefgh', 'Ada Santos']]); assert.equal(valid.email, ' ADA@example.com ');
+  const calls: unknown[] = []; const submission = createRegistrationSubmission(async (...args: unknown[]) => { calls.push(args); return { user: { id: 'u' }, session: null }; });
+  await submission.submit(valid); assert.deepEqual(calls, [['ada@example.com', 'abcdefgh', '', {firstName:'Ada',lastName:'Santos',publicNameAcknowledged:false}]]); assert.equal(valid.email, ' ADA@example.com ');
 });
 test('short passwords and mismatched confirmation never call signup', async () => {
   let calls = 0; const signup = createRegistrationSubmission(async () => { calls++; return { user: { id: 'u' }, session: null }; });
@@ -82,3 +82,6 @@ test('reset invalidates an obsolete signup result so it cannot restore a prior r
   const old = signup.submit(valid); signup.reset(); release();
   assert.equal((await old).kind, 'blocked'); assert.equal(signup.phase(), 'ready');
 });
+
+test('Display Name never falls back to private first and last names',()=>{assert.equal(registrationDisplayName(valid),'');});
+test('public name requires acknowledgement and skip clears both',()=>{assert.ok(validateRegistrationStep('registrationNickname',{...valid,nickname:'Ada S',publicNameAcknowledged:false}));const skipped=advanceRegistration('registrationNickname',{...valid,nickname:'Ada S',publicNameAcknowledged:true},true);assert.equal(skipped.draft.nickname,'');assert.equal(skipped.draft.publicNameAcknowledged,false);assert.equal(skipped.screen,'registrationEmail');});

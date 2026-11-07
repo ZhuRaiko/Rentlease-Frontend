@@ -1,7 +1,7 @@
 import { OnboardingAccountOptions } from '../components/OnboardingAccountOptions';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { useRef, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
@@ -25,7 +25,7 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
     onSwitch={() => void viewModel.switchAccount()} /> : null;
 
   if (screen === 'registrationName') return (
-    <AuthScaffold {...scaffold} largeTitle onBack={viewModel.goBack} title="What's your name?" description="Start with your first and last name.">
+    <AuthScaffold {...scaffold} largeTitle onBack={viewModel.goBack} title="What's your name?" description="Your first and last name stay private and are used for account and verification requirements.">
       <AuthField editable={!busy} autoCapitalize="words" autoCorrect={false} label="First name" returnKeyType="next" onSubmitEditing={() => lastNameInput.current?.focus()} onChangeText={(value) => viewModel.updateDraft('firstName', value)} value={draft.firstName} />
       <AuthField editable={!busy} inputRef={lastNameInput} autoCapitalize="words" autoCorrect={false} label="Last name" returnKeyType="next" onSubmitEditing={() => viewModel.continueRegistration()} onChangeText={(value) => viewModel.updateDraft('lastName', value)} value={draft.lastName} />
       <AuthButton disabled={busy || !!viewModel.registrationError} label="Continue" onPress={() => viewModel.continueRegistration()} />
@@ -34,9 +34,11 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
   );
 
   if (screen === 'registrationNickname') return (
-    <AuthScaffold {...scaffold} description="Optional. This name will appear on your profile. Skip to use your first and last name." largeTitle onBack={viewModel.goBack} title="What should we call you?">
-      <AuthField editable={!busy} autoCapitalize="words" label="Preferred name (optional)" returnKeyType="next" onSubmitEditing={() => viewModel.continueRegistration()} onChangeText={(value) => viewModel.updateDraft('nickname', value)} value={draft.nickname} />
-      <AuthButton disabled={busy} label="Continue" onPress={() => viewModel.continueRegistration()} />
+    <AuthScaffold {...scaffold} description="This name will be visible to other RentLease users in listings, messages, viewing requests, and reservations." largeTitle onBack={viewModel.goBack} title="Choose a Display Name">
+      <AuthField editable={!busy} autoCapitalize="words" label="Display Name (optional)" returnKeyType="next" onSubmitEditing={() => viewModel.continueRegistration()} onChangeText={(value) => viewModel.updateDraft('nickname', value)} value={draft.nickname} />
+      {draft.nickname.trim()?<Pressable accessibilityRole="checkbox" accessibilityState={{checked:draft.publicNameAcknowledged,disabled:busy}} disabled={busy} onPress={()=>viewModel.updateDraft('publicNameAcknowledged',!draft.publicNameAcknowledged)} style={styles.acknowledgement}><Text style={styles.body}>{draft.publicNameAcknowledged?'[x] ':'[ ] '}I understand this Display Name will be public.</Text></Pressable>:null}
+      <Text style={styles.body}>Skip to keep your Display Name unset. Your private name will not be published.</Text>
+      <AuthButton disabled={busy || !!viewModel.registrationError} label="Continue" onPress={() => viewModel.continueRegistration()} />
       <AuthButton disabled={busy} label="Skip for now" variant="secondary" onPress={() => viewModel.continueRegistration(true)} />
       {notice}
     </AuthScaffold>
@@ -105,6 +107,7 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
 }
 
 const styles = StyleSheet.create({
+  acknowledgement: {minHeight:48,justifyContent:'center'},
   accountActions: { gap: spacing.sm },
   body: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
   notice: { backgroundColor: colors.primaryPale, borderRadius: radius.sm, color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 18, padding: spacing.sm },

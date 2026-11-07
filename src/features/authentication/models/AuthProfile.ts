@@ -34,6 +34,7 @@ export interface RegistrationDraft {
   firstName: string;
   lastName: string;
   nickname: string;
+  publicNameAcknowledged: boolean;
   email: string;
   phone: string;
   mobileCode: string;
@@ -66,9 +67,12 @@ export const initialRegistrationDraft: RegistrationDraft = {
   firstName: '',
   lastName: '',
   nickname: '',
+  publicNameAcknowledged: false,
   email: '',
   phone: '',
   mobileCode: '',
   password: '',
   confirmPassword: '',
 };
+
+export interface RegistrationIdentityInput {firstName:string;lastName:string;publicNameAcknowledged:boolean}

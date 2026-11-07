@@ -1,3 +1,5 @@
+import {PublicIdentityBadge} from '../../../shared/components/PublicIdentityBadge';
+import type {PublicIdentity} from '../../../shared/models/PublicIdentity';
 import {useState} from 'react';
 import {ActivityIndicator,FlatList,Pressable,StyleSheet,Text,TextInput,View} from 'react-native';
 import {ScreenHeader} from '../../../shared/components/ScreenHeader';
@@ -9,9 +11,9 @@ import {ReservationDateField} from '../components/ReservationDateField';
 import {effectiveReservationStatus,reservationActions,reservationStatusLabels,reservationDateLabel,type RentalReservation,type ReservationAction} from '../models/RentalReservation';
 import type {RentalReservationsViewModel} from '../viewModels/useRentalReservationsViewModel';
 const labels:Record<ReservationAction|'request',string>={request:'Request Reservation',approve:'Approve reservation',decline:'Decline request',cancel:'Cancel reservation'};
-function ReservationCard({item,actor,now,onAction}:{item:RentalReservation;actor:string;now:number;onAction:(r:RentalReservation,action:ReservationAction)=>void}){
+function ReservationCard({item,actor,now,onAction,identity}:{item:RentalReservation;actor:string;now:number;identity?:PublicIdentity|undefined;onAction:(r:RentalReservation,action:ReservationAction)=>void}){
  const [expanded,setExpanded]=useState(false),status=effectiveReservationStatus(item,now),actions=reservationActions(item,actor,now);
- return <View style={styles.card}><Text style={ui.sectionTitle}>{item.listingTitle??'Rental unit'}</Text><Text style={styles.status}>{reservationStatusLabels[status]}</Text>
+ return <View style={styles.card}><Text style={ui.sectionTitle}>{item.listingTitle??'Rental unit'}</Text><Text style={styles.status}>{reservationStatusLabels[status]}</Text><PublicIdentityBadge identity={identity} relationship={actor===item.landlordId?'renter':'owner'}/>
  <Text style={ui.body}>Move-in: {reservationDateLabel(item.moveInDate)}</Text><Text style={ui.supporting}>{item.durationMonths} {item.durationMonths===1?'month':'months'}; ending {reservationDateLabel(item.endDate)}.</Text>
  {actor===item.landlordId?<Text style={ui.supporting}>Applicant: {item.applicantLabel}. {item.applicantTier1?'Tier 1 active':'Tier 1 not active'}. {item.applicantTier2?'Tier 2 approved.':''}</Text>:null}
  {status==='pending'?<Text style={ui.supporting}>This is a request. The unit is not reserved until the owner approves. Respond by {new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(item.expiresAt))} Philippine time.</Text>:status==='approved'?<Text style={ui.supporting}>Reservation commitment approved. Approval does not create a payment or tenancy.</Text>:null}
@@ -32,7 +34,7 @@ export function RentalReservationsView({viewModel:vm,onBack}:{viewModel:RentalRe
  <View accessibilityRole="tablist" style={styles.tabs}>{(['pending','approved','past'] as const).map(value=><Pressable key={value} accessibilityRole="tab" accessibilityState={{selected:category===value}} onPress={()=>setCategory(value)} style={[styles.tab,category===value&&styles.active]}><Text style={ui.body}>{value==='pending'?'Pending':value==='approved'?'Approved':'Past / closed'}</Text></Pressable>)}</View>
  {vm.busy&&!vm.rows.length?<ActivityIndicator accessibilityLabel="Loading reservations" color={colors.primaryAction}/>:null}{vm.error?<View><Text accessibilityRole="alert" style={styles.error}>{vm.error}</Text><AppButton label="Retry reservations" variant="secondary" onPress={()=>void vm.workflow.load()}/></View>:null}</View>}
  ListEmptyComponent={!vm.busy&&!vm.error?<Text style={ui.supporting}>No {category==='past'?'closed':category} reservations in the loaded requests.</Text>:null}
- renderItem={({item})=><ReservationCard item={item} actor={vm.owner??''} now={vm.now} onAction={vm.workflow.edit}/>}
+ renderItem={({item})=><ReservationCard item={item} actor={vm.owner??''} now={vm.now} identity={vm.publicIdentities?.[vm.owner===item.tenantId?item.landlordId:item.tenantId]} onAction={vm.workflow.edit}/>}
  ListFooterComponent={vm.more?<AppButton label="Load more reservations" variant="secondary" disabled={vm.busy} onPress={()=>void vm.workflow.load(true)}/>:null}/></View>;
 }
 const styles=StyleSheet.create({screen:{flex:1,backgroundColor:colors.background},content:{padding:16,gap:16},group:{gap:12},card:{paddingVertical:16,gap:8,borderBottomWidth:1,borderBottomColor:colors.outline},status:{...ui.supporting,color:colors.primaryAction,fontWeight:'700'},link:{minHeight:48,justifyContent:'center'},linkText:{...ui.body,color:colors.primaryAction},tabs:{flexDirection:'row',flexWrap:'wrap',gap:4},tab:{minHeight:48,padding:10,justifyContent:'center',borderRadius:8},active:{backgroundColor:colors.primaryPale},input:{...ui.body,minHeight:48,padding:12,borderWidth:1,borderColor:colors.controlBorder,borderRadius:10},note:{minHeight:100,textAlignVertical:'top'},error:{...ui.supporting,color:colors.restricted}});

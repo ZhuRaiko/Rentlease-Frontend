@@ -1,7 +1,7 @@
 """Local disposable UC-08 contract tests. No live URLs, credentials, ports, or data."""
 import argparse,json,subprocess
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--container',required=True);p.add_argument('--realtime',action='store_true');p.add_argument('--viewings',action='store_true');p.add_argument('--reservations',action='store_true');a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--container',required=True);p.add_argument('--realtime',action='store_true');p.add_argument('--viewings',action='store_true');p.add_argument('--reservations',action='store_true');p.add_argument('--public-identity',action='store_true');a=p.parse_args()
 assert a.container.startswith('rentlease-messaging-test-')
 info=json.loads(subprocess.check_output(['docker','inspect',a.container],text=True))[0]
 assert not info['Mounts'] and not info['HostConfig']['PortBindings'] and info['Config']['Image'].startswith('public.ecr.aws/supabase/postgres:17.')
@@ -10,7 +10,7 @@ subprocess.run(['docker','exec',a.container,'dropdb','-U','postgres','--if-exist
 subprocess.run(['docker','exec',a.container,'createdb','-U','postgres',db],check=True,capture_output=True)
 base=['docker','exec',a.container,'psql','-U','postgres','-d',db,'-XAt','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose']
 def sql(q,ok=True):
- r=subprocess.run(base+['-c',q],text=True,capture_output=True)
+ r=subprocess.run(base+['-c',q],text=True,encoding='utf-8',capture_output=True)
  if ok:assert r.returncode==0,r.stderr
  return r.stdout.strip() if ok else r
 
@@ -135,6 +135,9 @@ if a.viewings:
 
 if a.reservations:
  exec(compile((root/'supabase/tests/reservation_contract_cases.py').read_text(), 'reservation_contract_cases.py', 'exec'))
+
+if a.public_identity:
+ exec(compile((root/'supabase/tests/public_identity_contract_cases.py').read_text(encoding='utf-8'), 'public_identity_contract_cases.py', 'exec'))
 
 counts_before=sql('select jsonb_build_array((select count(*) from conversations),(select count(*) from messages))')
 load(root/'supabase/test-support/property_inquiry_messaging_rollback.sql')

@@ -1,3 +1,5 @@
+import {PublicAvatar} from '../../../shared/components/PublicIdentityBadge';
+import {publicIdentityLabel} from '../../../shared/models/PublicIdentity';
 import {useEffect,useRef} from 'react';
 import {ActivityIndicator,FlatList,KeyboardAvoidingView,Platform,Pressable,StyleSheet,Text,TextInput,View} from 'react-native';
 import {ScreenHeader} from '../../../shared/components/ScreenHeader';
@@ -9,8 +11,10 @@ import {messageTime} from '../models/PersistentMessaging';
 import type {MessagingViewingViewModel} from '../viewModels/useMessagingViewingViewModel';
 export function MessagingConversationView({viewModel:vm,onBack,onViewings,onReservations}:{viewModel:MessagingViewingViewModel;onBack:()=>void;onViewings?:()=>void;onReservations?:()=>void}){
  const conversation=vm.conversation,list=useRef<FlatList<PersistentMessage>|null>(null),follow=useRef(true);
+ const otherId=conversation?(vm.owner===conversation.tenantId?conversation.landlordId:conversation.tenantId):null;
+ const identity=otherId?vm.publicIdentities?.[otherId]:undefined,relationship=vm.owner===conversation?.tenantId?'owner':'renter';
  useEffect(()=>{follow.current=true;},[vm.selectedId]);
- return <View style={styles.screen}><ScreenHeader title={conversation?.participantName??'Conversation'} onBack={onBack}/><KeyboardAvoidingView style={styles.screen} behavior={Platform.OS==='ios'?'padding':undefined}>
+ return <View style={styles.screen}><ScreenHeader title={conversation?publicIdentityLabel(identity,relationship):'Conversation'} onBack={onBack} action={conversation?<PublicAvatar url={identity?.avatarUrl}/>:undefined}/><KeyboardAvoidingView style={styles.screen} behavior={Platform.OS==='ios'?'padding':undefined}>
  {conversation?<View style={styles.context}><Text style={styles.heading}>{conversation.listingTitle??'Listing unavailable'}</Text><Text style={styles.copy}>Private property inquiry</Text>{onViewings?<Pressable accessibilityRole="button" style={styles.action} onPress={onViewings}><Text style={styles.link}>{vm.owner===conversation.tenantId?'Schedule Viewing / appointments':'Viewing requests'}</Text></Pressable>:null}{onReservations?<Pressable accessibilityRole="button" style={styles.action} onPress={onReservations}><Text style={styles.link}>{vm.owner===conversation.tenantId?'Request Reservation':'Reservation requests'}</Text></Pressable>:null}</View>:null}
  {vm.connection==='unavailable'?<Text accessibilityLiveRegion="polite" style={styles.syncWarning}>Automatic updates unavailable. Pull to refresh.</Text>:null}
  <FlatList keyboardShouldPersistTaps="handled" keyboardDismissMode="none" ref={list} data={vm.messages} maintainVisibleContentPosition={{minIndexForVisible:0}} onLayout={()=>{if(follow.current)list.current?.scrollToEnd({animated:false});}} onScroll={e=>{const n=e.nativeEvent;follow.current=n.contentSize.height-n.layoutMeasurement.height-n.contentOffset.y<80;}} onContentSizeChange={()=>{if(follow.current)list.current?.scrollToEnd({animated:false});}} keyExtractor={m=>m.id} contentContainerStyle={styles.content} refreshing={vm.messageBusy} onRefresh={()=>void (conversation?vm.refresh():vm.selectedId&&vm.workflow.open(vm.selectedId))}

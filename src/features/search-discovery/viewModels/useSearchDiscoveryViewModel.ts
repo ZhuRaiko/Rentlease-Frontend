@@ -1,3 +1,5 @@
+import {usePublicIdentitiesViewModel} from '../../../shared/viewModels/usePublicIdentitiesViewModel';
+import {publicIdentityLabel} from '../../../shared/models/PublicIdentity';
 import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigationConfirmation';
 import {propertyOwnerLabel} from '../../../shared/models/PublicInquiryIdentity';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -48,6 +50,7 @@ export function useSearchDiscoveryViewModel(
   useEffect(()=>{discover.activate();setHomeTab('discover');return()=>discover.dispose();},[discover]);
   useEffect(()=>{if(screen==='home'&&homeTab==='discover')void discover.ensureLoaded();},[discover,screen,homeTab]);
   const manualState = useSyncExternalStore(manual.subscribe, manual.getSnapshot, manual.getSnapshot);
+  const ownerIdentities=usePublicIdentitiesViewModel(options.accountId,manualState.detail?[manualState.detail.ownerId]:[]);
   const [liveFilterDraft,setLiveFilterDraft] = useState<SearchFilters>(defaultSearchFilters);
   useEffect(() => { manual.activate(); return () => manual.dispose(); }, [manual]);
   useEffect(() => { if (screen !== 'searchLocation') return; const timer = setTimeout(() => { void manual.locations(query); }, 250); return () => { clearTimeout(timer); manual.cancelLocations(); }; }, [screen,query,manual]);
@@ -315,7 +318,8 @@ export function useSearchDiscoveryViewModel(
     allowCurrentLocation,
     declineCurrentLocation,
     openProperty,
-    listingOwnerLabel:propertyOwnerLabel,
+    listingOwnerIdentity:manualState.detail?ownerIdentities[manualState.detail.ownerId]:undefined,
+    listingOwnerLabel:publicIdentityLabel(manualState.detail?ownerIdentities[manualState.detail.ownerId]:undefined,'owner'),
     isOwnListing:!!manualState.detail&&manualState.detail.ownerId===options.accountId,
     contactOwner:async()=>{const id=await manual.startInquiry();if(id)options.onStartInquiry?.(id);},
     toggleSaved,

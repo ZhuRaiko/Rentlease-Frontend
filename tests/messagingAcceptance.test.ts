@@ -24,7 +24,7 @@ function loadDetail(){
   if(key.endsWith('/SearchListingCard'))return{SearchListingCard:'Card'};
   if(key.endsWith('/FullscreenDocumentImage'))return{FullscreenDocumentImage:'Gallery'};
   if(key.endsWith('/InterfaceIcon'))return{InterfaceIcon:'Icon'};
-  return actual(key);
+  if(key.endsWith('/PublicIdentityBadge'))return{PublicAvatar:'Avatar',PublicIdentityBadge:'Identity'};if(key.endsWith('/usePublicIdentitiesViewModel'))return{usePublicIdentitiesViewModel:()=>({})};return actual(key);
  };
  new Function('require','module','exports',ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText)(req,mod,mod.exports);
  return mod.exports.LivePropertyDetailView;

@@ -1,3 +1,4 @@
+import {PublicAvatar} from '../../../shared/components/PublicIdentityBadge';
 import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {placeCategories,placeCategoryLabels} from '../../../shared/models/NearbyPlace';
 import { useState } from 'react';
@@ -63,7 +64,7 @@ export function LivePropertyDetailView({viewModel:vm}:{viewModel:SearchDiscovery
       <View style={styles.detailSection}>
         <Text style={styles.small}>Listed by</Text>
         <View style={styles.ownerRow}>
-          <View accessible={false} importantForAccessibility="no-hide-descendants" style={styles.ownerAvatar}><View style={styles.avatarHead}/><View style={styles.avatarBody}/></View>
+          <PublicAvatar url={vm.listingOwnerIdentity?.avatarUrl}/>
           <Text style={styles.ownerName}>{vm.listingOwnerLabel}</Text>
         </View>
         {vm.isOwnListing?<Text style={styles.copy}>This is your listing.</Text>:<DiscoveryButton label={s.inquiryBusy?'Opening conversation...':'Contact Owner'} disabled={s.inquiryBusy} onPress={()=>void vm.contactOwner()}/>}

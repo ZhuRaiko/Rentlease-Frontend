@@ -3,7 +3,7 @@ import { createOnboardingStatusCheck } from './onboardingStatusCheck';
 import { marketplaceIntroductionStorage } from '../services/marketplaceIntroductionStorage';
 import type { FeedbackTone } from '../../../shared/models/verificationPresentation';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { accountIdentityLabels, accountStatusLabel, accountVerificationSummary, hasProfileChanges } from '../models/accountPresentation';
+import { accountIdentityLabels, accountStatusLabel, accountVerificationSummary } from '../models/accountPresentation';
 import { createMarketplaceIntroduction } from './marketplaceIntroduction';
 
 import { isSupabaseConfigured } from '../../../config/env';
@@ -61,6 +61,7 @@ function normalizePhilippinePhone(localNumber: string): string | null {
 export function useAuthProfilesViewModel() {
   const [screen, setScreen] = useState<AuthProfileScreen>('bootstrap');
   const [history, setHistory] = useState<AuthProfileScreen[]>([]);
+  const profileBackGuard = useRef<((leave:()=>void)=>void)|null>(null);
   const [draft, setDraft] = useState<RegistrationDraft>(initialRegistrationDraft);
   const [registrationSubmission] = useState(() => createRegistrationSubmission(signUp));
   const [marketplaceIntroduction] = useState(() => createMarketplaceIntroduction(marketplaceIntroductionStorage));
@@ -254,18 +255,19 @@ export function useAuthProfilesViewModel() {
 
   const goBack = () => {
     if (registrationSubmission.phase() === 'submitting') return;
-    setHistory((current) => {
+    const leave=()=>{setHistory((current) => {
       const previous = getRegistrationBackTarget(current, registrationSubmission.phase(), screenRef.current);
       setScreen(previous.screen);
       return previous.history;
     });
-    setNotice(null);
+    setNotice(null);};
+    if(screenRef.current==='editProfile'&&profileBackGuard.current)profileBackGuard.current(leave);else leave();
   };
 
   const updateDraft = <TField extends keyof RegistrationDraft>(
     field: TField,
     value: RegistrationDraft[TField],
-  ) => setDraft((current) => ({ ...current, [field]: value }));
+  ) => setDraft((current) => ({ ...current, [field]: value, ...(field === 'nickname' ? {publicNameAcknowledged:false} : {}) }));
 
   const continueRegistration = (skipNickname = false) => {
     if (registrationSubmission.phase() !== 'ready') return;
@@ -304,7 +306,7 @@ export function useAuthProfilesViewModel() {
   const register = async () => {
     if (screenRef.current !== 'registrationPassword' || accountRef.current || registrationSubmission.phase() !== 'ready') return;
     const email = draft.email.trim().toLowerCase();
-    for (const step of ['registrationName', 'registrationEmail', 'registrationPassword'] as const) {
+    for (const step of ['registrationName', 'registrationNickname', 'registrationEmail', 'registrationPassword'] as const) {
       const error = validateRegistrationStep(step, draft);
       if (error) { setNotice(error, 'error'); return; }
     }
@@ -452,18 +454,13 @@ export function useAuthProfilesViewModel() {
   };
 
   const saveProfile = async () => {
-    if (!account || operationBusyRef.current || !hasProfileChanges(account.profile, profileName, profileBio, profilePreference)) return;
-    if (!profileName.trim()) {
-      setNotice('Display name cannot be empty.', 'error');
-      return;
-    }
+    if (!account || accountRef.current?.user.id !== account.user.id || operationBusyRef.current || !(profileBio.trim() !== (account.profile.bio??'').trim() || profilePreference !== (account.profile.experience_preference??null))) return;
     setAsyncState('loading');
     operationBusyRef.current = true;
     const ownerId = account.user.id;
     setNotice(null);
     try {
       await mutateAccount(() => updateOwnProfile(account.user.id, {
-        display_name: profileName.trim(),
         bio: profileBio.trim(),
         experience_preference: profilePreference,
       }));
@@ -511,7 +508,7 @@ export function useAuthProfilesViewModel() {
     profileBio,
     profilePreference,
     setProfilePreference,
-    canSaveProfile: asyncState !== 'loading' && hasProfileChanges(account?.profile ?? null, profileName, profileBio, profilePreference),
+    canSaveProfile: asyncState !== 'loading' && !!account && (profileBio.trim() !== (account.profile.bio??'').trim() || profilePreference !== (account.profile.experience_preference??null)),
     signInIdentifier,
     signInPassword,
     notice,
@@ -536,6 +533,7 @@ export function useAuthProfilesViewModel() {
       : syncRef.current?.refresh('background').catch(() => null),
     navigate,
     goBack,
+    registerProfileBackGuard: (guard:(leave:()=>void)=>void) => {profileBackGuard.current=guard;return()=>{if(profileBackGuard.current===guard)profileBackGuard.current=null;};},
     updateDraft,
     continueRegistration,
     registrationProgress: getRegistrationProgress(screen),
