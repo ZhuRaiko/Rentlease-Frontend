@@ -1,3 +1,5 @@
+import {LivePropertyDetailView} from './src/features/search-discovery/views/LiveSearchViews';
+import {useListingDetailViewModel} from './src/features/search-discovery/viewModels/useListingDetailViewModel';
 import { useMarketplaceExitConfirmation } from './src/shared/viewModels/useMarketplaceExitConfirmation';
 import { profileAfterDismissal, profileBackTarget, resolveProfileReturn, type ProfileReturnTarget } from './src/shared/models/profileReturn';
 import { RentLeaseBottomNavigation } from './src/shared/components/RentLeaseBottomNavigation';
@@ -196,7 +198,7 @@ export default function App() {
             onOpenNotifications={() => { if (canEnterMarketplace) setWorkspace({ type: 'notifications' }); }}
             onStartInquiry={(id) => { if(auth.account) setInquiryConversation({userId:auth.account.user.id,id}); }}
           />
-          {inquiryConversation&&inquiryConversation.userId===auth.account?.user.id?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><MessagingViewingFlowView
+          {inquiryConversation&&inquiryConversation.userId===auth.account?.user.id?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><MessagingViewingFlowView renderListingDetails={(id,onBack)=><ChatListingDetails key={`${auth.account?.user.id}:${id}`} owner={auth.account?.user.id} id={id} onBack={onBack}/>}
             accountId={auth.account?.user.id} conversationId={inquiryConversation.id} returnToListing
             canPostProperty={canEnterMarketplace} onRootBack={()=>setInquiryConversation(null)} onClose={openProfile} registerBackAction={registerWorkspaceBack}
             onOpenDiscover={()=>{setInquiryConversation(null);discoveryHomeAction.current?.();}} onCreateListing={()=>openProperties('postingType')}
@@ -241,7 +243,7 @@ export default function App() {
           />
         ) : null}
         {workspace?.type === 'messages' ? (
-          <MessagingViewingFlowView
+          <MessagingViewingFlowView renderListingDetails={(id,onBack)=><ChatListingDetails key={`${auth.account?.user.id}:${id}`} owner={auth.account?.user.id} id={id} onBack={onBack}/>}
             accountId={auth.account?.user.id}
             onRootBack={openDiscovery}
             registerBackAction={registerWorkspaceBack}
@@ -320,4 +322,9 @@ export default function App() {
 
     </SafeAreaProvider>
   );
+}
+
+function ChatListingDetails({owner,id,onBack}:{owner:string|undefined;id:string;onBack:()=>void}){
+ const viewModel=useListingDetailViewModel(owner,id,onBack);
+ return <LivePropertyDetailView viewModel={viewModel}/>;
 }

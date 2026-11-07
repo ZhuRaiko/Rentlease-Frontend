@@ -47,7 +47,7 @@ function DetailGalleryPhoto({url,label,width,onPress}:{url:string;label:string;w
     <Text style={styles.photoCaption}>{label}</Text>
   </Pressable>;
 }
-export function LivePropertyDetailView({viewModel:vm}:{viewModel:SearchDiscoveryViewModel}) {
+export function LivePropertyDetailView({viewModel:vm}:{viewModel:Pick<SearchDiscoveryViewModel,'manualState'|'manual'|'goBack'|'isOwnListing'|'listingOwnerIdentity'|'listingOwnerLabel'>&Partial<Pick<SearchDiscoveryViewModel,'contactOwner'>>}) {
   const s=vm.manualState,d=s.detail;const [imageIndex,setImageIndex]=useState<number|null>(null);const photo=imageIndex===null?null:d?.photos[imageIndex];
   const photoWidth=Math.max(240,useWindowDimensions().width-32);
   return <View style={styles.screen}><DiscoveryHeader title="Rental details" onBack={vm.goBack}/><ScrollView contentContainerStyle={styles.detailContent}>
@@ -67,7 +67,7 @@ export function LivePropertyDetailView({viewModel:vm}:{viewModel:SearchDiscovery
           <PublicAvatar url={vm.listingOwnerIdentity?.avatarUrl}/>
           <Text style={styles.ownerName}>{vm.listingOwnerLabel}</Text>
         </View>
-        {vm.isOwnListing?<Text style={styles.copy}>This is your listing.</Text>:<DiscoveryButton label={s.inquiryBusy?'Opening conversation...':'Contact Owner'} disabled={s.inquiryBusy} onPress={()=>void vm.contactOwner()}/>}
+        {vm.isOwnListing?<Text style={styles.copy}>This is your listing.</Text>:vm.contactOwner?<DiscoveryButton label={s.inquiryBusy?'Opening conversation...':'Contact Owner'} disabled={s.inquiryBusy} onPress={()=>void vm.contactOwner?.()}/>:null}
         {s.inquiryError?<Text accessibilityRole="alert" style={styles.error}>{s.inquiryError}</Text>:null}
       </View>
       <View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>About this rental</Text><Text style={styles.copy}>{d.description}</Text></View>

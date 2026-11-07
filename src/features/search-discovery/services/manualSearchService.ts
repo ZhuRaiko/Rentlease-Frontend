@@ -1,8 +1,8 @@
+import {readPublicPropertyPhotos} from '../../../shared/services/publicPropertyPhotos';
 import {parsePublicPoint,placeCategories,type PublicPoint} from '../../../shared/models/NearbyPlace';
 import {fetchNearbyAmenities,cachedNearbyAmenities} from '../../../shared/services/maps/overpass/overpassService';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
-import { PROPERTY_PHOTO_BUCKET, propertyPhotoObjectPath } from '../../property-listing/models/PropertyPhoto';
 import { cityLabels, locationQuery, ManualSearchError, parseSearchListing, record, validateSearchInput, type AvailableLocation, type SearchDetail, type SearchInput, type SearchListing, type SearchPhoto } from '../models/ManualSearch';
 import { searchDiagnostic, traceSearchDiagnostic, type SearchDiagnostic } from './searchDiagnostics';
 import {inquiryDiagnostic,traceInquiryDiagnostic} from '../../../shared/services/supabase/inquiryDiagnostics';
@@ -17,16 +17,8 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
   const user = async () => { const { data,error } = await getClient().auth.getUser(); if (error || !data.user) throw new ManualSearchError('Sign in again to search rentals.',true); return data.user.id; };
   const identity = async (owner: string) => { if (await user() !== owner) throw new ManualSearchError('Your account changed. Start a new search.',true); };
   const photoRows = async (owner: string, listings: readonly Pick<SearchListing,'propertyId'|'ownerId'>[], signal?: AbortSignal) => {
-    if (!listings.length) return [];
-    let query = getClient().from('property_photos').select('id,property_id,storage_path,alt_text,sort_order,is_cover,created_at').in('property_id', [...new Set(listings.map(r => r.propertyId))]).order('is_cover',{ ascending:false }).order('sort_order').order('id').limit(200);
-    if (signal) query = query.abortSignal(signal);
-    const { data,error } = await query; await identity(owner); if (error || !data) throw new ManualSearchError('Could not load rental photos. Please retry.');
-    const photos: { propertyId: string; photo: SearchPhoto }[] = [];
-    for (const row of data) {
-      const parent = listings.find(r => r.propertyId === row.property_id); if (!parent) continue;
-      try { const path = propertyPhotoObjectPath(row.storage_path,parent.ownerId,parent.propertyId,row.id); const url = getClient().storage.from(PROPERTY_PHOTO_BUCKET).getPublicUrl(path).data.publicUrl; photos.push({ propertyId: row.property_id, photo: { id: row.id, url, alt: row.alt_text } }); } catch { /* Invalid path gets a neutral placeholder, never an arbitrary URL. */ }
-    }
-    return photos;
+    try {const photos=await readPublicPropertyPhotos(getClient(),listings,signal);await identity(owner);return photos;}
+    catch {await identity(owner);throw new ManualSearchError('Could not load rental photos. Please retry.');}
   };
   const base = (select: string) => getClient().from('listings').select(select).eq('status','active').eq('properties.is_active',true).or(`available_from.is.null,available_from.lte.${searchAvailabilityDate()}`);
   const geographic = <T extends { or(filters: string, options: { referencedTable: string }): T; ilike(column: string, value: string): T }>(query: T, text: string): T => {
