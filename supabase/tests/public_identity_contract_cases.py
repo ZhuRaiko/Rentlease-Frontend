@@ -5,7 +5,8 @@ drop view public_profiles;
 create view public_profiles as select id,display_name,avatar_path,bio,account_status,trust_score,null::text trust_badge,created_at from profiles;
 grant select on public_profiles to authenticated;
 alter table profiles enable row level security;
-grant select(id,display_name,avatar_path,bio,account_status,tier1_verified_at) on profiles to authenticated;
+-- Match inspected production SELECT grant; own-row RLS remains authoritative.
+grant select on profiles to authenticated;
 grant update(display_name,avatar_path,bio) on profiles to authenticated;
 create policy profiles_select_own on profiles for select to authenticated using(id=auth.uid());
 create policy profiles_update_own on profiles for update to authenticated using(id=auth.uid()) with check(id=auth.uid());
@@ -26,6 +27,9 @@ create policy storage_avatars_delete_own on storage.objects for delete to authen
 """)
 sql(f"update profiles set display_name='Synthetic legal name',avatar_path='{A}/legacy.jpg' where id='{A}'")
 load(next((root/'supabase/migrations').glob('*_public_identity_nicknames_avatars.sql')))
+if a.public_profile_invoker:
+ invoker_before=sql("select jsonb_build_object('policies',(select jsonb_agg(to_jsonb(p) order by tablename,policyname) from pg_policies p),'functions',(select jsonb_agg(jsonb_build_array(oid::regprocedure::text,pg_get_functiondef(oid),proacl::text) order by oid) from pg_proc where pronamespace='public'::regnamespace),'acl',(select relacl::text from pg_class where oid='public.public_profiles'::regclass))::text")
+ load(next((root/'supabase/migrations').glob('*_public_profiles_security_invoker.sql')))
 # New profiles publish only acknowledged registration intent, atomically with signup.
 for n,meta,expected in [
  (950,{'display_name':'Private Legal Name','first_name':'Private','last_name':'Name','public_display_name':'Friendly Renter','public_display_name_acknowledged':True,'public_identity_source':'registration_v1'},'Friendly Renter'),
@@ -86,7 +90,9 @@ bad=f'{A}/public/{uid(903)}.jpg';auth(A,insert(A,bad,size=3145729));check(denied
 sql(f"update storage.objects set metadata=jsonb_build_object('mimetype','text/html','size',100) where name='{bad}'");check(denied(A,publish(A,809,nick=None,path=bad),'22023'),'unsupported avatar MIME rejected')
 check(sql("select file_size_limit=3145728 and allowed_mime_types=array['image/jpeg','image/png'] from storage.buckets where id='avatars'")=='t','Storage bucket size and MIME limits configured')
 check(sql("select bool_and(not has_function_privilege('anon',oid,'execute')) from pg_proc where proname in('get_public_identities','get_own_public_identity','set_own_public_identity','get_own_avatar_upload')")=='t','anonymous public-identity RPC access denied')
-check(auth(B,f"select coalesce(display_name,'NULL') from public_profiles where id='{A}'")=='NULL','legacy messaging projection cannot return ambiguous legal name')
+check(auth(B,f"select coalesce(display_name,'NULL') from public_profiles where id='{A}'")==('' if a.public_profile_invoker else 'NULL'),'direct legacy view never exposes foreign legal name')
 check(len(json.loads(auth(A,f"select get_conversation_messages('{cid}')")))==2,'protected messaging continues with sanitized identity projection')
+if a.public_profile_invoker:
+ exec(compile((root/'supabase/tests/public_profiles_invoker_contract_cases.py').read_text(encoding='utf-8'), 'public_profiles_invoker_contract_cases.py','exec'))
 before=sql(f"select display_name from profiles where id='{A}'");load(root/'supabase/test-support/public_identity_rollback.sql');check(sql(f"select display_name from profiles where id='{A}'")==before,'privacy-preserving rollback retains records and legal names')
 check(sql("select not has_function_privilege('authenticated','public.set_own_public_identity(uuid,uuid,text,text,boolean)','execute')")=='t','rollback disables public identity writes without restoring legacy exposure')

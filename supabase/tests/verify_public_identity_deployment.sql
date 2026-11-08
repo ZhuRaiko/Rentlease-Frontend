@@ -61,6 +61,8 @@ begin
     if public.can_delete_own_public_avatar(target::text||'/public/ffffffff-ffff-4fff-8fff-ffffffffffff.jpg') is true then raise exception 'Foreign avatar deletion permitted';end if;checks:=checks+1;
    end if;
   end loop;
+  -- Invoker view direct reads are self-only; protected RPC relationship tests above remain unchanged.
+  if exists(select 1 from pg_class where oid='public.public_profiles'::regclass and 'security_invoker=true'=any(reloptions)) then expected_count:=case when active then 1 else 0 end;end if;
   if (select count(*) from public.public_profiles)<>expected_count then raise exception 'Legacy view relationship mismatch';end if;checks:=checks+1;
   if exists(select 1 from public.public_profiles where display_name is not null or avatar_path is not null or bio is not null or trust_score is not null or trust_badge is not null or created_at is not null) then raise exception 'Legacy view exposed unconfirmed/private information';end if;checks:=checks+1;
   if exists(select 1 from public.profiles where id is distinct from actor) then raise exception 'Foreign profile directly visible';end if;checks:=checks+1;

@@ -1,7 +1,7 @@
 """Local disposable UC-08 contract tests. No live URLs, credentials, ports, or data."""
 import argparse,json,subprocess
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--container',required=True);p.add_argument('--realtime',action='store_true');p.add_argument('--viewings',action='store_true');p.add_argument('--reservations',action='store_true');p.add_argument('--public-identity',action='store_true');a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--container',required=True);p.add_argument('--realtime',action='store_true');p.add_argument('--viewings',action='store_true');p.add_argument('--reservations',action='store_true');p.add_argument('--public-identity',action='store_true');p.add_argument('--public-profile-invoker',action='store_true');a=p.parse_args();assert not a.public_profile_invoker or a.public_identity
 assert a.container.startswith('rentlease-messaging-test-')
 info=json.loads(subprocess.check_output(['docker','inspect',a.container],text=True))[0]
 assert not info['Mounts'] and not info['HostConfig']['PortBindings'] and info['Config']['Image'].startswith('public.ecr.aws/supabase/postgres:17.')

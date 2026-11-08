@@ -353,3 +353,11 @@ Opening Profile refreshes the existing account coordinator in the background, so
 first-property creation is recognized on return without a second state owner.
 Preference and legacy roles cannot grant this label; it never says Verified.
 Tier 3 still displays Checked per Property and uses the existing owned-property flow.
+
+## Prepared public_profiles invoker hardening - November 8, 2026
+
+Prepared only: `20261108063943_public_profiles_security_invoker.sql`. The sanitized compatibility view is currently owner-rights (postgres); the migration changes only security_invoker=true, preserving columns, consent gate, ownership, grants and all existing functions/RLS. Direct authenticated reads then return self only under profiles SELECT RLS. Other users' approved public nicknames/avatars remain available through get_public_identities; the existing protected postgres-owned get_messaging_inbox keeps its authorized sanitized participant projection. No frontend directly queries/embeds the view, and generated view Relationships is empty; no shape/type change is necessary.
+
+Catalog evidence shows no anonymous view SELECT, no extra SQL-view/FK dependencies, and only get_messaging_inbox has a literal view reference. A privileged gated view is an advisor risk pattern, not evidence that legal names/documents have leaked. Sanitization and can_read_public_identity already constrain its rows/columns; hardening adds caller RLS to direct access. SECURITY DEFINER RPCs remain deliberately privileged and must retain their own relationship gates.
+
+Local synthetic tests: 118 PostgreSQL checks passed, including 17 invoker-specific checks plus existing UC-08/Public Identity coverage; 167 focused frontend tests and TypeScript passed. Disposable container removed. Rollback `supabase/test-support/public_profiles_security_invoker_rollback.sql` resets only this option and intentionally restores the old advisor warning; emergency use requires separate review. No production change, deployment, commit or build. Fresh source/grant/RLS review, backup, separate deployment authorization, hosted compatibility/advisor checks and Android acceptance remain required.
