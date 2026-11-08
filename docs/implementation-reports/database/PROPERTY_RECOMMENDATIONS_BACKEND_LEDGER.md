@@ -1,5 +1,31 @@
 # Property recommendations backend ledger
 
+## November 8, 2026 - T2-READ-CHECKPOINT-02
+
+Codex local source/disclosure review and Git checkpoint only. No new live Supabase inspection or mutation, user records, test container, RPC execution or deployment. Reviewed prepared 20261108041628_recommendation_owner_tier2_status.sql and scoped rollback against existing local evidence; no SQL/function/policy/grant changes in this checkpoint. Earlier 79 synthetic SQL checks are retained, not represented as a fresh hosted test. Fresh 49 recommendation tests and TypeScript/whitespace pass. No material implementation defect found; unresolved privacy-notice/approval coverage remains a deployment blocker, with draft disclosure in the linked predeployment privacy review. Android and hosted contract acceptance remain unverified. No permanent live backend mutation was performed in this phase.
+
+## November 8, 2026 - T2-READ-PREPARE-01
+
+- Actor/tool: Codex, Supabase execute_sql metadata-only SELECT; official Supabase CLI 2.109.1 local migration new; Docker Desktop desktop-linux and Python/psql local tests.
+- Environment: live metadata project cxfsbwbwmwmgtqfonqth; synthetic PostgreSQL 17.6 in designated rentlease-recommendation-test-tier2, network none, no mounts or host ports. No production credentials or user records were used for tests.
+- Classification: READ_ONLY_INSPECTION (live); FUNCTION_CHANGE, PRIVILEGE_CHANGE and ROLLBACK_TEST (disposable local database only).
+- Targets/actions: two SELECT jsonb_build_object catalog inspections of exact columns, RLS policies, is_tier1_verified/can_view_property/refresh_profile_verification_timestamps definitions and source hashes; can_manage_property/is_admin definitions, Tier 2 partial index, refresh trigger, existing protected timestamp UPDATE/submission SELECT privileges, and absence of the proposed RPC. These reaffirmed the earlier audit; no user RPC or private row/document query occurred.
+- Purpose/authorization: prepare and locally validate the explicitly requested listing-level Tier 2 credibility read without modifying production.
+- Source: supabase/migrations/20261108041628_recommendation_owner_tier2_status.sql, created with supabase migration new recommendation_owner_tier2_status; rollback supabase/test-support/recommendation_owner_tier2_status_rollback.sql. Catalog-only prerequisite definitions are recorded in recommendation_verification_live_contract.sql; remaining minimal tables/tenancy prerequisite are explicitly synthetic, not a full production schema clone.
+- Result/security: 79 local SQL checks passed / 0 failed, including active role-free/legacy authorization, private visibility denial, current approvals/revocation, inconsistent cache/provenance, historical approvals, exact minimal output, protected direct reads, unchanged prior catalog ACL/RLS/functions, rollback/reapplication and source-drift failure. Earlier fixture setup/CRLF failures were corrected and rerun. Local assertions are not hosted HTTP/RLS acceptance.
+- Durable effect: none live. Only the new RPC and its own EXECUTE ACL are created by the prepared migration; no existing schema/policy/review state changes. Rollback drops only that function without CASCADE. Historical synthetic verification rows survived rollback.
+- Cleanup: disposable container stopped with --rm and absence verified; no unrelated container/volume touched. No production cleanup required.
+- Privacy/deployment: no explicit privacy notice covering owner Tier 2 ranking disclosure was available in reviewed product/auth/verification sources. Deployment BLOCKED on confirmation of notice/lawful disclosure basis and separate deployment authorization. False/null/missing/failed reads remain neutral; no private documents, names, reasons or histories leave the RPC. Existing 80/10/10 weights unchanged.
+- Client/runtime: 175 focused frontend tests and TypeScript pass; physical Android and hosted RPC acceptance RUNTIME-UNVERIFIED. No permanent live backend mutation was performed in this phase; no deployment/commit/push/build.
+
+Current official [Database Functions documentation](https://supabase.com/docs/guides/database/functions) and [API security guidance](https://supabase.com/docs/guides/api/securing-your-api) were reviewed through Supabase search_docs: prefer invoker, constrain definer search_path/authorization, and explicitly revoke default EXECUTE. Changelog markdown fetch was unavailable through the web reader; no version-sensitive deployment behavior was assumed.
+
+## November 8, 2026 - Post-checkpoint Tier 2 contract audit
+
+Recommendation checkpoint 6d716d13c2c93537b331e29a2e91d87ddd0b4f8d was pushed and its remote SHA verified. Catalog-only inspection on cxfsbwbwmwmgtqfonqth checked Tier 2 columns/indexes, refresh/review/resubmission functions, public identity and private reservation projections, listing/property visibility helpers, RLS and protected timestamp privileges. No user records/documents were read, user RPCs invoked, or production mutations performed. One malformed SELECT was corrected; single JSON catalog queries avoided multi-statement result truncation.
+
+No authorized public listing-owner Tier 2 read contract exists. The authoritative cache aggregates currently approved Tier 2 reviewed_at values; revocation removes approval through the existing refresh trigger. No expiration field exists. Private applicant/own/Admin projections must not be repurposed. Proposed bounded listing-ID-only read contract and exact next scope: [audit](../audits/PROPERTY_RECOMMENDATIONS_TIER2_CONTRACT_AUDIT_2026-11-08.md). Design only; no SQL, grants, policies, migration or client behavior changed. Production verification remains unknown/no bonus. No deployment or Android acceptance.
+
 ## November 8, 2026 - Read-only contract inspection
 
 Project cxfsbwbwmwmgtqfonqth. Catalog-only SELECTs inspected completeness constraints, public profile columns, public identity/Tier-2-related function definitions and verification_submissions SELECT policies. No personal user/listing rows were queried, no RPC was executed for a user, and no mutations occurred. One multi-statement inspection returned only its last completeness constraint result; a subsequent single JSON catalog query supplied the remaining contract evidence.

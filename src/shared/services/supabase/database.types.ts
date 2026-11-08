@@ -2252,6 +2252,8 @@ export type Database = {
       get_conversation_messages: { Args: {p_conversation_id:string;p_direction?:string;p_cursor_at?:string;p_cursor_id?:string;p_limit?:number;p_known_ids?:string[]}; Returns:Json }
       send_property_message: { Args: {p_conversation_id:string;p_message_id:string;p_body:string}; Returns:Json }
 
+      // Prepared recommendation contract; null is indeterminate, not unverified.
+      get_recommendation_owner_verification: {Args: {p_listing_ids:string[]}; Returns:{listing_id:string;listing_owner_id:string;owner_tier2_verified:boolean|null}[]}
       get_owned_property_identity_statuses: {Args: {p_property_ids:string[]}; Returns:{property_id:string;verified:boolean;requires_repair:boolean;current_submission_id:string|null}[]}
       get_property_identity_context: {Args: {p_property_id: string}; Returns: Json}
       get_property_identity_operation: {Args: {p_property_id: string; p_operation_id: string}; Returns: Json}
