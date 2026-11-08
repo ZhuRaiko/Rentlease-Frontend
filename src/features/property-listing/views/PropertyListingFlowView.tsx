@@ -1,3 +1,4 @@
+import type {LandlordPortfolioItem} from '../models/LandlordPortfolio';
 import {PropertyIdentityEditView} from './PropertyIdentityEditView';
 import {PropertyRoutineEditView} from './PropertyRoutineEditView';
 import { ListingDraftSavedView } from './ListingDraftSavedView';
@@ -18,7 +19,8 @@ import { ListingManagementView } from './ListingManagementView';
 import { ListingPreviewView } from './ListingPreviewView';
 import { PropertyDashboardView } from './PropertyDashboardView';
 
-interface PropertyListingFlowViewProps {
+export interface PropertyListingFlowViewProps {
+ renderRequestControls?:((item:LandlordPortfolioItem)=>ReactNode)|undefined;
   renderPropertyVerification?: (propertyId:string,onClose:()=>void,registerBack:(action:(()=>void)|null)=>void)=>ReactNode;
   initialScreen?: 'dashboard' | 'postingType';
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
@@ -59,6 +61,7 @@ const managementScreens = new Set([
 
 export function PropertyListingFlowView({
   renderPropertyVerification,
+  renderRequestControls,
   initialScreen = 'dashboard',
   registerBackAction,
   onClose,
@@ -79,7 +82,7 @@ export function PropertyListingFlowView({
   let content;
 
   if (viewModel.screen === 'dashboard' || viewModel.screen === 'empty') {
-    content = <PropertyDashboardView viewModel={viewModel} />;
+    content = <PropertyDashboardView viewModel={viewModel} renderRequestControls={renderRequestControls}/>;
   } else if (viewModel.screen === 'published' && viewModel.showRealPublication && viewModel.realListing) {
     content = <PublishedListingStatusView viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'identityEdit') {

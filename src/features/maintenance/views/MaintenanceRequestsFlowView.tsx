@@ -73,7 +73,7 @@ export function MaintenanceRequestsFlowView({
           viewModel.openRequests();
           viewModel.setNotice('Complete account verification before posting.');
         }}
-        onTenancy={viewModel.openRequests}
+        onTenancy={onRootBack}
       />
     </ScreenContainer>
   );

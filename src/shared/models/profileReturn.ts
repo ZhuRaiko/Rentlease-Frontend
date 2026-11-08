@@ -27,7 +27,7 @@ function profilePredecessor(workspace: NonNullable<AppWorkspace>): AppWorkspace 
     case 'discovery': return workspace.initialScreen === 'home' ? { type: 'discovery', initialScreen: 'home' } : null;
     case 'properties': return { type: 'properties', initialScreen: 'dashboard' };
     case 'messages': return { type: 'messages', initialScreen: 'inbox' };
-    case 'maintenance': case 'adminModeration': return workspace;
+    case 'tenancy': case 'maintenance': case 'adminModeration': return workspace;
     default: return null;
   }
 }

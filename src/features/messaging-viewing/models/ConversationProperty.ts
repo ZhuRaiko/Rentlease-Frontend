@@ -1,5 +1,5 @@
 import type {PublicPropertyPhoto} from '../../../shared/models/PropertyMediaPath';
-export interface ConversationProperty {listingId:string;propertyId:string;title:string;photos:PublicPropertyPhoto[];canViewListing:boolean;availability:string|null;photoError:boolean}
+export interface ConversationProperty {listingId:string;propertyId:string;title:string;photos:PublicPropertyPhoto[];canViewListing:boolean;availability:string|null;photoError:boolean;ownsProperty?:boolean}
 export function propertyAvailability(status:string,active:boolean,published:boolean,date:string|null,today:string,owner:boolean,rented:boolean,reserved:boolean,complete:boolean){
  if(rented)return 'Rented';
  if(reserved)return 'Reservation approved';

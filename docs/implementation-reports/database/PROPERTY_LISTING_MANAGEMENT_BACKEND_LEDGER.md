@@ -1822,3 +1822,8 @@ Final local validation: 50 identity PostgreSQL checks / 0 failures; 45 existing 
 - Cleanup/runtime: no live fixtures to clean up and no real mutation rollback tests. User Android acceptance remains pending. No commit, push, merge, EAS build, listing-reactivation implementation or role revamp.
 
 Deployment final checks: typecheck PASS; 1060 frontend tests and 50 identity/45 media/57 routine PostgreSQL checks passed with zero failures; 125 documentation references/anchors checked with zero errors. Working/staged whitespace checks pass after correcting the deployment entry EOF. The tracked SELECT-only verification script executed successfully against the authorized live project and reconfirmed history 20261102081459. Task-owned disposable test containers were stopped; no live cleanup occurred. Existing uncommitted app work remains preserved, and no commit/push/merge/build was performed. Android runtime acceptance remains pending.
+
+
+## November 7, 2026 - Property request UI integration
+
+No new property/listing backend interaction or mutation. Existing owned portfolio (including historical listing IDs) supplies property scope to protected participant UC-09 RPC reads. Read-only tenancy catalog evidence is recorded in MESSAGING_VIEWING_BACKEND_LEDGER.md. No new migration or publication/identity/verification contract changes.

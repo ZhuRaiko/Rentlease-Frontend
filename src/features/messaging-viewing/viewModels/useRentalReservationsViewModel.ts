@@ -1,11 +1,12 @@
+import {scopedReservationService,type RequestScope} from '../services/requestScope';
 import {usePublicIdentitiesViewModel} from '../../../shared/viewModels/usePublicIdentitiesViewModel';
 import {useEffect,useMemo,useState,useSyncExternalStore} from 'react';
 import {AppState} from 'react-native';
 import {reservationService,messageId} from '../services/messagingDependencies';
 import {createReservationWorkflow} from './reservationWorkflow';
 import type {Conversation} from '../models/PersistentMessaging';
-export function useRentalReservationsViewModel(accountId:string|undefined,conversation:Conversation|null){
- const workflow=useMemo(()=>createReservationWorkflow(reservationService,messageId),[accountId]);
+export function useRentalReservationsViewModel(accountId:string|undefined,conversation:Conversation|null,scope?:RequestScope){
+ const workflow=useMemo(()=>createReservationWorkflow(scope?scopedReservationService(reservationService,scope,accountId):reservationService,messageId),[accountId,JSON.stringify(scope)]);
  const state=useSyncExternalStore(workflow.subscribe,workflow.getSnapshot,workflow.getSnapshot),[localNow,setLocalNow]=useState(Date.now());
  useEffect(()=>{workflow.activate();void workflow.open(conversation);const sub=AppState.addEventListener('change',status=>{if(status==='active'){setLocalNow(Date.now());void workflow.load();}});return()=>{sub.remove();workflow.dispose();};},[workflow,conversation?.id]);
  // One deadline wake-up, not a polling loop or a dependency on Realtime delivery.

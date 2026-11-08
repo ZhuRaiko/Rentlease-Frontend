@@ -11,7 +11,7 @@ Status describes frontend implementation, not live runtime validation. Detailed 
 | Property Recommendations | Scaffolded | Not yet created |
 | Rental Price Estimation | PREVIEW UI; FastAPI requests/persistence DEFERRED | Not yet created |
 | Messaging, Viewing & Reservations | UC-08 RPC/Realtime metadata DEPLOYED; Android acceptance pending. UC-09A viewing and UC-09B reservations IMPLEMENTED / AUTOMATED-TESTED locally; separate migrations UNDEPLOYED, Android RUNTIME-UNVERIFIED. Payments/automatic tenancy/uploads excluded. | [Messaging, Viewing & Reservations](features/MESSAGING_VIEWING.md) |
-| Tenancy Management | Scaffolded; current Tenancy tab opens Maintenance preview | Not yet created |
+| Tenancy Management | Real read-only upcoming reservations, active tenancies and ended history; Android pending | [Tenancy](features/TENANCY.md) |
 | Maintenance Requests | PREVIEW UI; persistence/uploads/notifications DEFERRED | Not yet created |
 | Ratings & Reports | PREVIEW UI; publication/moderation/uploads/persistence DEFERRED | Not yet created |
 | Admin & Moderation | Tier 2 queue/private viewing/approval USER-REPORTED development-build PASS; new zoom and Tier 3 compatibility AUTOMATED-TESTED, Android RUNTIME-UNVERIFIED; non-image viewing DEFERRED; other moderation PREVIEW | [Admin Verification](features/ADMIN_VERIFICATION.md) |

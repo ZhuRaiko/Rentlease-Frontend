@@ -50,6 +50,8 @@ test('known inactive applicant cannot be approved in presentation, but can be de
 function nodes(tree:any):any[]{if(!tree||typeof tree!=='object')return[];return[tree,...[tree.props?.children].flat(Infinity).flatMap(nodes)];}
 function loadView(file:string,overrides:Record<string,unknown>){const full=resolve(file),actual=createRequire(full),mod={exports:{} as any};const req=(key:string):any=>{
  if(key in overrides)return overrides[key];
+ if(key.endsWith('/RequestManagementView'))return{RequestManagementView:'RequestManagement'};
+ if(key.endsWith('/RequestWorkspaces'))return loadView('src/features/messaging-viewing/views/RequestWorkspaces.tsx',overrides);
  for(const name of ['ScreenHeader','AppButton','KeyboardAwareScrollView','ReservationDateField'])if(key.endsWith('/'+name))return{[name]:name};
  if(key==='react')return{useState:(v:unknown)=>[v,()=>{}],useEffect:(fn:()=>void)=>fn()};
  if(key==='react/jsx-runtime')return{jsx:(type:any,props:any)=>({type,props}),jsxs:(type:any,props:any)=>({type,props})};

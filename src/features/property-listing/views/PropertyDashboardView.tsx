@@ -1,3 +1,5 @@
+import type {ReactNode} from 'react';
+import type {LandlordPortfolioItem} from '../models/LandlordPortfolio';
 import {propertyVerificationActionLabel,canReviewPortfolioPublication} from '../models/PropertyVerificationPresentation';
 import { Image, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
@@ -8,7 +10,7 @@ import { ListingButton } from '../components/ListingButton';
 import { portfolioListingLabels, portfolioTierLabels, portfolioType, portfolioLocation } from '../models/LandlordPortfolio';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
-export function PropertyDashboardView({ viewModel: vm }: { viewModel: PropertyListingViewModel }) {
+export function PropertyDashboardView({ viewModel: vm,renderRequestControls }: { viewModel: PropertyListingViewModel;renderRequestControls?:((item:LandlordPortfolioItem)=>ReactNode)|undefined }) {
   const state = vm.portfolioState, stats = vm.portfolioStatistics;
   return <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={() => void vm.portfolio.load()} />}>
     <Text accessibilityRole="header" style={styles.title}>My Listings</Text>
@@ -31,6 +33,7 @@ export function PropertyDashboardView({ viewModel: vm }: { viewModel: PropertyLi
           <Text style={styles.status}>{listing ? portfolioListingLabels[listing.status] : 'No listing yet'}</Text>
           <Text style={styles.supporting}>{item.tier3.requiresRepair?'Identity data repair required':item.tier3.status==='approved'?(item.tier3.identityBindingAvailable===false?'Approval history (identity check pending)':'Property Verified'):portfolioTierLabels[item.tier3.status]}</Text>
           {!item.property.is_active ? <Text style={styles.supporting}>Property inactive. Listing changes may be unavailable.</Text> : null}
+          {renderRequestControls?.(item)}
           <ListingButton label={action} tone="outline" disabled={vm.portfolioActionsDisabled} onPress={() => vm.openPortfolioItem(item.propertyId)} />
           {item.property.is_active&&(!listing||!['draft','active','paused'].includes(listing.status))?<ListingButton label="Edit Property Details" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>vm.openPortfolioProperty(item.propertyId)}/>:null}
           {listing&&item.property.is_active&&['active','paused'].includes(listing.status)?<ListingButton label="Edit Listing" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>vm.editPortfolioListing(item.propertyId)}/>:null}

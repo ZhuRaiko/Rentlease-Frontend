@@ -1,3 +1,5 @@
+import {TenancyWorkspaceView} from './src/features/tenancy/views/TenancyWorkspaceView';
+import {OwnedPropertiesWorkspace} from './src/app/OwnedPropertiesWorkspace';
 import {LivePropertyDetailView} from './src/features/search-discovery/views/LiveSearchViews';
 import {useListingDetailViewModel} from './src/features/search-discovery/viewModels/useListingDetailViewModel';
 import { useMarketplaceExitConfirmation } from './src/shared/viewModels/useMarketplaceExitConfirmation';
@@ -17,7 +19,6 @@ import { AdminModerationFlowView } from './src/features/admin-moderation/views/A
 import { MessagingViewingFlowView } from './src/features/messaging-viewing/views/MessagingViewingFlowView';
 import { MaintenanceRequestsFlowView } from './src/features/maintenance/views/MaintenanceRequestsFlowView';
 import { NotificationsFlowView } from './src/features/notifications/views/NotificationsFlowView';
-import { PropertyListingFlowView } from './src/features/property-listing/views/PropertyListingFlowView';
 import { RatingsReportsFlowView } from './src/features/ratings-reports/views/RatingsReportsFlowView';
 import { defaultMarketplaceMode, defaultPreviewActor, initialMarketplaceWorkspace, propertiesWorkspace, type AppWorkspace } from './src/shared/models/marketplaceNavigation';
 import type { MatchingPreferences } from './src/features/search-discovery/models/SearchDiscovery';
@@ -148,7 +149,7 @@ export default function App() {
           onDiscover={openDiscovery}
           onListing={() => openProperties('dashboard')}
           onPost={() => openProperties('postingType')}
-          onTenancy={() => setWorkspace({ type: 'maintenance' })}
+          onTenancy={() => setWorkspace({ type: 'tenancy' })}
           onChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })} /> : undefined}
         onOpenAdminModeration={() => { if (canEnterAdmin) setWorkspace({ type: 'adminModeration' }); }}
         onOpenMatchingPreferences={() => { if (canEnterMarketplace) setWorkspace({ type: 'discovery', initialScreen: 'matchingPreferences' }); }}
@@ -194,7 +195,7 @@ export default function App() {
               setWorkspace({ type: 'priceEstimate', actor: 'tenant', returnTo: 'discovery' })
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
-            onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
+            onOpenMaintenance={() => setWorkspace({ type: 'tenancy' })}
             onOpenNotifications={() => { if (canEnterMarketplace) setWorkspace({ type: 'notifications' }); }}
             onStartInquiry={(id) => { if(auth.account) setInquiryConversation({userId:auth.account.user.id,id}); }}
           />
@@ -202,10 +203,10 @@ export default function App() {
             accountId={auth.account?.user.id} conversationId={inquiryConversation.id} returnToListing
             canPostProperty={canEnterMarketplace} onRootBack={()=>setInquiryConversation(null)} onClose={openProfile} registerBackAction={registerWorkspaceBack}
             onOpenDiscover={()=>{setInquiryConversation(null);discoveryHomeAction.current?.();}} onCreateListing={()=>openProperties('postingType')}
-            onOpenListings={()=>openProperties('dashboard')} onOpenMaintenance={()=>setWorkspace({type:'maintenance'})}/></View>:null}</View>
+            onOpenListings={()=>openProperties('dashboard')} onOpenMaintenance={()=>setWorkspace({type:'tenancy'})}/></View>:null}</View>
         ) : null}
         {workspace?.type === 'properties' && canEnterMarketplace ? (
-          <PropertyListingFlowView
+          <OwnedPropertiesWorkspace key={auth.account?.user.id} accountId={auth.account?.user.id}
             renderPropertyVerification={renderPropertyVerification}
             onRootBack={openDiscovery}
             registerBackAction={registerWorkspaceBack}
@@ -216,7 +217,7 @@ export default function App() {
               setWorkspace({ type: 'priceEstimate', actor: 'landlord', returnTo: 'properties' })
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
-            onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
+            onOpenMaintenance={() => setWorkspace({ type: 'tenancy' })}
           />
         ) : null}
         {workspace?.type === 'priceEstimate' ? (
@@ -239,7 +240,7 @@ export default function App() {
             onOpenListings={() =>
               openProperties('dashboard')
             }
-            onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
+            onOpenMaintenance={() => setWorkspace({ type: 'tenancy' })}
           />
         ) : null}
         {workspace?.type === 'messages' ? (
@@ -258,12 +259,13 @@ export default function App() {
             onOpenListings={() =>
               openProperties('dashboard')
             }
-            onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
+            onOpenMaintenance={() => setWorkspace({ type: 'tenancy' })}
           />
         ) : null}
+        {workspace?.type==='tenancy'?<TenancyWorkspaceView key={auth.account?.user.id} accountId={auth.account?.user.id} onBack={openDiscovery} registerBackAction={registerWorkspaceBack} onMaintenance={()=>setWorkspace({type:'maintenance'})} onDiscover={openDiscovery} onListings={()=>openProperties('dashboard')} onPost={()=>openProperties('postingType')} onChat={()=>setWorkspace({type:'messages',initialScreen:'inbox'})}/>:null}
         {workspace?.type === 'maintenance' ? (
           <MaintenanceRequestsFlowView
-            onRootBack={openDiscovery}
+            onRootBack={()=>setWorkspace({type:'tenancy'})}
             registerBackAction={registerWorkspaceBack}
             actor={previewActor}
             canPostProperty={canEnterMarketplace}
@@ -292,7 +294,7 @@ export default function App() {
             onOpenListings={() =>
               openProperties('dashboard')
             }
-            onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
+            onOpenMaintenance={() => setWorkspace({ type: 'tenancy' })}
           />
         ) : null}
         {workspace?.type === 'adminModeration' && auth.isAdmin ? (
@@ -311,7 +313,7 @@ export default function App() {
             onOpenListings={() =>
               openProperties('dashboard')
             }
-            onOpenMaintenance={() => setWorkspace({ type: 'maintenance' })}
+            onOpenMaintenance={() => setWorkspace({ type: 'tenancy' })}
             onOpenRatingsReports={() => setWorkspace({ type: 'ratingsReports' })}
             onOpenVerification={() => {
               if (canEnterMarketplace) setWorkspace({ type: 'verification' });

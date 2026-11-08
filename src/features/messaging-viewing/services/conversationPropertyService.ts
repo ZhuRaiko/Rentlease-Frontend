@@ -36,7 +36,7 @@ export function createConversationPropertyService(getClient:()=>SupabaseClient<D
    for(const row of rows){const p=row.properties,valid=visible.includes(row),active=valid&&p!.is_active;
     const rented=!!tenancies?.some(t=>t.property_id===row.property_id&&t.status==='active'&&[t.tenant_id,t.landlord_id].includes(owner));
     const reserved=!!reservations?.some(r=>r.propertyId===row.property_id&&r.status==='approved');
-    result[row.id]={listingId:row.id,propertyId:row.property_id,title:row.title,photos:valid?photos.filter(p=>p.propertyId===row.property_id).map(p=>p.photo):[],photoError:photoResult.status==='rejected',canViewListing:active&&row.status==='active'&&row.published_at!==null&&(!row.available_from||row.available_from<=today),availability:valid?propertyAvailability(row.status,active,row.published_at!==null,row.available_from,today,row.landlord_id===owner,rented,reserved,complete):null};
+    result[row.id]={ownsProperty:valid&&row.landlord_id===owner&&p!.landlord_id===owner,listingId:row.id,propertyId:row.property_id,title:row.title,photos:valid?photos.filter(p=>p.propertyId===row.property_id).map(p=>p.photo):[],photoError:photoResult.status==='rejected',canViewListing:active&&row.status==='active'&&row.published_at!==null&&(!row.available_from||row.available_from<=today),availability:valid?propertyAvailability(row.status,active,row.published_at!==null,row.available_from,today,row.landlord_id===owner,rented,reserved,complete):null};
    }
    return result;
   }finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);}

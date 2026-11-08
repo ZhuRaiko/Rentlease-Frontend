@@ -9,7 +9,7 @@ export type AppWorkspace =
   | { type: 'properties'; initialScreen: 'dashboard' | 'postingType' }
   | { type: 'priceEstimate'; actor: MarketplaceMode; returnTo: 'discovery' | 'properties' }
   | { type: 'messages'; initialScreen: 'inbox' | 'newInquiry' }
-  | { type: 'maintenance' | 'ratingsReports' | 'adminModeration' | 'notifications' | 'verification' }
+  | { type: 'tenancy' | 'maintenance' | 'ratingsReports' | 'adminModeration' | 'notifications' | 'verification' }
   | null;
 
 // Presentation routing only; backend authorization remains independent.
