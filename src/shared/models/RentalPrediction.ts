@@ -1,0 +1,42 @@
+/** Contract pinned to Rentlease-Features dee06f16fe182361b1d9d7e6ecf35f41703bf1a6. */
+export const ML_SOURCE_COMMIT='dee06f16fe182361b1d9d7e6ecf35f41703bf1a6';
+export type PredictionTarget={propertyId:string;listingId?:never}|{listingId:string;propertyId?:never};
+export interface PredictionRequest {
+ property_type:'house'|'apartment'|'condominium';property_subtype:'house'|'apartment'|'condominium';city:string;furnishing_status:string;
+ bedrooms:number|null;bathrooms:number|null;floor_area_sqm:number;floor_number:number|null;
+ lot_area_sqm:null;parking_spaces:null;latitude:null;longitude:null;amenities_normalized:string[]|null;
+}
+export interface ModelPrediction {estimatedMonthlyRent:number;currency:'PHP';modelVersion:string}
+export interface PredictionReceipt extends ModelPrediction {target:PredictionTarget;predictedAt:string;askingRent:number|null}
+export class PredictionError extends Error {constructor(message:string,public readonly code='unavailable'){super(message);}}
+const cities:Record<string,string>={imus:'Imus',dasmarinas:'Dasmari\u00f1as',tagaytay:'Tagaytay'};
+export const isPredictionId=(v:unknown):v is string=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+export function parsePredictionTarget(value:unknown):PredictionTarget {
+ if(!value||typeof value!=='object'||Array.isArray(value))throw new PredictionError('Choose an available property.','input');
+ const r=value as Record<string,unknown>,keys=Object.keys(r);
+ if(keys.length!==1||!['listingId','propertyId'].includes(keys[0]!)||!isPredictionId(r[keys[0]!]))throw new PredictionError('Choose an available property.','input');
+ return keys[0]==='listingId'?{listingId:r.listingId as string}:{propertyId:r.propertyId as string};
+}
+export function mapPredictionInput(property:Record<string,unknown>,amenities:string[]|null=null):PredictionRequest {
+ const type=property.property_type;if(type!=='house'&&type!=='apartment'&&type!=='condominium')throw new PredictionError('Estimation supports houses, apartments, and condominiums only. Standalone rooms and studios do not identify a supported parent category.','input');
+ const number=(key:string):number|null=>{const v=property[key];if(v===null||v===undefined)return null;if(typeof v!=='number'||!Number.isFinite(v)||v<0)throw new PredictionError('Property measurements are invalid. Review the stored property details.','input');return v;};
+ const area=number('floor_area_sqm');if(area===null||area<=0)throw new PredictionError('A positive floor area is needed for a useful estimate.','input');
+ const city=typeof property.city==='string'?cities[property.city]:undefined;if(!city)throw new PredictionError('This property city is not supported by RentLease.','input');
+ const furnishing=property.furnishing_status;if(!['unfurnished','semi_furnished','furnished'].includes(String(furnishing)))throw new PredictionError('Review the property furnishing information.','input');
+ if(amenities!==null&&(!Array.isArray(amenities)||amenities.some(v=>typeof v!=='string')))throw new PredictionError('Property amenities could not be verified.','input');
+ return {property_type:type,property_subtype:type,city,furnishing_status:String(furnishing),bedrooms:number('bedrooms'),bathrooms:number('bathrooms'),floor_area_sqm:area,floor_number:number('floor_number'),lot_area_sqm:null,parking_spaces:null,latitude:null,longitude:null,amenities_normalized:amenities===null?null:[...new Set(amenities.map(v=>v.trim().toLowerCase()).filter(Boolean))]};
+}
+/** Discard the API's illustrative +/-30% band. It is not model uncertainty. */
+export function parseModelPrediction(value:unknown):ModelPrediction {
+ if(!value||typeof value!=='object'||Array.isArray(value))throw new PredictionError('The estimator returned an invalid result.');const r=value as Record<string,unknown>;
+ if(typeof r.estimated_rent_monthly!=='number'||!Number.isFinite(r.estimated_rent_monthly)||r.estimated_rent_monthly<=0||r.currency!=='PHP'||typeof r.model_version!=='string'||!r.model_version.trim()||r.model_version.length>100)throw new PredictionError('The estimator returned an invalid result.');
+ return {estimatedMonthlyRent:r.estimated_rent_monthly,currency:'PHP',modelVersion:r.model_version};
+}
+export function parsePredictionReceipt(value:unknown,target:PredictionTarget):PredictionReceipt {
+ if(!value||typeof value!=='object')throw new PredictionError('The estimator returned an invalid result.');const r=value as Record<string,unknown>;
+ const model=parseModelPrediction({estimated_rent_monthly:r.estimatedMonthlyRent,currency:r.currency,model_version:r.modelVersion});
+ const receivedTarget=parsePredictionTarget(r.target);
+ if(JSON.stringify(receivedTarget)!==JSON.stringify(target)||typeof r.predictedAt!=='string'||!Number.isFinite(Date.parse(r.predictedAt))||(r.askingRent!==null&&(typeof r.askingRent!=='number'||!Number.isFinite(r.askingRent)||r.askingRent<=0)))throw new PredictionError('The estimate could not be matched to this property.');
+ return {...model,target:receivedTarget,predictedAt:r.predictedAt,askingRent:r.askingRent as number|null};
+}
+export const formatMonthlyPhp=(amount:number)=>new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP',maximumFractionDigits:2}).format(amount)+' / month';

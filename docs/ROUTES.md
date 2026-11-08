@@ -90,20 +90,17 @@ The independent GPS path remains backend-backed: Search Location -> explanation 
 
 ## Rental Price Estimation feature states
 
-Tenant entry opens from a Discovery property detail for fair-rent comparison. Landlord entry opens from a listing detail or listing management for asking-rent guidance. `App` swaps the active workspace to `RentalPriceEstimationFlowView` and returns to the corresponding Discovery or Property workspace when the estimator is closed. The universal toolbar remains present throughout this authenticated feature.
+Eligible unified accounts open the estimator from real Discover/manual/GPS listing details (Estimate rental price) or My Listings management. Root-owned workspace return retains the existing Discovery/Properties destination behavior; it does not add persistent nested-detail restoration. Actor sets only the initial tab, never authorization. The existing five-tab toolbar remains.
 
-| Flow | Feature states | Component | Actor |
-|---|---|---|---|
-| Introduction and property selection | `introduction`, `selectProperty` | `RentalPriceEstimationView` | Tenant / Landlord |
-| Property information review and estimate request | `propertyReview`, `loading` | `RentalPriceEstimationView` | Tenant / Landlord |
-| Landlord estimate result | `landlordResult` | `RentalPriceEstimationView` | Landlord |
-| Suggested rental range | `suggestedRange` | `RentalPriceEstimationView` | Landlord |
-| Asking-rent comparison | `landlordComparison` | `RentalPriceEstimationView` | Landlord |
-| Fair-rent comparison | `tenantComparison` | `RentalPriceEstimationView` | Tenant |
-| Methodology, disclaimer and dated estimates | `estimateInformation`, `estimateHistory` | `RentalPriceEstimationView` | Tenant / Landlord |
-| Unavailable and retryable error states | `unavailable`, `error` | `RentalPriceEstimationView` | Tenant / Landlord |
+| Flow | State | Component |
+| --- | --- | --- |
+| Owner/published property selection | Actual rows, pagination, loading/empty/error | RentalPriceEstimationView |
+| Stored property review | Selected candidate and model-input limitation | RentalPriceEstimationView |
+| Inference | Pending request, cancellation, explicit retry | priceEstimationWorkflow |
+| Result | Actual PHP/month prediction, stored asking rent/difference, receipt time | RentalPriceEstimationView |
+| Unavailable | Unsupported type, missing floor area, authorization/service error | RentalPriceEstimationView |
 
-The current result data and loading transition are local presentation previews. No request is sent through `priceEstimationClient`, and no estimate or property data is read from or written to Supabase.
+Back cancels pending inference, then returns through result/review to selection, then to the existing origin. Fake range/confidence/history routes are removed. Proxy deployment, live Render prediction and Android acceptance remain pending. See [Rental Price Estimation](features/RENTAL_PRICE_ESTIMATION.md).
 
 ## Messaging & Viewing Schedules feature states
 

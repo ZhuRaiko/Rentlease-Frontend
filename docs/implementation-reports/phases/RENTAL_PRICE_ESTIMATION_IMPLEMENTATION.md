@@ -1,0 +1,20 @@
+# Rental price estimation implementation
+
+## November 8, 2026 - Source-verified inference integration, undeployed
+
+Replaced estimator preview models, sample-card imagery, fake predictions/history/confidence bands and timer with real owner/published property selection, typed request/receipt validation, authenticated Supabase function invocation, workflow cancellation and retry, and actual PHP/month result comparison. Prepared server-only proxy reads through caller JWT/RLS and checks active Tier 1, ownership or eligible published listing; no service-role reads, database writes, migrations or credentials in public source.
+
+Model source pinned to dee06f16fe182361b1d9d7e6ecf35f41703bf1a6. Exact input mapping, categorical limitations, imputation and strictly positive floor-area policy are documented in the living feature document. No exact or public coordinates are selected/sent. Fixed +/-30% API bands are intentionally discarded. Result time is proxy receipt time. History is not persisted. Existing navigation is retained with root account keys; account switches clear stale results.
+
+Validation: 57 estimator/proxy tests plus one real-detail entry test; coordinated focused total 444 passed, 0 failed, 0 skipped/cancelled. TypeScript passed. Test doubles exercise reference outputs, schema/numeric validation, HTTP 422/429/5xx, malformed JSON, timeout/network failure, authorization boundaries, duplicate requests, explicit retry, property/account switching, Back, safe projections and UI. Existing UC-08/09, Public Identity, portfolio/publication/lifecycle and navigation regression groups pass. No real Render or hosted Edge success is claimed.
+
+Scope: application estimator files, shared ML client/pure contract, one prepared Edge function, per-function verify_jwt configuration and TypeScript extension-import support. Existing unrelated uncommitted UC-09 source/deployment reconciliation preserved. No deployment, secrets configuration, production record mutation, commit, push, merge or Android build. Native Deno/CLI bundle verification, Render prediction, and Android acceptance remain pending.
+
+Applied/read skills: RentLease feature implementation, frontend MVVM guard, Supabase contract guard, security review, UI/UX design, test/runtime verification, documentation maintainer, implementation ledger, artifact organizer; Supabase plugin guidance, TDD and brainstorming. The user's explicit implementation request supplies the approved proxy design/scope; no additional planning approval was required.
+
+
+## Predeployment review - November 8, 2026
+
+Supersedes the native-packaging-pending statement above. CLI 2.122.0/help and current Supabase dependencies/runtime-limit documentation checked; no deployment dry run is available. Official CLI-pinned Edge runtime v1.77.8 successfully bundled the three exact source modules with --network none and a sanitized temporary source tree, including the shared model import outside the function directory. Output: 33,446-byte ESZIP, SHA-256 eb867ef8b17dd5485997217702ca6d3137b13a3a43d075ba8ab7ed321fd99813. Image digest 178c041398a33ded8219344382d0672a90051d1babbf0af03425cafe20039a75. No standalone Deno installation, project env files, secret mounts, host ports or production connections. Container removed automatically; generated artifacts remain outside Git in local temporary storage.
+
+Fresh 444 focused tests (57 estimator/proxy), TypeScript and whitespace pass. Pinned main.py/model_adapter.py/MODEL_INTEGRATION.md rechecked through read-only GitHub fetch. Caller JWT/RLS, active Tier 1, ownership/public listing boundaries, fixed HTTPS ML host, server-only secret and omitted coordinates remain enforced in reviewed source; no material finding. No database or live Render request. Native packaging does not verify hosted JWT/gateway/RLS or model correctness/accuracy. These, server secret/configuration, deployment authorization and Android acceptance remain pending. UC-09 prerequisite source is checkpointed separately before ML; existing deployment reconciliation and local files are excluded.

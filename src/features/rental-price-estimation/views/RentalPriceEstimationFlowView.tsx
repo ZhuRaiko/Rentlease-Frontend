@@ -10,6 +10,7 @@ import { RentalPriceEstimationView } from './RentalPriceEstimationView';
 
 interface RentalPriceEstimationFlowViewProps {
   actor: EstimateActor;
+  accountId?:string|undefined;
   canPostProperty: boolean;
   onClose: () => void;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
@@ -22,6 +23,7 @@ interface RentalPriceEstimationFlowViewProps {
 
 export function RentalPriceEstimationFlowView({
   actor,
+  accountId,
   canPostProperty,
   onClose,
   registerBackAction,
@@ -31,7 +33,7 @@ export function RentalPriceEstimationFlowView({
   onOpenListings,
   onOpenMaintenance,
 }: RentalPriceEstimationFlowViewProps) {
-  const viewModel = useRentalPriceEstimationViewModel(actor);
+  const viewModel = useRentalPriceEstimationViewModel(actor,accountId);
   useEffect(() => {
     registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
     return () => registerBackAction?.(null);
@@ -52,14 +54,12 @@ export function RentalPriceEstimationFlowView({
             onOpenListings();
             return;
           }
-          viewModel.setNotice('Complete account verification to manage listings.');
         }}
         onPost={() => {
           if (canPostProperty) {
             onCreateListing();
             return;
           }
-          viewModel.setNotice('Complete account verification before posting.');
         }}
         onTenancy={onOpenMaintenance}
       />

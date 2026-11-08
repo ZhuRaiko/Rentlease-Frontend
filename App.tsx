@@ -221,7 +221,7 @@ export default function App() {
           />
         ) : null}
         {workspace?.type === 'priceEstimate' ? (
-          <RentalPriceEstimationFlowView
+          <RentalPriceEstimationFlowView key={auth.account?.user.id} accountId={auth.account?.user.id}
             registerBackAction={registerWorkspaceBack}
             actor={workspace.actor}
             canPostProperty={canEnterMarketplace}

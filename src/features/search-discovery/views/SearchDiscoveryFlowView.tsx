@@ -74,7 +74,7 @@ export function SearchDiscoveryFlowView({
   } else if (viewModel.screen === 'filters' || viewModel.screen === 'sort') {
     content = <LiveSearchFiltersView viewModel={viewModel} />;
   } else if (viewModel.screen === 'propertyDetails') {
-    content = <LivePropertyDetailView viewModel={viewModel} />;
+    content = <LivePropertyDetailView viewModel={viewModel} onOpenPriceEstimate={()=>viewModel.requestNavigation(onOpenPriceEstimate)} />;
   } else if (searchScreens.has(viewModel.screen)) {
     content = <SearchLocationView viewModel={viewModel} />;
   } else if (filterScreens.has(viewModel.screen)) {
