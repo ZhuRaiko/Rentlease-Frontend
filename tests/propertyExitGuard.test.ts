@@ -96,7 +96,7 @@ test('actual Property ViewModel guards a synchronous dirty-property exit before 
 });
 test('review/address/details Back stays internal and preserves the physical draft', async () => {
   const h = mountProperty(); await h.setup(); h.dirty();
-  const f = h.vm().propertyCreation; f.updateField('city', 'imus'); f.updateField('barangay', 'Example'); f.updateField('addressLine1', 'Example street'); f.next(); f.next(); h.flush();
+  const f = h.vm().propertyCreation; f.updateField('bedrooms','0'); f.updateField('bathrooms','0'); f.updateField('city', 'imus'); f.updateField('barangay', 'Example'); f.updateField('addressLine1', 'Example street'); f.next(); f.next(); h.flush();
   assert.equal(h.vm().propertyState.step, 'review'); h.vm().goBack(); h.flush(); assert.equal(h.vm().propertyState.step, 'address');
   h.vm().goBack(); h.flush(); assert.equal(h.vm().propertyState.step, 'details'); assert.equal(h.vm().navigationConfirmation, false);
   h.vm().goBack(); h.flush(); assert.equal(h.vm().screen, 'postingType'); assert.equal(h.vm().propertyCreation.dirty(), true); h.unmount();
@@ -290,7 +290,7 @@ test('opening fixture management after a real status view keeps sample actions l
 
 async function openPhysicalLocation(h: ReturnType<typeof mountProperty>) {
   await h.setup(); const creation = h.vm().propertyCreation;
-  creation.updateField('propertyType', 'studio'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Example barangay'); creation.updateField('addressLine1', 'Example street'); creation.next(); h.flush();
+  creation.updateField('bedrooms', '0'); creation.updateField('bathrooms', '0'); creation.updateField('propertyType', 'studio'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Example barangay'); creation.updateField('addressLine1', 'Example street'); creation.next(); h.flush();
   h.vm().openPropertyLocation(); h.flush();
 }
 test('actual property/location composition synchronously aborts an old address search before React renders', async () => {
@@ -352,7 +352,7 @@ for (const uncertain of [false, true]) test(`property save ${uncertain ? 'uncert
     photos: { context: async () => ({ ownerId: 'test-owner', propertyId: backend.propertyId }), assertContext: async () => {}, list: async () => { photoLoads++; return []; }, hasPending: async () => false },
   });
   await h.setup(); const creation = h.vm().propertyCreation;
-  creation.updateField('propertyType', 'apartment'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Buhay na Tubig'); creation.updateField('addressLine1', 'Private address');
+  creation.updateField('bedrooms', '0'); creation.updateField('bathrooms', '0'); creation.updateField('propertyType', 'apartment'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Buhay na Tubig'); creation.updateField('addressLine1', 'Private address');
   creation.provideConfirmedLocation({ exactLatitude: 14.4, exactLongitude: 120.9, publicLatitude: 14.401, publicLongitude: 120.901 }, creation.getSnapshot().locationRevision);
   creation.next(); creation.next(); await creation.submit(); await h.settle(); h.flush();
   assert.equal(creates, 1);
@@ -432,7 +432,7 @@ function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'p
   assert.equal(h.vm().screen, 'postingType'); h.vm().beginPropertySetup(); h.flush();
   const fields = () => {
     const creation = h.vm().propertyCreation;
-    creation.updateField('propertyType', 'apartment'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Buhay na Tubig'); creation.updateField('addressLine1', 'Owner-entered address'); creation.updateField('floorAreaSqm', '42'); creation.updateField('maxOccupants', '3');
+    creation.updateField('bedrooms', '0'); creation.updateField('bathrooms', '0'); creation.updateField('propertyType', 'apartment'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Buhay na Tubig'); creation.updateField('addressLine1', 'Owner-entered address'); creation.updateField('floorAreaSqm', '42'); creation.updateField('maxOccupants', '3');
     h.vm().updateDraft('title', 'Before UUID title'); h.vm().updateDraft('description', 'Before UUID description'); h.vm().updateDraft('askingRent', '15000'); h.vm().updateDraft('minimumStayMonths', '6'); h.flush();
   };
   const confirmMap = async () => {
@@ -515,7 +515,7 @@ test('actual catalogue selection updates DraftProperty IDs once and toggles off 
 test('immediate photo navigation adopts the confirmed UUID before the render handoff effect',async()=>{
   const backend=backendDraftService();let creates=0;
   const h=mountProperty(null,backend.service,undefined,undefined,undefined,{creation:{create:async()=>{creates++;return {propertyId:backend.propertyId,status:'created'};}},photos:{context:async(propertyId:string)=>({ownerId:'test-owner',propertyId}),assertContext:async()=>{},list:async()=>[],hasPending:async()=>false}});
-  await h.setup();const f=h.vm().propertyCreation;f.updateField('propertyType','studio');f.updateField('city','imus');f.updateField('barangay','Fixture');f.updateField('addressLine1','Fixture street');f.provideConfirmedLocation({exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.401,publicLongitude:120.901},f.getSnapshot().locationRevision);f.next();f.next();await f.submit();
+  await h.setup();const f=h.vm().propertyCreation;f.updateField('bedrooms','0');f.updateField('bathrooms','0');f.updateField('propertyType','studio');f.updateField('city','imus');f.updateField('barangay','Fixture');f.updateField('addressLine1','Fixture street');f.provideConfirmedLocation({exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.401,publicLongitude:120.901},f.getSnapshot().locationRevision);f.next();f.next();await f.submit();
   // Deliberately navigate before React commits the created snapshot.
   h.vm().navigate('photoManager');await h.settle();assert.equal(h.vm().screen,'photoManager');assert.equal(h.vm().workspacePropertyId,backend.propertyId);assert.equal(h.vm().photoState.propertyId,backend.propertyId);assert.equal(h.vm().photoState.loaded,true);
   h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().workspacePropertyId,backend.propertyId);assert.equal(creates,1);h.unmount();
@@ -569,7 +569,7 @@ test('validation correction callbacks cannot navigate an unmounted account works
 
 
 test('legacy Review Save navigates to invalid floor fields without clearing inputs or creating a property',async()=>{
- const h=mountProperty();await h.setup();const flow=h.vm().propertyCreation;flow.updateField('propertyType','apartment');flow.updateField('city','imus');flow.updateField('barangay','Fixture');flow.updateField('addressLine1','Fixture address');flow.provideConfirmedLocation({exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.401,publicLongitude:120.901},flow.getSnapshot().locationRevision);flow.next();flow.next();h.flush();assert.equal(h.vm().propertyState.step,'review');
+ const h=mountProperty();await h.setup();const flow=h.vm().propertyCreation;flow.updateField('bedrooms','0');flow.updateField('bathrooms','0');flow.updateField('propertyType','apartment');flow.updateField('city','imus');flow.updateField('barangay','Fixture');flow.updateField('addressLine1','Fixture address');flow.provideConfirmedLocation({exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.401,publicLongitude:120.901},flow.getSnapshot().locationRevision);flow.next();flow.next();h.flush();assert.equal(h.vm().propertyState.step,'review');
  flow.updateField('floorNumber','8');flow.updateField('totalFloors','2');h.flush();await h.vm().submitProperty();h.flush();assert.equal(h.vm().propertyState.step,'details');assert.equal(h.vm().propertyValidationTarget?.section,'floors');assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.equal(h.vm().propertyState.draft.addressLine1,'Fixture address');assert.equal(h.writes(),0);h.unmount();
 });
 

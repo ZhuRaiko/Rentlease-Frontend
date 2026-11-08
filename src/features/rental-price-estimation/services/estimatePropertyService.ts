@@ -1,3 +1,4 @@
+import {propertyMeasurementWarnings} from '../../../shared/models/PropertyMeasurementQuality';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '../../../shared/services/supabase/database.types';
 import {mapPredictionInput,isPredictionId,PredictionError} from '../../../shared/models/RentalPrediction';
@@ -9,7 +10,7 @@ export function estimateCandidate(property:Record<string,unknown>,listing:Record
  let unavailable:string|null=null;try{mapPredictionInput(property);}catch(e){unavailable=e instanceof Error?e.message:'Property inputs are unavailable.';}
  if(property.is_active!==true)unavailable='This property is inactive.';
  const target=listing?{listingId:String(listing.id)}:{propertyId:String(property.id)};
- return {key:listing?'listing:'+listing.id:'property:'+property.id,propertyId:String(property.id),target,title:typeof listing?.title==='string'?listing.title:'Your '+String(property.property_type).replace(/_/g,' '),location:String(property.barangay??'')+', '+(cities[String(property.city)]??String(property.city)),propertyType:String(property.property_type).replace(/_/g,' '),floorArea:typeof property.floor_area_sqm==='number'?property.floor_area_sqm:null,bedrooms:typeof property.bedrooms==='number'?property.bedrooms:null,bathrooms:typeof property.bathrooms==='number'?property.bathrooms:null,askingRent:typeof listing?.asking_rent_monthly==='number'&&listing.asking_rent_monthly>0?listing.asking_rent_monthly:null,unavailable};
+ return {key:listing?'listing:'+listing.id:'property:'+property.id,propertyId:String(property.id),target,title:typeof listing?.title==='string'?listing.title:'Your '+String(property.property_type).replace(/_/g,' '),location:String(property.barangay??'')+', '+(cities[String(property.city)]??String(property.city)),propertyType:String(property.property_type).replace(/_/g,' '),floorArea:typeof property.floor_area_sqm==='number'?property.floor_area_sqm:null,bedrooms:typeof property.bedrooms==='number'?property.bedrooms:null,bathrooms:typeof property.bathrooms==='number'?property.bathrooms:null,warnings:propertyMeasurementWarnings(property),askingRent:typeof listing?.asking_rent_monthly==='number'&&listing.asking_rent_monthly>0?listing.asking_rent_monthly:null,unavailable};
 }
 export function createEstimatePropertyService(getClient:()=>SupabaseClient<Database>){
  const user=async()=>{const {data,error}=await getClient().auth.getUser();if(error||!data.user||data.user.is_anonymous)throw new PredictionError('Sign in again to estimate rent.','auth');return data.user.id;};

@@ -1,3 +1,4 @@
+import {propertyMeasurementWarnings} from '../../../shared/models/PropertyMeasurementQuality';
 import {createPropertyIdentityWorkflow} from './propertyIdentityWorkflow';
 import {propertyIdentityService} from '../services/propertyIdentityDependencies';
 import {createPropertyRoutineWorkflow} from './propertyRoutineWorkflow';
@@ -669,6 +670,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     openPropertyDetails:()=>{const id=workspaceRef.current.propertyId;if(operationBusy()||initialHydrationPending()||!id||propertyRoutine.getSnapshot().status!=='idle')return;navigate('propertyEdit');void propertyRoutine.open(id);},
     reloadPropertyDetails:()=>{const id=propertyRoutine.getSnapshot().propertyId;if(id)requestPropertyNavigation(()=>void propertyRoutine.open(id));},
     propertyValidationIssues:propertyIssues,propertyVisibleValidationIssues:propertyVisibleIssues,
+    propertyMeasurementWarnings:propertyMeasurementWarnings({floor_area_sqm:propertyState.draft.floorAreaSqm.trim()?Number(propertyState.draft.floorAreaSqm):null,bedrooms:propertyState.draft.bedrooms.trim()?Number(propertyState.draft.bedrooms):null,bathrooms:propertyState.draft.bathrooms.trim()?Number(propertyState.draft.bathrooms):null}),
     propertyFormReady,propertyNextDisabled,propertyNextStatus,
     propertyReadinessReviewAvailable:!operationBusy()&&!workspace.propertyId&&propertyState.loaded&&!propertyState.uncertain&&propertyIssues.length>0,
     reviewPropertyReadiness:()=>{if(!operationBusy())requestPropertyValidation();},

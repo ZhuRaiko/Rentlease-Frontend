@@ -1,6 +1,6 @@
-# Rental price estimate proxy - prepared only
+# Rental price estimate proxy
 
-Not deployed. No production secret has been configured. Contract source: [Rentlease-Features dee06f16fe182361b1d9d7e6ecf35f41703bf1a6](https://github.com/johnkamantig/Rentlease-Features/tree/dee06f16fe182361b1d9d7e6ecf35f41703bf1a6).
+Current deployed function is ACTIVE version 1 with verify_jwt=true, confirmed by read-only inventory November 8; the user reports successful end-to-end Android prediction. The new local input-fidelity changes are not deployed. Secret values were not retrieved. Contract source: [Rentlease-Features dee06f16fe182361b1d9d7e6ecf35f41703bf1a6](https://github.com/johnkamantig/Rentlease-Features/tree/dee06f16fe182361b1d9d7e6ecf35f41703bf1a6).
 
 ## Required deployment configuration (separate authorization)
 
@@ -46,3 +46,11 @@ Native ESZIP packaging passed: 33,446 bytes; SHA-256 `eb867ef8b17dd5485997217702
 Current CLI help was checked: no deploy dry-run flag exists; no deployment command was executed. Current [platform limits](https://supabase.com/docs/guides/functions/limits) allow 150 seconds for request idle timeout and free-worker lifetime, above the 70-second proxy deadline and 85-second app wait. Native packaging is not hosted gateway/JWT/RLS or Render acceptance. Source-pinned model behavior was rechecked without calling Render. Model quality remains limited by imputed latitude/longitude/parking/lot area, exact-name amenity matching and unknown category coverage; no confidence band is claimed.
 
 444 focused tests passed, including 57 estimator/proxy tests. TypeScript, whitespace and checkpoint credential scan passed. No material security issue found in this scoped source review. Ready for a separately authorized controlled deployment/configuration; not yet live-verified or Android-accepted. No secrets were configured and no production endpoint/data was modified.
+
+## Local handoff fidelity reconciliation - November 8, 2026
+
+Supersedes earlier not-deployed/readiness-blocked status for the existing integration. Do not rebuild or redeploy to address historical network probes. New changes are local only: shared mapper emits exact fitted amenity vocabulary and three defensible catalog aliases, while keeping unknown numeric/amenity values distinct from explicit zero/empty. Handler/index, target shape, JWT/authorization, fixed host and no-coordinate projections are unchanged. Asking rent remains outside model features.
+
+The adapter accepts house/apartment/condominium requests and routes them to two fitted groups; explicit subtype, lot, parking and confirmed approximate-location input need separately reviewed schema/contracts. Current inference still sends those missing optional features as null. No exact coordinates, model artifacts or server secrets were read/changed. See the handoff reconciliation design in docs/implementation-reports/audits.
+
+Fresh revised native bundle passed (three sanitized modules, network none): 37,906 bytes, SHA-256 76439e240c4156619da493002634fea165d8223d88382ebe75bebae136e396bb. Following separate authorization, deploy only rental-price-estimate with existing server configuration; preserve estimate-rental-price. First validate these changes with an authorized real inference, denied cases and Android count/warning/Back/account-switch checks. No migrations or live changes were performed here. Earlier user-observed Android success does not validate this revised mapper.

@@ -1827,3 +1827,7 @@ Deployment final checks: typecheck PASS; 1060 frontend tests and 50 identity/45 
 ## November 7, 2026 - Property request UI integration
 
 No new property/listing backend interaction or mutation. Existing owned portfolio (including historical listing IDs) supplies property scope to protected participant UC-09 RPC reads. Read-only tenancy catalog evidence is recorded in MESSAGING_VIEWING_BACKEND_LEDGER.md. No new migration or publication/identity/verification contract changes.
+
+## November 8, 2026 - ML input-fidelity local pass
+
+No backend mutation. The related ML ledger ML-FIDELITY-01 records the metadata-only properties column/default/nullability and public amenity-catalog inspection; no property/location/user rows read. New draft defaults/validation guidance and advisory UI warnings do not change create_property_setup arguments, current RLS/ownership/Tier 3/publication/tenancy rules or stored values. No schema/RPC migration prepared here. Phase 2 versioned subtype/lot/parking/location proposal is design only. See RENTAL_PRICE_ESTIMATION_BACKEND_LEDGER.md for exact scope/evidence. No permanent live backend mutation was performed in this phase.

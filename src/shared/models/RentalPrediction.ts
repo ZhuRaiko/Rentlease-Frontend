@@ -1,5 +1,15 @@
 /** Contract pinned to Rentlease-Features dee06f16fe182361b1d9d7e6ecf35f41703bf1a6. */
 export const ML_SOURCE_COMMIT='dee06f16fe182361b1d9d7e6ecf35f41703bf1a6';
+// Exact fitted vocabulary. Aliases apply only at inference, never to stored listings.
+const fittedAmenities=new Set<string>(["24 hours security","access for people with disabilities","air conditioning","alarm","badminton court","balcony","basketball court","built in wardrobe","cctv","cellar","club house","concierge","deck","drying area","electricity","ensuite","entertainment room","equipped kitchen","fire alarm","fire exits","fire sprinkler system","fireplace","fully fenced","function area","garage","garden","gazebo","green area","grill","guardhouse","gym","heating","integral kitchen","intercom","internet","jacuzzi","jogging path","lanai","laundry room","library","lift","lounge","multi purpose lawn","multipurpose room","natural gas","office room","open space","panoramic view","playground","powder room","roof garden","sauna","security","service room","shops","shower rooms","smoke detector","spa","sports facilities","storage room","swimming pool","tennis court","terrace","video cable","water","water tank","wifi","yard"]);
+const amenityAliases:Readonly<Record<string,string>>=Object.freeze({'wi-fi':'wifi',elevator:'lift','24/7 security':'24 hours security'});
+export function mapPredictionAmenities(amenities:readonly string[]|null):string[]|null {
+ if(amenities===null)return null;
+ if(!Array.isArray(amenities)||amenities.some(v=>typeof v!=='string'))throw new PredictionError('Property amenities could not be verified.','input');
+ const result=new Set<string>();
+ for(const value of amenities){const label=value.trim().toLowerCase().replace(/\s+/g,' ');const canonical=amenityAliases[label]??label;if(fittedAmenities.has(canonical))result.add(canonical);}
+ return [...result];
+}
 export type PredictionTarget={propertyId:string;listingId?:never}|{listingId:string;propertyId?:never};
 export interface PredictionRequest {
  property_type:'house'|'apartment'|'condominium';property_subtype:'house'|'apartment'|'condominium';city:string;furnishing_status:string;
@@ -19,12 +29,12 @@ export function parsePredictionTarget(value:unknown):PredictionTarget {
 }
 export function mapPredictionInput(property:Record<string,unknown>,amenities:string[]|null=null):PredictionRequest {
  const type=property.property_type;if(type!=='house'&&type!=='apartment'&&type!=='condominium')throw new PredictionError('Estimation supports houses, apartments, and condominiums only. Standalone rooms and studios do not identify a supported parent category.','input');
- const number=(key:string):number|null=>{const v=property[key];if(v===null||v===undefined)return null;if(typeof v!=='number'||!Number.isFinite(v)||v<0)throw new PredictionError('Property measurements are invalid. Review the stored property details.','input');return v;};
+ const number=(key:string):number|null=>{const v=property[key];if(v===null||v===undefined||typeof v==='string'&&!v.trim())return null;if(typeof v!=='number'||!Number.isFinite(v)||v<0)throw new PredictionError('Property measurements are invalid. Review the stored property details.','input');return v;};
  const area=number('floor_area_sqm');if(area===null||area<=0)throw new PredictionError('A positive floor area is needed for a useful estimate.','input');
  const city=typeof property.city==='string'?cities[property.city]:undefined;if(!city)throw new PredictionError('This property city is not supported by RentLease.','input');
  const furnishing=property.furnishing_status;if(!['unfurnished','semi_furnished','furnished'].includes(String(furnishing)))throw new PredictionError('Review the property furnishing information.','input');
  if(amenities!==null&&(!Array.isArray(amenities)||amenities.some(v=>typeof v!=='string')))throw new PredictionError('Property amenities could not be verified.','input');
- return {property_type:type,property_subtype:type,city,furnishing_status:String(furnishing),bedrooms:number('bedrooms'),bathrooms:number('bathrooms'),floor_area_sqm:area,floor_number:number('floor_number'),lot_area_sqm:null,parking_spaces:null,latitude:null,longitude:null,amenities_normalized:amenities===null?null:[...new Set(amenities.map(v=>v.trim().toLowerCase()).filter(Boolean))]};
+ return {property_type:type,property_subtype:type,city,furnishing_status:String(furnishing),bedrooms:number('bedrooms'),bathrooms:number('bathrooms'),floor_area_sqm:area,floor_number:number('floor_number'),lot_area_sqm:null,parking_spaces:null,latitude:null,longitude:null,amenities_normalized:mapPredictionAmenities(amenities)};
 }
 /** Discard the API's illustrative +/-30% band. It is not model uncertainty. */
 export function parseModelPrediction(value:unknown):ModelPrediction {
