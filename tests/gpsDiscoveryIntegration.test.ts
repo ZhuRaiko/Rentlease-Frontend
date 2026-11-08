@@ -24,7 +24,7 @@ function mount(dependencies: GpsProximityDependencies) {
   const load = (path: string): any => {
     const absolute = resolve(path); if (cache.has(absolute)) return cache.get(absolute);
     const actual = createRequire(absolute), module = { exports: {} as any };
-    const req = (name: string): any => name === 'react' ? hooks : name.endsWith('/manualSearchDependencies') ? { manualSearchService: manualService } : name.endsWith('/gpsProximityDependencies') ? { gpsProximityDependencies: dependencies } : name.startsWith('.') ? load(resolve(absolute, '..', name + '.ts')) : actual(name);
+    const req = (name: string): any => name === 'react' ? hooks : name.endsWith('/usePublicIdentitiesViewModel') ? {usePublicIdentitiesViewModel:()=>({})} : name.endsWith('/recommendationDependencies') ? {recommendationService:{user:async()=>accountId,load:async()=>({candidates:[],limited:false,scanned:0})}} : name.endsWith('/manualSearchDependencies') ? { manualSearchService: manualService } : name.endsWith('/gpsProximityDependencies') ? { gpsProximityDependencies: dependencies } : name.startsWith('.') ? load(resolve(absolute, '..', name + '.ts')) : actual(name);
     const code = ts.transpileModule(readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
     new Function('require', 'module', 'exports', code)(req, module, module.exports); cache.set(absolute, module.exports); return module.exports;
   };
@@ -38,7 +38,7 @@ test('real Discovery hook explains first; explicit Allow searches; Back clears G
   const d = deps(), h = mount(d.dependency); assert.equal(d.calls(), 0); h.vm().navigate('searchLocation'); h.flush(); h.vm().requestCurrentLocation(); h.flush(); assert.equal(h.vm().screen, 'locationPermission'); assert.equal(d.calls(), 0);
   h.vm().allowCurrentLocation(); await h.settle(); assert.equal(h.vm().screen, 'nearbyResults'); assert.equal(d.calls(), 1); assert.equal(h.vm().gpsState.phase, 'success'); assert.deepEqual(h.vm().gpsState.rows, []);
   h.vm().backFromWorkspace(() => assert.fail('must not close feature'), () => assert.fail('must not exit app')); h.flush(); assert.equal(h.vm().screen, 'searchLocation'); assert.equal(h.vm().gpsState.phase, 'idle');
-  h.vm().chooseSuggestion('Imus, Cavite'); await h.settle(); assert.equal(h.vm().screen, 'resultsList'); assert.deepEqual(h.vm().manualState.rows, []); assert.equal(h.manualCalls[0].query,'Imus, Cavite'); assert.equal(d.calls(), 1); h.unmount();
+  h.vm().chooseSuggestion('Imus, Cavite'); await h.settle(); assert.equal(h.vm().screen, 'resultsList'); assert.deepEqual(h.vm().manualState.rows, []); assert.equal(h.manualCalls.at(-1).query,'Imus, Cavite'); assert.equal(d.calls(), 1); h.unmount();
 });
 test('Not now returns to manual search with no permission or backend call', () => {
   const d = deps(), h = mount(d.dependency); h.vm().navigate('searchLocation'); h.flush(); h.vm().requestCurrentLocation(); h.flush(); h.vm().declineCurrentLocation(); h.flush(); assert.equal(h.vm().screen, 'searchLocation'); assert.equal(d.calls(), 0); h.unmount();

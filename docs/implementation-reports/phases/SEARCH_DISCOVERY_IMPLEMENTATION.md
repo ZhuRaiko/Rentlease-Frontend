@@ -272,3 +272,8 @@ Connected TenantDiscoveryView to an independent account-keyed existing manualSea
 
 
 Discover emulator smoke check: existing logged-in emulator-5554, agent via ADB/UI hierarchy. Observed homepage real card/photo -> full Rental Details with About this rental/photo and no loading/retry -> Android Back to populated Discover. No account/data changes. Temporary on-device hierarchy file removed. Physical-device pagination, pull refresh, account switching and final visual acceptance remain pending; no new build.
+
+
+## November 8 - Recommendation surface integration
+
+Connected the existing live Discover and search-sort Views to a separate deterministic content-scoring model/service and Search-owned account-scoped recommendation workflow. Preferences are used only after explicit session save; edits rerank, hard filters reload a bounded pool, account changes cancel/clear. Existing cards/details/GPS behavior retained. Recommended and Best Match are local bounded ranking modes, not new unsupported RPC sort values. Quality Tier 2 remains unknown because no authorized public signal exists; stored completeness is read directly. 161 focused tests, TypeScript and whitespace pass; Android pending. Exact implementation/evidence are in PROPERTY_RECOMMENDATIONS_IMPLEMENTATION.md and the dedicated feature/ledger files. No backend changes or deployment.

@@ -1,3 +1,6 @@
+import {recommendationService} from '../services/recommendationDependencies';
+import {createRecommendationWorkflow} from './recommendationWorkflow';
+import type {RecommendationSort} from '../../property-recommendations/models/ContentRecommendation';
 import {usePublicIdentitiesViewModel} from '../../../shared/viewModels/usePublicIdentitiesViewModel';
 import {publicIdentityLabel} from '../../../shared/models/PublicIdentity';
 import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigationConfirmation';
@@ -35,6 +38,15 @@ export function useSearchDiscoveryViewModel(
     options.initialPreferences ?? recommendedMatchingPreferences,
   );
   const savedPreferences = useRef(matchingPreferences);
+  // Form defaults are not user preferences until explicitly saved for this account.
+  const [committedPreferences,setCommittedPreferences]=useState<{owner:string|undefined;value:MatchingPreferences|null}>(()=>({owner:options.accountId,value:options.initialPreferences??null}));
+  const activePreferences=committedPreferences.owner===options.accountId?committedPreferences.value:null;
+  const [recommendationSort,setRecommendationSort]=useState<RecommendationSort|null>(null);
+  const recommendations=useMemo(()=>createRecommendationWorkflow(recommendationService,options.accountId),[options.accountId]);
+  const recommendationState=useSyncExternalStore(recommendations.subscribe,recommendations.getSnapshot,recommendations.getSnapshot);
+  useEffect(()=>{recommendations.activate();return()=>recommendations.dispose();},[recommendations]);
+  useEffect(()=>{if(committedPreferences.owner!==options.accountId){const fresh=options.initialPreferences??recommendedMatchingPreferences;setMatchingPreferences(fresh);savedPreferences.current=fresh;}setRecommendationSort(null);setCommittedPreferences({owner:options.accountId,value:options.initialPreferences??null});},[options.accountId,options.initialPreferences]);
+
   const [introductionPending, setIntroductionPending] = useState(options.introduction ?? false);
   const [introductionError, setIntroductionError] = useState<string | null>(null);
   const [isCompletingIntroduction, setIsCompletingIntroduction] = useState(false);
@@ -50,6 +62,13 @@ export function useSearchDiscoveryViewModel(
   useEffect(()=>{discover.activate();setHomeTab('discover');return()=>discover.dispose();},[discover]);
   useEffect(()=>{if(screen==='home'&&homeTab==='discover')void discover.ensureLoaded();},[discover,screen,homeTab]);
   const manualState = useSyncExternalStore(manual.subscribe, manual.getSnapshot, manual.getSnapshot);
+  useEffect(()=>{recommendations.configure(activePreferences,manualState.filters,manualState.query);},[recommendations,JSON.stringify(activePreferences),JSON.stringify(manualState.filters),manualState.query]);
+  const rankedSearch=recommendationSort!==null&&activePreferences!==null;
+  const rankedRows=recommendationSort==='Best Match'?recommendationState.bestMatch:recommendationState.recommended;
+  const searchResultState=rankedSearch?{...manualState,rows:rankedRows.map(r=>r.candidate.listing),phase:recommendationState.phase==='success'?'success' as const:recommendationState.phase==='error'||recommendationState.phase==='unavailable'?'error' as const:'loading' as const,error:recommendationState.error??(recommendationState.phase==='unavailable'?'Choose supported Matching Preferences to rank rentals.':null),more:false,refreshing:false,hasMore:false}:manualState;
+  const resultSortLabel=rankedSearch?recommendationSort:manualState.sort;
+  const recommendedIds=new Set(activePreferences?recommendationState.recommended.slice(0,3).map(r=>r.candidate.listing.listingId):[]);
+  const discoverRows=discoverState.rows.filter(row=>!recommendedIds.has(row.listingId));
   const ownerIdentities=usePublicIdentitiesViewModel(options.accountId,manualState.detail?[manualState.detail.ownerId]:[]);
   const [liveFilterDraft,setLiveFilterDraft] = useState<SearchFilters>(defaultSearchFilters);
   useEffect(() => { manual.activate(); return () => manual.dispose(); }, [manual]);
@@ -94,9 +113,9 @@ export function useSearchDiscoveryViewModel(
     const nextQuery = typeof suggestion === 'string' ? suggestion : suggestion.query;
     suggestedCity.current = typeof suggestion !== 'string';
     setQuery(nextQuery); navigate('resultsList');
-    void manual.search(nextQuery, typeof suggestion === 'string' ? undefined : { ...manualState.filters, city: suggestion.city as SearchFilters['city'] });
+    setRecommendationSort(null); void manual.search(nextQuery, typeof suggestion === 'string' ? undefined : { ...manualState.filters, city: suggestion.city as SearchFilters['city'] });
   };
-  const submitSearch = () => { navigate('resultsList'); const filters = suggestedCity.current ? { ...manualState.filters, city: '' as const } : manualState.filters; suggestedCity.current = false; void manual.search(query,filters); };
+  const submitSearch = () => { navigate('resultsList'); const filters = suggestedCity.current ? { ...manualState.filters, city: '' as const } : manualState.filters; suggestedCity.current = false; setRecommendationSort(null); void manual.search(query,filters); };
 
   const clearSearch = () => {
     gps.reset();
@@ -138,10 +157,10 @@ export function useSearchDiscoveryViewModel(
 
   const resetFilterDraft = () => setFilterDraft(defaultDiscoveryFilters);
 
-  const applyFilters = () => { setScreen('resultsList'); void manual.search(query); };
+  const applyFilters = () => { setScreen('resultsList'); setRecommendationSort(null); void manual.search(query); };
   const openLiveFilters = () => { setLiveFilterDraft({ ...manualState.filters, types:[...manualState.filters.types], amenityIds:[...manualState.filters.amenityIds] }); navigate('filters'); void manual.catalogue(); };
-  const applyLiveFilters = () => { suggestedCity.current = false; setHistory(current => current.slice(0,-1)); setScreen('resultsList'); void manual.applyFilters(liveFilterDraft); };
-  const chooseLiveSort = (value: SearchSort) => { setHistory(current => current.slice(0,-1)); setScreen('resultsList'); void manual.sort(value); };
+  const applyLiveFilters = () => { setRecommendationSort(null); suggestedCity.current = false; setHistory(current => current.slice(0,-1)); setScreen('resultsList'); void manual.applyFilters(liveFilterDraft); };
+  const chooseLiveSort = (value: SearchSort) => { setRecommendationSort(null); setHistory(current => current.slice(0,-1)); setScreen('resultsList'); void manual.sort(value); };
 
   const updateMatchingPreference = <TField extends keyof MatchingPreferences>(
     field: TField,
@@ -184,7 +203,8 @@ export function useSearchDiscoveryViewModel(
     options.onSavePreferences?.(matchingPreferences);
     if (!await finishIntroduction()) return;
     setFilters(preferenceFilters); setQuery(''); setScreen('home'); setHistory([]);
-    setNotice('Preferences kept for this session. Recommendations are not connected.');
+    setCommittedPreferences({owner:options.accountId,value:matchingPreferences});
+    setNotice('Preferences kept for this session. Recommendations use your selected preferences.');
   };
   const skipMatchingIntroduction = async () => {
     if (!await finishIntroduction()) return;
@@ -192,6 +212,7 @@ export function useSearchDiscoveryViewModel(
   };
 
   const chooseSort = (nextSort: SortOption) => {
+    if(nextSort==='Recommended'||nextSort==='Best Match'){if(!activePreferences){setNotice('Save Matching Preferences to enable preference-based sorting.');return;}setRecommendationSort(nextSort);setHistory(current=>current.slice(0,-1));setScreen('resultsList');return;}
     if (nextSort === 'Price: Low to High' || nextSort === 'Price: High to Low') chooseLiveSort(nextSort);
   };
 
@@ -234,7 +255,7 @@ export function useSearchDiscoveryViewModel(
   };
   const toggleSaved = (_listingId: string) => setNotice('Saved rentals are not connected yet.');
   const isSaved = (_listingId: string) => false;
-  const showNoResultsPreview = () => { navigate('resultsList'); void manual.search(query); };
+  const showNoResultsPreview = () => { navigate('resultsList'); setRecommendationSort(null); void manual.search(query); };
   const showSearchErrorPreview = showNoResultsPreview;
   const retrySearch = () => { setScreen('resultsList'); void manual.retry(); };
 
@@ -279,7 +300,11 @@ export function useSearchDiscoveryViewModel(
       else navigation.requestNavigation(goBack);
     },
     screen,
-    homeTab,openForYou:()=>setHomeTab('forYou'),discover,discoverState,
+    homeTab,openForYou:()=>setHomeTab('forYou'),discover,discoverState,discoverRows,
+    recommendations,recommendationState,hasRecommendationPreferences:activePreferences!==null,rankedSearch,searchResultState,resultSortLabel,
+    openRecommendedResults:()=>{setRecommendationSort('Recommended');setHistory(current=>[...current,screen]);setScreen('resultsList');},
+    refreshDiscover:()=>{void discover.refresh();void recommendations.load();},
+    retryResults:()=>rankedSearch?recommendations.load():manual.retry(),
     query,
     filters,
     filterDraft,

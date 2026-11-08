@@ -13,15 +13,16 @@ import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 
 export function LiveSearchResultsView({ viewModel:vm }: {viewModel:SearchDiscoveryViewModel}) {
-  const s=vm.manualState,busy=s.phase==='loading'||s.more;
+  const s=vm.searchResultState??vm.manualState,busy=s.phase==='loading'||s.more;
   return <View style={styles.screen}><DiscoveryHeader title="Search Results" onBack={vm.goBack}/><FlatList data={s.rows} keyExtractor={r=>r.listingId} contentContainerStyle={styles.content} renderItem={({item})=><SearchListingCard listing={item} onPress={()=>vm.openProperty(item.listingId)}/>}
     ListHeaderComponent={<View style={styles.section}>
       <DiscoverySearchBar value={vm.query} onChangeText={vm.setQuery} onFocus={()=>vm.navigate('searchLocation')} onSubmit={vm.submitSearch} placeholder="Enter a city or barangay"/>
       <View style={styles.row}><DiscoveryButton label="Filters" tone="outline" onPress={vm.openLiveFilters}/><DiscoveryButton label="Sort" tone="outline" onPress={()=>vm.navigate('sort')}/></View>
-      <Text style={styles.copy}>{s.sort} · {s.rows.length} loaded</Text><Text style={styles.copy}>Map results are not connected yet.</Text>
+      <Text style={styles.copy}>{vm.resultSortLabel??s.sort} · {s.rows.length} loaded</Text><Text style={styles.copy}>Use Nearby rentals for GPS-based map results.</Text>
       {busy?<View accessibilityLiveRegion="polite"><ActivityIndicator color={colors.primary}/><Text style={styles.copy}>{s.more?'Loading more rentals…':'Searching rentals…'}</Text></View>:null}
-      {s.error?<><Text accessibilityRole="alert" style={styles.error}>{s.error}</Text><DiscoveryButton label="Retry" onPress={()=>void vm.manual.retry()} disabled={busy}/></>:null}
-      {s.phase==='success'&&!s.rows.length?<><Text style={styles.heading}>No rentals available in this area yet.</Text><Text style={styles.copy}>Try another city or search nearby.</Text></>:null}
+      {vm.rankedSearch?<Text style={styles.copy}>{vm.resultSortLabel==='Best Match'?'Best Match uses preference relevance only.':'Recommended uses 80% preference relevance, 10% verified-owner status when authorized, and 10% stored completeness.'} {vm.recommendationState.limited?'Limited to the first 100 recent filtered listings; not a global ranking.':`Ranked within ${vm.recommendationState.scanned} loaded published results.`}</Text>:null}
+      {s.error?<><Text accessibilityRole="alert" style={styles.error}>{s.error}</Text><DiscoveryButton label="Retry" onPress={()=>void (vm.retryResults?vm.retryResults():vm.manual.retry())} disabled={busy}/></>:null}
+      {s.phase==='success'&&!s.rows.length?<><Text style={styles.heading}>{vm.rankedSearch?'No loaded rentals match your saved preferences.':'No rentals available in this area yet.'}</Text><Text style={styles.copy}>{vm.rankedSearch?'Change Matching Preferences or filters. More rentals may exist outside the loaded pool.':'Try another city or search nearby.'}</Text></>:null}
     </View>}
     ListFooterComponent={<View style={styles.section}>{s.hasMore&&!s.error?<DiscoveryButton label="Load more" disabled={busy} onPress={()=>void vm.manual.loadMore()}/>:null}<DiscoveryButton label="Search another location" tone="outline" onPress={()=>vm.navigate('searchLocation')}/><DiscoveryButton label="Search nearby" tone="outline" onPress={vm.requestCurrentLocation}/></View>}/></View>;
 }
@@ -30,7 +31,7 @@ const propertyTypes=['apartment','boarding_house','bedspace','room','studio','co
 export function LiveSearchFiltersView({viewModel:vm}:{viewModel:SearchDiscoveryViewModel}) {
   const f=vm.liveFilterDraft;
   const update=<K extends keyof SearchFilters>(key:K,value:SearchFilters[K])=>vm.setLiveFilterDraft({...f,[key]:value});
-  if(vm.screen==='sort')return <View style={styles.screen}><DiscoveryHeader title="Sort rentals" onBack={vm.goBack}/><View style={styles.content}>{sorts.map(sort=><DiscoveryChip key={sort} label={sort} selected={vm.manualState.sort===sort} onPress={()=>vm.chooseLiveSort(sort)}/>)}</View></View>;
+  if(vm.screen==='sort')return <View style={styles.screen}><DiscoveryHeader title="Sort rentals" onBack={vm.goBack}/><View style={styles.content}>{sorts.map(sort=><DiscoveryChip key={sort} label={sort} selected={!vm.rankedSearch&&vm.manualState.sort===sort} onPress={()=>vm.chooseLiveSort(sort)}/>)}{(['Recommended','Best Match'] as const).map(sort=><DiscoveryChip key={sort} label={sort} selected={vm.rankedSearch&&vm.resultSortLabel===sort} disabled={!vm.hasRecommendationPreferences} onPress={()=>vm.chooseSort(sort)}/>)}<Text style={styles.copy}>Recommended adds modest quality bonuses; Best Match uses preference relevance alone. Both rank a bounded set of recent filtered listings. Save Matching Preferences to enable them.</Text></View></View>;
   return <View style={styles.screen}><DiscoveryHeader title="Filters" onBack={vm.goBack}/><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
     <Text style={styles.heading}>City</Text><View style={styles.row}><DiscoveryChip label="Any city" selected={!f.city} onPress={()=>update('city','')}/>{(['imus','dasmarinas','tagaytay'] as const).map(city=><DiscoveryChip key={city} label={cityLabels[city]!} selected={f.city===city} onPress={()=>update('city',city)}/>)}</View>
     <Text style={styles.heading}>Property type</Text><View style={styles.row}>{propertyTypes.map(type=><DiscoveryChip key={type} label={type.replace(/_/g,' ')} selected={f.types.includes(type)} onPress={()=>update('types',f.types.includes(type)?f.types.filter(t=>t!==type):[...f.types,type])}/>)}</View>

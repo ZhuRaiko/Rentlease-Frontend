@@ -12,7 +12,7 @@ const rentLeaseHome = require('../../../assets/authentication/rentlease-home.png
 interface TenantDiscoveryViewProps {viewModel:SearchDiscoveryViewModel;onClose:()=>void;onOpenNotifications:()=>void}
 export function TenantDiscoveryView({viewModel,onClose,onOpenNotifications}:TenantDiscoveryViewProps){
   if(viewModel.screen!=='home')return <View style={styles.screen}><DiscoveryHeader onBack={viewModel.goBack} title="Discovery"/><View style={styles.stateScreen}><Text style={styles.stateTitle}>This feature is not connected yet</Text><Text style={styles.stateBody}>Saved rentals and map results are deferred. Search real available rentals instead.</Text><DiscoveryButton label="Search rentals" onPress={()=>viewModel.navigate('searchLocation')}/></View></View>;
-  const community=viewModel.homeTab==='forYou',s=viewModel.discoverState;
+  const community=viewModel.homeTab==='forYou',s=viewModel.discoverState,r=viewModel.recommendationState;
   return <View style={styles.screen}>
     <View style={styles.feedHeader}>
       <View style={styles.wordmark}><Text accessibilityRole="header" style={styles.wordmarkText}>RentLease</Text><Image resizeMode="contain" source={rentLeaseHome} style={styles.wordmarkIcon}/></View>
@@ -29,24 +29,34 @@ export function TenantDiscoveryView({viewModel,onClose,onOpenNotifications}:Tena
     {viewModel.notice?<Text style={styles.feedNotice}>{viewModel.notice}</Text>:null}
     {community?<ScrollView style={styles.feedScroll} contentContainerStyle={styles.feedContent} showsVerticalScrollIndicator={false}>
       <Text accessibilityRole="header" style={styles.stateTitle}>No community posts yet.</Text><Text style={styles.stateBody}>Posts from landlords and the RentLease community will appear here.</Text><DiscoveryButton label="Discover rentals" onPress={viewModel.openHome}/>
-    </ScrollView>:<FlatList data={s.rows} keyExtractor={row=>row.listingId} style={styles.feedScroll} contentContainerStyle={styles.listContent}
+    </ScrollView>:<FlatList data={viewModel.discoverRows??s.rows} keyExtractor={row=>row.listingId} style={styles.feedScroll} contentContainerStyle={styles.listContent}
       renderItem={({item})=><SearchListingCard listing={item} onPress={()=>viewModel.openProperty(item.listingId)}/>}
-      refreshing={s.refreshing} onRefresh={()=>void viewModel.discover.refresh()}
+      refreshing={s.refreshing} onRefresh={()=>viewModel.refreshDiscover?viewModel.refreshDiscover():void viewModel.discover.refresh()}
       onEndReached={()=>void viewModel.discover.loadMore()} onEndReachedThreshold={0.4}
       ListHeaderComponent={<View style={styles.searchPad}>
         <DiscoverySearchBar value="" onChangeText={viewModel.setQuery} onFocus={()=>viewModel.navigate('searchLocation')} onSubmit={()=>viewModel.navigate('searchLocation')} placeholder="Search a city or barangay"/>
         <DiscoveryButton label="Nearby rentals" tone="outline" onPress={viewModel.requestCurrentLocation}/>
+        <View style={styles.recommendations}><Text accessibilityRole="header" style={styles.sectionTitle}>Recommended for You</Text>
+        {!viewModel.hasRecommendationPreferences?<><Text style={styles.copy}>Save Matching Preferences to rank rentals for this session.</Text><DiscoveryButton label="Matching Preferences" tone="outline" onPress={viewModel.openMatchingPreferences}/></>:<>
+        <Pressable accessibilityRole="button" onPress={viewModel.openMatchingPreferences} style={{minHeight:48,justifyContent:'center'}}><Text style={[styles.copy,{color:colors.primaryAction}]}>Edit Matching Preferences</Text></Pressable><Text style={styles.copy}>Preference matching, not a trained model. Uses your current search filters. City, budget, type, room counts, furnishing and amenities are scored; land area and nearby places are not.</Text>
+        {r?.phase==='loading'||r?.phase==='idle'?<ActivityIndicator accessibilityLabel="Loading recommendations" color={colors.primaryAction}/>:null}
+        {r?.error?<><Text accessibilityRole="alert" style={styles.error}>{r.error}</Text><DiscoveryButton label="Retry recommendations" tone="outline" onPress={()=>void viewModel.recommendations.load()}/></>:null}
+        {r?.phase==='unavailable'?<Text style={styles.copy}>Choose a supported location, budget, property type, room count, furnishing, or amenity preference to enable ranking.</Text>:null}
+        {r?.phase==='success'?<><Text style={styles.copy}>{r.limited?'Ranked within the first 100 recently published results, not all rentals.':`Ranked within ${r.scanned} loaded published results.`} Owner verification cannot be confirmed for ranking; no verification bonus is applied.</Text>
+        {!r.recommended.length?<Text style={styles.copy}>No loaded rentals match your selected preferences. Try changing your preferences or filters.</Text>:<><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recommendationCards}>{r.recommended.slice(0,3).map(row=><View key={row.candidate.listing.listingId} style={styles.recommendationCard}><SearchListingCard listing={row.candidate.listing} onPress={()=>viewModel.openProperty(row.candidate.listing.listingId)}/><Text style={styles.copy}>{row.reasons.join(' | ')||'Selected property preferences'}</Text></View>)}</ScrollView><DiscoveryButton label="View ranked rentals" tone="outline" onPress={viewModel.openRecommendedResults}/></>}</>:null}
+        </>}
+        </View>
         <Text accessibilityRole="header" style={styles.sectionTitle}>Recently published</Text>
         <Text style={styles.copy}>Available rentals across RentLease's supported cities.</Text>
         {s.phase==='idle'||s.phase==='loading'?<View accessibilityLiveRegion="polite" style={styles.loading}><ActivityIndicator color={colors.primaryAction}/><Text style={styles.copy}>Loading rentals...</Text></View>:null}
         {s.error?<View accessibilityRole="alert" style={styles.loading}><Text style={styles.error}>{s.error}</Text><DiscoveryButton label="Retry listings" tone="outline" disabled={s.refreshing||s.more} onPress={()=>void viewModel.discover.retry()}/></View>:null}
       </View>}
-      ListEmptyComponent={s.phase==='success'&&!s.refreshing?<View style={styles.empty}><Text style={styles.sectionTitle}>No available rentals yet.</Text><Text style={styles.copy}>Published rentals will appear here when they are available.</Text></View>:null}
+      ListEmptyComponent={s.phase==='success'&&!s.refreshing&&!r?.recommended.length?<View style={styles.empty}><Text style={styles.sectionTitle}>No available rentals yet.</Text><Text style={styles.copy}>Published rentals will appear here when they are available.</Text></View>:null}
       ListFooterComponent={<View style={styles.loading}>{s.more?<ActivityIndicator accessibilityLabel="Loading more rentals" color={colors.primaryAction}/>:s.hasMore&&!s.error?<DiscoveryButton label="Load more rentals" tone="outline" disabled={s.refreshing} onPress={()=>void viewModel.discover.loadMore()}/>:null}</View>}/> }
   </View>;
 }
 const styles=StyleSheet.create({
-  screen:{backgroundColor:colors.canvas,flex:1},feedHeader:{...ui.rule,backgroundColor:colors.background,alignItems:'center',flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',minHeight:64,gap:spacing.sm,paddingHorizontal:spacing.md,paddingVertical:spacing.xs},
+  recommendations:{gap:8,paddingVertical:12},recommendationCards:{gap:12},recommendationCard:{width:280,gap:5},screen:{backgroundColor:colors.canvas,flex:1},feedHeader:{...ui.rule,backgroundColor:colors.background,alignItems:'center',flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',minHeight:64,gap:spacing.sm,paddingHorizontal:spacing.md,paddingVertical:spacing.xs},
   wordmark:{alignItems:'center',flexDirection:'row',gap:spacing.xxs,flex:1,minWidth:0},wordmarkText:{color:colors.ink,fontFamily:typography.family,fontSize:23,fontWeight:'700',letterSpacing:-0.5,flexShrink:1},wordmarkIcon:{height:26,width:26},
   headerActions:{alignItems:'center',flexDirection:'row',gap:spacing.xs},headerAction:{alignItems:'center',justifyContent:'center',minHeight:48,minWidth:48},headerAvatar:{borderColor:colors.border,borderRadius:18,borderWidth:1,height:33,width:33},
   feedTabs:{backgroundColor:colors.background,alignItems:'center',flexDirection:'row',gap:spacing.md,minHeight:50,justifyContent:'center'},feedTabTarget:{minHeight:48,justifyContent:'center',paddingHorizontal:spacing.sm},feedTabMuted:{...ui.supporting,fontSize:14},feedTabActive:{color:colors.primaryAction,fontFamily:typography.family,fontSize:14,fontWeight:'700',borderBottomWidth:2,borderBottomColor:colors.primaryAction,paddingVertical:spacing.xs},tabDivider:{backgroundColor:colors.text,height:18,width:1},

@@ -6,7 +6,7 @@ Last verified date: 2026-11-04 (Asia/Singapore). GPS radius migration deployed a
 
 ## Purpose, scope and actors
 
-Help ordinary marketplace members browse rentals. **Discover homepage, GPS proximity and manual city/barangay search, filters, sorting, ordinary photos/amenities and real detail loading are IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED.** GPS map results are implemented; manual-search map results and saved-listing integration remain DEFERRED. Discover defaults to the real recently published rental feed. Matching Preferences remain session-local; For You remains a distinct community surface with an honest empty state, not recommendations. OSM Nearby Places loads automatically in shared real listing details; no recommendation backend, XGBoost, NLP or 360 integration is included.
+Help ordinary marketplace members browse rentals. **Discover homepage, GPS proximity and manual city/barangay search, filters, sorting, ordinary photos/amenities and real detail loading are IMPLEMENTED / AUTOMATED-TESTED / Android RUNTIME-UNVERIFIED.** GPS map results are implemented; manual-search map results and saved-listing integration remain DEFERRED. Discover defaults to the real recently published rental feed. Matching Preferences remain session-local; For You remains a distinct community surface with an honest empty state, not recommendations. OSM Nearby Places loads automatically in shared real listing details; content-based recommendations now run locally over existing authorized listing reads; no recommendation backend, NLP or 360 integration is added. XGBoost remains a separate estimator integration.
 
 The deployed GPS backend requires an authenticated active Tier 1 account, regardless of normal Tenant/Landlord membership. Manual browsing follows existing listing/property RLS, which permits Tier 1 active-listing reads and owner/Admin/tenancy access; the service still restricts all search results to eligible active records. Nearby search communicates backend denials without assigning roles or bypassing authorization. Authentication remains the account/session owner.
 
@@ -54,7 +54,7 @@ Android acceptance still needed: Tier 1 Tenant -> Discover/Search -> explanation
 
 ## Deferred and integration boundaries
 
-Manual-search map results, saved-listing integration, recommendation ranking, XGBoost, NLP and 360 remain deferred/separately owned. This integration consumes the finished GPS package and existing RPC without taking ownership of their algorithms or database definitions. Future phases update this document, its continuous history and ledger, not per-phase report files.
+Manual-search map results, saved-listing integration, NLP and 360 remain deferred/separately owned. Content-based recommendation ranking is now integrated locally; XGBoost estimation is separately owned. This integration consumes the finished GPS package and existing RPC without taking ownership of their algorithms or database definitions. Future phases update this document, its continuous history and ledger, not per-phase report files.
 
 
 ## Manual search and real listing details (2026-10-30)
@@ -262,3 +262,8 @@ Agent emulator observation for this change: existing signed-in app showed Discov
 
 
 UC-08 integration (November 4, 2026): shared real listing details now offers server-confirmed Contact Owner, except for the current owner's own listing. App keeps Discovery mounted underneath inquiry Chat so Back returns to the originating detail/GPS/feed state. Bottom Discover explicitly returns home. Inbox/history/send use the prepared messaging RPCs; production messaging remains blocked until separately authorized migration deployment. Nearby Places remains independent. See [Messaging & Inquiries](MESSAGING_VIEWING.md).
+
+
+## November 8 - Real content recommendations
+
+Discover now includes Recommended for You using explicitly saved account-scoped session preferences, existing live listing cards/details/photos and a bounded recent filtered pool. Recommended blends 80% preference relevance, 10% authorized active Tier 2 status when available, 10% stored 0-1 completeness; Best Match uses relevance alone. Current public contracts do not expose reliable Tier 2 status, so that bonus is neutral. No private identity/document reads, fake percentages or ML dependency. Ranking covers at most 100 recent filtered results and discloses truncation; it is not a global server sort. Existing recent/price pagination, GPS/maps/radius, For You community, Post, matching-preference storage and ML proxy remain unchanged. See [Property Recommendations](PROPERTY_RECOMMENDATIONS.md) for exact factors/weights, tests and limitations. 161 focused tests, TypeScript and whitespace pass; Android pending.
