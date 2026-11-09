@@ -2273,7 +2273,8 @@ export type Database = {
       get_admin_property_identity_review: {Args: {p_submission_id: string}; Returns: Json}
       review_property_identity_verification: {Args: {p_submission_id: string; p_expected_submission_version: string; p_expected_property_version: string; p_expected_correction_version: string | null; p_status: Database['public']['Enums']['verification_status']; p_same_asset_confirmed: boolean; p_note?: string; p_reason?: string}; Returns: undefined}
 
-      // Prepared Phase 2A contracts; not yet deployed. Legacy signatures retained.
+      // Confirmed live migration 20261109131034 (November 9, 2026); legacy signatures retained.
+      // RPC nullable inputs below reflect SQL acceptance; generated RPC Args omit null unions.
       get_owned_property_edit_context_v2: { Args: { p_property_id: string }; Returns: Json }
       get_owned_property_edit_context: { Args: { p_property_id: string }; Returns: Json }
       get_property_details_operation: { Args: { p_property_id: string; p_request_id: string }; Returns: Json }
