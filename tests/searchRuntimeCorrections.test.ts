@@ -48,6 +48,7 @@ test('Available Locations failure retries with a new request and suppresses rapi
 });
 test('nonempty Available Locations remain backend-derived',async()=>{const location={key:'real',city:'imus',barangay:'Actual area',label:'Actual area, Imus',query:'Actual area'};const f=locations(async()=>({locations:[location],received:1}));await f.locations();assert.equal(f.getSnapshot().locationsStatus,'success');assert.deepEqual(f.getSnapshot().locations,[location]);});
 function presentation(path:string,name:string){const full=resolve(path),actual=createRequire(full),mod={exports:{}as any};const req=(key:string):any=>{
+ if(key==='react')return {useState:(v:any)=>[v,()=>{}]};
   if(key==='react/jsx-runtime')return{jsx:(type:any,props:any)=>({type,props}),jsxs:(type:any,props:any)=>({type,props})};
   if(key.endsWith('/KeyboardAwareScrollView'))return{KeyboardAwareScrollView:'ScrollView'};
   if(key==='react-native')return{View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',StyleSheet:{create:(v:any)=>v}};

@@ -16,6 +16,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
   const slots: any[] = [], effects: (() => void)[] = [], cache = new Map<string, any>();
   let writes = 0, tree: any, realHook: any, backAction: (() => void) | null = null;
   const destinations: string[] = [];
+  const renderStates:{status:string;propertyEditAvailable:boolean}[]=[];
   const hooks = {
     useState(initial: any) { const index = cursor++; if (!slots[index]) slots[index] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[index].value, (value: any) => { if(overrides.replayUpdaters&&typeof value==='function')value(slots[index].value); slots[index].value = typeof value === 'function' ? value(slots[index].value) : value; }]; },
     useRef(value: any) { const index = cursor++; return slots[index] ?? (slots[index] = { current: value }); },
@@ -36,7 +37,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
       if (name === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
       if (name === 'react-native') return { StyleSheet: { create: (styles: any) => styles }, View: 'View', Text: 'Text', Modal: 'Modal', StatusBar: 'StatusBar' };
       if (name.endsWith('/usePropertyListingViewModel')) return { usePropertyListingViewModel: (...args: any[]) => { current = realHook(...args); return current; } };
-      const presentation = ['PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold'];
+      const presentation = ['RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold'];
       const component = presentation.find(value => name.endsWith('/' + value));
       if (component) return { [component]: component };
       if (name.endsWith('/propertyVerificationDependencies')) return {propertyVerificationService:overrides.verification??{getEligibleUserId:async()=>'test-owner',fetchLatest:async()=>null}};
@@ -60,7 +61,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
   realHook = load('src/features/property-listing/viewModels/usePropertyListingViewModel.ts').usePropertyListingViewModel;
   const { PropertyListingFlowView } = load('src/features/property-listing/views/PropertyListingFlowView.tsx');
   const props = { renderPropertyVerification:overrides.renderPropertyVerification, initialScreen: overrides.initialScreen ?? 'dashboard', registerBackAction: (action: (() => void) | null) => { backAction = action; }, onRootBack: () => destinations.push('root'), onClose: () => destinations.push('Close'), onOpenDiscover: () => destinations.push('Discover'), onOpenChat: () => destinations.push('Chat'), onOpenMaintenance: () => destinations.push('Tenancy') };
-  const flush = () => { assert.ok(mounted); cursor = 0; tree = PropertyListingFlowView(props); while (effects.length) effects.shift()!(); return current; };
+  const flush = () => { assert.ok(mounted); cursor = 0; tree = PropertyListingFlowView(props); renderStates.push({status:current!.draftHydration.status,propertyEditAvailable:current!.propertyEditAvailable}); while (effects.length) effects.shift()!(); return current; };
   const componentProps = (name: string): any => {
     const visit = (node: any): any => node?.type === name ? node.props : (Array.isArray(node?.props?.children) ? node.props.children : [node?.props?.children]).filter(Boolean).map(visit).find(Boolean);
     return visit(tree);
@@ -68,7 +69,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
   flush();
   if (!overrides.initialScreen) { current!.navigate('postingType'); flush(); }
   return {
-    vm: () => current!, flush,
+    vm: () => current!, flush, renderStates,
     async settle() { for (let i = 0; i < 3; i++) { await new Promise<void>(resolve => setImmediate(resolve)); flush(); } },
     draftConflict: (message:string)=>new (load('src/features/property-listing/models/PersistedListingDraft.ts').ListingDraftError)(message,'conflict'),
     draftError: (message: string) => new (load('src/features/property-listing/models/PersistedListingDraft.ts').ListingDraftError)(message, 'uncertain'),
@@ -731,4 +732,31 @@ test('identity correction nested Back protects proposal and retains unsaved list
  const identity:any={property_id:id,owner_id:'test-owner',edit_version:c.edit_version,total_floors:5,current_revision_id:c.edit_version,verified:true,requires_repair:false,open_tenancy:false,correction:null,current:{property_type:'apartment',city:'imus',barangay:'Fixture',floor_number:2,address_line_1:'Fixture',address_line_2:null,postal_code:null,exact_lat:14.4,exact_lng:120.9,public_lat:14.4,public_lng:120.9}};
  const h=f.mount({load:async()=>c,hasPending:async()=>false},{load:async()=>identity,hasPending:async()=>false});await h.settle();h.vm().openPortfolioItem(id);await h.settle();await h.settle();h.vm().updateDraft('title','Keep listing edits');h.flush();h.vm().openPropertyDetails();await h.settle();h.vm().openIdentityCorrection();await h.settle();assert.equal(h.vm().screen,'identityEdit');assert.equal(h.vm().workspacePropertyId,id);assert.equal(h.vm().workspaceListingId,f.backend.listingId);
  h.vm().propertyIdentity.update('floorNumber','3');h.flush();h.hardwareBack();h.flush();assert.equal(h.dialog().visible,true);h.dialog().onCancel();h.flush();assert.equal(h.vm().propertyIdentityState.draft?.floorNumber,'3');h.hardwareBack();h.flush();h.dialog().onConfirm();await h.settle();assert.equal(h.vm().screen,'propertyEdit');assert.equal(h.vm().propertyRoutineState.status,'ready');assert.equal(h.vm().draft.title,'Keep listing edits');h.vm().goBack();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().draft.title,'Keep listing edits');assert.equal(f.backend.calls(),0);h.unmount();
+});
+
+
+test('first ready render exposes property editing without waiting for a later unrelated render',async()=>{
+ const f=savedHydrationHarness();await f.init();f.pause();const h=f.mount();await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();
+ assert.equal(h.vm().draftHydration.status,'loading');assert.equal(h.vm().propertyEditAvailable,false);
+ h.renderStates.length=0;f.release();await h.settle();await h.settle();
+ const first=h.renderStates.find(r=>r.status==='ready');assert.ok(first);assert.equal(first.propertyEditAvailable,true);assert.equal(f.backend.calls(),0);h.unmount();
+});
+
+
+test('saved optional model edits change estimator identity while unsaved edits keep the saved snapshot',async()=>{
+ const f=savedHydrationHarness();await f.init();let c:any={owner_id:'test-owner',property_id:f.backend.propertyId,edit_version:'60000000-0000-4000-8000-000000000001',property_type:'apartment',city:'imus',barangay:'Fixture',floor_number:null,total_floors:null,bedrooms:1,bathrooms:1,floor_area_sqm:35,max_occupants:null,furnishing_status:'unfurnished',access_instructions:null,amenity_ids:[],catalog:[],open_tenancy:false,model_attributes_version:2,property_subtype:'studio',lot_area_sqm:null,parking_spaces:0};
+ const h=f.mount({load:async()=>c,hasPending:async()=>false,save:async(_c:any,d:any)=>{c={...c,lot_area_sqm:Number(d.lotAreaSqm),parking_spaces:Number(d.parkingSpaces),edit_version:'60000000-0000-4000-8000-000000000002'};return c;}});
+ await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();await h.settle();h.vm().openPropertyDetails();await h.settle();const before=JSON.stringify(h.vm().estimationProperty);
+ h.vm().propertyRoutine.update('lotAreaSqm','50');h.vm().propertyRoutine.update('parkingSpaces','1');h.flush();assert.equal(JSON.stringify(h.vm().estimationProperty),before);
+ await h.vm().propertyRoutine.save();await h.settle();assert.notEqual(JSON.stringify(h.vm().estimationProperty),before);assert.equal(h.vm().estimationProperty?.lot_area_sqm,50);assert.equal(h.vm().estimationProperty?.parking_spaces,1);assert.equal(h.vm().estimationProperty?.property_subtype,'studio');assert.ok(!('exact_location' in h.vm().estimationProperty!));h.unmount();
+});
+
+
+test('only explicit current-property price guidance adoption changes asking rent and never saves',async()=>{
+ const f=savedHydrationHarness();await f.init();const h=f.mount();await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();await h.settle();h.vm().updateDraft('askingRent','5000');h.flush();
+ const result:any={target:{propertyId:f.backend.propertyId},estimatedMonthlyRent:18000.25,currency:'PHP',modelVersion:'fixture',askingRent:null,predictedAt:'2026-11-10T00:00:00Z'};
+ assert.equal(h.vm().draft.askingRent,'5000');h.vm().applyRentalEstimate({...result,target:{propertyId:'10000000-0000-4000-8000-000000000099'}});h.flush();assert.equal(h.vm().draft.askingRent,'5000');
+ h.vm().applyRentalEstimate({...result,estimatedMonthlyRent:NaN});h.vm().applyRentalEstimate({...result,currency:'USD'});h.flush();assert.equal(h.vm().draft.askingRent,'5000');
+ h.vm().applyRentalEstimate(result);h.flush();assert.equal(h.vm().draft.askingRent,'18000.25');assert.equal(f.backend.calls(),0);assert.equal(h.writes(),0);
+ h.vm().updateDraft('askingRent','7000');h.flush();assert.equal(h.vm().draft.askingRent,'7000');h.unmount();
 });

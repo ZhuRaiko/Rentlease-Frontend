@@ -72,8 +72,59 @@ import {resolve} from 'node:path';
 import ts from 'typescript';
 function estimateView(){const path=resolve('src/features/rental-price-estimation/views/RentalPriceEstimationView.tsx'),actual=createRequire(path),mod={exports:{} as any};const jsx=(type:any,props:any)=>({type,props});const req=(key:string):any=>key==='react/jsx-runtime'?{jsx,jsxs:jsx}:key==='react-native'?{ActivityIndicator:'Loading',Pressable:'Pressable',Text:'Text',View:'View',StyleSheet:{create:(v:any)=>v}}:key.endsWith('/AppButton')?{AppButton:'Button'}:key.endsWith('/PriceEstimationScaffold')?{PriceEstimationScaffold:'Scaffold'}:key.endsWith('/PriceEstimationCards')?{EstimatePropertyCard:'Property'}:actual(key);new Function('require','module','exports',ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}}).outputText)(req,mod,mod.exports);return mod.exports.RentalPriceEstimationView;}
 const uiNodes=(v:any):any[]=>v&&typeof v==='object'?[v,...[v.props?.children].flat(Infinity).flatMap(uiNodes)]:[];
-test('result view renders only actual PHP estimate and server receipt with no illustrative band/history',()=>{const render=estimateView(),candidate=estimateCandidate(stored,listing),vm:any={selected:candidate,result:receipt(),difference:-433.35,workflow:{},backFromWorkspace(){}};const all=uiNodes(render({onClose(){},viewModel:vm})),text=all.filter(n=>n.type==='Text').map(n=>[n.props.children].flat().join('')).join(' ');assert.match(text,/22,433.35/);assert.match(text,/22,000/);assert.match(text,/433.35/);assert.doesNotMatch(text,/15,703|29,163|High confidence|Moderate confidence|September 6|estimate history/i);});
+test('legacy receipt renders actual estimate without fabricating a range or history',()=>{const render=estimateView(),candidate=estimateCandidate(stored,listing),vm:any={selected:candidate,result:receipt(),difference:-433.35,workflow:{},backFromWorkspace(){}};const all=uiNodes(render({onClose(){},viewModel:vm})),text=all.filter(n=>n.type==='Text').map(n=>[n.props.children].flat().join('')).join(' ');assert.match(text,/22,433.35/);assert.match(text,/22,000/);assert.match(text,/433.35/);assert.doesNotMatch(text,/15,703|29,163|High confidence|Moderate confidence|September 6|estimate history/i);});
 test('prediction error displays Retry without fallback data; Back remains ViewModel-owned',()=>{let retried=0,back=0;const vm:any={selected:estimateCandidate(stored,listing),result:null,predicting:false,loading:false,error:'Render unavailable',workflow:{predict:()=>retried++},backFromWorkspace:()=>back++};const all=uiNodes(estimateView()({onClose(){},viewModel:vm}));all.find(n=>n.type==='Button'&&n.props.label==='Retry estimate').props.onPress();all.find(n=>n.type==='Scaffold').props.onBack();assert.equal(retried,1);assert.equal(back,1);assert.ok(!all.some(n=>n.type==='Text'&&n.props.children==='Predicted monthly rent'));});
 test('selection UI offers both capabilities and passes actual property target',()=>{let selected:any,source:any;const candidate=estimateCandidate(stored,listing),vm:any={selected:null,result:null,source:'published',properties:[candidate],workflow:{select:(v:any)=>selected=v,setSource:(v:any)=>source=v},backFromWorkspace(){}};const all=uiNodes(estimateView()({onClose(){},viewModel:vm}));all.find(n=>n.type==='Property').props.onPress();all.find(n=>n.props?.accessibilityRole==='tab').props.onPress();assert.deepEqual(selected.target,target);assert.equal(source,'owned');});
 
 test('proxy maps real catalog aliases only at inference and omits uncertain amenities',async()=>{const h=proxyHarness(),names=['Wi-Fi','Elevator','24/7 Security','Parking','Kitchen','Laundry Area'];h.links(names.map(name=>({amenities:{name}})));assert.equal((await h.handler(h.request())).status,200);const input=JSON.parse(String(h.calls.find(c=>c.url.endsWith('/predict'))!.init.body));assert.deepEqual(input.amenities_normalized,['wifi','lift','24 hours security']);assert.deepEqual(names,['Wi-Fi','Elevator','24/7 Security','Parking','Kitchen','Laundry Area']);assert.equal('asking_rent_monthly' in input,false);});
+
+
+test('invalid or absent arithmetic bounds never hide a valid primary estimate',()=>{
+ const base={estimated_rent_monthly:10000,currency:'PHP',model_version:'development-v1'};
+ for(const [range_min,range_max] of [[undefined,undefined],[7000,undefined],[null,13000],['7000',13000],[NaN,13000],[7000,Infinity],[-7000,13000],[13000,7000],[8000,12000],[6999,13000],[7000,13001]]){
+  const result=parseModelPrediction({...base,range_min,range_max});assert.equal(result.estimatedMonthlyRent,10000);assert.equal(result.illustrativeRange,null);
+ }
+ assert.deepEqual(parseModelPrediction({...base,range_min:7000,range_max:13000}).illustrativeRange,{minimum:7000,maximum:13000});
+});
+test('proxy forwards validated upstream bounds and client revalidates without synthesizing old responses',async()=>{
+ const h=proxyHarness(),body=await (await h.handler(h.request())).json();
+ assert.deepEqual(body.illustrativeRange,{minimum:15703.35,maximum:29163.36});
+ assert.deepEqual(parsePredictionReceipt(body,target).illustrativeRange,body.illustrativeRange);
+ assert.equal(parsePredictionReceipt(receipt(),target).illustrativeRange,null);
+ assert.equal(parsePredictionReceipt({...body,illustrativeRange:{minimum:1,maximum:999999}},target).illustrativeRange,null);
+ h.model({estimated_rent_monthly:22433.35,currency:'PHP',model_version:'development-v1',range_min:1,range_max:999999});
+ const invalid=await (await h.handler(h.request())).json();assert.equal(invalid.illustrativeRange,null);assert.equal(invalid.estimatedMonthlyRent,22433.35);
+});
+test('result shows illustrative explanation below primary amount and keeps asking rent separate',()=>{
+ const result={...receipt(),illustrativeRange:{minimum:15703.35,maximum:29163.36}};
+ const vm:any={selected:estimateCandidate(stored,listing),result,difference:-433.35,workflow:{},backFromWorkspace(){}};
+ const text=uiNodes(estimateView()({onClose(){},viewModel:vm})).filter(n=>n.type==='Text').map(n=>[n.props.children].flat().join('')).join(' ');
+ assert.match(text,/Illustrative rental range/);assert.match(text,/15,703.35/);assert.match(text,/29,163.36/);
+ assert.match(text,/not independently predicted by XGBoost and not a statistical confidence interval/);
+ assert.ok(text.indexOf('22,433.35')<text.indexOf('Illustrative rental range'));assert.ok(text.indexOf('Illustrative rental range')<text.indexOf('Asking rent:'));
+});
+
+
+test('range formats PHP amounts with one secondary monthly unit and permits wrapping',()=>{
+ const vm:any={selected:estimateCandidate(stored,listing),result:{...receipt(),illustrativeRange:{minimum:83104.53,maximum:154336.99}},difference:0,workflow:{},backFromWorkspace(){}};
+ const nodes=uiNodes(estimateView()({onClose(){},viewModel:vm})).filter(n=>n.type==='Text');
+ const content=(n:any)=>[n.props.children].flat().join('');
+ const range=nodes.find(n=>content(n)==='₱83,104.53–₱154,336.99');
+ assert.ok(range);assert.equal(range.props.numberOfLines,undefined);
+ const unit=nodes.filter(n=>content(n)==='per month');assert.equal(unit.length,1);assert.notEqual(unit[0].props.style,range.props.style);
+ assert.ok(nodes.some(n=>content(n).includes('Asking rent:')));
+});
+
+
+test('native response-like HTTP errors preserve safe codes and status fallback without constructor identity',async()=>{
+ for(const [status,body,code] of [[422,{code:'model_input',detail:'private'},'model_input'],[422,{code:'input'},'input'],[422,{detail:'private'},'input'],[503,{detail:'private'},'upstream'],[504,{},'timeout'],[422,{code:'private-token'},'input']] as const){
+ const context={status,json:async()=>body};const client:any={auth:{getUser:async()=>({data:{user:{id:B}}})},functions:{invoke:async()=>({data:null,error:{context}})}};
+ await assert.rejects(createPricePredictionClient(()=>client).predict(B,target,new AbortController().signal),e=>e instanceof Error&&'code' in e&&e.code===code&&!e.message.includes('private')&&(status!==422||!e.message.includes('starting')));
+ }
+});
+test('unreadable 422 body is validation, and canceled HTTP completion cannot publish an error/result',async()=>{
+ const controller=new AbortController();let canceled=false;
+ const client:any={auth:{getUser:async()=>({data:{user:{id:B}}})},functions:{invoke:async()=>{if(canceled)controller.abort();return {data:null,error:{context:{status:422,json:async()=>{throw new Error('private');}}}};}}};
+ await assert.rejects(createPricePredictionClient(()=>client).predict(B,target,controller.signal),e=>e instanceof Error&&'code' in e&&e.code==='input');canceled=true;
+ await assert.rejects(createPricePredictionClient(()=>client).predict(B,target,controller.signal),/canceled/);
+});

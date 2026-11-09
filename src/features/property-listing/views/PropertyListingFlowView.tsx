@@ -1,3 +1,5 @@
+import {RentalPriceGuidance} from '../../../shared/components/RentalPriceGuidance';
+import {InlineRentalEstimate} from '../../../shared/components/InlineRentalEstimate';
 import type {LandlordPortfolioItem} from '../models/LandlordPortfolio';
 import {PropertyIdentityEditView} from './PropertyIdentityEditView';
 import {PropertyRoutineEditView} from './PropertyRoutineEditView';
@@ -20,6 +22,7 @@ import { ListingPreviewView } from './ListingPreviewView';
 import { PropertyDashboardView } from './PropertyDashboardView';
 
 export interface PropertyListingFlowViewProps {
+ accountId?:string|undefined;
  renderRequestControls?:((item:LandlordPortfolioItem)=>ReactNode)|undefined;
   renderPropertyVerification?: (propertyId:string,onClose:()=>void,registerBack:(action:(()=>void)|null)=>void)=>ReactNode;
   initialScreen?: 'dashboard' | 'postingType';
@@ -60,6 +63,7 @@ const managementScreens = new Set([
 ]);
 
 export function PropertyListingFlowView({
+  accountId,
   renderPropertyVerification,
   renderRequestControls,
   initialScreen = 'dashboard',
@@ -79,22 +83,25 @@ export function PropertyListingFlowView({
     registerBackAction?.(() => viewModel.backFromWorkspace(onRootBack));
     return () => registerBackAction?.(null);
   });
+  const estimateTarget=viewModel.workspaceListingId?{listingId:viewModel.workspaceListingId}:viewModel.workspacePropertyId?{propertyId:viewModel.workspacePropertyId}:null;
+  const estimateSection=estimateTarget?<InlineRentalEstimate key={`${accountId}:${JSON.stringify(estimateTarget)}:${viewModel.screen}`} accountId={accountId} target={estimateTarget} property={viewModel.estimationProperty} onReview={viewModel.estimationProperty?.landlord_id===accountId&&viewModel.propertyEditAvailable&&viewModel.screen!=='propertyEdit'?viewModel.openPropertyDetails:undefined}/>:null;
+  const priceGuidance=<RentalPriceGuidance key={`${accountId}:${viewModel.workspacePropertyId}:${viewModel.screen}`} accountId={accountId} target={viewModel.workspacePropertyId?{propertyId:viewModel.workspacePropertyId}:null} property={viewModel.estimationProperty} onUseEstimate={viewModel.applyRentalEstimate} disabled={viewModel.listingDraftReadOnly||!!viewModel.composerPhase||viewModel.listingDraftState.busy}/>;
   let content;
 
   if (viewModel.screen === 'dashboard' || viewModel.screen === 'empty') {
     content = <PropertyDashboardView viewModel={viewModel} renderRequestControls={renderRequestControls}/>;
   } else if (viewModel.screen === 'published' && viewModel.showRealPublication && viewModel.realListing) {
-    content = <PublishedListingStatusView viewModel={viewModel} onClose={close} />;
+    content = <PublishedListingStatusView estimateSection={estimateSection} viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'identityEdit') {
     content=<PropertyIdentityEditView viewModel={viewModel} onClose={close}/>;
   } else if (viewModel.screen === 'propertyEdit') {
-    content=<PropertyRoutineEditView viewModel={viewModel} onClose={close}/>;
+    content=<PropertyRoutineEditView estimateSection={estimateSection} viewModel={viewModel} onClose={close}/>;
   } else if (viewModel.screen === 'draftSaved') {
     content = <ListingDraftSavedView viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'listingComposer') {
-    content = <ListingComposerView viewModel={viewModel} onClose={close} />;
+    content = <ListingComposerView estimateSection={estimateSection} viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'listingDetails') {
-    content = <ListingDetailsView viewModel={viewModel} onClose={close} />;
+    content = <ListingDetailsView priceGuidance={priceGuidance} viewModel={viewModel} onClose={close} />;
   } else if (createScreens.has(viewModel.screen)) {
     content = <CreateListingView onClose={close} viewModel={viewModel} />;
   } else if (previewScreens.has(viewModel.screen)) {
@@ -103,7 +110,7 @@ export function PropertyListingFlowView({
     content = (
       <ListingManagementView
         onClose={close}
-        onOpenPriceEstimate={() => viewModel.requestNavigation(onOpenPriceEstimate)}
+        estimateSection={estimateSection}
         viewModel={viewModel}
       />
     );
@@ -111,7 +118,7 @@ export function PropertyListingFlowView({
     content = (
       <ListingDetailView
         onClose={close}
-        onOpenPriceEstimate={() => viewModel.requestNavigation(onOpenPriceEstimate)}
+        estimateSection={estimateSection}
         viewModel={viewModel}
       />
     );

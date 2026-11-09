@@ -1581,3 +1581,12 @@ Migration LF SHA-256: 66fab33086d02c780ca8cda36ab18a48813751cfffae27d90baad48492
 ## Phase 2A postdeployment frontend reconciliation - November 9, 2026
 
 Phase 2A schema/RPC deployment independently confirmed as 20261109131034 (28 history rows); migration renamed without SQL changes. Live-generated relevant columns/RPC signatures match prepared types; explicit SQL-nullable Args retained. Existing creation/edit services already bind v2 correctly with legacy compatibility and account/version/receipt protections. Focused frontend tests and TypeScript pass; production caller-JWT write/Android acceptance remain pending. Phase 2B named Edge deployment still requires separate authorization; no deployment/build in this reconciliation. Details: reconciliation audit postdeployment section.
+
+## Phase 2 physical Android acceptance and focused fixes - November 10, 2026
+
+Agent-observed owner create/reopen (user-created draft), studio/35 sqm/unknown lot/parking zero, authorized lot/parking save/reopen, real inline estimate/range/asking-rent separation, legacy unknown-field prediction and unsupported Boarding house gating passed. Two frontend fixes: first hydrated render exposes owner property editing; saved model fields/edit_version now invalidate old estimates. 169 focused regressions, TypeScript and whitespace pass. Final designated test-property attributes: lot 50 / parking 2; asking rent 5,000 unchanged. Different-account tenant inference/denial remains unverified. No deployment/build/commit/push; details and reproduction steps in reconciliation audit.
+
+
+## Rental price guidance and scoped Phase 2 completion - November 10, 2026
+
+Compact real XGBoost guidance now follows Monthly asking rent. Saved property IDs only; unsaved property shows save-first guidance without creating/publishing anything. Explicit Use estimate fills the local price through the ViewModel, never autosaves or overwrites a price automatically; manual override remains valid. Existing inline details, null/zero, eligibility, safe errors, cancellation and the two physical-test fixes are preserved. Physical owner guidance/adoption/manual override/save/reopen passed; test price restored5000. 545 focused workspace tests, TypeScript and whitespace pass. Cross-account tenant acceptance remains BLOCKED; automated authorization passes. No schema/service/model change or build; final evidence/scope in reconciliation audit.

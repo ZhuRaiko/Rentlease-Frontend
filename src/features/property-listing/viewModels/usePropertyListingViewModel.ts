@@ -1,3 +1,4 @@
+import type {PredictionReceipt} from '../../../shared/models/RentalPrediction';
 import {propertyMeasurementWarnings} from '../../../shared/models/PropertyMeasurementQuality';
 import {createPropertyIdentityWorkflow} from './propertyIdentityWorkflow';
 import {propertyIdentityService} from '../services/propertyIdentityDependencies';
@@ -666,7 +667,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     openIdentityCorrection:()=>{const id=workspaceRef.current.propertyId;if(!id||operationBusy()||propertyIdentity.getSnapshot().status!=='idle')return;requestPropertyNavigation(()=>{navigate('identityEdit');void propertyIdentity.open(id);});},
     openIdentityVerification:()=>{if(!operationBusy()&&['draft','submitted','rejected'].includes(propertyIdentity.getSnapshot().context?.correction?.status??''))void propertyVerification.openCorrection();},
     propertyRoutine,propertyRoutineState,
-    propertyEditAvailable:!!workspace.propertyId&&workspace.item?.property.is_active!==false&&!initialHydrationPending(),
+    propertyEditAvailable:!!workspace.propertyId&&workspace.item?.property.is_active!==false&&(!initialHydrationPending()||draftHydration.status==='ready'),
     openPropertyDetails:()=>{const id=workspaceRef.current.propertyId;if(operationBusy()||initialHydrationPending()||!id||propertyRoutine.getSnapshot().status!=='idle')return;navigate('propertyEdit');void propertyRoutine.open(id);},
     reloadPropertyDetails:()=>{const id=propertyRoutine.getSnapshot().propertyId;if(id)requestPropertyNavigation(()=>void propertyRoutine.open(id));},
     propertyValidationIssues:propertyIssues,propertyVisibleValidationIssues:propertyVisibleIssues,
@@ -698,6 +699,13 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     retryDraftHydration:()=>{if(!initialHydrationPending())return;propertyPhotos.setProperty(null);propertyAmenities.setProperty(null);publishedContent.setProperty(null);listingDraftPersistence.setProperty(null);publication.setProperty(null);selectWorkspace({...workspaceRef.current});},
     composerSaveDisabled: !!(contentState.lastConfirmed&&(!listingDraftDirty&&!photoState.pendingSelections.length||listingValidationIssue)) || (editingPublished ? initialHydrationPending()||operationBusy()||publishedContentState.uncertain||publishedContentState.conflict||publicationReadOnly() : initialHydrationPending() || operationBusy() || propertyState.uncertain || listingDraftState.uncertain || listingDraftState.conflict || (!workspace.propertyId ? !propertyState.loaded : publicationReadOnly() || photoState.needsReconcile)),
     composerPreview: history.includes('listingComposer') || history.includes('listingDetails') || screen === 'listingComposer' || screen === 'listingDetails',
+    applyRentalEstimate:(result:PredictionReceipt)=>{
+      const current=workspaceRef.current;
+      const matches=result.target.propertyId===current.propertyId||!!current.listingId&&result.target.listingId===current.listingId;
+      if(!active.current||!current.propertyId||!matches||result.currency!=='PHP'||!Number.isFinite(result.estimatedMonthlyRent)||result.estimatedMonthlyRent<=0||propertyRoutine.dirty()||propertyIdentity.dirty())return;
+      updateDraft('askingRent',String(Math.round(result.estimatedMonthlyRent*100)/100));
+    },
+    estimationProperty:physical?{property_subtype:'property_subtype' in physical?physical.property_subtype:null,lot_area_sqm:'lot_area_sqm' in physical?physical.lot_area_sqm:null,parking_spaces:'parking_spaces' in physical?physical.parking_spaces:null,edit_version:'edit_version' in physical?physical.edit_version:null,property_type:physical.property_type,city:physical.city,furnishing_status:physical.furnishing_status,bedrooms:physical.bedrooms,bathrooms:physical.bathrooms,floor_area_sqm:physical.floor_area_sqm,floor_number:physical.floor_number,is_active:workspace.item?.property.is_active,landlord_id:'owner_id' in physical?physical.owner_id:physical.landlord_id}:null,
     workspacePropertyId: workspace.propertyId, workspaceListingId: lifecycleState.listingId ?? listingDraftState.listingId ?? workspace.listingId, workspaceMode: workspace.mode,
     workspacePropertyActive: workspace.item?.property.is_active !== false,
     portfolio, portfolioState, portfolioItems: portfolio.filtered(), portfolioStatistics: portfolio.stats(),

@@ -258,3 +258,9 @@ My Listings -> property Manage Requests -> Viewings/Reservations -> existing act
 ## November 8 - Content recommendation routes
 
 Discover -> Recommended for You -> existing real Listing Details. View ranked rentals and Search Sort -> Recommended/Best Match use the same 100-result recent filtered pool. Recommended blends preference/authorized verification/completeness; Best Match is relevance only. Both require explicitly saved session preferences. Preferences -> Save reranks; account changes clear; hard filter/query changes reload. Recent/price sorts keep normal server paging. Bounded-ranking and unknown-verification limitations are visible; For You remains community. GPS/map, Post, UC-08/09 and estimator routes are preserved. See features/PROPERTY_RECOMMENDATIONS.md; Android acceptance pending.
+
+November 8 inline estimator: saved property/listing detail contexts now offer user-triggered inline rental estimation without leaving details. Real Discover and Chat-linked listing details bind the current listing ID. The standalone estimator route remains compatibility-only; normal details no longer navigate to its picker. See RENTAL_PRICE_ESTIMATION.md for validation and Android acceptance limits. No property creation/publication rules changed.
+
+## Rental price guidance and scoped Phase 2 completion - November 10, 2026
+
+Listing draft -> Monthly asking rent -> compact inline guidance for the saved property -> optional Use estimate updates local asking rent. No navigation to the standalone picker and no property creation/publishing for prediction. Property/details inline estimates remain; Back/account/property cancellation preserved. Compatibility-only estimator route retained.

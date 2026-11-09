@@ -1,3 +1,4 @@
+import type {ReactNode} from 'react';
 import {PropertyVerificationAction} from '../components/PropertyVerificationAction';
 import { PropertyProgressFooter, PropertyReadinessNotice } from '../components/PropertyProgressFooter';
 import { CompletenessHint } from '../components/CompletenessHint';
@@ -15,7 +16,7 @@ import { rentalTermOptions } from '../models/PersistedListingDraft';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
 // Page 2: rental offering only; persistence is coordinated by the ViewModel.
-export function ListingDetailsView({ viewModel: vm, onClose }: { viewModel: PropertyListingViewModel; onClose: () => void }) {
+export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { priceGuidance?:ReactNode; viewModel: PropertyListingViewModel; onClose: () => void }) {
   if(vm.draftHydration.status==='loading'||vm.draftHydration.status==='error')return <ListingWizardScaffold title="Listing details" onBack={vm.goBack} onClose={onClose}>
     <Text accessibilityRole="header" style={styles.heading}>{vm.draftHydration.status==='error'?'Saved details could not load':'Loading saved details'}</Text>
     <Text accessibilityLiveRegion="polite" style={styles.body}>{vm.draftHydration.error??'Loading your saved listing, property details, and photos. You can go back while this finishes.'}</Text>
@@ -53,6 +54,7 @@ export function ListingDetailsView({ viewModel: vm, onClose }: { viewModel: Prop
     <ComposerRecoveryFeedback viewModel={vm} />
     <ListingField editable={editable} required error={vm.listingValidationIssue?.field==='title'?vm.listingValidationIssue.message:null} helper={<CompletenessHint value={vm.completeness} factor="title" />} label="Listing title" placeholder="e.g. Bright 1-bedroom apartment in Imus" value={draft.title} onChangeText={v => vm.updateDraft('title', v)} />
     <ListingField editable={editable} required error={vm.listingValidationIssue?.field==='askingRent'?vm.listingValidationIssue.message:null} helper={<CompletenessHint value={vm.completeness} factor="rent" />} label="Monthly asking rent" prefix="₱" keyboardType="numeric" placeholder="Enter monthly rent" value={draft.askingRent} onChangeText={v => vm.updateDraft('askingRent', v)} />
+    {priceGuidance}
     <ListingField editable={editable} required helper={<CompletenessHint value={vm.completeness} factor="description" />} error={vm.listingValidationIssue?.field==='description'?vm.listingValidationIssue.message:null} label="Description" multiline placeholder="Describe the space and what tenants should know." value={draft.description} onChangeText={v => vm.updateDraft('description', v)} />
     <View style={styles.section}><Text accessibilityRole="header" style={styles.heading}>Rental terms</Text>
       <FeedbackNotice message={vm.listingValidationIssue?.field==='rentalTerm'?vm.listingValidationIssue.message:null} tone="error" />

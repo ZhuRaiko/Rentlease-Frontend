@@ -1,3 +1,4 @@
+import {InlineRentalEstimate} from '../../../shared/components/InlineRentalEstimate';
 import {PublicAvatar} from '../../../shared/components/PublicIdentityBadge';
 import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {placeCategories,placeCategoryLabels} from '../../../shared/models/NearbyPlace';
@@ -48,7 +49,7 @@ function DetailGalleryPhoto({url,label,width,onPress}:{url:string;label:string;w
     <Text style={styles.photoCaption}>{label}</Text>
   </Pressable>;
 }
-export function LivePropertyDetailView({viewModel:vm,onOpenPriceEstimate}:{onOpenPriceEstimate?:()=>void;viewModel:Pick<SearchDiscoveryViewModel,'manualState'|'manual'|'goBack'|'isOwnListing'|'listingOwnerIdentity'|'listingOwnerLabel'>&Partial<Pick<SearchDiscoveryViewModel,'contactOwner'>>}) {
+export function LivePropertyDetailView({viewModel:vm,accountId,onOpenPriceEstimate}:{accountId?:string|undefined;onOpenPriceEstimate?:()=>void;viewModel:Pick<SearchDiscoveryViewModel,'manualState'|'manual'|'goBack'|'isOwnListing'|'listingOwnerIdentity'|'listingOwnerLabel'>&Partial<Pick<SearchDiscoveryViewModel,'contactOwner'>>}) {
   const s=vm.manualState,d=s.detail;const [imageIndex,setImageIndex]=useState<number|null>(null);const photo=imageIndex===null?null:d?.photos[imageIndex];
   const photoWidth=Math.max(240,useWindowDimensions().width-32);
   return <View style={styles.screen}><DiscoveryHeader title="Rental details" onBack={vm.goBack}/><ScrollView contentContainerStyle={styles.detailContent}>
@@ -71,7 +72,7 @@ export function LivePropertyDetailView({viewModel:vm,onOpenPriceEstimate}:{onOpe
         {vm.isOwnListing?<Text style={styles.copy}>This is your listing.</Text>:vm.contactOwner?<DiscoveryButton label={s.inquiryBusy?'Opening conversation...':'Contact Owner'} disabled={s.inquiryBusy} onPress={()=>void vm.contactOwner?.()}/>:null}
         {s.inquiryError?<Text accessibilityRole="alert" style={styles.error}>{s.inquiryError}</Text>:null}
       </View>
-      {onOpenPriceEstimate?<View style={styles.detailSection}><DiscoveryButton label="Estimate rental price" tone="outline" onPress={onOpenPriceEstimate}/></View>:null}
+      <InlineRentalEstimate key={`${accountId}:${d.listingId}`} accountId={accountId} target={{listingId:d.listingId}} property={{property_type:d.propertyType,city:d.city,furnishing_status:d.furnishing,bedrooms:d.bedrooms,bathrooms:d.bathrooms,floor_area_sqm:d.floorArea}}/>
       <View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>About this rental</Text><Text style={styles.copy}>{d.description}</Text></View>
       <View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>Amenities</Text>{d.amenities.length?<View style={styles.row}>{d.amenities.map((a,i)=><Text key={i} style={styles.amenity}>{a}</Text>)}</View>:<Text style={styles.copy}>No property amenities recorded.</Text>}</View>
       <View style={styles.detailSection}>

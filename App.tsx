@@ -192,7 +192,7 @@ export default function App() {
               openProperties('dashboard')
             }
             onOpenPriceEstimate={() =>
-              setWorkspace({ type: 'priceEstimate', actor: 'tenant', returnTo: 'discovery' })
+              openDiscovery()
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
             onOpenMaintenance={() => setWorkspace({ type: 'tenancy' })}
@@ -214,7 +214,7 @@ export default function App() {
             onClose={openProfile}
             onOpenDiscover={openDiscovery}
             onOpenPriceEstimate={() =>
-              setWorkspace({ type: 'priceEstimate', actor: 'landlord', returnTo: 'properties' })
+              openProperties('dashboard')
             }
             onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
             onOpenMaintenance={() => setWorkspace({ type: 'tenancy' })}
@@ -328,5 +328,5 @@ export default function App() {
 
 function ChatListingDetails({owner,id,onBack}:{owner:string|undefined;id:string;onBack:()=>void}){
  const viewModel=useListingDetailViewModel(owner,id,onBack);
- return <LivePropertyDetailView viewModel={viewModel}/>;
+ return <LivePropertyDetailView viewModel={viewModel} accountId={owner}/>;
 }

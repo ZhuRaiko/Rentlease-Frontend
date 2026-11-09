@@ -1,3 +1,4 @@
+import type {ReactNode} from 'react';
 import {ListingButton} from '../components/ListingButton';
 import {ScreenContainer} from '../../../shared/components/ScreenContainer';
 import { usePropertyFormFocus } from '../components/usePropertyFormFocus';
@@ -14,7 +15,7 @@ import { PropertyLocationToolView } from './PropertyLocationToolView';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
 // Page 1: physical property only. Next is local navigation, never persistence.
-export function ListingComposerView({ viewModel: vm, onClose }: { viewModel: PropertyListingViewModel; onClose: () => void }) {
+export function ListingComposerView({ viewModel: vm, onClose, estimateSection }: { estimateSection?:ReactNode; viewModel: PropertyListingViewModel; onClose: () => void }) {
   const focus=usePropertyFormFocus(vm.propertyValidationTarget);
   const mapOpen = ['searching', 'candidates', 'map'].includes(vm.locationState.stage);
   return <>
@@ -23,6 +24,7 @@ export function ListingComposerView({ viewModel: vm, onClose }: { viewModel: Pro
       {!vm.workspacePropertyId ? <Text style={styles.copy}>* Required to save the property</Text> : null}
       <PropertyMediaSection viewModel={vm} />
       <ComposerRecoveryFeedback viewModel={vm} />
+      {estimateSection}
     {vm.propertyEditAvailable?<ListingButton label="Edit Property Details" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={vm.openPropertyDetails}/>:null}
       <ComposerPropertyFields viewModel={vm} focus={focus}>
         <View collapsable={false} ref={focus.section('amenities')}><PropertyAmenitiesFields viewModel={vm} /></View>

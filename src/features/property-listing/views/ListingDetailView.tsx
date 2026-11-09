@@ -1,3 +1,4 @@
+import type {ReactNode} from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
@@ -15,13 +16,13 @@ const landlordAvatar = require('../../../assets/authentication/profile-avatar.pn
 interface ListingDetailViewProps {
   viewModel: PropertyListingViewModel;
   onClose: () => void;
-  onOpenPriceEstimate: () => void;
+  estimateSection?:ReactNode;
 }
 
 export function ListingDetailView({
   viewModel,
   onClose,
-  onOpenPriceEstimate,
+  estimateSection,
 }: ListingDetailViewProps) {
   const { draft, listing } = viewModel;
   const thumbnails = [
@@ -95,7 +96,7 @@ export function ListingDetailView({
             </View>
           </View>
           {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
-          <ListingButton label="Open rental price estimate" onPress={onOpenPriceEstimate} tone="outline" />
+          {estimateSection}
           <ListingButton label="Manage this listing" onPress={viewModel.openManagement} />
           <View style={styles.specGrid}>
             <View style={styles.specCard}><Text style={styles.specValue}>{draft.bedrooms}</Text><Text style={styles.specLabel}>Bedrooms</Text></View>
