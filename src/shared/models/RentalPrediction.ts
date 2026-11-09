@@ -1,3 +1,4 @@
+import {modelPropertyCategory,type RentalRequestCategory,type RentalModelSubtype} from './RentalModelAttributes.ts';
 /** Contract pinned to Rentlease-Features dee06f16fe182361b1d9d7e6ecf35f41703bf1a6. */
 export const ML_SOURCE_COMMIT='dee06f16fe182361b1d9d7e6ecf35f41703bf1a6';
 // Exact fitted vocabulary. Aliases apply only at inference, never to stored listings.
@@ -12,11 +13,12 @@ export function mapPredictionAmenities(amenities:readonly string[]|null):string[
 }
 export type PredictionTarget={propertyId:string;listingId?:never}|{listingId:string;propertyId?:never};
 export interface PredictionRequest {
- property_type:'house'|'apartment'|'condominium';property_subtype:'house'|'apartment'|'condominium';city:string;furnishing_status:string;
+ property_type:RentalRequestCategory;property_subtype:RentalModelSubtype;city:string;furnishing_status:string;
  bedrooms:number|null;bathrooms:number|null;floor_area_sqm:number;floor_number:number|null;
- lot_area_sqm:null;parking_spaces:null;latitude:null;longitude:null;amenities_normalized:string[]|null;
+ lot_area_sqm:number|null;parking_spaces:number|null;latitude:null;longitude:null;amenities_normalized:string[]|null;
 }
-export interface ModelPrediction {estimatedMonthlyRent:number;currency:'PHP';modelVersion:string}
+export interface IllustrativeRentalRange {minimum:number;maximum:number}
+export interface ModelPrediction {estimatedMonthlyRent:number;currency:'PHP';modelVersion:string;illustrativeRange?:IllustrativeRentalRange|null}
 export interface PredictionReceipt extends ModelPrediction {target:PredictionTarget;predictedAt:string;askingRent:number|null}
 export class PredictionError extends Error {constructor(message:string,public readonly code='unavailable'){super(message);}}
 const cities:Record<string,string>={imus:'Imus',dasmarinas:'Dasmari\u00f1as',tagaytay:'Tagaytay'};
@@ -34,17 +36,28 @@ export function mapPredictionInput(property:Record<string,unknown>,amenities:str
  const city=typeof property.city==='string'?cities[property.city]:undefined;if(!city)throw new PredictionError('This property city is not supported by RentLease.','input');
  const furnishing=property.furnishing_status;if(!['unfurnished','semi_furnished','furnished'].includes(String(furnishing)))throw new PredictionError('Review the property furnishing information.','input');
  if(amenities!==null&&(!Array.isArray(amenities)||amenities.some(v=>typeof v!=='string')))throw new PredictionError('Property amenities could not be verified.','input');
- return {property_type:type,property_subtype:type,city,furnishing_status:String(furnishing),bedrooms:number('bedrooms'),bathrooms:number('bathrooms'),floor_area_sqm:area,floor_number:number('floor_number'),lot_area_sqm:null,parking_spaces:null,latitude:null,longitude:null,amenities_normalized:mapPredictionAmenities(amenities)};
+ let category;try{category=modelPropertyCategory(type,property.property_subtype);}catch{throw new PredictionError('Review the saved property subtype for this category.','input');}
+ const lot=number('lot_area_sqm'),parking=number('parking_spaces');if(parking!==null&&!Number.isSafeInteger(parking))throw new PredictionError('Review the saved parking-space count.','input');
+ return {...category,city,furnishing_status:String(furnishing),bedrooms:number('bedrooms'),bathrooms:number('bathrooms'),floor_area_sqm:area,floor_number:number('floor_number'),lot_area_sqm:lot,parking_spaces:parking,latitude:null,longitude:null,amenities_normalized:mapPredictionAmenities(amenities)};
 }
-/** Discard the API's illustrative +/-30% band. It is not model uncertainty. */
+/** Validate supplied arithmetic bounds; never invent missing bounds or model uncertainty. */
+function parseIllustrativeRange(estimate:number,minimum:unknown,maximum:unknown):IllustrativeRentalRange|null {
+ if(typeof minimum!=='number'||typeof maximum!=='number'||!Number.isFinite(minimum)||!Number.isFinite(maximum)||minimum<=0||minimum>estimate||maximum<estimate||minimum>=maximum)return null;
+ // Estimate and bounds can be independently rounded to PHP cents upstream.
+ // Two cents accommodates that rounding, without accepting a different band.
+ const tolerance=0.02;
+ if(Math.abs(minimum-estimate*.7)>tolerance||Math.abs(maximum-estimate*1.3)>tolerance)return null;
+ return {minimum,maximum};
+}
 export function parseModelPrediction(value:unknown):ModelPrediction {
  if(!value||typeof value!=='object'||Array.isArray(value))throw new PredictionError('The estimator returned an invalid result.');const r=value as Record<string,unknown>;
  if(typeof r.estimated_rent_monthly!=='number'||!Number.isFinite(r.estimated_rent_monthly)||r.estimated_rent_monthly<=0||r.currency!=='PHP'||typeof r.model_version!=='string'||!r.model_version.trim()||r.model_version.length>100)throw new PredictionError('The estimator returned an invalid result.');
- return {estimatedMonthlyRent:r.estimated_rent_monthly,currency:'PHP',modelVersion:r.model_version};
+ return {estimatedMonthlyRent:r.estimated_rent_monthly,currency:'PHP',modelVersion:r.model_version,illustrativeRange:parseIllustrativeRange(r.estimated_rent_monthly,r.range_min,r.range_max)};
 }
 export function parsePredictionReceipt(value:unknown,target:PredictionTarget):PredictionReceipt {
  if(!value||typeof value!=='object')throw new PredictionError('The estimator returned an invalid result.');const r=value as Record<string,unknown>;
- const model=parseModelPrediction({estimated_rent_monthly:r.estimatedMonthlyRent,currency:r.currency,model_version:r.modelVersion});
+ const range=r.illustrativeRange&&typeof r.illustrativeRange==='object'?r.illustrativeRange as Record<string,unknown>:null;
+ const model=parseModelPrediction({estimated_rent_monthly:r.estimatedMonthlyRent,currency:r.currency,model_version:r.modelVersion,range_min:range?.minimum,range_max:range?.maximum});
  const receivedTarget=parsePredictionTarget(r.target);
  if(JSON.stringify(receivedTarget)!==JSON.stringify(target)||typeof r.predictedAt!=='string'||!Number.isFinite(Date.parse(r.predictedAt))||(r.askingRent!==null&&(typeof r.askingRent!=='number'||!Number.isFinite(r.askingRent)||r.askingRent<=0)))throw new PredictionError('The estimate could not be matched to this property.');
  return {...model,target:receivedTarget,predictedAt:r.predictedAt,askingRent:r.askingRent as number|null};

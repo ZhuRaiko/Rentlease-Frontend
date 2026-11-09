@@ -46,8 +46,8 @@ test('legacy context fallback does not allow optional values to disappear into o
 test('malformed v2 numeric contexts are rejected rather than converted into saved values',()=>{
  assert.throws(()=>parsePropertyEditContext({...context(),parking_spaces:'2'},id,owner));assert.throws(()=>parsePropertyEditContext({...context(),property_subtype:'studio'},id,owner));assert.throws(()=>parsePropertyEditContext({...context(),lot_area_sqm:NaN},id,owner));
 });
-test('Phase 2A attributes remain excluded from inference until separate proxy rollout',()=>{
- const result=mapPredictionInput({...context(),property_subtype:'villa',lot_area_sqm:50,parking_spaces:1,latitude:14.4,longitude:120.9});assert.equal(result.property_subtype,'house');assert.equal(result.lot_area_sqm,null);assert.equal(result.parking_spaces,null);assert.equal(result.latitude,null);assert.equal(result.longitude,null);assert.ok(!('asking_rent_monthly' in result));
+test('Phase 2B consumes saved attributes while coordinates remain excluded',()=>{
+ const result=mapPredictionInput({...context(),property_subtype:'villa',lot_area_sqm:50,parking_spaces:1,latitude:14.4,longitude:120.9});assert.equal(result.property_subtype,'villa');assert.equal(result.lot_area_sqm,50);assert.equal(result.parking_spaces,1);assert.equal(result.latitude,null);assert.equal(result.longitude,null);assert.ok(!('asking_rent_monthly' in result));
 });
 
 import {readFileSync} from 'node:fs';

@@ -2,6 +2,7 @@ import {mapPredictionInput,parseModelPrediction,parsePredictionTarget,isPredicti
 export interface ProxyConfig {supabaseUrl:string;anonKey:string;mlUrl:string;mlSecret:string;timeoutMs?:number}
 const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,apikey,content-type,x-client-info','Access-Control-Allow-Methods':'POST,OPTIONS','Cache-Control':'no-store'};
 const reply=(status:number,body:unknown)=>new Response(JSON.stringify(body),{status,headers:{...headers,'Content-Type':'application/json'}});
+const MODEL_FIELDS=',property_subtype,lot_area_sqm,parking_spaces';
 const PROPERTY_FIELDS='id,landlord_id,is_active,property_type,city,furnishing_status,bedrooms,bathrooms,floor_area_sqm,floor_number';
 /** Uses only a caller-scoped JWT plus publishable/anon key. Never a service-role client. */
 export function createPredictionHandler(config:ProxyConfig,http:typeof fetch=fetch){
@@ -24,7 +25,19 @@ export function createPredictionHandler(config:ProxyConfig,http:typeof fetch=fet
   let listing:Record<string,unknown>|null=null,propertyId:string;
   if(target.listingId){const rows=await read('/rest/v1/listings?select=id,property_id,landlord_id,title,status,published_at,available_from,asking_rent_monthly&id=eq.'+target.listingId+'&limit=1');listing=Array.isArray(rows)?rows[0]:null;if(!listing||!isPredictionId(listing.property_id))return reply(404,{code:'access'});propertyId=listing.property_id;}
   else if(target.propertyId)propertyId=target.propertyId;else return reply(400,{code:'input'});
-  const rows=await read('/rest/v1/properties?select='+PROPERTY_FIELDS+'&id=eq.'+propertyId+'&limit=1'),property=Array.isArray(rows)?rows[0]:null;
+  const propertyPath=(fields:string)=>'/rest/v1/properties?select='+fields+'&id=eq.'+propertyId+'&limit=1';
+  // Older production schemas do not have Phase 2A yet. Retry only a precisely
+  // identified missing optional column, never permissions, cache or other errors.
+  const responseForProperty=await http(config.supabaseUrl.replace(/\/$/,'')+propertyPath(PROPERTY_FIELDS+MODEL_FIELDS),{headers:authHeaders,signal:controller.signal});
+  let rows:unknown;
+  if(responseForProperty.ok)rows=await responseForProperty.json();
+  else{
+   let missing=false;
+   if(responseForProperty.status===400){try{const error=await responseForProperty.json();missing=error?.code==='42703'&&typeof error.message==='string'&&/^column (?:properties\.)?(?:property_subtype|lot_area_sqm|parking_spaces) does not exist$/.test(error.message);}catch{/* Unverified errors never allow fallback. */}}
+   if(!missing)throw new PredictionError('Access unavailable.','access');
+   rows=await read(propertyPath(PROPERTY_FIELDS));
+  }
+  const property=Array.isArray(rows)?rows[0]:null;
   if(!property||property.id!==propertyId||!isPredictionId(property.landlord_id)||property.is_active!==true)return reply(404,{code:'access'});
   const owned=property.landlord_id===actor;
   if(listing&&listing.landlord_id!==property.landlord_id)return reply(404,{code:'access'});
@@ -36,6 +49,7 @@ export function createPredictionHandler(config:ProxyConfig,http:typeof fetch=fet
   const input=mapPredictionInput(property,names);
   const response=await http(ml.origin+'/predict',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+config.mlSecret},body:JSON.stringify(input),signal:controller.signal,redirect:'error'});
   if(!response.ok)return reply(response.status===422?422:response.status===429?429:503,{code:response.status===422?'model_input':response.status===429?'rate_limit':'upstream'});
+  // Shared parsing forwards only validated illustrative bounds; invalid bounds remain null.
   let result;try{result=parseModelPrediction(await response.json());}catch{return reply(502,{code:'invalid_result'});}
   if(controller.signal.aborted)return reply(504,{code:'timeout'});
   return reply(200,{...result,target,askingRent:listing&&typeof listing.asking_rent_monthly==='number'&&Number.isFinite(listing.asking_rent_monthly)&&listing.asking_rent_monthly>0?listing.asking_rent_monthly:null,predictedAt:new Date().toISOString()});
