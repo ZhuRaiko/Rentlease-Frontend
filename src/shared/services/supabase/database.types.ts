@@ -937,6 +937,9 @@ export type Database = {
       }
       properties: {
         Row: {
+          property_subtype: string | null
+          lot_area_sqm: number | null
+          parking_spaces: number | null
           edit_version: string
           media_version: string
           barangay: string
@@ -958,6 +961,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          property_subtype?: string | null
+          lot_area_sqm?: number | null
+          parking_spaces?: number | null
           edit_version?: string
           media_version?: string
           barangay: string
@@ -979,6 +985,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          property_subtype?: string | null
+          lot_area_sqm?: number | null
+          parking_spaces?: number | null
           edit_version?: string
           media_version?: string
           barangay?: string
@@ -2264,8 +2273,17 @@ export type Database = {
       get_admin_property_identity_review: {Args: {p_submission_id: string}; Returns: Json}
       review_property_identity_verification: {Args: {p_submission_id: string; p_expected_submission_version: string; p_expected_property_version: string; p_expected_correction_version: string | null; p_status: Database['public']['Enums']['verification_status']; p_same_asset_confirmed: boolean; p_note?: string; p_reason?: string}; Returns: undefined}
 
+      // Prepared Phase 2A contracts; not yet deployed. Legacy signatures retained.
+      get_owned_property_edit_context_v2: { Args: { p_property_id: string }; Returns: Json }
       get_owned_property_edit_context: { Args: { p_property_id: string }; Returns: Json }
       get_property_details_operation: { Args: { p_property_id: string; p_request_id: string }; Returns: Json }
+      update_property_details_v2: {
+        Args: {
+          p_property_subtype?: string | null
+          p_lot_area_sqm?: number | null
+          p_parking_spaces?: number | null; p_property_id: string; p_expected_edit_version: string; p_request_id: string; p_bedrooms: number; p_bathrooms: number; p_floor_area_sqm: number | null; p_max_occupants: number | null; p_total_floors: number | null; p_furnishing_status: Database["public"]["Enums"]["furnishing_status"]; p_amenity_ids: number[]; p_access_instructions: string | null }
+        Returns: Json
+      }
       update_property_details: {
         Args: { p_property_id: string; p_expected_edit_version: string; p_request_id: string; p_bedrooms: number; p_bathrooms: number; p_floor_area_sqm: number | null; p_max_occupants: number | null; p_total_floors: number | null; p_furnishing_status: Database["public"]["Enums"]["furnishing_status"]; p_amenity_ids: number[]; p_access_instructions: string | null }
         Returns: Json
@@ -2317,6 +2335,33 @@ export type Database = {
       can_view_property: {
         Args: { property_uuid: string; requested_user?: string }
         Returns: boolean
+      }
+      create_property_setup_v2: {
+        Args: {
+          p_property_subtype?: string | null
+          p_lot_area_sqm?: number | null
+          p_parking_spaces?: number | null
+          p_access_instructions?: string
+          p_address_line_1: string
+          p_address_line_2?: string
+          p_amenity_ids?: number[]
+          p_barangay: string
+          p_bathrooms?: number
+          p_bedrooms?: number
+          p_city: Database["public"]["Enums"]["cavite_city"]
+          p_exact_lat: number
+          p_exact_lng: number
+          p_floor_area_sqm?: number
+          p_floor_number?: number
+          p_furnishing_status?: Database["public"]["Enums"]["furnishing_status"]
+          p_max_occupants?: number
+          p_postal_code?: string
+          p_property_type: Database["public"]["Enums"]["property_type"]
+          p_public_lat: number
+          p_public_lng: number
+          p_total_floors?: number
+        }
+        Returns: Json
       }
       create_property_setup: {
         Args: {

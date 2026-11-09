@@ -1,3 +1,4 @@
+import {hasModelAttributes,propertyModelAttributes} from '../models/PropertyModelAttributes';
 import { PropertyCreationError, propertyCreationBackendError } from '../models/PropertyCreationError';
 import { propertyCreationDiagnostic, tracePropertyCreationDiagnostic, type PropertyCreationDiagnostic } from './propertyCreationDiagnostics';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -72,7 +73,9 @@ export function createPropertyCreationService(getClient: () => SupabaseClient<Da
         // Persist BEFORE sending; unknown outcomes stay blocked across unmount/restart.
         stage='journal'; await journal.setItem(key(userId), JSON.stringify({ state: 'pending' })); journalWritten = true;
         stage='eligibility'; await assertIdentity(userId); stage='rpc'; sent = true;
-        const { data, error } = await getClient().rpc('create_property_setup', payload);
+        const { data, error } = hasModelAttributes(draft)?await getClient().rpc('create_property_setup_v2',{...payload,...propertyModelAttributes(draft.propertyType,draft)}):await getClient().rpc('create_property_setup', payload);
+        if(error?.code==='PGRST202'){try{await journal.removeItem(key(userId));}catch{/* Preserve uncertainty if cleanup fails. */}
+          throw new PropertyCreationError('Optional model attributes need the Phase 2 backend rollout before they can be saved. Your property has not been created.','property_creation_rejected');}
         if (error) {
           // PostgreSQL validation/authorization/constraint failures are rolled back.
           if (/^(22|23|42|P0001$)/.test(error.code ?? '')) {

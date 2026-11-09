@@ -1,3 +1,4 @@
+import {PropertyModelAttributeFields} from '../components/PropertyModelAttributeFields';
 import {useState} from 'react';
 import {Text,View} from 'react-native';
 import {ListingWizardScaffold} from '../components/ListingWizardScaffold';
@@ -27,12 +28,13 @@ export function PropertyRoutineEditView({viewModel:vm,onClose}:{viewModel:Proper
   {state.uncertain?<ListingButton label="Check saved property" onPress={()=>void flow.reconcile()} disabled={state.busy}/>:null}
   {state.conflict?<ListingButton label="Discard local edits and reload" tone="outline" onPress={vm.reloadPropertyDetails} disabled={state.busy}/>:null}
   {state.status==='ready'&&c&&d?<>
+   {c.model_attributes_version===2?<PropertyModelAttributeFields type={c.property_type} draft={d} error={error} disabled={disabled||c.open_tenancy} onChange={(field,value)=>flow.update(field,value)}/>:<Text style={ui.supporting}>Additional model-compatible property fields are awaiting the backend rollout. Existing details remain editable.</Text>}
    <Text accessibilityRole="header" style={ui.sectionTitle}>Property identity</Text>
    <Text style={ui.body}>{propertyTypeOptions.find(o=>o.value===c.property_type)?.label} in {c.barangay}, {c.city}</Text>
    {c.floor_number!==null?<Text style={ui.supporting}>Rental floor: {c.floor_number}</Text>:null}
    <Text style={ui.supporting}>Property type, address, rental floor, and confirmed location are read-only. Identity corrections require a separate verification workflow.</Text>
    <ListingButton label="Request Identity Correction" tone="outline" disabled={disabled} onPress={vm.openIdentityCorrection}/>
-   {c.open_tenancy?<Text accessibilityLiveRegion="polite" style={ui.supporting}>An open tenancy protects bedrooms, bathrooms, floor area, and capacity. Other routine details remain editable.</Text>:null}
+   {c.open_tenancy?<Text accessibilityLiveRegion="polite" style={ui.supporting}>An open tenancy protects bedrooms, bathrooms, floor area, capacity, subtype, lot area, and parking. Other routine details remain editable.</Text>:null}
    <View collapsable={false} ref={focus.section('property')} style={{gap:spacing.md}}>
    {(['bedrooms','bathrooms','floorAreaSqm','maxOccupants'] as const).map(field=><ListingField key={field} inputRef={focus.field(field)} label={{bedrooms:'Bedrooms',bathrooms:'Bathrooms',floorAreaSqm:'Floor area (sqm, optional)',maxOccupants:'Maximum occupants (optional)'}[field]} placeholder={field==='floorAreaSqm'?'Floor area, not land area':field==='maxOccupants'?'Number of people':'0'} keyboardType="numeric" value={d[field]} editable={!disabled&&!(c.open_tenancy&&materialFields.includes(field))} error={error(field)} onChangeText={value=>change(field,value)}/>)}
    </View>
