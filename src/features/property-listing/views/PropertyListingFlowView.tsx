@@ -1,3 +1,5 @@
+import {ListingButton} from '../components/ListingButton';
+import {UnfinishedPostDeletionAction} from '../components/UnfinishedPostDeletionAction';
 import {RentalPriceGuidance} from '../../../shared/components/RentalPriceGuidance';
 import {InlineRentalEstimate} from '../../../shared/components/InlineRentalEstimate';
 import type {LandlordPortfolioItem} from '../models/LandlordPortfolio';
@@ -7,7 +9,7 @@ import { ListingDraftSavedView } from './ListingDraftSavedView';
 import { PublishedListingStatusView } from './PublishedListingStatusView';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
-import { Modal, StatusBar, StyleSheet, View } from 'react-native';
+import { Modal, StatusBar, StyleSheet, View, Text } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
 import { ScreenContainer } from '../../../shared/components/ScreenContainer';
@@ -85,10 +87,12 @@ export function PropertyListingFlowView({
   });
   const estimateTarget=viewModel.workspaceListingId?{listingId:viewModel.workspaceListingId}:viewModel.workspacePropertyId?{propertyId:viewModel.workspacePropertyId}:null;
   const estimateSection=estimateTarget?<InlineRentalEstimate key={`${accountId}:${JSON.stringify(estimateTarget)}:${viewModel.screen}`} accountId={accountId} target={estimateTarget} property={viewModel.estimationProperty} onReview={viewModel.estimationProperty?.landlord_id===accountId&&viewModel.propertyEditAvailable&&viewModel.screen!=='propertyEdit'?viewModel.openPropertyDetails:undefined}/>:null;
-  const priceGuidance=<RentalPriceGuidance key={`${accountId}:${viewModel.workspacePropertyId}:${viewModel.screen}`} accountId={accountId} target={viewModel.workspacePropertyId?{propertyId:viewModel.workspacePropertyId}:null} property={viewModel.estimationProperty} onUseEstimate={viewModel.applyRentalEstimate} disabled={viewModel.listingDraftReadOnly||!!viewModel.composerPhase||viewModel.listingDraftState.busy}/>;
+  const priceGuidance=<RentalPriceGuidance key={`${accountId}:${viewModel.workspacePropertyId}:${viewModel.screen}`} accountId={accountId} target={viewModel.workspacePropertyId?{propertyId:viewModel.workspacePropertyId}:null} property={viewModel.estimationProperty} onUseEstimate={viewModel.applyRentalEstimate} disabled={viewModel.listingDraftReadOnly||!!viewModel.composerPhase||viewModel.listingDraftState.busy||viewModel.unfinishedPostState.busy}/>;
   let content;
 
-  if (viewModel.screen === 'dashboard' || viewModel.screen === 'empty') {
+  if(viewModel.screen!=='dashboard'&&viewModel.unfinishedPostState.status?.propertyId===viewModel.workspacePropertyId&&viewModel.unfinishedPostState.status?.state==='cleanup_pending'){
+    content=<View style={{padding:24,gap:12}}><Text accessibilityRole="header">Finishing post deletion</Text><Text>The post was removed. Owned photos still need cleanup. Retry below, or return to My Rentals.</Text><ListingButton label="Back to My Rentals" tone="outline" disabled={viewModel.unfinishedPostState.busy} onPress={viewModel.goDashboard}/></View>;
+  } else if (viewModel.screen === 'dashboard' || viewModel.screen === 'empty') {
     content = <PropertyDashboardView viewModel={viewModel} renderRequestControls={renderRequestControls}/>;
   } else if (viewModel.screen === 'published' && viewModel.showRealPublication && viewModel.realListing) {
     content = <PublishedListingStatusView estimateSection={estimateSection} viewModel={viewModel} onClose={close} />;
@@ -132,6 +136,7 @@ export function PropertyListingFlowView({
       </Modal> : null}
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
+      {['dashboard','listingComposer','listingDetails','propertyEdit'].includes(viewModel.screen)?<UnfinishedPostDeletionAction viewModel={viewModel}/>:null}
       <NavigationConfirmation title={viewModel.propertyReturnConfirmation?"Discard property edits?":"Leave Property & Listing Management?"} body={viewModel.propertyReturnConfirmation?"Your listing edits will be kept. Continue without saving these property changes?":"You have unsaved property, photo, or listing changes. Stay to continue editing, or leave without saving."} visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
       <RentLeaseBottomNavigation
         active={viewModel.activeTab}

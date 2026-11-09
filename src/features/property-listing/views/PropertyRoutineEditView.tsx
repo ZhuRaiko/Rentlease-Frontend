@@ -21,7 +21,7 @@ export function PropertyRoutineEditView({viewModel:vm,onClose,estimateSection}:{
  const disabled=state.busy||state.uncertain;
  const change=(field:RoutineField,value:string)=>{setTouched(t=>({...t,[field]:true}));if(field!=='amenityIds'&&field!=='furnishingStatus')flow.update(field,value);};
  const save=()=>{if(issues[0]){const issue=issues[0];setTarget({...issue,field:issue.field as PropertyValidationIssue['field'],requestId:(target?.requestId??0)+1});}void flow.save();};
- return <ListingWizardScaffold title="Edit Property Details" description="Update details for the same physical rental. Existing agreements remain binding. Changes do not publish or reactivate a listing." onBack={vm.goBack} onClose={onClose} formFocus={focus}
+ return <ListingWizardScaffold title="Edit Property" description="Update details for the same physical rental. Existing agreements remain binding. Changes do not publish or reactivate a listing." onBack={vm.goBack} onClose={onClose} formFocus={focus}
  footer={state.status==='ready'?<View style={{padding:spacing.md,gap:spacing.xs}}><ListingButton label={state.busy?'Saving changes...':'Save Changes'} disabled={!flow.canSave()} onPress={save}/><Text accessibilityLiveRegion="polite" style={ui.supporting}>{state.busy?'Wait for the saved result before leaving.':issues[0]?.message??(!flow.dirty()?'No unsaved property changes.':'Verification and listing status will be preserved.')}</Text></View>:null}>
   <FeedbackNotice tone="error" message={issues.some(issue=>issue.message===state.error)?null:state.error}/><FeedbackNotice message={state.notice}/>
   {state.status==='loading'?<Text accessibilityLiveRegion="polite" style={ui.body}>Loading saved property details...</Text>:null}

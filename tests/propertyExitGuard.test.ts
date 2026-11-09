@@ -11,7 +11,7 @@ import type { PropertyListingViewModel } from '../src/features/property-listing/
 // Executes the actual hook + actual property/photo workflows + shared navigation guard.
 // Only React's scheduling hooks and native/backend dependency composition are replaced.
 // Explicit flush models the interval before React commits an external-store update.
-function mountProperty(persistedProperty: string | null = null, draftService: any = {}, publicationService: any = { restore: async () => null }, lifecycleService?: any, locationService?: any, overrides: { identity?:any; routine?:any; published?:any; verification?: any; renderPropertyVerification?: any; amenities?: any; creation?: any; photos?: any; pickImages?: any; portfolio?: any; initialScreen?: 'dashboard' | 'postingType'; replayUpdaters?: boolean } = {}) {
+function mountProperty(persistedProperty: string | null = null, draftService: any = {}, publicationService: any = { restore: async () => null }, lifecycleService?: any, locationService?: any, overrides: { deletion?:any; identity?:any; routine?:any; published?:any; verification?: any; renderPropertyVerification?: any; amenities?: any; creation?: any; photos?: any; pickImages?: any; portfolio?: any; initialScreen?: 'dashboard' | 'postingType'; replayUpdaters?: boolean } = {}) {
   let cursor = 0, current: PropertyListingViewModel, mounted = true;
   const slots: any[] = [], effects: (() => void)[] = [], cache = new Map<string, any>();
   let writes = 0, tree: any, realHook: any, backAction: (() => void) | null = null;
@@ -37,9 +37,10 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
       if (name === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
       if (name === 'react-native') return { StyleSheet: { create: (styles: any) => styles }, View: 'View', Text: 'Text', Modal: 'Modal', StatusBar: 'StatusBar' };
       if (name.endsWith('/usePropertyListingViewModel')) return { usePropertyListingViewModel: (...args: any[]) => { current = realHook(...args); return current; } };
-      const presentation = ['RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold'];
+      const presentation = ['UnfinishedPostDeletionAction','RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold'];
       const component = presentation.find(value => name.endsWith('/' + value));
       if (component) return { [component]: component };
+      if(name.endsWith('/unfinishedPostDependencies'))return {unfinishedPostService:overrides.deletion??{inspect:async(id:string)=>({propertyId:id,state:'live',eligible:false,reason:null}),pending:async()=>[],remove:async()=>{throw Error('Not configured');}}};
       if (name.endsWith('/propertyVerificationDependencies')) return {propertyVerificationService:overrides.verification??{getEligibleUserId:async()=>'test-owner',fetchLatest:async()=>null}};
       if (name.endsWith('/landlordPortfolioDependencies')) return { landlordPortfolioService: overrides.portfolio ?? { user: async () => 'test-owner', assertUser: async () => {}, load: async () => [] } };
       if (name.endsWith('/listingLifecycleDependencies')) return { listingLifecycleService: lifecycleService ?? { context: async () => ({}), assertContext: async () => {}, inspect: async () => ({ row: current.publicationState.lastConfirmed, operations: [] }) } };
@@ -772,4 +773,20 @@ test('first listing rent page receives saved-property eligibility and optional z
  assert.equal(h.vm().draft.askingRent,'');assert.ok(!JSON.stringify(h.vm().estimationProperty).includes('Latitude'));
  h.vm().applyRentalEstimate({target:{propertyId:backend.propertyId},currency:'PHP',estimatedMonthlyRent:18000} as any);h.flush();assert.equal(h.vm().draft.askingRent,'18000');assert.deepEqual(events,['property']);
  h.vm().goBack();h.flush();await h.vm().nextListingDetails();await h.settle();assert.deepEqual(events,['property']);assert.equal(h.vm().screen,'listingDetails');h.unmount();
+});
+
+
+test('unfinished post completion returns the selected workspace to My Rentals without another create or listing save',async()=>{
+ const backend=backendDraftService(),id=backend.propertyId;
+ const deletion={inspect:async()=>({propertyId:id,state:'live',eligible:true,reason:null}),pending:async()=>[],remove:async()=>({propertyId:id,state:'completed',eligible:false,reason:null})};
+ const h=mountProperty(id,backend.service,undefined,undefined,undefined,{deletion,photos:{context:async()=>({ownerId:'test-owner',propertyId:id}),assertContext:async()=>{},list:async()=>[],hasPending:async()=>false}});await h.setup();await h.settle();h.vm().navigate('listingDetails');await h.settle();
+ h.vm().requestUnfinishedPostDeletion();h.flush();assert.equal(h.vm().unfinishedPostState.confirming,true);await h.vm().unfinishedPost.confirm();await h.settle();assert.equal(h.vm().screen,'dashboard');assert.equal(h.vm().workspacePropertyId,null);assert.equal(h.writes(),0);assert.equal(backend.calls(),0);assert.match(h.vm().notice??'',/deleted/);h.unmount();
+});
+
+
+test('unfinished post pending cleanup removes the editor and blocks stale save actions without claiming completion',async()=>{
+ const backend=backendDraftService(),id=backend.propertyId;
+ const deletion={inspect:async()=>({propertyId:id,state:'live',eligible:true,reason:null}),pending:async()=>[],remove:async()=>({propertyId:id,state:'cleanup_pending',eligible:false,reason:null})};
+ const h=mountProperty(id,backend.service,undefined,undefined,undefined,{deletion,photos:{context:async()=>({ownerId:'test-owner',propertyId:id}),assertContext:async()=>{},list:async()=>[],hasPending:async()=>false}});await h.setup();await h.settle();h.vm().navigate('listingDetails');await h.settle();
+ h.vm().requestUnfinishedPostDeletion();h.flush();await h.vm().unfinishedPost.confirm();await h.settle();assert.equal(h.vm().workspacePropertyId,id);assert.equal(h.vm().unfinishedPostState.status?.state,'cleanup_pending');assert.equal(h.vm().listingDraftReadOnly,true);assert.equal(h.vm().composerSaveDisabled,true);await h.vm().saveComposerDraft();assert.equal(backend.calls(),0);assert.doesNotMatch(h.vm().notice??'',/deleted/);h.unmount();
 });

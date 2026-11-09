@@ -21,7 +21,7 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     <Text accessibilityRole="header" style={styles.heading}>{vm.draftHydration.status==='error'?'Saved details could not load':'Loading saved details'}</Text>
     <Text accessibilityLiveRegion="polite" style={styles.body}>{vm.draftHydration.error??'Loading your saved listing, property details, and photos. You can go back while this finishes.'}</Text>
     {vm.draftHydration.status==='error'?<><ListingWorkspaceFeedback viewModel={vm} scope="draft"/><ListingButton label="Retry loading" onPress={vm.retryDraftHydration}/></>:null}
-    <ListingButton label="Back to My Listings" tone="outline" onPress={vm.goBack}/>
+    <ListingButton label="Back to My Rentals" tone="outline" onPress={vm.goBack}/>
   </ListingWizardScaffold>;
   const draft = vm.draft, property = vm.propertySummary;
   const editable = !vm.listingDraftReadOnly && !vm.composerPhase && !(vm.publishedEditing && vm.listingDraftState.busy);
@@ -40,7 +40,7 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
       <Text style={styles.body}>{property.type}</Text>
       <Text style={styles.copy}>{property.bedrooms} bedrooms ? {property.bathrooms} bathrooms</Text>
       <Text style={styles.copy}>{property.location || 'Location not entered'}</Text>
-      {vm.propertyEditAvailable?<ListingButton label="Edit Property Details" tone="outline" disabled={!editable} onPress={vm.openPropertyDetails}/>:null}
+      {vm.propertyEditAvailable?<ListingButton label="Edit Property" tone="outline" disabled={!editable} onPress={vm.openPropertyDetails}/>:null}
       {!vm.workspacePropertyId?<ListingButton label="Edit property" tone="outline" onPress={vm.editComposerProperty}/>:null}
     </View>
     {vm.workspacePropertyId?<View style={styles.section}>

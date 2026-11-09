@@ -25,7 +25,7 @@ export function ComposerPropertyFields({ viewModel: vm, children, focus }: { vie
       {summary.floorAreaSqm ? <Text style={styles.body}>{summary.floorAreaSqm} sqm floor area</Text> : null}
       <Text style={styles.body}>{summary.floorNumber ? `Floor ${summary.floorNumber}. ` : ''}{summary.totalFloors ? `${summary.totalFloors} ${summary.floorTotalLabel??'floors in building'}. ` : ''}{summary.maxOccupants ? `Up to ${summary.maxOccupants} occupants.` : ''}</Text>
       <Text style={styles.body}>{summary.location || 'Loading saved property details...'}</Text>
-      <Text style={styles.supporting}>This summary is read-only. Use Edit Property Details for routine changes. Property identity stays protected.</Text>
+      <Text style={styles.supporting}>This summary is read-only. Use Edit Property for routine changes. Property identity stays protected.</Text>
     </View>
     {children}
   </>;

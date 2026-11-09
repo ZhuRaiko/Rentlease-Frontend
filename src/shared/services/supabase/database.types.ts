@@ -2243,6 +2243,11 @@ export type Database = {
       }
     }
     Functions: {
+      // Prepared unfinished-post deletion RPCs; deployment is separate.
+      get_unfinished_post_deletion: {Args:{p_property_id:string};Returns:Json}
+      list_unfinished_post_cleanup: {Args:Record<PropertyKey,never>;Returns:Json}
+      delete_unfinished_post: {Args:{p_property_id:string};Returns:Json}
+
       get_public_identities: { Args: {p_user_ids:string[]}; Returns:Json }
       get_own_public_identity: { Args:Record<PropertyKey,never>; Returns:Json }
       get_own_avatar_upload: { Args:{p_path:string}; Returns:Json }

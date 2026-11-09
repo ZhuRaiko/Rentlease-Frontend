@@ -417,3 +417,7 @@ enabled = true
 # Prepared only; keep gateway user JWT validation enabled.
 [functions.rental-price-estimate]
 verify_jwt = true
+
+# Prepared only; separate deployment authorization required.
+[functions.delete-unfinished-post]
+verify_jwt = true

@@ -1,3 +1,5 @@
+import {createUnfinishedPostWorkflow} from './unfinishedPostWorkflow';
+import {unfinishedPostService} from '../services/unfinishedPostDependencies';
 import type {PredictionReceipt} from '../../../shared/models/RentalPrediction';
 import {propertyMeasurementWarnings} from '../../../shared/models/PropertyMeasurementQuality';
 import {createPropertyIdentityWorkflow} from './propertyIdentityWorkflow';
@@ -61,6 +63,13 @@ type CounterField = 'bedrooms' | 'bathrooms' | 'parkingSpaces';
 export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dashboard') {
   type Workspace = { propertyId: string | null; listingId: string | null; mode: 'none' | 'create' | 'compose' | 'manage' | 'editPublished'; item: LandlordPortfolioItem | null };
   const [workspace, setWorkspace] = useState<Workspace>({ propertyId: null, listingId: null, mode: initialScreen === 'postingType' ? 'create' : 'none', item: null });
+  const [unfinishedPost]=useState(()=>createUnfinishedPostWorkflow(unfinishedPostService,id=>{
+    if(workspaceRef.current.propertyId===id){detachWorkspace();setHistory([]);setScreen('dashboard');}
+    portfolio.invalidate();setNotice('Unfinished post deleted.');
+  }));
+  const unfinishedPostState=useSyncExternalStore(unfinishedPost.subscribe,unfinishedPost.getSnapshot);
+  useEffect(()=>{unfinishedPost.activate();return()=>unfinishedPost.dispose();},[unfinishedPost]);
+
   const [workspaceEpoch,setWorkspaceEpoch]=useState(0);
   const [hydrationInitialized,setHydrationInitialized]=useState(-1);
   const hydrationReady=useRef(-1),hydrationStarted=useRef(0);
@@ -207,19 +216,22 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   },[workspace.propertyId,workspace.item,propertyState.draft.propertyType,portfolioState.items,portfolioState.loaded,portfolioState.busy,portfolioState.error]);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  const operationBusy = ():boolean => propertyIdentity.getSnapshot().busy || propertyRoutine.getSnapshot().busy || publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy || publication.getSnapshot().busy || lifecycle.getSnapshot().busy;
+  const operationBusy = ():boolean => unfinishedPost.getSnapshot().busy || propertyIdentity.getSnapshot().busy || propertyRoutine.getSnapshot().busy || publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy || publication.getSnapshot().busy || lifecycle.getSnapshot().busy;
+  const deletedWorkspace=()=>{const status=unfinishedPost.getSnapshot().status;return !!workspaceRef.current.propertyId&&status?.propertyId===workspaceRef.current.propertyId&&status.state!=='live';};
   function canWriteListing(): boolean {
+    if(deletedWorkspace())return false;
     const current = lifecycle.getSnapshot();
     return active.current && propertyRoutine.getSnapshot().status==='idle' && !propertyRoutine.getSnapshot().busy && workspaceRef.current.item?.property.is_active !== false && !current.busy && !current.uncertain && current.loaded && (!current.row || current.row.status === 'draft');
   }
   function canChangeLifecycle(): boolean {
+    if(deletedWorkspace())return false;
     return active.current && propertyRoutine.getSnapshot().status==='idle' && !propertyRoutine.getSnapshot().busy && !propertyCreation.getSnapshot().busy && !propertyPhotos.getSnapshot().busy && !listingDraftPersistence.getSnapshot().busy && !listingDraftPersistence.getSnapshot().uncertain && !publication.getSnapshot().busy && !publication.getSnapshot().uncertain;
   }
   const publicationReadOnly = () => workspaceRef.current.mode==='editPublished'? !publishedContent.getSnapshot().loaded||publishedContent.getSnapshot().uncertain||!['active','paused'].includes(publishedContent.getSnapshot().lastConfirmed?.status??'') : !!workspaceRef.current.propertyId && (!canWriteListing() || !publication.getSnapshot().loaded || publication.getSnapshot().uncertain || (!!publication.getSnapshot().status && publication.getSnapshot().status !== 'draft'));
   const editingPublished=workspace.mode==='editPublished';
   const contentState=editingPublished?publishedContentState:listingDraftState;
   const savedDraftEntry=editingPublished||workspace.mode==='compose'&&workspace.item?.currentListing?.status==='draft'&&!!workspace.listingId;
-  const hydrationFailure=savedDraftEntry?(hydrationDeadline===workspaceEpoch?'Saved details are taking too long to load. Retry or return to My Listings.':publicationState.error || (contentState.errorSource==='load'?contentState.error:null) || (!photoState.loaded?photoState.error:null) || amenityState.error):null;
+  const hydrationFailure=savedDraftEntry?(hydrationDeadline===workspaceEpoch?'Saved details are taking too long to load. Retry or return to My Rentals.':publicationState.error || (contentState.errorSource==='load'?contentState.error:null) || (!photoState.loaded?photoState.error:null) || amenityState.error):null;
   const hydrationLoaded=hydrationInitialized===workspaceEpoch&&!!savedDraftEntry&&photoState.propertyId===workspace.propertyId&&amenityState.propertyId===workspace.propertyId&&publicationState.propertyId===workspace.propertyId&&publicationState.loaded&&!publicationState.busy&&contentState.loaded&&!contentState.busy&&!contentState.uncertain&&contentState.lastConfirmed?.id===workspace.listingId&&photoState.loaded&&!photoState.busy&&amenityState.loaded&&!amenityState.busy;
   const draftHydration={status:!savedDraftEntry?'idle' as const:hydrationReady.current===workspaceEpoch?'ready' as const:hydrationFailure?'error' as const:hydrationLoaded?'ready' as const:'loading' as const,error:hydrationFailure};
   useEffect(()=>{
@@ -305,6 +317,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const goBack = () => {
+    if(unfinishedPost.getSnapshot().confirming){unfinishedPost.cancel();return;}
     if(leaveInitialHydration())return;
     if (propertyPhotos.getSnapshot().mediaViewerOpen) { propertyPhotos.closeMedia(); return; }
     if (operationBusy()) return;
@@ -640,6 +653,11 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     setNotice(`Listing is ${status} in local preview state only.`);
   };
 
+  const deletionCandidate=!!workspace.propertyId&&(!workspace.item||workspace.item.listings.every(l=>l.status==='draft'&&l.published_at===null));
+  useEffect(()=>{void unfinishedPost.open(deletionCandidate?workspace.propertyId:null);},[unfinishedPost,workspaceEpoch,deletionCandidate]);
+  useEffect(()=>{if(screen==='dashboard')void unfinishedPost.refreshPending();},[unfinishedPost,screen]);
+  useEffect(()=>{if(unfinishedPostState.status?.state==='cleanup_pending')portfolio.invalidate();},[unfinishedPostState.status?.propertyId,unfinishedPostState.status?.state]);
+  const deletionBlocked=propertyState.uncertain||listingDraftState.uncertain||listingDraftState.conflict||photoState.needsReconcile||photoState.pendingSelections.length>0||propertyRoutineState.uncertain||propertyIdentityState.uncertain;
   const selectedAmenityIds = workspace.propertyId ? amenityState.selectedIds : propertyState.draft.amenityIds;
   // Creation freezes this draft after a confirmed receipt; never project location/address.
   const createdDraft=propertyState.propertyId===workspace.propertyId&&propertyState.step==='created'&&!propertyState.uncertain&&hasConfirmedPropertyLocation(propertyState.draft)?propertyState.draft:null;
@@ -666,6 +684,11 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     :workspace.propertyId?'Saved property selected. Continue to listing details.':'Property information is ready. Next saves the property before listing details.';
 
   return {
+    unfinishedPost,unfinishedPostState,
+    resumeUnfinishedPostCleanup:(id:string)=>{if(!operationBusy()&&(screen==='dashboard'||workspaceRef.current.propertyId===id))void unfinishedPost.resume(id);},
+    requestUnfinishedPostDeletion:()=>{if(!operationBusy()&&!deletionBlocked)unfinishedPost.requestConfirmation();},
+    confirmUnfinishedPostDeletion:()=>{if(!operationBusy()&&!deletionBlocked)void unfinishedPost.confirm();},
+    unfinishedPostDeletionDisabled:operationBusy()||!!deletionBlocked,
     propertyIdentity,propertyIdentityState,identityLocationState,
     reloadIdentityCorrection:()=>{const id=propertyIdentity.getSnapshot().propertyId;if(id)requestPropertyNavigation(()=>{void propertyIdentity.open(id);});},
     openIdentityCorrection:()=>{const id=workspaceRef.current.propertyId;if(!id||operationBusy()||propertyIdentity.getSnapshot().status!=='idle')return;requestPropertyNavigation(()=>{navigate('identityEdit');void propertyIdentity.open(id);});},
@@ -810,6 +833,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     },
     activeTab: workspace.item && ['listingComposer', 'listingDetails', 'photoManager', 'preview', 'publishConfirmation'].includes(screen) ? 'listing' as const : listingActiveTab(screen),
     backFromWorkspace: (onClose: () => void) => {
+      if(unfinishedPost.getSnapshot().confirming){unfinishedPost.cancel();return;}
       if(leaveInitialHydration())return;
       if (propertyPhotos.getSnapshot().mediaViewerOpen) { propertyPhotos.closeMedia(); return; }
       if (operationBusy()) return;

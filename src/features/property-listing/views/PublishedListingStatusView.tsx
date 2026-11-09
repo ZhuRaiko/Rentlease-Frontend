@@ -36,7 +36,7 @@ export function PublishedListingStatusView({ viewModel, onClose, estimateSection
       <ListingButton label={`Confirm ${viewModel.lifecycleLabel[operation].toLowerCase()}`} disabled={viewModel.lifecycleBlocked} onPress={() => void viewModel.lifecycle.confirm()} />
       <ListingButton label="Cancel" tone="outline" onPress={viewModel.lifecycle.cancel} />
     </> : viewModel.lifecycleActions.map(action => <ListingButton key={action} label={viewModel.lifecycleLabel[action]} tone="outline" disabled={viewModel.lifecycleBlocked} onPress={() => viewModel.lifecycle.request(action)} />)}
-    <ListingButton label="Back to My Listings" tone="outline" disabled={state.busy} onPress={viewModel.goDashboard} />
+    <ListingButton label="Back to My Rentals" tone="outline" disabled={state.busy} onPress={viewModel.goDashboard} />
   </ListingWizardScaffold>;
 }
 const styles = StyleSheet.create({ title: { fontFamily: typography.family, color: colors.text, fontSize: 22, fontWeight: '700' }, detail: { fontFamily: typography.family, color: colors.textSecondary, fontSize: 14, lineHeight: 21 } });

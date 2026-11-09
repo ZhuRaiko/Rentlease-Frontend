@@ -8,7 +8,7 @@ export function ListingDraftSavedView({viewModel:vm,onClose}:{viewModel:Property
   return <ListingWizardScaffold title="Listing Draft Saved!" onBack={vm.goDashboard} onClose={onClose}>
     <Text accessibilityLiveRegion="polite" style={styles.body}>Your listing draft is saved to your account. It is not published. You can keep editing and publish when it is ready.</Text>
     <ListingButton label="Open saved listing" onPress={vm.openSavedDraft} />
-    <ListingButton label="My Listings" tone="outline" onPress={vm.goDashboard} />
+    <ListingButton label="My Rentals" tone="outline" onPress={vm.goDashboard} />
   </ListingWizardScaffold>;
 }
 const styles=StyleSheet.create({body:{...ui.body}});

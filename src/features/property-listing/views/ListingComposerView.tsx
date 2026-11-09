@@ -25,7 +25,7 @@ export function ListingComposerView({ viewModel: vm, onClose, estimateSection }:
       <PropertyMediaSection viewModel={vm} />
       <ComposerRecoveryFeedback viewModel={vm} />
       {estimateSection}
-    {vm.propertyEditAvailable?<ListingButton label="Edit Property Details" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={vm.openPropertyDetails}/>:null}
+    {vm.propertyEditAvailable?<ListingButton label="Edit Property" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={vm.openPropertyDetails}/>:null}
       <ComposerPropertyFields viewModel={vm} focus={focus}>
         <View collapsable={false} ref={focus.section('amenities')}><PropertyAmenitiesFields viewModel={vm} /></View>
       </ComposerPropertyFields>

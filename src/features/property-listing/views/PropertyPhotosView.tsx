@@ -24,7 +24,7 @@ export function PropertyPhotosView({viewModel:vm,onClose}:{viewModel:PropertyLis
   <FeedbackNotice message={state.notice}/>
   {state.busy?<Text accessibilityLiveRegion="polite" style={styles.copy}>{state.batch.status==='running'?`Saving photo ${state.batch.current} of ${state.batch.total}...`:'Saving photo changes...'}</Text>:null}
   {state.needsReconcile||!state.loaded?<ListingButton label={state.needsReconcile?'Check saved photos':'Load saved photos'} disabled={state.busy} tone="outline" onPress={()=>void flow.checkStatus()}/>:null}
-  {!state.propertyId?<ListingButton label="Go to My Listings" tone="outline" onPress={vm.goDashboard}/>:null}
+  {!state.propertyId?<ListingButton label="Go to My Rentals" tone="outline" onPress={vm.goDashboard}/>:null}
  </>;
  const footer=<>
   {state.pendingSelections.length&&!state.busy?<ListingButton label="Continue remaining uploads" disabled={state.needsReconcile} onPress={()=>void flow.resumeQueue()}/>:null}
