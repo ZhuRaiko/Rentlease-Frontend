@@ -641,7 +641,11 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const selectedAmenityIds = workspace.propertyId ? amenityState.selectedIds : propertyState.draft.amenityIds;
-  const physical = editedProperty?.property_id===workspace.propertyId?editedProperty:workspace.item?.property;
+  // Creation freezes this draft after a confirmed receipt; never project location/address.
+  const createdDraft=propertyState.propertyId===workspace.propertyId&&propertyState.step==='created'&&!propertyState.uncertain&&hasConfirmedPropertyLocation(propertyState.draft)?propertyState.draft:null;
+  const optionalNumber=(value:string|undefined)=>!value?.trim()?null:Number(value);
+  const createdPhysical=createdDraft?{property_type:createdDraft.propertyType,city:createdDraft.city,barangay:createdDraft.barangay,total_floors:optionalNumber(createdDraft.totalFloors),max_occupants:optionalNumber(createdDraft.maxOccupants),furnishing_status:createdDraft.furnishingStatus,bedrooms:Number(createdDraft.bedrooms),bathrooms:Number(createdDraft.bathrooms),floor_area_sqm:optionalNumber(createdDraft.floorAreaSqm),floor_number:createdDraft.propertyType==='house'?null:optionalNumber(createdDraft.floorNumber),property_subtype:createdDraft.propertySubtype||null,lot_area_sqm:optionalNumber(createdDraft.lotAreaSqm),parking_spaces:optionalNumber(createdDraft.parkingSpaces)}:null;
+  const physical = editedProperty?.property_id===workspace.propertyId?editedProperty:workspace.item?.property??createdPhysical;
   const confirmedListing = contentState.lastConfirmed?.property_id === workspace.propertyId && (!workspace.listingId || contentState.lastConfirmed.id===workspace.listingId) ? contentState.lastConfirmed : null;
   const completeness = listingCompleteness({title:draft.title,description:draft.description,rent:listingNumber(draft.askingRent),availableDate:!!availabilityDateToLocal(draft.availableDate),
     floorArea:physical ? physical.floor_area_sqm!==null : !!propertyState.draft.floorAreaSqm.trim()&&Number.isFinite(Number(propertyState.draft.floorAreaSqm))&&Number(propertyState.draft.floorAreaSqm)>0,
@@ -659,7 +663,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     :!workspace.propertyId&&!propertyState.loaded?'Checking property setup...'
     :operationBusy()?'Finish the current operation before continuing.'
     :firstPropertyIssue?(firstPropertyIssue.kind==='required'?firstPropertyIssue.message:`Check ${propertySectionLabels[firstPropertyIssue.section].toLowerCase()}.`)
-    :workspace.propertyId?'Saved property selected. Continue to listing details.':'Property information is ready. It is not saved yet.';
+    :workspace.propertyId?'Saved property selected. Continue to listing details.':'Property information is ready. Next saves the property before listing details.';
 
   return {
     propertyIdentity,propertyIdentityState,identityLocationState,
@@ -705,7 +709,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       if(!active.current||!current.propertyId||!matches||result.currency!=='PHP'||!Number.isFinite(result.estimatedMonthlyRent)||result.estimatedMonthlyRent<=0||propertyRoutine.dirty()||propertyIdentity.dirty())return;
       updateDraft('askingRent',String(Math.round(result.estimatedMonthlyRent*100)/100));
     },
-    estimationProperty:physical?{property_subtype:'property_subtype' in physical?physical.property_subtype:null,lot_area_sqm:'lot_area_sqm' in physical?physical.lot_area_sqm:null,parking_spaces:'parking_spaces' in physical?physical.parking_spaces:null,edit_version:'edit_version' in physical?physical.edit_version:null,property_type:physical.property_type,city:physical.city,furnishing_status:physical.furnishing_status,bedrooms:physical.bedrooms,bathrooms:physical.bathrooms,floor_area_sqm:physical.floor_area_sqm,floor_number:physical.floor_number,is_active:workspace.item?.property.is_active,landlord_id:'owner_id' in physical?physical.owner_id:physical.landlord_id}:null,
+    estimationProperty:physical?{property_subtype:'property_subtype' in physical?physical.property_subtype:null,lot_area_sqm:'lot_area_sqm' in physical?physical.lot_area_sqm:null,parking_spaces:'parking_spaces' in physical?physical.parking_spaces:null,edit_version:'edit_version' in physical?physical.edit_version:null,property_type:physical.property_type,city:physical.city,furnishing_status:physical.furnishing_status,bedrooms:physical.bedrooms,bathrooms:physical.bathrooms,floor_area_sqm:physical.floor_area_sqm,floor_number:physical.floor_number,is_active:workspace.item?.property.is_active,landlord_id:'owner_id' in physical?physical.owner_id:'landlord_id' in physical?physical.landlord_id:undefined}:null,
     workspacePropertyId: workspace.propertyId, workspaceListingId: lifecycleState.listingId ?? listingDraftState.listingId ?? workspace.listingId, workspaceMode: workspace.mode,
     workspacePropertyActive: workspace.item?.property.is_active !== false,
     portfolio, portfolioState, portfolioItems: portfolio.filtered(), portfolioStatistics: portfolio.stats(),
@@ -739,9 +743,23 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     },
     photoState,
     mediaItems: propertyMediaItems(photoState.photos, photoState.pendingSelections, photoState.uncertainSelection, photoState.busy && photoState.batch.status === 'running'),
-    nextListingDetails: () => {
-      if(operationBusy())return;
-      if(!workspaceRef.current.propertyId){const current=propertyCreation.getSnapshot();if(!current.loaded||current.uncertain||!requestPropertyValidation())return;}
+    nextListingDetails: async () => {
+      if(initialHydrationPending()||operationBusy())return;
+      if(!workspaceRef.current.propertyId){
+        const current=propertyCreation.getSnapshot();
+        if(!current.loaded||current.uncertain||!requestPropertyValidation())return;
+        let token=workspaceGeneration.current;
+        composerSaving.current=true;setComposerPhase('property');setComposerNotice(null);
+        try {
+          await propertyCreation.submit(true);
+          if(!active.current||token!==workspaceGeneration.current)return;
+          if(!adoptCreatedProperty())return;
+          token=workspaceGeneration.current;
+          setComposerNotice('Property saved. Set your asking rent and save the listing draft when ready.');
+        } finally {
+          if(active.current&&token===workspaceGeneration.current){composerSaving.current=false;setComposerPhase(null);}
+        }
+      }
       navigate('listingDetails');
     },
     editComposerProperty: () => { if(editingPublished)return; if (screen === 'listingDetails') goBack(); else navigate('listingComposer'); },

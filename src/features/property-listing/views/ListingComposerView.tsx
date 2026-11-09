@@ -14,7 +14,7 @@ import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
 import { PropertyLocationToolView } from './PropertyLocationToolView';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
-// Page 1: physical property only. Next is local navigation, never persistence.
+// Page 1: physical property only. Next confirms property persistence before opening listing details.
 export function ListingComposerView({ viewModel: vm, onClose, estimateSection }: { estimateSection?:ReactNode; viewModel: PropertyListingViewModel; onClose: () => void }) {
   const focus=usePropertyFormFocus(vm.propertyValidationTarget);
   const mapOpen = ['searching', 'candidates', 'map'].includes(vm.locationState.stage);

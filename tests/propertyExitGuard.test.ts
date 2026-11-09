@@ -475,7 +475,7 @@ test('composer Save confirms persisted draft before success navigation without l
 });
 for (const failure of ['property', 'uncertain-property', 'photo', 'draft'] as const) test(`composer ${failure} failure preserves truthful partial state and stays on the same form`, async () => {
   const { h, events, fields, confirmMap, backend } = unifiedHarness(failure); await h.settle(); await h.vm().propertyPhotos.addPhotos(); fields(); await confirmMap(); h.vm().nextListingDetails(); await h.settle();
-  await h.vm().saveComposerDraft(); await h.settle(); assert.equal(h.vm().screen, 'listingDetails'); assert.equal(h.vm().draft.title, 'Before UUID title');
+  if(failure!=='property'&&failure!=='uncertain-property')await h.vm().saveComposerDraft(); await h.settle(); assert.equal(h.vm().screen, failure==='property'||failure==='uncertain-property'?'listingComposer':'listingDetails'); assert.equal(h.vm().draft.title, 'Before UUID title');
   if (failure === 'property' || failure === 'uncertain-property') {
     assert.equal(h.vm().workspacePropertyId, null); assert.equal(h.vm().photoState.pendingSelections.length, 3); assert.deepEqual(events, ['property']);
     if (failure === 'uncertain-property') { await h.vm().saveComposerDraft(); assert.deepEqual(events, ['property']); assert.equal(h.vm().propertyState.uncertain, true); }
@@ -496,13 +496,13 @@ test('local composer preview does not persist or enter sample publication', asyn
 });
 
 
-test('Property -> Listing Details -> Preview has exactly two local pages, no Next persistence, and shared dirty scope', async () => {
+test('Property -> Listing Details saves the physical property once, retains local listing fields and shared dirty scope', async () => {
   const { h, events, fields, confirmMap } = unifiedHarness(); await h.settle(); await h.vm().propertyPhotos.addPhotos(); fields(); await confirmMap();
-  h.vm().nextListingDetails(); await h.settle(); assert.equal(h.vm().screen, 'listingDetails'); assert.equal(h.vm().workspacePropertyId, null); assert.deepEqual(events, []); assert.equal(h.vm().navigationConfirmation, false);
+  h.vm().nextListingDetails(); await h.settle(); assert.equal(h.vm().screen, 'listingDetails'); assert.ok(h.vm().workspacePropertyId); assert.deepEqual(events, ['property']); assert.equal(h.vm().navigationConfirmation, false);
   h.hardwareBack(); h.flush(); assert.equal(h.vm().screen, 'listingComposer'); assert.equal(h.vm().navigationConfirmation, false); assert.equal(h.vm().draft.title, 'Before UUID title'); assert.equal(h.vm().photoState.pendingSelections.length, 3);
   h.vm().nextListingDetails(); await h.settle(); h.vm().openComposerPreview(); h.flush(); assert.equal(h.vm().screen, 'preview'); h.vm().goBack(); h.flush(); assert.equal(h.vm().screen, 'listingDetails');
   h.vm().editComposerProperty(); h.flush(); assert.equal(h.vm().screen, 'listingComposer'); assert.equal(h.vm().propertyCreation.locationReady(), true);
-  h.vm().requestNavigation(() => h.destinations.push('exit')); h.flush(); assert.equal(h.vm().navigationConfirmation, true); assert.deepEqual(events, []); h.vm().cancelNavigation(); h.flush(); assert.equal(h.vm().draft.minimumStayMonths, '6'); h.unmount();
+  h.vm().requestNavigation(() => h.destinations.push('exit')); h.flush(); assert.equal(h.vm().navigationConfirmation, true); assert.deepEqual(events, ['property']); h.vm().cancelNavigation(); h.flush(); assert.equal(h.vm().draft.minimumStayMonths, '6'); h.unmount();
 });
 test('Property gallery Android Back closes its viewer and leaves form/local files intact without exit confirmation', async () => {
   const { h, events, fields } = unifiedHarness(); await h.settle(); fields(); await h.vm().propertyPhotos.addPhotos(); h.vm().propertyPhotos.openMedia(2); h.flush();
@@ -559,7 +559,7 @@ test('draft hydration remains deterministic when development React replays state
 
 
 test('invalid property Save returns to the first incorrect section without RPC and retains every draft',async()=>{
- const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();h.vm().nextListingDetails();await h.settle();
+ const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();
  h.vm().propertyCreation.updateField('floorNumber','8');h.vm().propertyCreation.updateField('totalFloors','2');h.flush();await h.vm().saveComposerDraft();h.flush();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().propertyValidationTarget?.section,'floors');assert.equal(h.vm().propertyValidationTarget?.field,'floorNumber');assert.equal(h.vm().draft.title,'Before UUID title');assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.deepEqual(events,[]);
  const first=h.vm().propertyValidationTarget!.requestId;h.vm().focusPropertyIssue(h.vm().propertyValidationIssues.find(i=>i.section==='floors')!);h.flush();assert.ok(h.vm().propertyValidationTarget!.requestId>first);
  h.vm().propertyCreation.updateField('propertyType','house');h.flush();assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.equal(h.vm().propertyFloorIssues.floorNumber,null);h.vm().propertyCreation.updateField('propertyType','apartment');h.flush();assert.ok(h.vm().propertyFloorIssues.floorNumber);assert.deepEqual(events,[]);h.unmount();
@@ -585,8 +585,8 @@ test('Stage 1 required errors follow interaction and disappear when corrected',a
 });
 test('Stage 1 Next uses physical readiness and confirmed location, independent of listing completeness',async()=>{
  const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();h.vm().updateDraft('title','');h.vm().updateDraft('description','');h.vm().updateDraft('askingRent','');h.flush();assert.equal(h.vm().propertyNextDisabled,true);
- h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().propertyValidationTarget?.section,'location');assert.equal(h.vm().screen,'listingComposer');await confirmMap();assert.equal(h.vm().propertyFormReady,true);assert.equal(h.vm().propertyNextDisabled,false);assert.ok(h.vm().completeness.percent<80);assert.match(h.vm().propertyNextStatus,/not saved/i);
- h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().workspacePropertyId,null);assert.deepEqual(events,[]);h.unmount();
+ h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().propertyValidationTarget?.section,'location');assert.equal(h.vm().screen,'listingComposer');await confirmMap();assert.equal(h.vm().propertyFormReady,true);assert.equal(h.vm().propertyNextDisabled,false);assert.ok(h.vm().completeness.percent<80);assert.match(h.vm().propertyNextStatus,/Next saves/i);
+ h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.ok(h.vm().workspacePropertyId);assert.deepEqual(events,['property']);h.unmount();
 });
 test('Stage 1 optional floor inconsistency blocks Next, preserves entries and clears after correction',async()=>{
  const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();const flow=h.vm().propertyCreation;flow.updateField('floorNumber','8');flow.updateField('totalFloors','2');h.flush();assert.equal(h.vm().propertyNextDisabled,true);assert.ok(h.vm().propertyVisibleValidationIssues.some(i=>i.section==='floors'&&i.kind==='invalid'));h.vm().nextListingDetails();h.flush();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.equal(h.vm().draft.title,'Before UUID title');
@@ -759,4 +759,17 @@ test('only explicit current-property price guidance adoption changes asking rent
  h.vm().applyRentalEstimate({...result,estimatedMonthlyRent:NaN});h.vm().applyRentalEstimate({...result,currency:'USD'});h.flush();assert.equal(h.vm().draft.askingRent,'5000');
  h.vm().applyRentalEstimate(result);h.flush();assert.equal(h.vm().draft.askingRent,'18000.25');assert.equal(f.backend.calls(),0);assert.equal(h.writes(),0);
  h.vm().updateDraft('askingRent','7000');h.flush();assert.equal(h.vm().draft.askingRent,'7000');h.unmount();
+});
+
+
+test('first listing rent page receives saved-property eligibility and optional zero without saving a listing or duplicating creation',async()=>{
+ const {h,events,fields,confirmMap,backend}=unifiedHarness();await h.settle();fields();
+ const f=h.vm().propertyCreation;f.updateField('propertyType','condominium');f.updateField('propertySubtype','studio');f.updateField('floorAreaSqm','35');f.updateField('parkingSpaces','0');
+ h.vm().updateDraft('askingRent','');h.flush();await confirmMap();
+ const first=h.vm().nextListingDetails();const duplicate=h.vm().nextListingDetails();await Promise.all([first,duplicate]);await h.settle();
+ assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().workspacePropertyId,backend.propertyId);assert.deepEqual(events,['property']);assert.equal(h.vm().workspaceListingId,null);
+ assert.equal(h.vm().estimationProperty?.property_subtype,'studio');assert.equal(h.vm().estimationProperty?.floor_area_sqm,35);assert.equal(h.vm().estimationProperty?.lot_area_sqm,null);assert.equal(h.vm().estimationProperty?.parking_spaces,0);
+ assert.equal(h.vm().draft.askingRent,'');assert.ok(!JSON.stringify(h.vm().estimationProperty).includes('Latitude'));
+ h.vm().applyRentalEstimate({target:{propertyId:backend.propertyId},currency:'PHP',estimatedMonthlyRent:18000} as any);h.flush();assert.equal(h.vm().draft.askingRent,'18000');assert.deepEqual(events,['property']);
+ h.vm().goBack();h.flush();await h.vm().nextListingDetails();await h.settle();assert.deepEqual(events,['property']);assert.equal(h.vm().screen,'listingDetails');h.unmount();
 });
