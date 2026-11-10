@@ -2249,6 +2249,13 @@ export type Database = {
       }
     }
     Functions: {
+      // Prepared local T7A review contracts; not deployed.
+      get_tenancy_reviews: {Args:{p_tenancy_id:string};Returns:Json}
+      submit_tenancy_review: {Args:{p_tenancy_id:string;p_operation_id:string;p_kind:string;p_rating:number;p_text:string|null};Returns:Json}
+      get_published_rental_reviews: {Args:{p_kind:string;p_target_id:string;p_offset?:number};Returns:Json}
+      get_review_moderation: {Args:{p_status?:string;p_offset?:number};Returns:Json}
+      moderate_rental_review: {Args:{p_review_id:string;p_operation_id:string;p_revision:string;p_status:string;p_note:string};Returns:Json}
+
       // Prepared local T6 contract; not deployed.
       get_tenancy_lifecycle: {Args: {p_tenancy_id: string; p_offset?: number}; Returns: Json}
       write_tenancy_lifecycle: {Args: {p_tenancy_id: string; p_operation_id: string; p_action: string; p_version: string; p_request_revision: string | null; p_reason: string}; Returns: Json}

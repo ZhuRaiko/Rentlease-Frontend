@@ -270,7 +270,7 @@ export default function App() {
         {workspace?.type==='tenancy'&&tenancyConversation&&tenancyConversation.owner===auth.account?.user.id?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><MessagingViewingFlowView key={`${tenancyConversation.owner}:${tenancyConversation.id}`} accountId={auth.account?.user.id} conversationId={tenancyConversation.id} returnToListing onRootBack={()=>setTenancyConversation(null)} onClose={()=>setTenancyConversation(null)} registerBackAction={registerWorkspaceBack} canPostProperty={canEnterMarketplace} onCreateListing={()=>openProperties('postingType')} onOpenListings={()=>openProperties('dashboard')} onOpenDiscover={openDiscovery} onOpenMaintenance={()=>setTenancyConversation(null)} renderTenancySetup={renderTenancySetup} renderListingDetails={(id,onBack)=><ChatListingDetails key={`${auth.account?.user.id}:${id}`} owner={auth.account?.user.id} id={id} onBack={onBack}/>}/></View>:null}
         {workspace?.type === 'maintenance' ? <TenancyCareWorkspaceView key={auth.account?.user.id} accountId={auth.account?.user.id} onBack={()=>setWorkspace({type:'tenancy'})} registerBackAction={registerWorkspaceBack}/> : null}
         {workspace?.type === 'ratingsReports' ? (
-          <RatingsReportsFlowView
+          <RatingsReportsFlowView accountId={auth.account?.user.id}
             registerBackAction={registerWorkspaceBack}
             actor={previewActor}
             canPostProperty={canEnterMarketplace}
@@ -287,7 +287,7 @@ export default function App() {
           />
         ) : null}
         {workspace?.type === 'adminModeration' && auth.isAdmin ? (
-          <AdminModerationFlowView registerBackAction={registerWorkspaceBack} onClose={openProfile} />
+          <AdminModerationFlowView accountId={auth.account?.user.id} registerBackAction={registerWorkspaceBack} onClose={openProfile} />
         ) : null}
         {workspace?.type === 'notifications' ? (
           <NotificationsFlowView

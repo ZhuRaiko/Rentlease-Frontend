@@ -11,9 +11,9 @@ import { AdminHeading, AdminStatCard, AuditCard } from '../components/AdminCards
 import { AdminScaffold } from '../components/AdminScaffold';
 import type { AdminModerationViewModel } from '../viewModels/useAdminModerationViewModel';
 
-export function AdminDashboardView({ onExit, viewModel }: { onExit: () => void; viewModel: AdminModerationViewModel }) {
+export function AdminDashboardView({ onExit, viewModel, onReviewModeration }: { onExit: () => void; viewModel: AdminModerationViewModel; onReviewModeration?:()=>void }) {
   return (
-    <AdminScaffold onExit={onExit} title="Admin Dashboard">
+    <AdminScaffold onExit={onExit} title="Admin Dashboard">{onReviewModeration?<AppButton label="Moderate ratings and reviews" variant="secondary" onPress={onReviewModeration}/>:null}
       <View style={styles.previewBanner}>
         <View style={styles.previewDot} />
         <View style={styles.previewCopy}>
@@ -73,7 +73,7 @@ function QueueSummary({ label, body, count, tone, onPress }: { label: string; bo
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.queueSummary, pressed && styles.pressed]}>
       <View style={[styles.queueCount, tone === 'danger' ? styles.queueCountDanger : styles.queueCountWarning]}><Text style={[styles.queueCountValue, tone === 'danger' ? styles.queueTextDanger : styles.queueTextWarning]}>{count}</Text></View>
       <View style={styles.queueCopy}><Text style={styles.queueLabel}>{label}</Text><Text style={styles.queueBody}>{body}</Text></View>
-      <Text style={styles.chevron}>›</Text>
+      <Text style={styles.chevron}>â€º</Text>
     </Pressable>
   );
 }
