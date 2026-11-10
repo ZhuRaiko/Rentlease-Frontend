@@ -1,3 +1,4 @@
+import {SavedListingsView} from './SavedListingsView';
 import { useEffect } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
 import type { MatchingPreferences } from '../models/SearchDiscovery';
@@ -67,7 +68,9 @@ export function SearchDiscoveryFlowView({
   let content;
   const immersiveMap=viewModel.screen==='nearbyResults'&&viewModel.gpsState.presentation==='map';
 
-  if (viewModel.screen === 'nearbyResults') {
+  if(viewModel.screen==='savedListings'){
+    content=<SavedListingsView viewModel={viewModel}/>;
+  } else if (viewModel.screen === 'nearbyResults') {
     content = <NearbyListingsView viewModel={viewModel} />;
   } else if (['resultsList','noResults','searchError'].includes(viewModel.screen)) {
     content = <LiveSearchResultsView viewModel={viewModel} />;

@@ -2249,6 +2249,10 @@ export type Database = {
       }
     }
     Functions: {
+      // Prepared Saved Listings contract; not evidence of hosted deployment.
+      get_saved_listing_states: { Args: { p_listing_ids: string[] }; Returns: Json }
+      get_saved_listings: { Args: { p_offset?: number; p_sort?: string }; Returns: Json }
+      set_saved_listing: { Args: { p_listing_id: string; p_saved: boolean }; Returns: Json }
       // Prepared local T7A review contracts; not deployed.
       get_tenancy_reviews: {Args:{p_tenancy_id:string};Returns:Json}
       submit_tenancy_review: {Args:{p_tenancy_id:string;p_operation_id:string;p_kind:string;p_rating:number;p_text:string|null};Returns:Json}
