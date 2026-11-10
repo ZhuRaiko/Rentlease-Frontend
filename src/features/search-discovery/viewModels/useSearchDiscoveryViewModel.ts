@@ -1,3 +1,4 @@
+import {useSavedListings} from './useSavedListings';
 import {recommendationService} from '../services/recommendationDependencies';
 import {createRecommendationWorkflow} from './recommendationWorkflow';
 import type {RecommendationSort} from '../../property-recommendations/models/ContentRecommendation';
@@ -75,6 +76,7 @@ export function useSearchDiscoveryViewModel(
   useEffect(() => { if (screen !== 'searchLocation') return; const timer = setTimeout(() => { void manual.locations(query); }, 250); return () => { clearTimeout(timer); manual.cancelLocations(); }; }, [screen,query,manual]);
   const gpsState = useSyncExternalStore(gps.subscribe, gps.getSnapshot, gps.getSnapshot);
   useEffect(() => { gps.activate(); return () => gps.dispose(); }, [gps]);
+  const bookmarks=useSavedListings(options.accountId,[...discoverState.rows,...manualState.rows,...recommendationState.recommended.map(r=>r.candidate.listing),...(manualState.detail?[manualState.detail]:[])].map(r=>r.listingId),screen==='savedListings');
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const nearbyDetail = useRef(false);
@@ -253,8 +255,9 @@ export function useSearchDiscoveryViewModel(
     else navigate('propertyDetails');
     void manual.openDetail(listingId);
   };
-  const toggleSaved = (_listingId: string) => setNotice('Saved rentals are not connected yet.');
-  const isSaved = (_listingId: string) => false;
+  const toggleSaved = (id:string) => void bookmarks.workflow.toggle(id);
+  const isSaved = (id:string) => bookmarks.state.states[id]===true;
+  const savedControl=(id:string)=>({saved:bookmarks.state.states[id],busy:bookmarks.state.working!==null,locked:!!bookmarks.state.pending&&bookmarks.state.pending.id!==id,retry:bookmarks.state.pending?.id===id,desired:bookmarks.state.pending?.id===id?bookmarks.state.pending.saved:undefined,onPress:()=>bookmarks.state.pending?.id===id?bookmarks.retry():toggleSaved(id)});
   const showNoResultsPreview = () => { navigate('resultsList'); setRecommendationSort(null); void manual.search(query); };
   const showSearchErrorPreview = showNoResultsPreview;
   const retrySearch = () => { setScreen('resultsList'); void manual.retry(); };
@@ -271,11 +274,7 @@ export function useSearchDiscoveryViewModel(
     setHistory([]);
   };
 
-  const openSavedListings = () => {
-    gps.reset();
-    setScreen('savedListings');
-    setHistory([]);
-  };
+  const openSavedListings = () => navigate('savedListings');
 
   const openMatchingPreferences = () => {
     gps.reset();
@@ -347,6 +346,7 @@ export function useSearchDiscoveryViewModel(
     listingOwnerLabel:publicIdentityLabel(manualState.detail?ownerIdentities[manualState.detail.ownerId]:undefined,'owner'),
     isOwnListing:!!manualState.detail&&manualState.detail.ownerId===options.accountId,
     contactOwner:async()=>{const id=await manual.startInquiry();if(id)options.onStartInquiry?.(id);},
+    savedState:bookmarks.state,savedListings:bookmarks.workflow,savedRetry:bookmarks.retry,savedRefresh:bookmarks.refresh,savedControl,
     toggleSaved,
     isSaved,
     setGalleryIndex,

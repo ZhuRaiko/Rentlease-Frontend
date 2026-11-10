@@ -1,3 +1,4 @@
+import {SavedListingsFeedback} from '../components/SaveListingButton';
 import {useState} from 'react';
 import { InterfaceIcon } from '../../../shared/components/InterfaceIcon';
 import { ActivityIndicator, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -13,12 +14,12 @@ const rentLeaseHome = require('../../../assets/authentication/rentlease-home.png
 interface TenantDiscoveryViewProps {viewModel:SearchDiscoveryViewModel;onClose:()=>void;onOpenNotifications:()=>void}
 export function TenantDiscoveryView({viewModel,onClose,onOpenNotifications}:TenantDiscoveryViewProps){
   const [matchingInfo,setMatchingInfo]=useState(false);
-  if(viewModel.screen!=='home')return <View style={styles.screen}><DiscoveryHeader onBack={viewModel.goBack} title="Discovery"/><View style={styles.stateScreen}><Text style={styles.stateTitle}>This feature is not connected yet</Text><Text style={styles.stateBody}>Saved rentals are not connected yet. You can search available rentals or use Nearby rentals for GPS map results.</Text><DiscoveryButton label="Search rentals" onPress={()=>viewModel.navigate('searchLocation')}/></View></View>;
+  if(viewModel.screen!=='home')return <View style={styles.screen}><DiscoveryHeader onBack={viewModel.goBack} title="Discovery"/><View style={styles.stateScreen}><Text style={styles.stateTitle}>This feature is not connected yet</Text><Text style={styles.stateBody}>Search available rentals or use Nearby rentals for GPS map results.</Text><DiscoveryButton label="Search rentals" onPress={()=>viewModel.navigate('searchLocation')}/></View></View>;
   const community=viewModel.homeTab==='forYou',s=viewModel.discoverState,r=viewModel.recommendationState;
   return <View style={styles.screen}>
     <View style={styles.feedHeader}>
       <View style={styles.wordmark}><Text accessibilityRole="header" style={styles.wordmarkText}>RentLease</Text><Image resizeMode="contain" source={rentLeaseHome} style={styles.wordmarkIcon}/></View>
-      <View style={styles.headerActions}>
+      <View style={styles.headerActions}><Pressable accessibilityLabel="Open Saved Listings" accessibilityRole="button" onPress={viewModel.openSavedListings} style={styles.headerAction}><Text style={{fontSize:24,color:colors.primaryAction}}>?</Text></Pressable>
         <Pressable accessibilityLabel="Open Notifications" accessibilityRole="button" onPress={onOpenNotifications} style={styles.headerAction}><InterfaceIcon name="notifications" color={colors.text}/></Pressable>
         <Pressable accessibilityLabel="Open Profile" accessibilityRole="button" onPress={onClose} style={styles.headerAction}><Image resizeMode="cover" source={profileAvatar} style={styles.headerAvatar}/></Pressable>
       </View>
@@ -28,11 +29,12 @@ export function TenantDiscoveryView({viewModel,onClose,onOpenNotifications}:Tena
       <View style={styles.tabDivider}/>
       <Pressable accessibilityRole="tab" accessibilityState={{selected:community}} style={styles.feedTabTarget} onPress={viewModel.openForYou}><Text style={community?styles.feedTabActive:styles.feedTabMuted}>For You</Text></Pressable>
     </View>
+    {viewModel.savedState?<SavedListingsFeedback error={viewModel.savedState.error} notice={viewModel.savedState.notice} pending={!!viewModel.savedState.pending} busy={!!viewModel.savedState.working} onRetry={viewModel.savedRetry}/>:null}
     {viewModel.notice?<Text style={styles.feedNotice}>{viewModel.notice}</Text>:null}
     {community?<ScrollView style={styles.feedScroll} contentContainerStyle={styles.feedContent} showsVerticalScrollIndicator={false}>
       <Text accessibilityRole="header" style={styles.stateTitle}>No community posts yet.</Text><Text style={styles.stateBody}>Posts from landlords and the RentLease community will appear here.</Text><DiscoveryButton label="Discover rentals" onPress={viewModel.openHome}/>
     </ScrollView>:<FlatList data={viewModel.discoverRows??s.rows} keyExtractor={row=>row.listingId} style={styles.feedScroll} contentContainerStyle={styles.listContent}
-      renderItem={({item})=><SearchListingCard listing={item} onPress={()=>viewModel.openProperty(item.listingId)}/>}
+      renderItem={({item})=><SearchListingCard listing={item} save={viewModel.savedControl?.(item.listingId)} onPress={()=>viewModel.openProperty(item.listingId)}/>}
       refreshing={s.refreshing} onRefresh={()=>viewModel.refreshDiscover?viewModel.refreshDiscover():void viewModel.discover.refresh()}
       onEndReached={()=>void viewModel.discover.loadMore()} onEndReachedThreshold={0.4}
       ListHeaderComponent={<View style={styles.searchPad}>
@@ -48,7 +50,7 @@ export function TenantDiscoveryView({viewModel,onClose,onOpenNotifications}:Tena
         {r?.error?<><Text accessibilityRole="alert" style={styles.error}>{r.error}</Text><DiscoveryButton label="Retry recommendations" tone="outline" onPress={()=>void viewModel.recommendations.load()}/></>:null}
         {r?.phase==='unavailable'?<Text style={styles.copy}>Choose a supported location, budget, property type, room count, furnishing, or amenity preference to enable ranking.</Text>:null}
         {r?.phase==='success'?<>
-        {!r.recommended.length?<Text style={styles.copy}>No loaded rentals match your selected preferences. Try changing your preferences or filters.</Text>:<><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recommendationCards}>{r.recommended.slice(0,3).map(row=><View key={row.candidate.listing.listingId} style={styles.recommendationCard}><SearchListingCard listing={row.candidate.listing} onPress={()=>viewModel.openProperty(row.candidate.listing.listingId)}/><Text style={styles.copy}>{row.reasons.join(' | ')||'Selected property preferences'}</Text></View>)}</ScrollView><DiscoveryButton label="View ranked rentals" tone="outline" onPress={viewModel.openRecommendedResults}/></>}</>:null}
+        {!r.recommended.length?<Text style={styles.copy}>No loaded rentals match your selected preferences. Try changing your preferences or filters.</Text>:<><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recommendationCards}>{r.recommended.slice(0,3).map(row=><View key={row.candidate.listing.listingId} style={styles.recommendationCard}><SearchListingCard listing={row.candidate.listing} save={viewModel.savedControl?.(row.candidate.listing.listingId)} onPress={()=>viewModel.openProperty(row.candidate.listing.listingId)}/><Text style={styles.copy}>{row.reasons.join(' | ')||'Selected property preferences'}</Text></View>)}</ScrollView><DiscoveryButton label="View ranked rentals" tone="outline" onPress={viewModel.openRecommendedResults}/></>}</>:null}
         </>}
         </View>
         <Text accessibilityRole="header" style={styles.sectionTitle}>Recently published</Text>

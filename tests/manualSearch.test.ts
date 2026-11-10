@@ -80,6 +80,7 @@ test('location query races cannot repopulate an old set of suggestions',async()=
 function renderSource(path:string,name:string,state?:{value:any}) {
   const full=resolve(path),actual=createRequire(full),mod={exports:{} as any};
   const requireMock=(key:string):any=>{
+    if(key.endsWith('/RentalReviews'))return{PublishedRentalReviews:'PublishedRentalReviews'};
     if(key.endsWith('/InlineRentalEstimate'))return {InlineRentalEstimate:'InlineRentalEstimate'};
     if(key==='react')return {useState:(v:any)=>[state?state.value:v,(next:any)=>{if(state)state.value=next;}],useEffect:()=>{}};
     if(key==='react/jsx-runtime')return {jsx:(type:any,props:any)=>({type,props}),jsxs:(type:any,props:any)=>({type,props})};
@@ -87,6 +88,7 @@ function renderSource(path:string,name:string,state?:{value:any}) {
   if(key==='react-native')return {useWindowDimensions:()=>({width:360,height:800}),View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',FlatList:'FlatList',StyleSheet:{create:(v:any)=>v}};
     if(key.endsWith('/FullscreenDocumentImage'))return {FullscreenDocumentImage:'FullscreenDocumentImage'};
     if(key.endsWith('/DiscoveryControls'))return {DiscoveryHeader:'DiscoveryHeader',DiscoveryButton:'DiscoveryButton',DiscoveryChip:'DiscoveryChip',DiscoverySearchBar:'DiscoverySearchBar'};
+    if(key.endsWith('/SaveListingButton'))return{SaveListingButton:'SaveListingButton',SavedListingsFeedback:'SavedListingsFeedback'};
     if(key.endsWith('/SearchListingCard'))return {SearchListingCard:'SearchListingCard'};
     if(key.endsWith('/PublicIdentityBadge'))return{PublicAvatar:'Avatar',PublicIdentityBadge:'Identity'};if(key.endsWith('/usePublicIdentitiesViewModel'))return{usePublicIdentitiesViewModel:()=>({})};return actual(key);
   };

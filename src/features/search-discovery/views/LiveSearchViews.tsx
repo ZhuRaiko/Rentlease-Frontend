@@ -1,3 +1,4 @@
+import {SaveListingButton,SavedListingsFeedback} from '../components/SaveListingButton';
 import {PublishedRentalReviews} from '../../../shared/components/RentalReviews';
 import {InlineRentalEstimate} from '../../../shared/components/InlineRentalEstimate';
 import {PublicAvatar} from '../../../shared/components/PublicIdentityBadge';
@@ -16,8 +17,8 @@ import { typography } from '../../../shared/theme/typography';
 
 export function LiveSearchResultsView({ viewModel:vm }: {viewModel:SearchDiscoveryViewModel}) {
   const s=vm.searchResultState??vm.manualState,busy=s.phase==='loading'||s.more;
-  return <View style={styles.screen}><DiscoveryHeader title="Search Results" onBack={vm.goBack}/><FlatList data={s.rows} keyExtractor={r=>r.listingId} contentContainerStyle={styles.content} renderItem={({item})=><SearchListingCard listing={item} onPress={()=>vm.openProperty(item.listingId)}/>}
-    ListHeaderComponent={<View style={styles.section}>
+  return <View style={styles.screen}><DiscoveryHeader title="Search Results" onBack={vm.goBack} actionLabel="Saved" onAction={vm.openSavedListings}/><FlatList data={s.rows} keyExtractor={r=>r.listingId} contentContainerStyle={styles.content} renderItem={({item})=><SearchListingCard listing={item} save={vm.savedControl?.(item.listingId)} onPress={()=>vm.openProperty(item.listingId)}/>}
+    ListHeaderComponent={<View style={styles.section}>{vm.savedState?<SavedListingsFeedback error={vm.savedState.error} notice={vm.savedState.notice} pending={!!vm.savedState.pending} busy={!!vm.savedState.working} onRetry={vm.savedRetry}/>:null}
       <DiscoverySearchBar value={vm.query} onChangeText={vm.setQuery} onFocus={()=>vm.navigate('searchLocation')} onSubmit={vm.submitSearch} placeholder="Enter a city or barangay"/>
       <View style={styles.row}><DiscoveryButton label="Filters" tone="outline" onPress={vm.openLiveFilters}/><DiscoveryButton label="Sort" tone="outline" onPress={()=>vm.navigate('sort')}/></View>
       <Text style={styles.copy}>{vm.resultSortLabel??s.sort} · {s.rows.length} loaded</Text><Text style={styles.copy}>Use Nearby rentals for GPS-based map results.</Text>
@@ -50,7 +51,7 @@ function DetailGalleryPhoto({url,label,width,onPress}:{url:string;label:string;w
     <Text style={styles.photoCaption}>{label}</Text>
   </Pressable>;
 }
-export function LivePropertyDetailView({viewModel:vm,accountId,onOpenPriceEstimate}:{accountId?:string|undefined;onOpenPriceEstimate?:()=>void;viewModel:Pick<SearchDiscoveryViewModel,'manualState'|'manual'|'goBack'|'isOwnListing'|'listingOwnerIdentity'|'listingOwnerLabel'>&Partial<Pick<SearchDiscoveryViewModel,'contactOwner'>>}) {
+export function LivePropertyDetailView({viewModel:vm,accountId,onOpenPriceEstimate}:{accountId?:string|undefined;onOpenPriceEstimate?:()=>void;viewModel:Pick<SearchDiscoveryViewModel,'manualState'|'manual'|'goBack'|'isOwnListing'|'listingOwnerIdentity'|'listingOwnerLabel'>&Partial<Pick<SearchDiscoveryViewModel,'contactOwner'|'savedControl'|'savedState'|'savedRetry'>>}) {
   const s=vm.manualState,d=s.detail;const [imageIndex,setImageIndex]=useState<number|null>(null);const photo=imageIndex===null?null:d?.photos[imageIndex];
   const photoWidth=Math.max(240,useWindowDimensions().width-32);
   return <View style={styles.screen}><DiscoveryHeader title="Rental details" onBack={vm.goBack}/><ScrollView contentContainerStyle={styles.detailContent}>
@@ -58,6 +59,8 @@ export function LivePropertyDetailView({viewModel:vm,accountId,onOpenPriceEstima
     {s.detailError?<View style={styles.detailSection}><Text accessibilityRole="alert" style={styles.error}>{s.detailError}</Text><DiscoveryButton label="Retry details" onPress={()=>{if(s.selectedId)void vm.manual.openDetail(s.selectedId);}}/></View>:null}
     {d?<>
       {d.photos.length?<ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator contentContainerStyle={styles.gallery}>{d.photos.map((p,i)=><DetailGalleryPhoto key={p.id} url={p.url} width={photoWidth} label={`View photo ${i+1} of ${d.photos.length}`} onPress={()=>setImageIndex(i)}/>)}</ScrollView>:<View style={[styles.heroImage,styles.placeholder]}><Text style={styles.copy}>No property photos available</Text></View>}
+      {vm.savedControl?<View style={{alignSelf:'flex-end'}}><SaveListingButton control={vm.savedControl(d.listingId)}/></View>:null}
+      {vm.savedState&&vm.savedRetry?<SavedListingsFeedback error={vm.savedState.error} notice={vm.savedState.notice} pending={!!vm.savedState.pending} busy={!!vm.savedState.working} onRetry={vm.savedRetry}/>:null}
       <View style={styles.summary}><Text style={styles.detailPrice}>₱{d.rent.toLocaleString('en-PH')}<Text style={styles.copy}> / month</Text></Text>
         <Text accessibilityRole="header" style={styles.detailTitle}>{d.title}</Text>
         <Text style={styles.copy}>{d.barangay}, {cityLabels[d.city]??d.city}</Text><Text style={styles.small}>Approximate area · Exact property location is private</Text>
