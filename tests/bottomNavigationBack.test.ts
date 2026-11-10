@@ -7,11 +7,12 @@ import { createNavigationConfirmation } from '../src/shared/viewModels/navigatio
 const read = (p: string) => readFileSync(p, 'utf8');
 test('bottom destination Back is distinct from explicit Profile entry', () => {
   const app = read('App.tsx');
-  for (const name of ['PropertyListingFlowView', 'MessagingViewingFlowView', 'MaintenanceRequestsFlowView']) {
-    const flow = app.split(`<${name}`)[1]?.split('/>')[0] ?? '';
-    assert.match(flow, /onRootBack=\{openDiscovery\}/);
+  for (const name of ['OwnedPropertiesWorkspace', 'MessagingViewingFlowView', 'MaintenanceRequestsFlowView']) {
+    const flow = app.split(`<${name}`)[1]?.split(name==='MessagingViewingFlowView'?'</View>':'/>')[0] ?? '';
+    if(name==='MessagingViewingFlowView'){assert.match(app,/onRootBack=\{openDiscovery\}/);assert.match(flow,/returnToListing/);assert.match(flow,/setInquiryConversation\(null\)/);}else if(name==='MaintenanceRequestsFlowView')assert.match(flow,/onRootBack=\{\(\)=>setWorkspace\(\{type:'tenancy'\}\)\}/);else assert.match(flow, /onRootBack=\{openDiscovery\}/);
     assert.match(flow, /onClose=\{openProfile\}/);
   }
+  assert.match(app,/TenancyWorkspaceView[^\n]*onBack=\{openDiscovery\}/);
   assert.match(app.split('<SearchDiscoveryFlowView')[1] ?? '', /onRootBack=\{requestMarketplaceExit\}/);
 });
 test('Listings dashboard has no Back to Profile action; nested Close and guarded Back remain', () => {

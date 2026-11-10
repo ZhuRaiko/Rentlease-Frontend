@@ -14,7 +14,6 @@ import { TierThreeVerificationView } from './TierThreeVerificationView';
 interface UserVerificationFlowViewProps {
   initialPropertyId?: string;
   tierOneVerified: boolean;
-  hasLandlordRole: boolean;
   onClose: () => void;
   registerBackAction: (action: (() => void) | null) => void;
 }
@@ -29,12 +28,11 @@ const tierTwoScreens = new Set([
 export function UserVerificationFlowView({
   initialPropertyId,
   tierOneVerified,
-  hasLandlordRole,
   onClose,
   registerBackAction,
 }: UserVerificationFlowViewProps) {
   const viewModel = useTierTwoVerificationViewModel();
-  const eligible = canEnterTierThree(tierOneVerified, hasLandlordRole);
+  const eligible = canEnterTierThree(tierOneVerified);
   const [showTierThree, setShowTierThree] = useState(!!initialPropertyId);
   const tierThree = useTierThreeVerificationViewModel(showTierThree && eligible,initialPropertyId);
   const isTierThree = showTierThree && eligible;

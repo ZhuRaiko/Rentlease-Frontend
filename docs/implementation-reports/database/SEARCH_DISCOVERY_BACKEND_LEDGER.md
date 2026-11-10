@@ -168,3 +168,126 @@ and (l.available_from is null or l.available_from<=date '2026-11-01');
 Result: zero. RLS can further restrict the result, not add this excluded record. listings_read_allowed permits active listings to Tier 1-verified authenticated readers plus owner/Admin/tenancy exceptions; properties_read_allowed uses owner or can_view_property(id). These privileged reads are not a live tenant-token test. No policies/grants/functions or filters were changed.
 
 Permanent SQL/backend action: none. Durable effect: none. Rollback/cleanup: unnecessary. Source-controlled backend file: none added/modified. Android/client evidence: user reports successful-empty copy; post-fix cancellation/offline/tenant acceptance remains RUNTIME-UNVERIFIED. No permanent live backend mutation was performed in this phase. Prior uncommitted publication investigation and independent android/ and ninja-error.txt are preserved. No commit/push/merge/build/deployment.
+# GPS physical-phone diagnosis — November 2, 2026
+
+- Actor: Codex, connected Supabase execute_sql; project cxfsbwbwmwmgtqfonqth.
+  Classifications READ_ONLY_INSPECTION / RPC_TEST. Authorized read-only diagnosis;
+  no data modifications, migrations or publication-rule changes.
+- Catalog SELECT: pg_get_functiondef(search_nearby_listings signature) confirms
+  STABLE invoker, empty search_path, active Tier 1 (no normal-role gate), 1/3/5 km,
+  longitude-first ST_MakePoint, geography ST_DWithin radius_km*1000, active listing/
+  active property, Asia/Manila available_from, server distance/order and pagination.
+- Aggregate SELECT joins listings/properties: 4 total, 3 active, 3 on active
+  properties, 3 available now and 3 eligible with public coordinates; all three
+  have valid SRID 4326. The fourth listing is archived. Only public points were
+  inspected; no property_private_locations or exact points were read.
+- Exact reproducible RPC test transaction:
+  `supabase/tests/verify_gps_nearby_coverage.sql`. READ ONLY plus local JWT/role
+  settings over existing eligible actors. Fifty-four queries: six active Tier 1
+  ordinary accounts (Tenant-only, Landlord-only, dual and role-free), three eligible
+  public listing origins and radii 1/3/5. Every anchor returns 1/3/3 listings, nearest
+  distance 0 m. A public origin shifted 30 km north returns zero at 5 km. Local
+  GUC/role settings expire at commit; no test users or persistent records created.
+- Additional READ ONLY RPC extraction at one public origin, radius 3 km, passed
+  through the installed @rentlease/gps-local/rpc production mapper: 3 accepted rows,
+  nearest 0 m. Public response existed only in tool/process memory and was not
+  saved as a fixture. Local public Supabase URL matches the expected project.
+- Android: adb sees emulator-5554 only; no physical-phone coordinate/permission
+  observation. User reports physical Imus, manual-location results and a successful
+  empty Nearby rentals message. This is not evidence of the exact RPC origin.
+- Result: backend and mapper positive/negative/radius cases pass. Phone-specific
+  cause unresolved. Confirmed stale Tier 1 denial classification/copy corrected
+  locally; 69 focused tests/typecheck pass. No unsupported claim of a GPS fix.
+- Durable effect/cleanup: none on live; no permanent live backend mutation was
+  performed in this phase. No credentials, private coordinates, raw phone location
+  logs or private documents retained. No schema or RLS source changed.
+
+
+### November 2, 2026 ? prepared radius expansion (no deployment)
+
+- Project `cxfsbwbwmwmgtqfonqth`: read-only catalog extraction of the existing GPS RPC source/definition; normalized source MD5 `bc659fab2f6311adbba7331a29da4347`. Existing signature, security invoker, Tier 1, public geography, meters, listing availability and pagination inspected only as the radius baseline.
+- Local source snapshot: `supabase/test-support/gps_radius_rpc_baseline.sql` (function only, no live records). Prepared migration `20261102144651_gps_nearby_radius_1_to_20.sql` guards that hash and replaces only radius validation/message. No RLS, grants, roles, private locations or verification changes.
+- `supabase/tests/run_gps_radius.py`: 34 checks passed in an isolated disposable PostgreSQL 17/PostGIS container, no volumes/host ports. Synthetic public points 9 km apart demonstrate additional results at wider radii, integer 1?20 acceptance, invalid bounds/null rejection, Tier 1/anonymous denial, coordinate/pagination guards and draft/future/inactive exclusion. Local data only; no live SQL writes or deployment.
+- Earlier phone-origin uncertainty is superseded by user confirmation of a US-located emulator and successful Android GPS. Current UX changes remain runtime-unverified. Deployment remains separately authorized; until then production retains 1/3/5 km. Existing unified-account migration was neither changed nor replayed.
+
+Local cleanup: disposable container `rentlease-gps-test-radius20` stopped and automatically removed. Migration SHA-256 `9dd16e11c053d80c4b1df074bab6899e3b6c16b9c423072feb1cf04d8506adef`. Packed GPS 0.1.1 SHA-256 `16832af3018c32414510a8a9e4a8dbd7f9b5065f686b11fa12b899b3c3278155`. Frontend typecheck and whitespace check passed.
+
+
+### November 3, 2026 - nearby map presentation (no backend interaction)
+
+No live Supabase queries, SQL, mutations or deployment performed in this increment. Map consumes already-loaded search_nearby_listings publicLocation results and the established batched public-photo/detail service. Existing invoker/RLS/Tier 1, public-coordinate separation and source-guarded prepared radius migration remain unchanged; production 1/3/5 restriction is still a deployment prerequisite. Current local frontend tests use synthetic fixtures only and do not establish new live security/runtime acceptance. No private locations or verification documents read. No test data/cleanup needed on live.
+
+
+### November 3, 2026 - immersive UI acceptance checks
+
+No SQL, Supabase console/MCP operation, schema/data mutation or migration deployment. The existing Android development session performed read-only location search, public-thumbnail loading and real detail reads through existing services using its already signed-in account; 3 loaded nearby records were observed. No account/session credentials or private exact property coordinates were extracted. ADB screen capture and UI taps only; no new build. Existing prepared radius migration was preserved byte-for-byte. Native readiness crash/return correction is frontend-only and creates no backend state or cleanup requirement.
+
+Final native UI retest preserved the same radius/results/selection through detail Back. The initial native map-readiness crash was corrected in frontend code and the read-only flow repeated successfully; no database repair/data mutation occurred. Existing app session remained signed in and its device location was not changed.
+
+
+### November 3, 2026 - radius contract and reversible local validation
+
+No production SQL/MCP/admin operation, schema/data mutation or deployment. Reused captured deployed baseline source MD5 bc659fab2f6311adbba7331a29da4347. Forward radius migration remains byte-identical and undeployed. Prepared rollback supabase/test-support/gps_radius_1_to_20_rollback.sql guards the forward body MD5 d491c451f08bb49155a70e2b78ec59ce, reverses only radius validation/message and asserts exact original body hash. A backward rollout must coordinate clients, since rollback restores only1/3/5.
+
+Created disposable rentlease-gps-test-stability20 PostgreSQL17/PostGIS container with no ports/mounts. Focused runner passed37 checks: all1-20, invalid ranges/null, additional 9km synthetic match, authorization and public geography/availability/pagination; rollback exact-source restoration,2km denial and3km success. Container stopped and automatically removed; no live cleanup needed.
+
+Existing development app made ordinary read-only GPS/photo/detail requests on its current session, showing3 real results. One deliberate2km call confirmed live legacy22023 and the corrected UI message; restored3km afterward. Camera gestures operate on native source data and private in-memory camera persistence; no search/photo operation is connected to these callbacks. No coordinates/tokens/keys/private records logged. Package0.1.1 artifact SHA256 remains16832af3018c32414510a8a9e4a8dbd7f9b5065f686b11fa12b899b3c3278155; actual source90 targeted tests passed.
+
+
+### GPS-RADIUS-DEPLOY-20261104 - authorized once, verified read-only
+
+Date/actor/environment: November4,2026 Asia/Singapore, Codex via Supabase get_project/execute_sql/apply_migration and Supabase CLI/Docker exports. Live RentLease cxfsbwbwmwmgtqfonqth, ACTIVE_HEALTHY, PostgreSQL17.6.1.155. Explicit user authorization: deploy only reviewed 1-20km radius migration after fresh backup; no listing-data mutation. Skills read/applied: rentlease-implementation-ledger, rentlease-supabase-contract-guard, rentlease-security-review, documentation/runtime/artifact skills from this continuing workflow and supabase:supabase.
+
+READ_ONLY_INSPECTION preflight: linked project-ref matched; migration history matching version/name count0; current RPC body normalized MD5bc659fab2f6311adbba7331a29da4347. SELECT function definition confirmed only radius clause/message need changing, expected new MD5d491c451f08bb49155a70e2b78ec59ce. Existing signature/defaults, auth.uid/active Tier1, stable/invoker, empty search_path, public_location geography and meters, active/available records, ordering/limit/offset preserved. Original owner16388, ACL {postgres=X/postgres,authenticated=X/postgres}; no anonymous/public execution grant added.
+
+Recovery export action: supabase db dump --linked --file <directory>/schema.sql; --data-only --use-copy --file <directory>/data.sql; --role-only --file <directory>/roles.sql. All exit0. New directory C:/RentLease-Backups/gps-radius-predeploy-20261104-004219; earlier backups untouched. Schema255602bytes/SHA256b87ff2270702fde4ed5236b4fa2a8bc7691d5c2e364593b3156d399b61630675, data125896bytes/SHA256b3cdf5d1202ebdfa3a048fab6571e060210c92bac589ddd84ee267ff46762cb3, roles358bytes/SHA2564350a72b5ec109888e740c17f3eb4da2fcd95ab73af26499538ed0bf615db543. Written UTC16:43:28/42/48 Nov3, corresponding00:43 Nov4 Singapore. Structure/checksums and baseline RPC present verified; manifest retained outside Git. Limits: no restore test/Storage export, separate dump snapshots/managed-schema exclusions. pg_dump reported circular foreign keys in verification_submissions/corrections/messages: restore may require disabled triggers or coordinated constraint handling. These are export recovery files, not a tested managed recovery point; matches established workflow.
+
+FUNCTION_CHANGE: apply_migration(project_id=cxfsbwbwmwmgtqfonqth,name=gps_nearby_radius_1_to_20,query=entire reviewed SQL file) succeeded exactly once. Exact permanent SQL source now supabase/migrations/20261103164547_gps_nearby_radius_1_to_20.sql: transactional DO, source-drift guard, pg_get_functiondef replacement of only radius NOT IN(1,3,5) with NOT BETWEEN1AND20 and corresponding validation message, execute CREATE OR REPLACE FUNCTION. Original prepared filename20261102144651; SHA2569dd16e11c053d80c4b1df074bab6899e3b6c16b9c423072feb1cf04d8506adef unchanged after rename. Actual remote version20261103164547, once in history, source MD5d491c451f08bb49155a70e2b78ec59ce. Earlier migration versions untouched. Durable effect: only function radius validation and migration-history entry. No privilege, RLS, property/listing/profile/role/verification record or Storage mutation.
+
+READ_ONLY_INSPECTION/RPC_TEST postflight: source hash exactly equals expected two-replacement body; owner/ACL/security-definer=false/volatility=s/search_path unchanged. Public+Storage policy digest before/after f1adeb6217cf7f5c89a18b4a0e68f1f5. Full row counts/digests preserved: listings4/0602d0dfda040e3e573ce81577b1da6b; properties13/ff7e2e4cbee282d453f5cba58ffdb133; profiles7/66c78019e105a816c361a848902e3d65; roles9/17aff0b2fd2b6d2f1af05fbc91b1c0d7; verification submissions11/d4177cf508d85ecf91f8554da8bbec35. Only aggregates/hashes returned, no private property coordinates/data values.
+
+Exact verification SQL/RPC arguments: supabase/tests/verify_gps_radius_deployment.sql, BEGIN READ ONLY, existing eligible actors and an existing active/available public anchor; transaction-local JWT/role settings reset at COMMIT. Each of6 eligible ordinary actors called public.search_nearby_listings(public_lat,public_lng,radius1..20,50,0):120 successes, nearest0, distances within radius, monotonic result counts. One actor sample:1 result at1/2km;3 results at3-20km. Fifteen invalid input checks rejected radiusNULL/0/-1/21/100 (22023), fractional/NaN/Infinity/text integer inputs (22P02), out-of-range coordinates and pagination (22023). Missing JWT rejected28000; ephemeral nonexistent identity rejected42501 for Tier1, no test-user creation. No production listing update, fixture or persisted impersonation. No private coordinates returned. These are SQL/session simulations, not Android/client acceptance.
+
+Rollback/cleanup: validated rollback remains supabase/test-support/gps_radius_1_to_20_rollback.sql, not executed live. No temporary rows/objects exist to clean up. Fresh backup manifest and deployment receipt remain outside Git. Android post-deployment acceptance not performed. No frontend change, commit/push/merge/build or broad suite rerun; only local migration filename/test/evidence docs changed.
+
+
+### November 4, 2026 - OSM Nearby Places public-location projection
+
+READ_ONLY_INSPECTION; Codex via Supabase execute_sql, live RentLease cxfsbwbwmwmgtqfonqth. Inspected generated properties.public_location (unknown geography) and existing active-listing/public-property detail RLS. Exact successful aggregate: `select count(*) as active_public_points, bool_and(length(public_location::text)=50 and left(upper(public_location::text),18)='0101000020E6100000') as ewkb_wgs84_point_encoding from public.properties where is_active and public_location is not null;` returned 12 / true. No coordinates or private rows returned. Initial aggregate attempt combined ungrouped pg_typeof with count and failed 42803, then corrected. Separate SELECT from pg_policies for public properties/listings SELECT/ALL returned properties_read_allowed (owner OR can_view_property) and listings_read_allowed (active+Tier1 OR owner OR Admin OR tenancy relationship). No policy/grant/schema change; this privileged metadata inspection does not prove authenticated Android RLS acceptance.
+
+Frontend detail projection adds only public_location; existing identity checks, active availability filters, RPC/ownership/verification and Storage safeguards remain. Normalizes WGS84 public EWKB/GeoJSON locally without a new migration or RPC. No private location source is queried. One sandboxed host Overpass smoke attempt failed network access; one explicitly network-enabled read-only POST for generalized Imus 14.43,120.94 / 2,000 m / four categories returned the service-unavailable path. No automatic retries, successful live POI retrieval, Android acceptance, persistent data change or cleanup claimed. Overpass operations affect no Supabase records. Source-controlled backend change: none. Existing deployed GPS migration unchanged. No permanent live backend mutation was performed in this phase.
+
+
+### November 4, 2026 - external Overpass failure classification correction
+
+Actor/tool: Codex, bounded Node fetch/Python urllib HTTP diagnostics with network-enabled exec; no Supabase calls in this correction. Known generalized public Imus center 14.43,120.94, no selected/private property data, authentication or tokens. Non-mutating external requests: full existing seven-selector nwr query, 2,000 m, server timeout15 s/maxsize16 MiB/out center501. Unidentified primary POST returned406 text/html nginx (716 ms); documented alternative POST returned429 text/plain (626 ms), explicitly requiring a meaningful User-Agent. Adding Accept application/json and RentLease/0.1 (+https://github.com/ZhuRaiko/Rentlease-Frontend) yielded TimeoutError at22 s on each provider. Reduced school-only nwr POST timeout30 s; final school-node-only GET diagnostic timeout15.45 s. GET is diagnostic only, runtime continues POST. No real establishments successfully retrieved; do not infer a global OSM outage or successful integration from mocked tests. Both identified requests and reduced diagnostics failing leave provider/network-path availability unresolved. No raw property coordinates/query bodies/credentials added to application logs.
+
+Endpoint/usage source https://overpass.private.coffee/ (public API, meaningful User-Agent, bounded simultaneous use, attribution). Runtime uses primary de and at most one alternative for transient errors; never fallback on rate limiting or invalid query and never after cancellation. Cache and in-flight sharing constrain repeated visits. ADB devices found emulator-5554; dumpsys connectivity reported validated internet=true; filtered logcat had no sanitized Nearby Places events. Physical device/native request acceptance not established. Source-controlled backend file: none changed; Supabase RLS/grants/data/GPS RPC unchanged. Durable effect/cleanup: no persistent backend effect or test data. No permanent live backend mutation was performed in this phase.
+
+
+### November 4, 2026 - graduated public Overpass diagnostics (no Supabase changes)
+
+Actor/tool: Codex Node fetch via authorized network-enabled exec; current fix/gps-nearby-results. READ_ONLY_INSPECTION of external public Overpass, not SQL. Known generalized public Imus test center14.43,120.94, no private/selected-property data or credentials. Initial exact diagnostic QL: `[out:json][timeout:5][maxsize:8388608];node[amenity=school](around:500,14.43,120.94);out 20;`. One POST per endpoint sequentially, Content-Type application/x-www-form-urlencoded, Accept application/json and existing meaningful RentLease User-Agent; body data=encodeURIComponent(QL), client10 s. de: no HTTP headers before TimeoutError10012 ms. private.coffee: no HTTP headers before TimeoutError10021 ms. No runtime fallback involved in these controlled diagnostics.
+
+Then exactly three sequential POSTs using updated buildNearbyQuery at de only, client12 s/no fallback: school1000 m timeout12008 ms/no HTTP status; school2000 m HTTP502666 ms/non-JSON/no Retry-After; all categories2000 m timeout12004 ms/no HTTP status. Updated QL server8 s/maxsize16 MiB, bbox+around each clause, merged amenity+healthcare+shop+public_transport+railway, out center qt501. Actual element and parsed-category counts cannot be obtained without JSON and are unavailable (never represented as zero places). User-provided Android evidence is separate: de HTTP502846 ms, private.coffee around20 s timeout, subsequent timeouts on both. Provider internals not inspected; do not assert global OSM outage or proven query-complexity cause.
+
+Durable backend effect/cleanup: none; no test rows, SQL, RLS/grant/function/migration/Storage changes, no new backend files. HTTP overload controls changed only client service: total12 s budget, one fast-failure-only alternate, Retry-After enforcement, same-query cooldown and existing success cache/in-flight sharing. UI, GPS and authorization unchanged. No permanent live backend mutation was performed in this phase. Successful live retrieval/physical-device acceptance remain unresolved; shared managed-provider/server-cache alternative is a proposal requiring separate authorization, not implemented infrastructure.
+
+
+### November 4, 2026 - Discover reuses existing authorized listing reads
+
+Frontend-only integration; no new live Supabase inspection/test/mutation or Overpass HTTP diagnostic in this task. Contract reuse: authenticated manualSearchService.search with empty query, default filters, Recently Listed, offset0/pages20 and publishedOnly=true. Existing active listing/property and Asia/Manila availability predicates remain; new homepage-only published_at IS NOT NULL predicate, order published_at DESC then id, unchanged RLS and namespaced public photo metadata/storage reads. Listing cards use the same authorized detail path as manual/GPS. Canonical listing publication timestamp already exists; no generated schema/migration/RPC/policy/grant change. Account-keyed lifecycle/identity and stale-response guards remain authoritative on the client, with server RLS unchanged.
+
+Evidence: mocked service/transport/workflow/rendering/navigation tests and TypeScript, not a new live authorization proof; existing inspection history remains the RLS evidence source. No private location query, role/verification change or privileged credential. No permanent live backend mutation was performed in this phase. No cleanup or outstanding backend objects. External OSM reliability is unchanged and does not block homepage/detail publication.
+
+
+Client read-only smoke evidence for Discover: agent used existing signed-in emulator through ADB to open one real homepage card, confirm full detail content/photo after loading, then Back. This exercises existing authenticated listing/photo/detail reads; exact request payloads/IDs/session are not logged, and visible-card count is not a total result count. No SQL/admin inspection or data mutation. Nearby Places may follow its normal asynchronous detail lifecycle; no provider diagnostic/retry cycle was initiated. Temporary UI hierarchy file deleted. This is not new physical-device acceptance or a denied-case live RLS test.
+
+
+### 2026-11-10 / TENANT-DISCOVERY-AUDIT
+
+Actor: Codex, connected Supabase execute_sql. Classification READ_ONLY_INSPECTION; project cxfsbwbwmwmgtqfonqth. Catalog-only SELECTs inspected pg_proc/pg_get_functiondef, owners/config/ACL for search_nearby_listings and recommendation verification RPC presence; information_schema saved_listings columns/column privileges; pg_constraint definitions; pg_policies; pg_class RLS; has_table_privilege for authenticated SELECT/INSERT/DELETE; public RPC name inventory matching saved/favorite/bookmark. No application rows, private locations, credentials or GPS/POI values were read; no user RPC was executed.
+
+Results: GPS remains security invoker with empty search_path, authenticated execution, 1?20 km validation, active Tier 1, public_location PostGIS and active/available listing predicates. Recommendation signal RPC absent. saved_listings exists with tenant/listing composite key and owner RLS, but authenticated SELECT/INSERT/DELETE table grants and relevant column grants are absent; no public saved/favorite/bookmark RPC exists. Thus Saved Listings requires a separately authorized backend contract, not a speculative frontend query. Existing privacy-blocked recommendation migration and all unrelated migrations remain untouched. Source provenance: deployed GPS radius file 20261103164547_gps_nearby_radius_1_to_20.sql and existing generated types; no migration was created/changed in this audit.
+
+No permanent live backend mutation was performed. No provider request, Android/ADB/Expo/build, deployment, commit/push or data cleanup obligation. Frontend photo-only resilience regression, 224 focused cases and TypeScript evidence are in TENANT_SEARCH_DISCOVERY_AUDIT_2026-11-10.md. Native/provider/current caller-JWT/RLS runtime acceptance remains unverified.

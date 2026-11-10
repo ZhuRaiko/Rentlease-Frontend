@@ -14,12 +14,12 @@ function functionBody(file: ts.SourceFile, name: string) {
   let body = '';
   const visit = (node: ts.Node) => { if (ts.isVariableDeclaration(node) && node.name.getText(file) === name && node.initializer && ts.isArrowFunction(node.initializer)) body = node.initializer.body.getText(file); ts.forEachChild(node, visit); }; visit(file); return body;
 }
-test('all root toolbar consumers receive Landlord membership, not preferred UI mode', () => {
-  const file = source('App.tsx'); const values = attributes(file, 'isLandlord');
-  assert.equal(values.length, 6); assert.ok(values.every(value => value === '{auth.hasLandlordRole}'));
+test('all root toolbar consumers receive account eligibility, independent of legacy membership or preference', () => {
+  const file = source('App.tsx'); const values = attributes(file, 'canPostProperty');
+  assert.equal(values.length, 7); assert.ok(values.every(value => value === '{canEnterMarketplace}'));
   assert.equal(attributes(file, 'onSwitchRole').length, 0);
   assert.match(file.text, /marketplaceNavigation=/);
-  assert.match(functionBody(file, 'openDiscovery'), /setPreferredRole\(auth.hasTenantRole \? 'tenant' : 'landlord'\)/);
+  assert.match(functionBody(file, 'openDiscovery'), /setActivityMode\(defaultPreviewActor\(auth.roles\)\)/);
   assert.match(functionBody(file, 'openProperties'), /propertiesWorkspace\(access, initialScreen\)/);
 });
 test('root Android Back delegates to feature actions, and listing Close/tab exits use the ViewModel guard', () => {

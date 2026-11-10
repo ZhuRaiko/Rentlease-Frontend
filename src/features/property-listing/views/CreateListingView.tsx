@@ -40,13 +40,13 @@ export function CreateListingView({ viewModel, onClose }: CreateListingViewProps
         <View style={styles.postingChoices}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Property Listing. List a property for rent"
+            accessibilityLabel="Post a Rental. List a property for rent"
             disabled={viewModel.propertyState.busy}
             accessibilityState={{ disabled: viewModel.propertyState.busy }}
             onPress={viewModel.beginPropertySetup}
             style={({ pressed }) => [styles.postingChoice, pressed && styles.pressed]}
           >
-            <Text style={styles.postingLabel}>Property Listing</Text>
+            <Text style={styles.postingLabel}>Post a Rental</Text>
             <Text style={styles.postingOptionCopy}>List a property for rent</Text>
           </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Community Post. Share with the RentLease community. Coming soon" accessibilityState={{disabled:true}} disabled style={[styles.postingChoice, styles.postingChoiceDisabled]}>

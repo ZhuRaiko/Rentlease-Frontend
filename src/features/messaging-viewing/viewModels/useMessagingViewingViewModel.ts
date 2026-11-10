@@ -1,238 +1,28 @@
-import { useMemo, useState } from 'react';
-
-import {
-  initialViewingProposal,
-  previewConversations,
-  previewMessages,
-  type ChatMessage,
-  type MessagingActor,
-  type MessagingViewingScreen,
-  type ViewingProposalDraft,
-  type ViewingStatus,
-} from '../models/MessagingViewing';
-
-function proposalMessage(proposal: ViewingProposalDraft) {
-  return `Viewing proposed for ${proposal.date} at ${proposal.time}`;
+import {useConversationPropertyViewModel} from './useConversationPropertyViewModel';
+import {usePublicIdentitiesViewModel} from '../../../shared/viewModels/usePublicIdentitiesViewModel';
+import {AppState} from 'react-native';
+import {createRealtimeSync} from './realtimeSync';
+import type {MessagingConnection} from '../services/messagingRealtimeService';
+import {useEffect,useMemo,useState,useSyncExternalStore} from 'react';
+import {messagingService,messagingRealtimeService,messageId} from '../services/messagingDependencies';
+import {createMessagingWorkflow} from './messagingWorkflow';
+export function useMessagingViewingViewModel(accountId?:string,conversationId?:string){
+ const workflow=useMemo(()=>createMessagingWorkflow(messagingService,messageId),[accountId]);
+ const state=useSyncExternalStore(workflow.subscribe,workflow.getSnapshot,workflow.getSnapshot);
+ const publicIdentities=usePublicIdentitiesViewModel(accountId,[...state.inbox,...(state.conversation?[state.conversation]:[])].map(c=>c.tenantId===accountId?c.landlordId:c.tenantId));
+ const context=useConversationPropertyViewModel(accountId,[...new Map([...state.inbox,...(state.conversation?[state.conversation]:[])].map(c=>[c.id,c])).values()]);
+ const [connection,setConnection]=useState<MessagingConnection>('connecting');
+ const [realtimeAttempt,setRealtimeAttempt]=useState(0);
+ useEffect(()=>{workflow.activate();return()=>workflow.dispose();},[workflow]);
+ useEffect(()=>{if(conversationId)void workflow.open(conversationId);else void workflow.inbox();},[workflow,conversationId]);
+ useEffect(()=>{
+  if(!state.owner)return;const owner=state.owner,controller=new AbortController();let watchStop:(()=>void)|null=null;
+  const sync=createRealtimeSync(()=>workflow.synchronize(controller.signal));
+  const connect=()=>{watchStop?.();watchStop=messagingRealtimeService.watch(owner,state.selectedId,()=>sync.request(),setConnection,()=>workflow.clearAccount());sync.request();};
+  if(AppState.currentState==='active')connect();
+  const foreground=AppState.addEventListener('change',status=>{if(status==='active')connect();else{watchStop?.();watchStop=null;setConnection('connecting');}});
+  return()=>{controller.abort();sync.stop();watchStop?.();foreground.remove();};
+ },[workflow,state.owner,state.selectedId,realtimeAttempt]);
+ return{...state,publicIdentities,propertyContexts:context.rows,propertyContextLoading:context.loading,propertyContextError:context.error,refreshPropertyContext:context.refresh,connection,workflow,refresh:()=>{context.refresh();if(connection==='unavailable')setRealtimeAttempt(value=>value+1);void workflow.synchronize();},screen:state.selectedId?'conversation' as const:'inbox' as const,openInbox:()=>{workflow.closeThread();void workflow.inbox();},openConversation:(id:string)=>void workflow.open(id),backFromWorkspace:(onClose:()=>void)=>{if(state.selectedId)workflow.closeThread();else onClose();}};
 }
-
-export function useMessagingViewingViewModel(
-  actor: MessagingActor,
-  initialScreen: 'inbox' | 'newInquiry' = 'inbox',
-) {
-  const [screen, setScreen] = useState<MessagingViewingScreen>(initialScreen);
-  const [history, setHistory] = useState<MessagingViewingScreen[]>(
-    initialScreen === 'newInquiry' ? ['inbox'] : [],
-  );
-  const [selectedConversationId, setSelectedConversationId] = useState(
-    previewConversations[0]?.id ?? '',
-  );
-  const [messages, setMessages] = useState<ChatMessage[]>(previewMessages);
-  const [composerText, setComposerText] = useState('');
-  const [searchText, setSearchText] = useState('');
-  const [attachmentName, setAttachmentName] = useState<string | null>(null);
-  const [proposal, setProposal] = useState<ViewingProposalDraft>(initialViewingProposal);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const selectedConversation =
-    previewConversations.find((item) => item.id === selectedConversationId) ??
-    previewConversations[0];
-
-  const filteredConversations = useMemo(() => {
-    const query = searchText.trim().toLocaleLowerCase();
-    if (!query) return previewConversations;
-    return previewConversations.filter(
-      (item) =>
-        item.participantName.toLocaleLowerCase().includes(query) ||
-        item.listingTitle.toLocaleLowerCase().includes(query),
-    );
-  }, [searchText]);
-
-  const navigate = (next: MessagingViewingScreen) => {
-    setHistory((current) => [...current, screen]);
-    setScreen(next);
-    setNotice(null);
-  };
-
-  const replace = (next: MessagingViewingScreen) => {
-    setScreen(next);
-    setNotice(null);
-  };
-
-  const goBack = () => {
-    setHistory((current) => {
-      const previous = current.at(-1) ?? 'inbox';
-      setScreen(previous);
-      return current.slice(0, -1);
-    });
-    setNotice(null);
-  };
-
-  const openInbox = () => {
-    setScreen('inbox');
-    setHistory([]);
-    setNotice(null);
-  };
-
-  const openConversation = (conversationId: string) => {
-    const conversation = previewConversations.find((item) => item.id === conversationId);
-    setSelectedConversationId(conversationId);
-    setScreen(conversation?.available === false ? 'listingUnavailable' : 'conversation');
-    setHistory(['inbox']);
-    setNotice(null);
-  };
-
-  const startInquiry = () => navigate('newInquiry');
-
-  const submitInquiry = () => {
-    const body = composerText.trim() || 'Hi! Is this property still available for viewing?';
-    setMessages([
-      {
-        id: `inquiry-${Date.now()}`,
-        body,
-        sentAt: 'Now',
-        direction: 'outgoing',
-        delivery: 'sent',
-        kind: 'text',
-      },
-    ]);
-    setComposerText('');
-    setSelectedConversationId(previewConversations[0]?.id ?? '');
-    setScreen('conversation');
-    setHistory(['inbox']);
-    setNotice('Inquiry added locally. No message was sent to Supabase.');
-  };
-
-  const sendMessage = () => {
-    const body = composerText.trim();
-    if (!body) return;
-    setMessages((current) => [
-      ...current,
-      {
-        id: `message-${Date.now()}`,
-        body,
-        sentAt: 'Now',
-        direction: 'outgoing',
-        delivery: 'sent',
-        kind: 'text',
-      },
-    ]);
-    setComposerText('');
-    setNotice('Message added to this frontend preview only.');
-  };
-
-  const chooseAttachment = (name: string) => {
-    setAttachmentName(name);
-    setMessages((current) => [
-      ...current,
-      {
-        id: `attachment-${Date.now()}`,
-        body: name,
-        sentAt: 'Now',
-        direction: 'outgoing',
-        delivery: 'sent',
-        kind: 'attachment',
-      },
-    ]);
-    replace('conversation');
-    setNotice('Attachment preview added locally; no file was uploaded.');
-  };
-
-  const beginViewingProposal = () => {
-    setProposal(initialViewingProposal);
-    navigate('proposeViewing');
-  };
-
-  const selectDate = (date: string) => setProposal((current) => ({ ...current, date }));
-  const selectTime = (time: string) => setProposal((current) => ({ ...current, time }));
-  const setProposalNote = (note: string) => setProposal((current) => ({ ...current, note }));
-
-  const updateProposalStatus = (status: ViewingStatus) =>
-    setProposal((current) => ({ ...current, status }));
-
-  const submitProposal = () => {
-    const pendingProposal = { ...proposal, status: 'pending' as const };
-    setProposal(pendingProposal);
-    setMessages((current) => [
-      ...current,
-      {
-        id: `viewing-${Date.now()}`,
-        body: proposalMessage(pendingProposal),
-        sentAt: 'Now',
-        direction: 'outgoing',
-        delivery: 'sent',
-        kind: 'viewing',
-      },
-    ]);
-    replace('proposalPending');
-  };
-
-  const acceptProposal = () => {
-    updateProposalStatus('accepted');
-    replace('proposalAccepted');
-  };
-
-  const declineProposal = () => {
-    updateProposalStatus('declined');
-    replace('proposalDeclined');
-  };
-
-  const counterProposal = () => {
-    updateProposalStatus('countered');
-    replace('counterProposal');
-  };
-
-  const submitCounterProposal = () => {
-    updateProposalStatus('pending');
-    replace('proposalPending');
-    setNotice('Counter-proposal saved locally and marked pending.');
-  };
-
-  const cancelViewing = () => {
-    updateProposalStatus('cancelled');
-    replace('viewingCancelled');
-  };
-
-  const completeViewing = () => {
-    updateProposalStatus('completed');
-    replace('viewingCompleted');
-  };
-
-  return {
-    backFromWorkspace: (onClose: () => void) => { if (screen === 'inbox' || screen === 'emptyInbox') onClose(); else goBack(); },
-    actor,
-    screen,
-    selectedConversation,
-    filteredConversations,
-    messages,
-    composerText,
-    searchText,
-    attachmentName,
-    proposal,
-    notice,
-    navigate,
-    replace,
-    goBack,
-    openInbox,
-    openConversation,
-    startInquiry,
-    submitInquiry,
-    sendMessage,
-    chooseAttachment,
-    beginViewingProposal,
-    selectDate,
-    selectTime,
-    setProposalNote,
-    submitProposal,
-    acceptProposal,
-    declineProposal,
-    counterProposal,
-    submitCounterProposal,
-    cancelViewing,
-    completeViewing,
-    setComposerText,
-    setSearchText,
-    setNotice,
-  };
-}
-
-export type MessagingViewingViewModel = ReturnType<typeof useMessagingViewingViewModel>;
+export type MessagingViewingViewModel=ReturnType<typeof useMessagingViewingViewModel>;

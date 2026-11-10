@@ -1,5 +1,33 @@
 # Isolated listing-completeness database tests
 
+## Unified account authorization (disposable local tests)
+
+Use a fresh disposable no-port/no-volume container named
+`rentlease-identity-test-role-revamp` with the same PostgreSQL 17 image and throwaway
+password shown below. Run `python supabase/tests/run_property_identity.py --container
+rentlease-identity-test-role-revamp` first. Then run `python
+supabase/tests/run_unified_account.py --container rentlease-identity-test-role-revamp
+--baseline` to install the inspected contract fixture and confirm the original GPS
+membership denial, followed by the same command without `--baseline` to apply and
+test the prepared migration locally. Stop only the container you created afterward.
+
+The suite tests profile/membership lookup, owner/participant RLS, private document
+metadata, publication, existing safeguards, rollback and reapplication. The JSON
+baseline contains contract definitions only. Storage HTTP and Android are untested.
+`prepare_unified_account.py` deterministically renders the forward and inverse SQL;
+it does not connect to any database. The inverse is a separately coordinated
+rollback, **not** a migration to apply after the forward migration. It restores old
+membership gates and retains preference data. Never execute these fixture commands
+against live, or use `db push` to deploy the prepared change.
+
+Migration deployed separately as `20261102102331_unified_account_authorization.sql`;
+these commands remain local-only and must never replay it against production.
+Final Task 1 result: 50 existing identity checks before cutover and 82 focused
+authorization checks after cutover passed, including coordinated inverse/reapplication
+and transactional abort on source drift. No live deployment or Android acceptance.
+
+## Listing completeness
+
 This support schema is **not a production migration or a full Supabase schema dump**. It models the inspected score/ownership/status surface, relevant FKs/indexes, SELECT-only listing client access and owner RLS. Auth, PostGIS, Storage, Tier 3, tenancy and all publication RPCs are not recreated. Existing live RPCs are not modified or called by these tests.
 
 Use an unused disposable container name beginning `rentlease-completeness-test-` and a free loopback port. Docker must be running. The password below is a public throwaway local test value, not a project credential. Do not substitute a live URL or use --linked/db push/migration up: those could include the unrelated tenancy migration.
@@ -97,3 +125,35 @@ docker stop rentlease-identity-test-local
 The runner installs the existing media/completeness/routine fixture chain, PostGIS and the prepared identity migration, then exercises bootstrap exclusion, private revisions, controlled proof finalization, owner/Admin authorization, CAS/recovery, cancellation/rejection/resubmission, open-tenancy denial, actual two-connection races and property/listing/photo preservation. It includes the actual existing versioned routine/media contracts with identity triggers installed. Storage rows represent file metadata/RLS, not live Storage HTTP uploads or private-file contents. Existing Tier 2 behavior retains its original review implementation.
 
 Migration [20261102081459_property_identity_revision_verification.sql](../migrations/20261102081459_property_identity_revision_verification.sql) is deployed as 20261102081459; the test commands remain disposable/local only. Its queue/publication definition checks deliberately abort on unexpected source drift. The separately authorized deployment passed fresh backup, live compatibility and coordinated Tier 3 client-cutover checks. Any future migration requires new review/authorization. Do not use `db push` or replay earlier migrations. [Read-only deployment verification](../tests/verify_property_identity_deployment.sql) was executed read-only after the authorized deployment; no live mutation test was performed.
+
+## UC-09A viewing scheduling (local only)
+
+Use the existing UC-08 fixture runner with `--viewings`. Create a disposable `rentlease-messaging-test-*` PostgreSQL 17 container with no mounts or published ports; prefer `--network none`. Then run:
+
+```powershell
+python supabase/tests/run_messaging_contract.py --container rentlease-messaging-test-viewings --viewings
+```
+
+The runner verifies container isolation, initializes a synthetic messaging database, loads the inspected viewing trigger and prepared scheduling migration, then exercises persistence, relationship/state authorization, idempotency, CAS, real concurrent requests/approvals, history and feature-disable rollback. It never reads .env or connects to production. Stop only that disposable container after completion. The last run passed 104 checks. A minimal fixture is not equivalent to a full production restoration or Android acceptance.
+
+`property_viewing_scheduling_rollback.sql` disables the three new scheduling RPCs and removes only their two restrictive policies. It deliberately keeps appointment records, revision/request notes, indexes and private event history for recovery. Existing grants/policies, messages and Realtime configuration remain unchanged. Do not replay the original migration to reenable it after rollback; use a separately reviewed recovery migration. UC-09A was separately deployed as 20261106125046 on November 6; do not replay it. The read-only supabase/tests/verify_viewing_deployment.sql passed118 live checks without creating appointments. These disposable test commands remain local-only. Future deployment/rollback requires separate authorization.
+
+## UC-09B rental reservations (local only)
+
+The reservation migration is independent of UC-09A. The same guarded disposable fixture runner supports `--reservations`; the combined regression command is:
+
+```powershell
+python supabase/tests/run_messaging_contract.py --container rentlease-messaging-test-reservations --viewings --reservations
+```
+
+Use a fresh no-volume/no-published-port Supabase PostgreSQL17 container; prefer `--network none`. The final run passed171 checks (67 reservation,55 viewing,49 messaging). It reuses the actual inspected tenancy property/identity guard sources with synthetic current-identity/property data and verifies concurrent approval/tenancy races. Stop only that disposable container afterward. This is not live RLS, a production restore, or Android acceptance evidence.
+
+`property_rental_reservations_rollback.sql` is feature-disable recovery: remove only the three public reservation RPCs; retain private data/event history, indexes/helpers and the additive tenancy conflict guard so approved commitments remain honored. A separately authorized recovery migration is needed to reenable entry points or retire commitments. Never replay the creation file, drop protected reservation records, or remove the guard while approved commitments remain active. No deployment authorization is implied by these tests.
+
+UC-09B was separately deployed as20261106130211 on November6. Do not replay it. The live read-only verify_reservation_deployment.sql passed161 checks without creating reservations/tenancies; existing viewing118 and messaging/Realtime214 checks also passed. These fixture commands remain local-only, and actual Android reservation acceptance is pending. Future deployment or recovery requires separate authorization.
+
+## Public identity local validation
+
+Deployed November 7 as `20261107134047_public_identity_nicknames_avatars.sql`; disable source: `public_identity_rollback.sql`. Run the existing disposable messaging runner with `--public-identity` (optionally `--viewings --reservations`). Fixtures simulate Storage metadata, bucket limits and RLS; they do not exercise the Storage HTTP server or native picker. Never run these synthetic fixture scripts against the hosted database. Rollback revokes consumer entry points and retains consent data and privacy protections.
+
+The Display Name revision adds synthetic Auth/profile signup initialization tests. Revised SQL passed local PostgreSQL validation on November 7: 101 focused checks / 0 failures; 223 coordinated Public Identity/viewing/reservation checks / 0 failures. Both runs used a network-isolated disposable PostgreSQL 17.6 container, which was removed afterward. The migration is deployed; do not replay it. Its live read-only identity verifier passed 265 checks, with UC-08/Realtime 214, viewing 118 and reservation 161 checks also passing. Future migrations or rollback require separate authorization.

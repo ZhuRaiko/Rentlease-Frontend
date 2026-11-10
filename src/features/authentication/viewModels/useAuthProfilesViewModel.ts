@@ -3,7 +3,7 @@ import { createOnboardingStatusCheck } from './onboardingStatusCheck';
 import { marketplaceIntroductionStorage } from '../services/marketplaceIntroductionStorage';
 import type { FeedbackTone } from '../../../shared/models/verificationPresentation';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { accountStatusLabel, accountVerificationSummary, roleLabel } from '../models/accountPresentation';
+import { accountIdentityLabels, accountStatusLabel, accountVerificationSummary } from '../models/accountPresentation';
 import { createMarketplaceIntroduction } from './marketplaceIntroduction';
 
 import { isSupabaseConfigured } from '../../../config/env';
@@ -13,7 +13,7 @@ import {
   type AccountSnapshot,
   type AuthProfileScreen,
   type RegistrationDraft,
-  type UserRole,
+  type ExperiencePreference,
 } from '../models/AuthProfile';
 import { getAccountDestination, getWorkspaceDestination } from '../models/accountRouting';
 import { createAccountSynchronization } from './accountSynchronization';
@@ -25,7 +25,6 @@ import {
   requestPhoneChange,
   resendPhoneChange,
   resendSignupEmail,
-  saveUserRoles,
   signIn,
   signOutAccount,
   signUp,
@@ -62,6 +61,7 @@ function normalizePhilippinePhone(localNumber: string): string | null {
 export function useAuthProfilesViewModel() {
   const [screen, setScreen] = useState<AuthProfileScreen>('bootstrap');
   const [history, setHistory] = useState<AuthProfileScreen[]>([]);
+  const profileBackGuard = useRef<((leave:()=>void)=>void)|null>(null);
   const [draft, setDraft] = useState<RegistrationDraft>(initialRegistrationDraft);
   const [registrationSubmission] = useState(() => createRegistrationSubmission(signUp));
   const [marketplaceIntroduction] = useState(() => createMarketplaceIntroduction(marketplaceIntroductionStorage));
@@ -69,7 +69,7 @@ export function useAuthProfilesViewModel() {
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [profileName, setProfileName] = useState('');
   const [profileBio, setProfileBio] = useState('');
-  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
+  const [profilePreference, setProfilePreference] = useState<ExperiencePreference>(null);
   const [signInIdentifier, setSignInIdentifier] = useState('');
   const [signInPassword, setSignInPassword] = useState('');
   const [notice, setNoticeText] = useState<string | null>(null);
@@ -114,7 +114,7 @@ export function useAuthProfilesViewModel() {
     setProfileName('');
     setProfileBio('');
     setResendAvailableAt(0);
-    setSelectedRoles([]);
+    setProfilePreference(null);
     setHistory([]);
     setScreen(destination);
     setShowSignOutConfirmation(false);
@@ -136,6 +136,7 @@ export function useAuthProfilesViewModel() {
     if (!background || !sameDestination || screenRef.current !== 'editProfile') {
       setProfileName(snapshot.profile.display_name ?? '');
       setProfileBio(snapshot.profile.bio ?? '');
+      setProfilePreference(snapshot.profile.experience_preference ?? null);
     }
     if (destination !== 'emailConfirmation') {
       setDraft((current) => ({ ...current, password: '', confirmPassword: '' }));
@@ -226,7 +227,7 @@ export function useAuthProfilesViewModel() {
         setDraft(initialRegistrationDraft);
         setProfileName('');
         setProfileBio('');
-        setSelectedRoles([]);
+        setProfilePreference(null);
         setScreen('bootstrap');
       }
       sync.handleEvent(event, userId);
@@ -254,18 +255,19 @@ export function useAuthProfilesViewModel() {
 
   const goBack = () => {
     if (registrationSubmission.phase() === 'submitting') return;
-    setHistory((current) => {
+    const leave=()=>{setHistory((current) => {
       const previous = getRegistrationBackTarget(current, registrationSubmission.phase(), screenRef.current);
       setScreen(previous.screen);
       return previous.history;
     });
-    setNotice(null);
+    setNotice(null);};
+    if(screenRef.current==='editProfile'&&profileBackGuard.current)profileBackGuard.current(leave);else leave();
   };
 
   const updateDraft = <TField extends keyof RegistrationDraft>(
     field: TField,
     value: RegistrationDraft[TField],
-  ) => setDraft((current) => ({ ...current, [field]: value }));
+  ) => setDraft((current) => ({ ...current, [field]: value, ...(field === 'nickname' ? {publicNameAcknowledged:false} : {}) }));
 
   const continueRegistration = (skipNickname = false) => {
     if (registrationSubmission.phase() !== 'ready') return;
@@ -304,7 +306,7 @@ export function useAuthProfilesViewModel() {
   const register = async () => {
     if (screenRef.current !== 'registrationPassword' || accountRef.current || registrationSubmission.phase() !== 'ready') return;
     const email = draft.email.trim().toLowerCase();
-    for (const step of ['registrationName', 'registrationEmail', 'registrationPassword'] as const) {
+    for (const step of ['registrationName', 'registrationNickname', 'registrationEmail', 'registrationPassword'] as const) {
       const error = validateRegistrationStep(step, draft);
       if (error) { setNotice(error, 'error'); return; }
     }
@@ -451,47 +453,25 @@ export function useAuthProfilesViewModel() {
     }
   };
 
-  const toggleRole = (role: UserRole) => {
-    setSelectedRoles((current) =>
-      current.includes(role) ? current.filter((value) => value !== role) : [...current, role],
-    );
-  };
-
-  const submitRoles = async () => {
-    if (selectedRoles.length === 0) {
-      setNotice('Choose at least one role to continue.', 'error');
-      return;
-    }
-    setAsyncState('loading');
-    setNotice(null);
-    try {
-      await mutateAccount(() => saveUserRoles(selectedRoles));
-      await refreshAccount();
-      setAsyncState('success');
-    } catch (error) {
-      setAsyncState('error');
-      setNotice(friendlyError(error), 'error');
-    }
-  };
-
   const saveProfile = async () => {
-    if (!account) return;
-    if (!profileName.trim()) {
-      setNotice('Display name cannot be empty.', 'error');
-      return;
-    }
+    if (!account || accountRef.current?.user.id !== account.user.id || operationBusyRef.current || !(profileBio.trim() !== (account.profile.bio??'').trim() || profilePreference !== (account.profile.experience_preference??null))) return;
     setAsyncState('loading');
+    operationBusyRef.current = true;
+    const ownerId = account.user.id;
     setNotice(null);
     try {
       await mutateAccount(() => updateOwnProfile(account.user.id, {
-        display_name: profileName.trim(),
         bio: profileBio.trim(),
+        experience_preference: profilePreference,
       }));
+      if (!mountedRef.current || accountRef.current?.user.id !== ownerId) return;
       const snapshot = await refreshAccount();
       if (!snapshot) throw new Error('Session ended during profile update.');
+      if (!mountedRef.current || snapshot.user.id !== ownerId || accountRef.current?.user.id !== ownerId) return;
       setAsyncState('success');
       setNotice('Profile updated.', 'success');
     } catch (error) {
+      if (!mountedRef.current || accountRef.current?.user.id !== ownerId) return;
       setAsyncState('error');
       setNotice(friendlyError(error), 'error');
     }
@@ -520,15 +500,15 @@ export function useAuthProfilesViewModel() {
     draft,
     account,
     roles,
-    roleLabels: roles.map(roleLabel),
+    roleLabels: accountIdentityLabels(account),
     verificationSummary: accountVerificationSummary(account?.profile ?? null, roles),
-    hasTenantRole: roles.includes('tenant'),
-    hasLandlordRole: roles.includes('landlord'),
     isAdmin: roles.includes('admin'),
     displayName,
     profileName,
     profileBio,
-    selectedRoles,
+    profilePreference,
+    setProfilePreference,
+    canSaveProfile: asyncState !== 'loading' && !!account && (profileBio.trim() !== (account.profile.bio??'').trim() || profilePreference !== (account.profile.experience_preference??null)),
     signInIdentifier,
     signInPassword,
     notice,
@@ -549,8 +529,11 @@ export function useAuthProfilesViewModel() {
     },
     signedOutVersion,
     bootstrap,
+    refreshProfile: () => operationBusyRef.current ? Promise.resolve(null)
+      : syncRef.current?.refresh('background').catch(() => null),
     navigate,
     goBack,
+    registerProfileBackGuard: (guard:(leave:()=>void)=>void) => {profileBackGuard.current=guard;return()=>{if(profileBackGuard.current===guard)profileBackGuard.current=null;};},
     updateDraft,
     continueRegistration,
     registrationProgress: getRegistrationProgress(screen),
@@ -571,8 +554,6 @@ export function useAuthProfilesViewModel() {
     refreshVerificationState,
     showVerificationRecovery: asyncState === 'error' || screen === 'verificationPending',
     accountStatusLabel: account ? accountStatusLabel(account.profile.account_status) : 'Unknown',
-    toggleRole,
-    submitRoles,
     saveProfile,
     setShowSignOutConfirmation,
     signOut,

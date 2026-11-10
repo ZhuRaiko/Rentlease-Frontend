@@ -11,11 +11,12 @@ import type { PropertyListingViewModel } from '../src/features/property-listing/
 // Executes the actual hook + actual property/photo workflows + shared navigation guard.
 // Only React's scheduling hooks and native/backend dependency composition are replaced.
 // Explicit flush models the interval before React commits an external-store update.
-function mountProperty(persistedProperty: string | null = null, draftService: any = {}, publicationService: any = { restore: async () => null }, lifecycleService?: any, locationService?: any, overrides: { identity?:any; routine?:any; published?:any; verification?: any; renderPropertyVerification?: any; amenities?: any; creation?: any; photos?: any; pickImages?: any; portfolio?: any; initialScreen?: 'dashboard' | 'postingType'; replayUpdaters?: boolean } = {}) {
+function mountProperty(persistedProperty: string | null = null, draftService: any = {}, publicationService: any = { restore: async () => null }, lifecycleService?: any, locationService?: any, overrides: { deletion?:any; identity?:any; routine?:any; published?:any; verification?: any; renderPropertyVerification?: any; amenities?: any; creation?: any; photos?: any; pickImages?: any; portfolio?: any; initialScreen?: 'dashboard' | 'postingType'; replayUpdaters?: boolean } = {}) {
   let cursor = 0, current: PropertyListingViewModel, mounted = true;
   const slots: any[] = [], effects: (() => void)[] = [], cache = new Map<string, any>();
   let writes = 0, tree: any, realHook: any, backAction: (() => void) | null = null;
   const destinations: string[] = [];
+  const renderStates:{status:string;propertyEditAvailable:boolean}[]=[];
   const hooks = {
     useState(initial: any) { const index = cursor++; if (!slots[index]) slots[index] = { value: typeof initial === 'function' ? initial() : initial }; return [slots[index].value, (value: any) => { if(overrides.replayUpdaters&&typeof value==='function')value(slots[index].value); slots[index].value = typeof value === 'function' ? value(slots[index].value) : value; }]; },
     useRef(value: any) { const index = cursor++; return slots[index] ?? (slots[index] = { current: value }); },
@@ -36,9 +37,10 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
       if (name === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
       if (name === 'react-native') return { StyleSheet: { create: (styles: any) => styles }, View: 'View', Text: 'Text', Modal: 'Modal', StatusBar: 'StatusBar' };
       if (name.endsWith('/usePropertyListingViewModel')) return { usePropertyListingViewModel: (...args: any[]) => { current = realHook(...args); return current; } };
-      const presentation = ['AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold'];
+      const presentation = ['UnfinishedPostDeletionAction','RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold'];
       const component = presentation.find(value => name.endsWith('/' + value));
       if (component) return { [component]: component };
+      if(name.endsWith('/unfinishedPostDependencies'))return {unfinishedPostService:overrides.deletion??{inspect:async(id:string)=>({propertyId:id,state:'live',eligible:false,reason:null}),pending:async()=>[],remove:async()=>{throw Error('Not configured');}}};
       if (name.endsWith('/propertyVerificationDependencies')) return {propertyVerificationService:overrides.verification??{getEligibleUserId:async()=>'test-owner',fetchLatest:async()=>null}};
       if (name.endsWith('/landlordPortfolioDependencies')) return { landlordPortfolioService: overrides.portfolio ?? { user: async () => 'test-owner', assertUser: async () => {}, load: async () => [] } };
       if (name.endsWith('/listingLifecycleDependencies')) return { listingLifecycleService: lifecycleService ?? { context: async () => ({}), assertContext: async () => {}, inspect: async () => ({ row: current.publicationState.lastConfirmed, operations: [] }) } };
@@ -60,7 +62,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
   realHook = load('src/features/property-listing/viewModels/usePropertyListingViewModel.ts').usePropertyListingViewModel;
   const { PropertyListingFlowView } = load('src/features/property-listing/views/PropertyListingFlowView.tsx');
   const props = { renderPropertyVerification:overrides.renderPropertyVerification, initialScreen: overrides.initialScreen ?? 'dashboard', registerBackAction: (action: (() => void) | null) => { backAction = action; }, onRootBack: () => destinations.push('root'), onClose: () => destinations.push('Close'), onOpenDiscover: () => destinations.push('Discover'), onOpenChat: () => destinations.push('Chat'), onOpenMaintenance: () => destinations.push('Tenancy') };
-  const flush = () => { assert.ok(mounted); cursor = 0; tree = PropertyListingFlowView(props); while (effects.length) effects.shift()!(); return current; };
+  const flush = () => { assert.ok(mounted); cursor = 0; tree = PropertyListingFlowView(props); renderStates.push({status:current!.draftHydration.status,propertyEditAvailable:current!.propertyEditAvailable}); while (effects.length) effects.shift()!(); return current; };
   const componentProps = (name: string): any => {
     const visit = (node: any): any => node?.type === name ? node.props : (Array.isArray(node?.props?.children) ? node.props.children : [node?.props?.children]).filter(Boolean).map(visit).find(Boolean);
     return visit(tree);
@@ -68,7 +70,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
   flush();
   if (!overrides.initialScreen) { current!.navigate('postingType'); flush(); }
   return {
-    vm: () => current!, flush,
+    vm: () => current!, flush, renderStates,
     async settle() { for (let i = 0; i < 3; i++) { await new Promise<void>(resolve => setImmediate(resolve)); flush(); } },
     draftConflict: (message:string)=>new (load('src/features/property-listing/models/PersistedListingDraft.ts').ListingDraftError)(message,'conflict'),
     draftError: (message: string) => new (load('src/features/property-listing/models/PersistedListingDraft.ts').ListingDraftError)(message, 'uncertain'),
@@ -96,7 +98,7 @@ test('actual Property ViewModel guards a synchronous dirty-property exit before 
 });
 test('review/address/details Back stays internal and preserves the physical draft', async () => {
   const h = mountProperty(); await h.setup(); h.dirty();
-  const f = h.vm().propertyCreation; f.updateField('city', 'imus'); f.updateField('barangay', 'Example'); f.updateField('addressLine1', 'Example street'); f.next(); f.next(); h.flush();
+  const f = h.vm().propertyCreation; f.updateField('bedrooms','0'); f.updateField('bathrooms','0'); f.updateField('city', 'imus'); f.updateField('barangay', 'Example'); f.updateField('addressLine1', 'Example street'); f.next(); f.next(); h.flush();
   assert.equal(h.vm().propertyState.step, 'review'); h.vm().goBack(); h.flush(); assert.equal(h.vm().propertyState.step, 'address');
   h.vm().goBack(); h.flush(); assert.equal(h.vm().propertyState.step, 'details'); assert.equal(h.vm().navigationConfirmation, false);
   h.vm().goBack(); h.flush(); assert.equal(h.vm().screen, 'postingType'); assert.equal(h.vm().propertyCreation.dirty(), true); h.unmount();
@@ -290,7 +292,7 @@ test('opening fixture management after a real status view keeps sample actions l
 
 async function openPhysicalLocation(h: ReturnType<typeof mountProperty>) {
   await h.setup(); const creation = h.vm().propertyCreation;
-  creation.updateField('propertyType', 'studio'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Example barangay'); creation.updateField('addressLine1', 'Example street'); creation.next(); h.flush();
+  creation.updateField('bedrooms', '0'); creation.updateField('bathrooms', '0'); creation.updateField('propertyType', 'studio'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Example barangay'); creation.updateField('addressLine1', 'Example street'); creation.next(); h.flush();
   h.vm().openPropertyLocation(); h.flush();
 }
 test('actual property/location composition synchronously aborts an old address search before React renders', async () => {
@@ -352,7 +354,7 @@ for (const uncertain of [false, true]) test(`property save ${uncertain ? 'uncert
     photos: { context: async () => ({ ownerId: 'test-owner', propertyId: backend.propertyId }), assertContext: async () => {}, list: async () => { photoLoads++; return []; }, hasPending: async () => false },
   });
   await h.setup(); const creation = h.vm().propertyCreation;
-  creation.updateField('propertyType', 'apartment'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Buhay na Tubig'); creation.updateField('addressLine1', 'Private address');
+  creation.updateField('bedrooms', '0'); creation.updateField('bathrooms', '0'); creation.updateField('propertyType', 'apartment'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Buhay na Tubig'); creation.updateField('addressLine1', 'Private address');
   creation.provideConfirmedLocation({ exactLatitude: 14.4, exactLongitude: 120.9, publicLatitude: 14.401, publicLongitude: 120.901 }, creation.getSnapshot().locationRevision);
   creation.next(); creation.next(); await creation.submit(); await h.settle(); h.flush();
   assert.equal(creates, 1);
@@ -432,7 +434,7 @@ function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'p
   assert.equal(h.vm().screen, 'postingType'); h.vm().beginPropertySetup(); h.flush();
   const fields = () => {
     const creation = h.vm().propertyCreation;
-    creation.updateField('propertyType', 'apartment'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Buhay na Tubig'); creation.updateField('addressLine1', 'Owner-entered address'); creation.updateField('floorAreaSqm', '42'); creation.updateField('maxOccupants', '3');
+    creation.updateField('bedrooms', '0'); creation.updateField('bathrooms', '0'); creation.updateField('propertyType', 'apartment'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Buhay na Tubig'); creation.updateField('addressLine1', 'Owner-entered address'); creation.updateField('floorAreaSqm', '42'); creation.updateField('maxOccupants', '3');
     h.vm().updateDraft('title', 'Before UUID title'); h.vm().updateDraft('description', 'Before UUID description'); h.vm().updateDraft('askingRent', '15000'); h.vm().updateDraft('minimumStayMonths', '6'); h.flush();
   };
   const confirmMap = async () => {
@@ -474,7 +476,7 @@ test('composer Save confirms persisted draft before success navigation without l
 });
 for (const failure of ['property', 'uncertain-property', 'photo', 'draft'] as const) test(`composer ${failure} failure preserves truthful partial state and stays on the same form`, async () => {
   const { h, events, fields, confirmMap, backend } = unifiedHarness(failure); await h.settle(); await h.vm().propertyPhotos.addPhotos(); fields(); await confirmMap(); h.vm().nextListingDetails(); await h.settle();
-  await h.vm().saveComposerDraft(); await h.settle(); assert.equal(h.vm().screen, 'listingDetails'); assert.equal(h.vm().draft.title, 'Before UUID title');
+  if(failure!=='property'&&failure!=='uncertain-property')await h.vm().saveComposerDraft(); await h.settle(); assert.equal(h.vm().screen, failure==='property'||failure==='uncertain-property'?'listingComposer':'listingDetails'); assert.equal(h.vm().draft.title, 'Before UUID title');
   if (failure === 'property' || failure === 'uncertain-property') {
     assert.equal(h.vm().workspacePropertyId, null); assert.equal(h.vm().photoState.pendingSelections.length, 3); assert.deepEqual(events, ['property']);
     if (failure === 'uncertain-property') { await h.vm().saveComposerDraft(); assert.deepEqual(events, ['property']); assert.equal(h.vm().propertyState.uncertain, true); }
@@ -495,13 +497,13 @@ test('local composer preview does not persist or enter sample publication', asyn
 });
 
 
-test('Property -> Listing Details -> Preview has exactly two local pages, no Next persistence, and shared dirty scope', async () => {
+test('Property -> Listing Details saves the physical property once, retains local listing fields and shared dirty scope', async () => {
   const { h, events, fields, confirmMap } = unifiedHarness(); await h.settle(); await h.vm().propertyPhotos.addPhotos(); fields(); await confirmMap();
-  h.vm().nextListingDetails(); await h.settle(); assert.equal(h.vm().screen, 'listingDetails'); assert.equal(h.vm().workspacePropertyId, null); assert.deepEqual(events, []); assert.equal(h.vm().navigationConfirmation, false);
+  h.vm().nextListingDetails(); await h.settle(); assert.equal(h.vm().screen, 'listingDetails'); assert.ok(h.vm().workspacePropertyId); assert.deepEqual(events, ['property']); assert.equal(h.vm().navigationConfirmation, false);
   h.hardwareBack(); h.flush(); assert.equal(h.vm().screen, 'listingComposer'); assert.equal(h.vm().navigationConfirmation, false); assert.equal(h.vm().draft.title, 'Before UUID title'); assert.equal(h.vm().photoState.pendingSelections.length, 3);
   h.vm().nextListingDetails(); await h.settle(); h.vm().openComposerPreview(); h.flush(); assert.equal(h.vm().screen, 'preview'); h.vm().goBack(); h.flush(); assert.equal(h.vm().screen, 'listingDetails');
   h.vm().editComposerProperty(); h.flush(); assert.equal(h.vm().screen, 'listingComposer'); assert.equal(h.vm().propertyCreation.locationReady(), true);
-  h.vm().requestNavigation(() => h.destinations.push('exit')); h.flush(); assert.equal(h.vm().navigationConfirmation, true); assert.deepEqual(events, []); h.vm().cancelNavigation(); h.flush(); assert.equal(h.vm().draft.minimumStayMonths, '6'); h.unmount();
+  h.vm().requestNavigation(() => h.destinations.push('exit')); h.flush(); assert.equal(h.vm().navigationConfirmation, true); assert.deepEqual(events, ['property']); h.vm().cancelNavigation(); h.flush(); assert.equal(h.vm().draft.minimumStayMonths, '6'); h.unmount();
 });
 test('Property gallery Android Back closes its viewer and leaves form/local files intact without exit confirmation', async () => {
   const { h, events, fields } = unifiedHarness(); await h.settle(); fields(); await h.vm().propertyPhotos.addPhotos(); h.vm().propertyPhotos.openMedia(2); h.flush();
@@ -515,7 +517,7 @@ test('actual catalogue selection updates DraftProperty IDs once and toggles off 
 test('immediate photo navigation adopts the confirmed UUID before the render handoff effect',async()=>{
   const backend=backendDraftService();let creates=0;
   const h=mountProperty(null,backend.service,undefined,undefined,undefined,{creation:{create:async()=>{creates++;return {propertyId:backend.propertyId,status:'created'};}},photos:{context:async(propertyId:string)=>({ownerId:'test-owner',propertyId}),assertContext:async()=>{},list:async()=>[],hasPending:async()=>false}});
-  await h.setup();const f=h.vm().propertyCreation;f.updateField('propertyType','studio');f.updateField('city','imus');f.updateField('barangay','Fixture');f.updateField('addressLine1','Fixture street');f.provideConfirmedLocation({exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.401,publicLongitude:120.901},f.getSnapshot().locationRevision);f.next();f.next();await f.submit();
+  await h.setup();const f=h.vm().propertyCreation;f.updateField('bedrooms','0');f.updateField('bathrooms','0');f.updateField('propertyType','studio');f.updateField('city','imus');f.updateField('barangay','Fixture');f.updateField('addressLine1','Fixture street');f.provideConfirmedLocation({exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.401,publicLongitude:120.901},f.getSnapshot().locationRevision);f.next();f.next();await f.submit();
   // Deliberately navigate before React commits the created snapshot.
   h.vm().navigate('photoManager');await h.settle();assert.equal(h.vm().screen,'photoManager');assert.equal(h.vm().workspacePropertyId,backend.propertyId);assert.equal(h.vm().photoState.propertyId,backend.propertyId);assert.equal(h.vm().photoState.loaded,true);
   h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().workspacePropertyId,backend.propertyId);assert.equal(creates,1);h.unmount();
@@ -558,7 +560,7 @@ test('draft hydration remains deterministic when development React replays state
 
 
 test('invalid property Save returns to the first incorrect section without RPC and retains every draft',async()=>{
- const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();h.vm().nextListingDetails();await h.settle();
+ const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();
  h.vm().propertyCreation.updateField('floorNumber','8');h.vm().propertyCreation.updateField('totalFloors','2');h.flush();await h.vm().saveComposerDraft();h.flush();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().propertyValidationTarget?.section,'floors');assert.equal(h.vm().propertyValidationTarget?.field,'floorNumber');assert.equal(h.vm().draft.title,'Before UUID title');assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.deepEqual(events,[]);
  const first=h.vm().propertyValidationTarget!.requestId;h.vm().focusPropertyIssue(h.vm().propertyValidationIssues.find(i=>i.section==='floors')!);h.flush();assert.ok(h.vm().propertyValidationTarget!.requestId>first);
  h.vm().propertyCreation.updateField('propertyType','house');h.flush();assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.equal(h.vm().propertyFloorIssues.floorNumber,null);h.vm().propertyCreation.updateField('propertyType','apartment');h.flush();assert.ok(h.vm().propertyFloorIssues.floorNumber);assert.deepEqual(events,[]);h.unmount();
@@ -569,7 +571,7 @@ test('validation correction callbacks cannot navigate an unmounted account works
 
 
 test('legacy Review Save navigates to invalid floor fields without clearing inputs or creating a property',async()=>{
- const h=mountProperty();await h.setup();const flow=h.vm().propertyCreation;flow.updateField('propertyType','apartment');flow.updateField('city','imus');flow.updateField('barangay','Fixture');flow.updateField('addressLine1','Fixture address');flow.provideConfirmedLocation({exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.401,publicLongitude:120.901},flow.getSnapshot().locationRevision);flow.next();flow.next();h.flush();assert.equal(h.vm().propertyState.step,'review');
+ const h=mountProperty();await h.setup();const flow=h.vm().propertyCreation;flow.updateField('bedrooms','0');flow.updateField('bathrooms','0');flow.updateField('propertyType','apartment');flow.updateField('city','imus');flow.updateField('barangay','Fixture');flow.updateField('addressLine1','Fixture address');flow.provideConfirmedLocation({exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.401,publicLongitude:120.901},flow.getSnapshot().locationRevision);flow.next();flow.next();h.flush();assert.equal(h.vm().propertyState.step,'review');
  flow.updateField('floorNumber','8');flow.updateField('totalFloors','2');h.flush();await h.vm().submitProperty();h.flush();assert.equal(h.vm().propertyState.step,'details');assert.equal(h.vm().propertyValidationTarget?.section,'floors');assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.equal(h.vm().propertyState.draft.addressLine1,'Fixture address');assert.equal(h.writes(),0);h.unmount();
 });
 
@@ -584,8 +586,8 @@ test('Stage 1 required errors follow interaction and disappear when corrected',a
 });
 test('Stage 1 Next uses physical readiness and confirmed location, independent of listing completeness',async()=>{
  const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();h.vm().updateDraft('title','');h.vm().updateDraft('description','');h.vm().updateDraft('askingRent','');h.flush();assert.equal(h.vm().propertyNextDisabled,true);
- h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().propertyValidationTarget?.section,'location');assert.equal(h.vm().screen,'listingComposer');await confirmMap();assert.equal(h.vm().propertyFormReady,true);assert.equal(h.vm().propertyNextDisabled,false);assert.ok(h.vm().completeness.percent<80);assert.match(h.vm().propertyNextStatus,/not saved/i);
- h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().workspacePropertyId,null);assert.deepEqual(events,[]);h.unmount();
+ h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().propertyValidationTarget?.section,'location');assert.equal(h.vm().screen,'listingComposer');await confirmMap();assert.equal(h.vm().propertyFormReady,true);assert.equal(h.vm().propertyNextDisabled,false);assert.ok(h.vm().completeness.percent<80);assert.match(h.vm().propertyNextStatus,/Next saves/i);
+ h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.ok(h.vm().workspacePropertyId);assert.deepEqual(events,['property']);h.unmount();
 });
 test('Stage 1 optional floor inconsistency blocks Next, preserves entries and clears after correction',async()=>{
  const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();const flow=h.vm().propertyCreation;flow.updateField('floorNumber','8');flow.updateField('totalFloors','2');h.flush();assert.equal(h.vm().propertyNextDisabled,true);assert.ok(h.vm().propertyVisibleValidationIssues.some(i=>i.section==='floors'&&i.kind==='invalid'));h.vm().nextListingDetails();h.flush();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.equal(h.vm().draft.title,'Before UUID title');
@@ -731,4 +733,60 @@ test('identity correction nested Back protects proposal and retains unsaved list
  const identity:any={property_id:id,owner_id:'test-owner',edit_version:c.edit_version,total_floors:5,current_revision_id:c.edit_version,verified:true,requires_repair:false,open_tenancy:false,correction:null,current:{property_type:'apartment',city:'imus',barangay:'Fixture',floor_number:2,address_line_1:'Fixture',address_line_2:null,postal_code:null,exact_lat:14.4,exact_lng:120.9,public_lat:14.4,public_lng:120.9}};
  const h=f.mount({load:async()=>c,hasPending:async()=>false},{load:async()=>identity,hasPending:async()=>false});await h.settle();h.vm().openPortfolioItem(id);await h.settle();await h.settle();h.vm().updateDraft('title','Keep listing edits');h.flush();h.vm().openPropertyDetails();await h.settle();h.vm().openIdentityCorrection();await h.settle();assert.equal(h.vm().screen,'identityEdit');assert.equal(h.vm().workspacePropertyId,id);assert.equal(h.vm().workspaceListingId,f.backend.listingId);
  h.vm().propertyIdentity.update('floorNumber','3');h.flush();h.hardwareBack();h.flush();assert.equal(h.dialog().visible,true);h.dialog().onCancel();h.flush();assert.equal(h.vm().propertyIdentityState.draft?.floorNumber,'3');h.hardwareBack();h.flush();h.dialog().onConfirm();await h.settle();assert.equal(h.vm().screen,'propertyEdit');assert.equal(h.vm().propertyRoutineState.status,'ready');assert.equal(h.vm().draft.title,'Keep listing edits');h.vm().goBack();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().draft.title,'Keep listing edits');assert.equal(f.backend.calls(),0);h.unmount();
+});
+
+
+test('first ready render exposes property editing without waiting for a later unrelated render',async()=>{
+ const f=savedHydrationHarness();await f.init();f.pause();const h=f.mount();await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();
+ assert.equal(h.vm().draftHydration.status,'loading');assert.equal(h.vm().propertyEditAvailable,false);
+ h.renderStates.length=0;f.release();await h.settle();await h.settle();
+ const first=h.renderStates.find(r=>r.status==='ready');assert.ok(first);assert.equal(first.propertyEditAvailable,true);assert.equal(f.backend.calls(),0);h.unmount();
+});
+
+
+test('saved optional model edits change estimator identity while unsaved edits keep the saved snapshot',async()=>{
+ const f=savedHydrationHarness();await f.init();let c:any={owner_id:'test-owner',property_id:f.backend.propertyId,edit_version:'60000000-0000-4000-8000-000000000001',property_type:'apartment',city:'imus',barangay:'Fixture',floor_number:null,total_floors:null,bedrooms:1,bathrooms:1,floor_area_sqm:35,max_occupants:null,furnishing_status:'unfurnished',access_instructions:null,amenity_ids:[],catalog:[],open_tenancy:false,model_attributes_version:2,property_subtype:'studio',lot_area_sqm:null,parking_spaces:0};
+ const h=f.mount({load:async()=>c,hasPending:async()=>false,save:async(_c:any,d:any)=>{c={...c,lot_area_sqm:Number(d.lotAreaSqm),parking_spaces:Number(d.parkingSpaces),edit_version:'60000000-0000-4000-8000-000000000002'};return c;}});
+ await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();await h.settle();h.vm().openPropertyDetails();await h.settle();const before=JSON.stringify(h.vm().estimationProperty);
+ h.vm().propertyRoutine.update('lotAreaSqm','50');h.vm().propertyRoutine.update('parkingSpaces','1');h.flush();assert.equal(JSON.stringify(h.vm().estimationProperty),before);
+ await h.vm().propertyRoutine.save();await h.settle();assert.notEqual(JSON.stringify(h.vm().estimationProperty),before);assert.equal(h.vm().estimationProperty?.lot_area_sqm,50);assert.equal(h.vm().estimationProperty?.parking_spaces,1);assert.equal(h.vm().estimationProperty?.property_subtype,'studio');assert.ok(!('exact_location' in h.vm().estimationProperty!));h.unmount();
+});
+
+
+test('only explicit current-property price guidance adoption changes asking rent and never saves',async()=>{
+ const f=savedHydrationHarness();await f.init();const h=f.mount();await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();await h.settle();h.vm().updateDraft('askingRent','5000');h.flush();
+ const result:any={target:{propertyId:f.backend.propertyId},estimatedMonthlyRent:18000.25,currency:'PHP',modelVersion:'fixture',askingRent:null,predictedAt:'2026-11-10T00:00:00Z'};
+ assert.equal(h.vm().draft.askingRent,'5000');h.vm().applyRentalEstimate({...result,target:{propertyId:'10000000-0000-4000-8000-000000000099'}});h.flush();assert.equal(h.vm().draft.askingRent,'5000');
+ h.vm().applyRentalEstimate({...result,estimatedMonthlyRent:NaN});h.vm().applyRentalEstimate({...result,currency:'USD'});h.flush();assert.equal(h.vm().draft.askingRent,'5000');
+ h.vm().applyRentalEstimate(result);h.flush();assert.equal(h.vm().draft.askingRent,'18000.25');assert.equal(f.backend.calls(),0);assert.equal(h.writes(),0);
+ h.vm().updateDraft('askingRent','7000');h.flush();assert.equal(h.vm().draft.askingRent,'7000');h.unmount();
+});
+
+
+test('first listing rent page receives saved-property eligibility and optional zero without saving a listing or duplicating creation',async()=>{
+ const {h,events,fields,confirmMap,backend}=unifiedHarness();await h.settle();fields();
+ const f=h.vm().propertyCreation;f.updateField('propertyType','condominium');f.updateField('propertySubtype','studio');f.updateField('floorAreaSqm','35');f.updateField('parkingSpaces','0');
+ h.vm().updateDraft('askingRent','');h.flush();await confirmMap();
+ const first=h.vm().nextListingDetails();const duplicate=h.vm().nextListingDetails();await Promise.all([first,duplicate]);await h.settle();
+ assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().workspacePropertyId,backend.propertyId);assert.deepEqual(events,['property']);assert.equal(h.vm().workspaceListingId,null);
+ assert.equal(h.vm().estimationProperty?.property_subtype,'studio');assert.equal(h.vm().estimationProperty?.floor_area_sqm,35);assert.equal(h.vm().estimationProperty?.lot_area_sqm,null);assert.equal(h.vm().estimationProperty?.parking_spaces,0);
+ assert.equal(h.vm().draft.askingRent,'');assert.ok(!JSON.stringify(h.vm().estimationProperty).includes('Latitude'));
+ h.vm().applyRentalEstimate({target:{propertyId:backend.propertyId},currency:'PHP',estimatedMonthlyRent:18000} as any);h.flush();assert.equal(h.vm().draft.askingRent,'18000');assert.deepEqual(events,['property']);
+ h.vm().goBack();h.flush();await h.vm().nextListingDetails();await h.settle();assert.deepEqual(events,['property']);assert.equal(h.vm().screen,'listingDetails');h.unmount();
+});
+
+
+test('unfinished post completion returns the selected workspace to My Rentals without another create or listing save',async()=>{
+ const backend=backendDraftService(),id=backend.propertyId;
+ const deletion={inspect:async()=>({propertyId:id,state:'live',eligible:true,reason:null}),pending:async()=>[],remove:async()=>({propertyId:id,state:'completed',eligible:false,reason:null})};
+ const h=mountProperty(id,backend.service,undefined,undefined,undefined,{deletion,photos:{context:async()=>({ownerId:'test-owner',propertyId:id}),assertContext:async()=>{},list:async()=>[],hasPending:async()=>false}});await h.setup();await h.settle();h.vm().navigate('listingDetails');await h.settle();
+ h.vm().requestUnfinishedPostDeletion();h.flush();assert.equal(h.vm().unfinishedPostState.confirming,true);await h.vm().unfinishedPost.confirm();await h.settle();assert.equal(h.vm().screen,'dashboard');assert.equal(h.vm().workspacePropertyId,null);assert.equal(h.writes(),0);assert.equal(backend.calls(),0);assert.match(h.vm().notice??'',/deleted/);h.unmount();
+});
+
+
+test('unfinished post pending cleanup removes the editor and blocks stale save actions without claiming completion',async()=>{
+ const backend=backendDraftService(),id=backend.propertyId;
+ const deletion={inspect:async()=>({propertyId:id,state:'live',eligible:true,reason:null}),pending:async()=>[],remove:async()=>({propertyId:id,state:'cleanup_pending',eligible:false,reason:null})};
+ const h=mountProperty(id,backend.service,undefined,undefined,undefined,{deletion,photos:{context:async()=>({ownerId:'test-owner',propertyId:id}),assertContext:async()=>{},list:async()=>[],hasPending:async()=>false}});await h.setup();await h.settle();h.vm().navigate('listingDetails');await h.settle();
+ h.vm().requestUnfinishedPostDeletion();h.flush();await h.vm().unfinishedPost.confirm();await h.settle();assert.equal(h.vm().workspacePropertyId,id);assert.equal(h.vm().unfinishedPostState.status?.state,'cleanup_pending');assert.equal(h.vm().listingDraftReadOnly,true);assert.equal(h.vm().composerSaveDisabled,true);await h.vm().saveComposerDraft();assert.equal(backend.calls(),0);assert.doesNotMatch(h.vm().notice??'',/deleted/);h.unmount();
 });

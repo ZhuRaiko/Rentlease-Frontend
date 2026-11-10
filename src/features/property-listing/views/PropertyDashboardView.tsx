@@ -1,3 +1,5 @@
+import type {ReactNode} from 'react';
+import type {LandlordPortfolioItem} from '../models/LandlordPortfolio';
 import {propertyVerificationActionLabel,canReviewPortfolioPublication} from '../models/PropertyVerificationPresentation';
 import { Image, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
@@ -8,31 +10,34 @@ import { ListingButton } from '../components/ListingButton';
 import { portfolioListingLabels, portfolioTierLabels, portfolioType, portfolioLocation } from '../models/LandlordPortfolio';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
-export function PropertyDashboardView({ viewModel: vm }: { viewModel: PropertyListingViewModel }) {
+export function PropertyDashboardView({ viewModel: vm,renderRequestControls }: { viewModel: PropertyListingViewModel;renderRequestControls?:((item:LandlordPortfolioItem)=>ReactNode)|undefined }) {
   const state = vm.portfolioState, stats = vm.portfolioStatistics;
   return <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={() => void vm.portfolio.load()} />}>
-    <Text accessibilityRole="header" style={styles.title}>My Listings</Text>
+    <Text accessibilityRole="header" style={styles.title}>My Rentals</Text>
     <TextInput accessibilityLabel="Search properties and listings" placeholder="Search properties or listings..." placeholderTextColor={colors.textMuted} value={state.query} onChangeText={vm.setListingQuery} style={styles.search} />
+    <ListingButton label="Post a Rental" onPress={vm.openPostingType} disabled={vm.portfolioActionsDisabled}/>
+    <FeedbackNotice message={vm.notice}/>
     <FeedbackNotice message={state.error} tone="error" />
     {state.busy && !state.loaded ? <Text accessibilityLiveRegion="polite" style={styles.body}>Loading your properties...</Text> : null}
     {state.error && !state.busy ? <ListingButton label="Retry loading properties" tone="outline" onPress={() => void vm.portfolio.load()} /> : null}
     {state.loaded ? <View style={styles.stats}>{Object.entries(stats).map(([label, value]) => <View key={label} style={styles.stat}><Text style={styles.title}>{value}</Text><Text style={styles.supporting}>{label === 'properties' ? 'Properties' : label === 'published' ? 'Published' : label === 'drafts' ? 'Drafts' : 'Rented'}</Text></View>)}</View> : null}
-    {state.loaded && !state.items.length ? <View style={styles.empty}><Text style={styles.heading}>No properties yet</Text><Text style={styles.body}>Start by adding your first rental property.</Text><ListingButton label="Post a property" onPress={vm.startCreate} /></View> : null}
+    {state.loaded && !state.items.length ? <View style={styles.empty}><Text style={styles.heading}>No properties yet</Text><Text style={styles.body}>Choose Post a Rental to add your first rental property.</Text></View> : null}
     {vm.portfolioItems.map(item => {
       const listing = item.currentListing;
       const verificationAction=item.tier3.requiresRepair?null:propertyVerificationActionLabel(item.tier3.status);
-      const action = !listing ? 'Create listing' : listing.status === 'draft' ? 'Continue draft' : ['active', 'paused'].includes(listing.status) ? 'Manage listing' : listing.status === 'removed' ? 'View status' : 'View listing';
+      const action = !listing ? 'Continue Posting' : listing.status === 'draft' ? 'Continue Posting' : ['active', 'paused'].includes(listing.status) ? 'Manage listing' : listing.status === 'removed' ? 'View status' : 'View listing';
       return <View key={item.propertyId} style={styles.card}>
         {item.coverPhoto ? <Image accessibilityLabel={`Cover of ${listing?.title || portfolioType(item.property)}`} source={{ uri: item.coverPhoto.publicUrl }} style={styles.cover} /> : <View style={styles.placeholder}><Text style={styles.supporting}>Property photos not added yet</Text></View>}
         <View style={styles.content}>
           <Text style={styles.heading}>{listing?.title || `${portfolioType(item.property)} in ${portfolioLocation(item.property).split(', ').at(-1)}`}</Text>
           <Text style={styles.body}>{portfolioLocation(item.property)}</Text>
           {listing ? <Text style={styles.rent}>{"\u20b1"}{listing.asking_rent_monthly.toLocaleString('en-PH')} / month</Text> : null}
-          <Text style={styles.status}>{listing ? portfolioListingLabels[listing.status] : 'No listing yet'}</Text>
+          <Text style={styles.status}>{listing ? portfolioListingLabels[listing.status] : 'Not Listed'}</Text>
           <Text style={styles.supporting}>{item.tier3.requiresRepair?'Identity data repair required':item.tier3.status==='approved'?(item.tier3.identityBindingAvailable===false?'Approval history (identity check pending)':'Property Verified'):portfolioTierLabels[item.tier3.status]}</Text>
           {!item.property.is_active ? <Text style={styles.supporting}>Property inactive. Listing changes may be unavailable.</Text> : null}
+          {renderRequestControls?.(item)}
           <ListingButton label={action} tone="outline" disabled={vm.portfolioActionsDisabled} onPress={() => vm.openPortfolioItem(item.propertyId)} />
-          {item.property.is_active&&(!listing||!['draft','active','paused'].includes(listing.status))?<ListingButton label="Edit Property Details" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>vm.openPortfolioProperty(item.propertyId)}/>:null}
+          {item.property.is_active&&(!listing||!['draft','active','paused'].includes(listing.status))?<ListingButton label="Edit Property" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>vm.openPortfolioProperty(item.propertyId)}/>:null}
           {listing&&item.property.is_active&&['active','paused'].includes(listing.status)?<ListingButton label="Edit Listing" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>vm.editPortfolioListing(item.propertyId)}/>:null}
           {vm.propertyVerificationState?.propertyId===item.propertyId?<FeedbackNotice tone="error" message={vm.propertyVerificationState.error}/>:null}
           {verificationAction?<ListingButton label={verificationAction} tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>void vm.openPortfolioVerification(item.propertyId)}/>:null}
@@ -41,7 +46,6 @@ export function PropertyDashboardView({ viewModel: vm }: { viewModel: PropertyLi
       </View>;
     })}
     {state.loaded && state.items.length > 0 && !vm.portfolioItems.length ? <Text style={styles.body}>No matching properties or listings. Try a title, property type, barangay or city.</Text> : null}
-    <ListingButton label="Post a new property" onPress={vm.startCreate} />
   </ScrollView>;
 }
 const styles = StyleSheet.create({

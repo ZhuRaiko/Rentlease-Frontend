@@ -117,11 +117,11 @@ test('Property Setup/Review readiness follows accepted four-coordinate state wit
  };
  new Function('require', 'module', 'exports', ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText)(req, module, module.exports);
  for (const step of ['address', 'review']) for (const accepted of [false, true]) {
-  const publicPoint = derivePublicPropertyPoint(exact), draft = { ...emptyDraftProperty(), propertyType: 'studio', city: 'imus', barangay: 'Fixture barangay', addressLine1: 'Fixture street', ...(accepted ? { exactLatitude: exact.latitude, exactLongitude: exact.longitude, publicLatitude: publicPoint.latitude, publicLongitude: publicPoint.longitude } : {}) };
+  const publicPoint = derivePublicPropertyPoint(exact), draft = { ...emptyDraftProperty(), bedrooms: '0', bathrooms: '0', propertyType: 'studio', city: 'imus', barangay: 'Fixture barangay', addressLine1: 'Fixture street', ...(accepted ? { exactLatitude: exact.latitude, exactLongitude: exact.longitude, publicLatitude: publicPoint.latitude, publicLongitude: publicPoint.longitude } : {}) };
   const vm = { propertyState: { draft, step, loaded: true, busy: false, uncertain: false, error: null }, propertyCreation: {}, propertyLocation: { generationToken: () => 1 }, locationState: { stage: 'exactConfirmed', confirmedPoint: exact } };
   const tree = module.exports.PropertySetupView({ viewModel: vm, onClose: () => {} }); const texts: string[] = [], nodes: any[] = [];
   const visit = (node: any) => { if (typeof node === 'string') texts.push(node); if (!node || typeof node !== 'object') return; nodes.push(node); for (const child of [node.props?.children].flat(Infinity)) visit(child); }; visit(tree);
-  const copy = texts.join(''); assert.match(copy, accepted ? /Approximate discovery location ready/ : /Waiting for location confirmation/); assert.match(copy, accepted ? /Confirmed on map/ : /Not confirmed yet/);
+  const copy = texts.join(''); assert.match(copy, accepted ? /Approximate discovery location ready/ : /Waiting for location confirmation/); assert.match(copy, accepted ? /Confirmed on map/ : /Confirm the current address and location before saving/);
   assert.doesNotMatch(copy, /14\.5|121|awaiting.*privacy/i); assert.ok(!copy.includes(String(publicPoint.latitude))); assert.ok(!copy.includes(String(publicPoint.longitude)));
   if (step === 'review') assert.equal(nodes.find(node => node.props?.label === 'Confirm and save property').props.disabled, false);
  }

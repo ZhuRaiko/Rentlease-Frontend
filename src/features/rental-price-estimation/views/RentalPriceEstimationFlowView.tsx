@@ -10,7 +10,8 @@ import { RentalPriceEstimationView } from './RentalPriceEstimationView';
 
 interface RentalPriceEstimationFlowViewProps {
   actor: EstimateActor;
-  isLandlord: boolean;
+  accountId?:string|undefined;
+  canPostProperty: boolean;
   onClose: () => void;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onCreateListing: () => void;
@@ -22,7 +23,8 @@ interface RentalPriceEstimationFlowViewProps {
 
 export function RentalPriceEstimationFlowView({
   actor,
-  isLandlord,
+  accountId,
+  canPostProperty,
   onClose,
   registerBackAction,
   onCreateListing,
@@ -31,7 +33,7 @@ export function RentalPriceEstimationFlowView({
   onOpenListings,
   onOpenMaintenance,
 }: RentalPriceEstimationFlowViewProps) {
-  const viewModel = useRentalPriceEstimationViewModel(actor);
+  const viewModel = useRentalPriceEstimationViewModel(actor,accountId);
   useEffect(() => {
     registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
     return () => registerBackAction?.(null);
@@ -48,18 +50,16 @@ export function RentalPriceEstimationFlowView({
         onChat={onOpenChat}
         onDiscover={onOpenDiscover}
         onListing={() => {
-          if (isLandlord) {
+          if (canPostProperty) {
             onOpenListings();
             return;
           }
-          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
         }}
         onPost={() => {
-          if (isLandlord) {
+          if (canPostProperty) {
             onCreateListing();
             return;
           }
-          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
         }}
         onTenancy={onOpenMaintenance}
       />

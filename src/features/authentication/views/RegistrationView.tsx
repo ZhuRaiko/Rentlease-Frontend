@@ -10,7 +10,6 @@ import { typography } from '../../../shared/theme/typography';
 import { AuthButton } from '../components/AuthButton';
 import { AuthField } from '../components/AuthField';
 import { AuthScaffold } from '../components/AuthScaffold';
-import type { UserRole } from '../models/AuthProfile';
 import type { AuthProfilesViewModel } from '../viewModels/useAuthProfilesViewModel';
 
 export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewModel }) {
@@ -26,7 +25,7 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
     onSwitch={() => void viewModel.switchAccount()} /> : null;
 
   if (screen === 'registrationName') return (
-    <AuthScaffold {...scaffold} largeTitle onBack={viewModel.goBack} title="What's your name?" description="Start with your first and last name.">
+    <AuthScaffold {...scaffold} largeTitle onBack={viewModel.goBack} title="What's your name?" description="Your first and last name stay private and are used for account and verification requirements.">
       <AuthField editable={!busy} autoCapitalize="words" autoCorrect={false} label="First name" returnKeyType="next" onSubmitEditing={() => lastNameInput.current?.focus()} onChangeText={(value) => viewModel.updateDraft('firstName', value)} value={draft.firstName} />
       <AuthField editable={!busy} inputRef={lastNameInput} autoCapitalize="words" autoCorrect={false} label="Last name" returnKeyType="next" onSubmitEditing={() => viewModel.continueRegistration()} onChangeText={(value) => viewModel.updateDraft('lastName', value)} value={draft.lastName} />
       <AuthButton disabled={busy || !!viewModel.registrationError} label="Continue" onPress={() => viewModel.continueRegistration()} />
@@ -35,9 +34,11 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
   );
 
   if (screen === 'registrationNickname') return (
-    <AuthScaffold {...scaffold} description="Optional. This name will appear on your profile. Skip to use your first and last name." largeTitle onBack={viewModel.goBack} title="What should we call you?">
-      <AuthField editable={!busy} autoCapitalize="words" label="Preferred name (optional)" returnKeyType="next" onSubmitEditing={() => viewModel.continueRegistration()} onChangeText={(value) => viewModel.updateDraft('nickname', value)} value={draft.nickname} />
-      <AuthButton disabled={busy} label="Continue" onPress={() => viewModel.continueRegistration()} />
+    <AuthScaffold {...scaffold} description="This name will be visible to other RentLease users in listings, messages, viewing requests, and reservations." largeTitle onBack={viewModel.goBack} title="Choose a Display Name">
+      <AuthField editable={!busy} autoCapitalize="words" label="Display Name (optional)" returnKeyType="next" onSubmitEditing={() => viewModel.continueRegistration()} onChangeText={(value) => viewModel.updateDraft('nickname', value)} value={draft.nickname} />
+      {draft.nickname.trim()?<Pressable accessibilityRole="checkbox" accessibilityState={{checked:draft.publicNameAcknowledged,disabled:busy}} disabled={busy} onPress={()=>viewModel.updateDraft('publicNameAcknowledged',!draft.publicNameAcknowledged)} style={styles.acknowledgement}><Text style={styles.body}>{draft.publicNameAcknowledged?'[x] ':'[ ] '}I understand this Display Name will be public.</Text></Pressable>:null}
+      <Text style={styles.body}>Skip to keep your Display Name unset. Your private name will not be published.</Text>
+      <AuthButton disabled={busy || !!viewModel.registrationError} label="Continue" onPress={() => viewModel.continueRegistration()} />
       <AuthButton disabled={busy} label="Skip for now" variant="secondary" onPress={() => viewModel.continueRegistration(true)} />
       {notice}
     </AuthScaffold>
@@ -102,25 +103,12 @@ export function RegistrationView({ viewModel }: { viewModel: AuthProfilesViewMod
     </AuthScaffold>
   );
 
-  return (
-    <AuthScaffold {...scaffold} description="Choose Tenant, Landlord, or select both. Property verification is a separate trust step." footer={accountActions} title="How will you use RentLease?">
-      {(['tenant', 'landlord'] as UserRole[]).map((role) => (
-        <Pressable disabled={busy} accessibilityRole="checkbox" accessibilityState={{ checked: viewModel.selectedRoles.includes(role), disabled: busy }} key={role} onPress={() => viewModel.toggleRole(role)} style={[styles.roleCard, viewModel.selectedRoles.includes(role) && styles.roleSelected]}>
-          <Text style={styles.roleTitle}>{role === 'tenant' ? 'Tenant' : 'Landlord'}</Text>
-          <Text style={styles.body}>{role === 'tenant' ? 'Discover rental homes and manage your tenancy.' : 'Manage properties and rental listings.'}</Text>
-        </Pressable>
-      ))}
-      <AuthButton disabled={busy || viewModel.selectedRoles.length === 0} label={busy ? 'Saving roles…' : 'Continue'} onPress={() => void viewModel.submitRoles()} />
-      {notice}
-    </AuthScaffold>
-  );
+  return null;
 }
 
 const styles = StyleSheet.create({
+  acknowledgement: {minHeight:48,justifyContent:'center'},
   accountActions: { gap: spacing.sm },
   body: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
   notice: { backgroundColor: colors.primaryPale, borderRadius: radius.sm, color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 18, padding: spacing.sm },
-  roleCard: { borderColor: colors.border, borderRadius: radius.card, borderWidth: 1, gap: spacing.xs, padding: spacing.md },
-  roleSelected: { backgroundColor: colors.primaryPale, borderColor: colors.primary },
-  roleTitle: { color: colors.text, fontFamily: typography.family, fontSize: 17, fontWeight: '700' },
 });

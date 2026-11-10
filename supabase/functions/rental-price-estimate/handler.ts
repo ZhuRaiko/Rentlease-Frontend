@@ -1,0 +1,67 @@
+import {parseRentalCoordinates} from '../../../src/shared/models/RentalCoordinateProjection.ts';
+import {mapPredictionInput,parseModelPrediction,parsePredictionTarget,isPredictionId,PredictionError} from '../../../src/shared/models/RentalPrediction.ts';
+export interface ProxyConfig {supabaseUrl:string;anonKey:string;mlUrl:string;mlSecret:string;timeoutMs?:number;approvedCoordinates?:boolean}
+const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,apikey,content-type,x-client-info','Access-Control-Allow-Methods':'POST,OPTIONS','Cache-Control':'no-store'};
+const reply=(status:number,body:unknown)=>new Response(JSON.stringify(body),{status,headers:{...headers,'Content-Type':'application/json'}});
+const MODEL_FIELDS=',property_subtype,lot_area_sqm,parking_spaces';
+const PROPERTY_FIELDS='id,landlord_id,is_active,property_type,city,furnishing_status,bedrooms,bathrooms,floor_area_sqm,floor_number';
+/** Uses only a caller-scoped JWT plus publishable/anon key. Never a service-role client. */
+export function createPredictionHandler(config:ProxyConfig,http:typeof fetch=fetch){
+ const pending=new Set<string>();
+ return async(req:Request):Promise<Response>=>{
+ if(req.method==='OPTIONS')return new Response(null,{status:204,headers});
+ if(req.method!=='POST')return reply(405,{code:'method'});
+ const bearer=req.headers.get('Authorization');if(!bearer||!/^Bearer [^\s]+$/i.test(bearer))return reply(401,{code:'auth'});
+ const controller=new AbortController(),cancel=()=>controller.abort();if(req.signal.aborted)cancel();req.signal.addEventListener('abort',cancel,{once:true});const timer=setTimeout(cancel,config.timeoutMs??70000);let actor:string|null=null,locked=false;
+ try{
+  const ml=new URL(config.mlUrl);if(ml.protocol!=='https:'||ml.hostname!=='rentlease-ml.onrender.com'||ml.username||ml.password||ml.search||ml.hash||!config.mlSecret||!config.supabaseUrl||!config.anonKey)return reply(503,{code:'configuration'});
+  const authHeaders={apikey:config.anonKey,Authorization:bearer,'Content-Type':'application/json'};
+  const read=async(path:string,method='GET',body?:string)=>{const response=await http(config.supabaseUrl.replace(/\/$/,'')+path,{method,headers:authHeaders,signal:controller.signal,...(body===undefined?{}:{body})});if(!response.ok)throw new PredictionError('Access unavailable.','access');return response.json();};
+  const user=await read('/auth/v1/user');if(!isPredictionId(user?.id)||user.is_anonymous===true)return reply(401,{code:'auth'});actor=user.id;
+  if(await read('/rest/v1/rpc/is_tier1_verified','POST','{}')!==true)return reply(403,{code:'eligibility'});
+  if(pending.has(actor!))return reply(429,{code:'busy'});pending.add(actor!);locked=true;
+  // Stream-bound body: Content-Length alone is not trusted.
+  const reader=req.body?.getReader(),abortReader=()=>{void reader?.cancel().catch(()=>{});};controller.signal.addEventListener('abort',abortReader,{once:true});let text='',length=0;const decoder=new TextDecoder();if(reader){try{while(true){const {done,value}=await reader.read();if(done)break;length+=value.byteLength;if(length>2048){await reader.cancel();return reply(413,{code:'input'});}text+=decoder.decode(value,{stream:true});}text+=decoder.decode();}finally{controller.signal.removeEventListener('abort',abortReader);reader.releaseLock();}}if(controller.signal.aborted)return reply(504,{code:'timeout'});
+  let raw:unknown;try{raw=JSON.parse(text);}catch{return reply(400,{code:'input'});}const target=parsePredictionTarget(raw);
+  let listing:Record<string,unknown>|null=null,propertyId:string;
+  if(target.listingId){const rows=await read('/rest/v1/listings?select=id,property_id,landlord_id,title,status,published_at,available_from,asking_rent_monthly&id=eq.'+target.listingId+'&limit=1');listing=Array.isArray(rows)?rows[0]:null;if(!listing||!isPredictionId(listing.property_id))return reply(404,{code:'access'});propertyId=listing.property_id;}
+  else if(target.propertyId)propertyId=target.propertyId;else return reply(400,{code:'input'});
+  const propertyPath=(fields:string)=>'/rest/v1/properties?select='+fields+'&id=eq.'+propertyId+'&limit=1';
+  // Older production schemas do not have Phase 2A yet. Retry only a precisely
+  // identified missing optional column, never permissions, cache or other errors.
+  const responseForProperty=await http(config.supabaseUrl.replace(/\/$/,'')+propertyPath(PROPERTY_FIELDS+MODEL_FIELDS+(config.approvedCoordinates?',edit_version':'')),{headers:authHeaders,signal:controller.signal});
+  let rows:unknown;
+  if(responseForProperty.ok)rows=await responseForProperty.json();
+  else{
+   let missing=false;
+   if(responseForProperty.status===400){try{const error=await responseForProperty.json();missing=error?.code==='42703'&&typeof error.message==='string'&&/^column (?:properties\.)?(?:property_subtype|lot_area_sqm|parking_spaces) does not exist$/.test(error.message);}catch{/* Unverified errors never allow fallback. */}}
+   if(!missing)throw new PredictionError('Access unavailable.','access');
+   rows=await read(propertyPath(PROPERTY_FIELDS));
+  }
+  const property=Array.isArray(rows)?rows[0]:null;
+  if(!property||property.id!==propertyId||!isPredictionId(property.landlord_id)||property.is_active!==true)return reply(404,{code:'access'});
+  const owned=property.landlord_id===actor;
+  if(listing&&listing.landlord_id!==property.landlord_id)return reply(404,{code:'access'});
+  const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+  if(!owned&&(!listing||listing.status!=='active'||typeof listing.published_at!=='string'||(listing.available_from&&String(listing.available_from)>today)))return reply(404,{code:'access'});
+  // Do not select any location field. Model-authorized missing coordinates use imputation.
+  const links=await read('/rest/v1/property_amenities?select=amenities(name)&property_id=eq.'+propertyId+'&limit=101');
+  const names=Array.isArray(links)&&links.length<101&&links.every(l=>typeof l?.amenities?.name==='string')?links.map(l=>l.amenities.name):null;
+  const input=mapPredictionInput(property,names);
+  let coordinates=null;
+  if(config.approvedCoordinates&&isPredictionId(property.edit_version)){
+   const projection=await http(config.supabaseUrl.replace(/\/$/,'')+'/rest/v1/rpc/get_rental_prediction_coordinates',{method:'POST',headers:authHeaders,signal:controller.signal,body:JSON.stringify({p_property_id:propertyId,p_listing_id:target.listingId??null,p_edit_version:property.edit_version})});
+   if(projection.ok){let value:unknown=null;try{value=await projection.json();}catch{}coordinates=parseRentalCoordinates(value,propertyId,property.edit_version);}
+   else {let error;try{error=await projection.json();}catch{}if(!(projection.status===404&&error?.code==='PGRST202'))throw new PredictionError('Access unavailable.','access');}
+  }
+  const modelInput={...input,...(coordinates??{})};
+  const response=await http(ml.origin+'/predict',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+config.mlSecret},body:JSON.stringify(modelInput),signal:controller.signal,redirect:'error'});
+  if(!response.ok)return reply(response.status===422?422:response.status===429?429:503,{code:response.status===422?'model_input':response.status===429?'rate_limit':'upstream'});
+  // Shared parsing forwards only validated illustrative bounds; invalid bounds remain null.
+  let result;try{result=parseModelPrediction(await response.json());}catch{return reply(502,{code:'invalid_result'});}
+  if(controller.signal.aborted)return reply(504,{code:'timeout'});
+  return reply(200,{...result,target,askingRent:listing&&typeof listing.asking_rent_monthly==='number'&&Number.isFinite(listing.asking_rent_monthly)&&listing.asking_rent_monthly>0?listing.asking_rent_monthly:null,predictedAt:new Date().toISOString()});
+ }catch(e){return e instanceof PredictionError?reply(e.code==='input'?422:403,{code:e.code}):reply(controller.signal.aborted?504:503,{code:controller.signal.aborted?'timeout':'unavailable'});}
+ finally{if(locked&&actor)pending.delete(actor);clearTimeout(timer);req.signal.removeEventListener('abort',cancel);}
+ };
+}

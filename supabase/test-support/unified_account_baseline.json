@@ -1,0 +1,1541 @@
+{
+  "enums": [
+    {
+      "labels": [
+        "active",
+        "restricted",
+        "suspended",
+        "deleted"
+      ],
+      "typname": "account_status"
+    },
+    {
+      "labels": [
+        "tenant",
+        "landlord",
+        "admin"
+      ],
+      "typname": "app_role"
+    },
+    {
+      "labels": [
+        "imus",
+        "dasmarinas",
+        "tagaytay"
+      ],
+      "typname": "cavite_city"
+    },
+    {
+      "labels": [
+        "open",
+        "closed",
+        "blocked"
+      ],
+      "typname": "conversation_status"
+    },
+    {
+      "labels": [
+        "unfurnished",
+        "semi_furnished",
+        "furnished"
+      ],
+      "typname": "furnishing_status"
+    },
+    {
+      "labels": [
+        "draft",
+        "active",
+        "paused",
+        "rented",
+        "archived",
+        "removed"
+      ],
+      "typname": "listing_status"
+    },
+    {
+      "labels": [
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ],
+      "typname": "maintenance_priority"
+    },
+    {
+      "labels": [
+        "submitted",
+        "acknowledged",
+        "needs_information",
+        "scheduled",
+        "in_progress",
+        "resolved",
+        "reopened",
+        "rejected",
+        "cancelled"
+      ],
+      "typname": "maintenance_status"
+    },
+    {
+      "labels": [
+        "text",
+        "image",
+        "file",
+        "system"
+      ],
+      "typname": "message_type"
+    },
+    {
+      "labels": [
+        "development",
+        "candidate",
+        "active",
+        "retired",
+        "failed"
+      ],
+      "typname": "model_status"
+    },
+    {
+      "labels": [
+        "warning",
+        "restrict_account",
+        "suspend_account",
+        "restore_account",
+        "pause_listing",
+        "remove_listing",
+        "dismiss_report"
+      ],
+      "typname": "moderation_action_type"
+    },
+    {
+      "labels": [
+        "verification_update",
+        "new_message",
+        "viewing_update",
+        "tenancy_update",
+        "rent_due",
+        "rent_overdue",
+        "maintenance_update",
+        "review_request",
+        "report_update",
+        "moderation_notice",
+        "system"
+      ],
+      "typname": "notification_type"
+    },
+    {
+      "labels": [
+        "listing_creation",
+        "listing_fairness_check",
+        "admin_test"
+      ],
+      "typname": "price_estimate_context"
+    },
+    {
+      "labels": [
+        "apartment",
+        "boarding_house",
+        "bedspace",
+        "room",
+        "studio",
+        "condominium",
+        "house",
+        "dormitory",
+        "other"
+      ],
+      "typname": "property_type"
+    },
+    {
+      "labels": [
+        "upcoming",
+        "due",
+        "overdue",
+        "tenant_marked_paid",
+        "landlord_acknowledged",
+        "waived",
+        "disputed"
+      ],
+      "typname": "rent_obligation_status"
+    },
+    {
+      "labels": [
+        "short_term",
+        "long_term",
+        "either"
+      ],
+      "typname": "rental_term_type"
+    },
+    {
+      "labels": [
+        "fraudulent_listing",
+        "misleading_information",
+        "harassment",
+        "impersonation",
+        "unsafe_property",
+        "spam",
+        "policy_violation",
+        "other"
+      ],
+      "typname": "report_reason"
+    },
+    {
+      "labels": [
+        "submitted",
+        "under_review",
+        "needs_information",
+        "upheld",
+        "dismissed",
+        "closed"
+      ],
+      "typname": "report_status"
+    },
+    {
+      "labels": [
+        "proposed",
+        "pending_confirmation",
+        "active",
+        "ended",
+        "cancelled"
+      ],
+      "typname": "tenancy_status"
+    },
+    {
+      "labels": [
+        "passport",
+        "drivers_license",
+        "umid",
+        "philsys_id",
+        "land_title",
+        "tax_declaration",
+        "hoa_document",
+        "authorization_to_lease",
+        "other"
+      ],
+      "typname": "verification_document_type"
+    },
+    {
+      "labels": [
+        "pending",
+        "under_review",
+        "approved",
+        "rejected",
+        "cancelled",
+        "revoked"
+      ],
+      "typname": "verification_status"
+    },
+    {
+      "labels": [
+        "tier_2_identity",
+        "tier_3_property"
+      ],
+      "typname": "verification_tier"
+    },
+    {
+      "labels": [
+        "pending",
+        "confirmed",
+        "declined",
+        "reschedule_requested",
+        "cancelled",
+        "completed",
+        "no_show"
+      ],
+      "typname": "viewing_status"
+    }
+  ],
+  "columns": [
+    {
+      "name": "id",
+      "type": "uuid",
+      "table": "conversations",
+      "default": "gen_random_uuid()",
+      "notnull": true
+    },
+    {
+      "name": "listing_id",
+      "type": "uuid",
+      "table": "conversations",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "tenant_id",
+      "type": "uuid",
+      "table": "conversations",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "landlord_id",
+      "type": "uuid",
+      "table": "conversations",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "status",
+      "type": "conversation_status",
+      "table": "conversations",
+      "default": "'open'::conversation_status",
+      "notnull": true
+    },
+    {
+      "name": "last_message_at",
+      "type": "timestamp with time zone",
+      "table": "conversations",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "closed_at",
+      "type": "timestamp with time zone",
+      "table": "conversations",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "conversations",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "conversations",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "id",
+      "type": "uuid",
+      "table": "listings",
+      "default": "gen_random_uuid()",
+      "notnull": true
+    },
+    {
+      "name": "property_id",
+      "type": "uuid",
+      "table": "listings",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "landlord_id",
+      "type": "uuid",
+      "table": "listings",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "title",
+      "type": "text",
+      "table": "listings",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "description",
+      "type": "text",
+      "table": "listings",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "house_rules",
+      "type": "text",
+      "table": "listings",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "rental_term",
+      "type": "rental_term_type",
+      "table": "listings",
+      "default": "'long_term'::rental_term_type",
+      "notnull": true
+    },
+    {
+      "name": "asking_rent_monthly",
+      "type": "numeric(12,2)",
+      "table": "listings",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "security_deposit_months",
+      "type": "numeric(4,2)",
+      "table": "listings",
+      "default": "1",
+      "notnull": true
+    },
+    {
+      "name": "advance_rent_months",
+      "type": "numeric(4,2)",
+      "table": "listings",
+      "default": "1",
+      "notnull": true
+    },
+    {
+      "name": "minimum_stay_months",
+      "type": "smallint",
+      "table": "listings",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "available_from",
+      "type": "date",
+      "table": "listings",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "status",
+      "type": "listing_status",
+      "table": "listings",
+      "default": "'draft'::listing_status",
+      "notnull": true
+    },
+    {
+      "name": "completeness_score",
+      "type": "numeric(5,4)",
+      "table": "listings",
+      "default": "0",
+      "notnull": true
+    },
+    {
+      "name": "published_at",
+      "type": "timestamp with time zone",
+      "table": "listings",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "paused_at",
+      "type": "timestamp with time zone",
+      "table": "listings",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "archived_at",
+      "type": "timestamp with time zone",
+      "table": "listings",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "removed_at",
+      "type": "timestamp with time zone",
+      "table": "listings",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "removal_reason",
+      "type": "text",
+      "table": "listings",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "listings",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "listings",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "edit_version",
+      "type": "uuid",
+      "table": "listings",
+      "default": "gen_random_uuid()",
+      "notnull": true
+    },
+    {
+      "name": "id",
+      "type": "uuid",
+      "table": "profiles",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "display_name",
+      "type": "text",
+      "table": "profiles",
+      "default": "'New User'::text",
+      "notnull": true
+    },
+    {
+      "name": "avatar_path",
+      "type": "text",
+      "table": "profiles",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "bio",
+      "type": "text",
+      "table": "profiles",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "account_status",
+      "type": "account_status",
+      "table": "profiles",
+      "default": "'active'::account_status",
+      "notnull": true
+    },
+    {
+      "name": "tier1_verified_at",
+      "type": "timestamp with time zone",
+      "table": "profiles",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "tier2_verified_at",
+      "type": "timestamp with time zone",
+      "table": "profiles",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "tier3_verified_at",
+      "type": "timestamp with time zone",
+      "table": "profiles",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "trust_score",
+      "type": "numeric(3,2)",
+      "table": "profiles",
+      "default": "((\nCASE\n    WHEN (tier1_verified_at IS NOT NULL) THEN 0.40\n    ELSE 0.00\nEND +\nCASE\n    WHEN (tier2_verified_at IS NOT NULL) THEN 0.40\n    ELSE 0.00\nEND) +\nCASE\n    WHEN (tier3_verified_at IS NOT NULL) THEN 0.20\n    ELSE 0.00\nEND)",
+      "notnull": false
+    },
+    {
+      "name": "suspended_until",
+      "type": "timestamp with time zone",
+      "table": "profiles",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "suspension_reason",
+      "type": "text",
+      "table": "profiles",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "profiles",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "profiles",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "id",
+      "type": "uuid",
+      "table": "properties",
+      "default": "gen_random_uuid()",
+      "notnull": true
+    },
+    {
+      "name": "landlord_id",
+      "type": "uuid",
+      "table": "properties",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "property_type",
+      "type": "property_type",
+      "table": "properties",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "city",
+      "type": "cavite_city",
+      "table": "properties",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "barangay",
+      "type": "text",
+      "table": "properties",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "public_location",
+      "type": "geography(Point,4326)",
+      "table": "properties",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "bedrooms",
+      "type": "smallint",
+      "table": "properties",
+      "default": "0",
+      "notnull": true
+    },
+    {
+      "name": "bathrooms",
+      "type": "numeric(4,1)",
+      "table": "properties",
+      "default": "0",
+      "notnull": true
+    },
+    {
+      "name": "floor_area_sqm",
+      "type": "numeric(10,2)",
+      "table": "properties",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "floor_number",
+      "type": "smallint",
+      "table": "properties",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "total_floors",
+      "type": "smallint",
+      "table": "properties",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "furnishing_status",
+      "type": "furnishing_status",
+      "table": "properties",
+      "default": "'unfurnished'::furnishing_status",
+      "notnull": true
+    },
+    {
+      "name": "max_occupants",
+      "type": "smallint",
+      "table": "properties",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "safety_rating",
+      "type": "numeric(2,1)",
+      "table": "properties",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "is_active",
+      "type": "boolean",
+      "table": "properties",
+      "default": "true",
+      "notnull": true
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "properties",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "properties",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "edit_version",
+      "type": "uuid",
+      "table": "properties",
+      "default": "gen_random_uuid()",
+      "notnull": true
+    },
+    {
+      "name": "media_version",
+      "type": "uuid",
+      "table": "properties",
+      "default": "gen_random_uuid()",
+      "notnull": true
+    },
+    {
+      "name": "property_id",
+      "type": "uuid",
+      "table": "property_private_locations",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "address_line_1",
+      "type": "text",
+      "table": "property_private_locations",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "address_line_2",
+      "type": "text",
+      "table": "property_private_locations",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "postal_code",
+      "type": "text",
+      "table": "property_private_locations",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "exact_location",
+      "type": "geography(Point,4326)",
+      "table": "property_private_locations",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "access_instructions",
+      "type": "text",
+      "table": "property_private_locations",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "property_private_locations",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "tenant_id",
+      "type": "uuid",
+      "table": "saved_listings",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "listing_id",
+      "type": "uuid",
+      "table": "saved_listings",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "saved_listings",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "id",
+      "type": "uuid",
+      "table": "tenant_preferences",
+      "default": "gen_random_uuid()",
+      "notnull": true
+    },
+    {
+      "name": "tenant_id",
+      "type": "uuid",
+      "table": "tenant_preferences",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "table": "tenant_preferences",
+      "default": "'Default'::text",
+      "notnull": true
+    },
+    {
+      "name": "city",
+      "type": "cavite_city",
+      "table": "tenant_preferences",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "budget_min",
+      "type": "numeric(12,2)",
+      "table": "tenant_preferences",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "budget_max",
+      "type": "numeric(12,2)",
+      "table": "tenant_preferences",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "min_bedrooms",
+      "type": "smallint",
+      "table": "tenant_preferences",
+      "default": "0",
+      "notnull": true
+    },
+    {
+      "name": "min_bathrooms",
+      "type": "numeric(4,1)",
+      "table": "tenant_preferences",
+      "default": "0",
+      "notnull": true
+    },
+    {
+      "name": "min_floor_area_sqm",
+      "type": "numeric(10,2)",
+      "table": "tenant_preferences",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "minimum_safety_rating",
+      "type": "numeric(2,1)",
+      "table": "tenant_preferences",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "furnishing_statuses",
+      "type": "furnishing_status[]",
+      "table": "tenant_preferences",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "radius_km",
+      "type": "numeric(8,2)",
+      "table": "tenant_preferences",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "use_current_location",
+      "type": "boolean",
+      "table": "tenant_preferences",
+      "default": "false",
+      "notnull": true
+    },
+    {
+      "name": "search_origin",
+      "type": "geography(Point,4326)",
+      "table": "tenant_preferences",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "weight_budget",
+      "type": "numeric(5,4)",
+      "table": "tenant_preferences",
+      "default": "0.2889",
+      "notnull": true
+    },
+    {
+      "name": "weight_location",
+      "type": "numeric(5,4)",
+      "table": "tenant_preferences",
+      "default": "0.2452",
+      "notnull": true
+    },
+    {
+      "name": "weight_unit_specs",
+      "type": "numeric(5,4)",
+      "table": "tenant_preferences",
+      "default": "0.2262",
+      "notnull": true
+    },
+    {
+      "name": "weight_amenities",
+      "type": "numeric(5,4)",
+      "table": "tenant_preferences",
+      "default": "0.2398",
+      "notnull": true
+    },
+    {
+      "name": "is_default",
+      "type": "boolean",
+      "table": "tenant_preferences",
+      "default": "false",
+      "notnull": true
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "tenant_preferences",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "table": "tenant_preferences",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "user_id",
+      "type": "uuid",
+      "table": "user_roles",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "role",
+      "type": "app_role",
+      "table": "user_roles",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "table": "user_roles",
+      "default": "now()",
+      "notnull": true
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "DELETE",
+      "qual": "((bucket_id <> 'verification-documents'::text) OR property_identity_document_mutable(name))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "objects",
+      "permissive": "RESTRICTIVE",
+      "policyname": "identity_proof_delete",
+      "schemaname": "storage",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "objects",
+      "permissive": "RESTRICTIVE",
+      "policyname": "identity_proof_insert",
+      "schemaname": "storage",
+      "with_check": "((bucket_id <> 'verification-documents'::text) OR property_identity_document_mutable(name))"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(bucket_id <> 'verification-documents'::text)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "objects",
+      "permissive": "RESTRICTIVE",
+      "policyname": "identity_proof_update",
+      "schemaname": "storage",
+      "with_check": null
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "((bucket_id = 'verification-documents'::text) AND (((storage.foldername(name))[1] = (auth.uid())::text) OR is_admin()))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "objects",
+      "permissive": "PERMISSIVE",
+      "policyname": "storage_verification_delete_owner_pending",
+      "schemaname": "storage",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "objects",
+      "permissive": "PERMISSIVE",
+      "policyname": "storage_verification_insert_owner",
+      "schemaname": "storage",
+      "with_check": "((bucket_id = 'verification-documents'::text) AND ((storage.foldername(name))[1] = (auth.uid())::text))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((bucket_id = 'verification-documents'::text) AND (((storage.foldername(name))[1] = (auth.uid())::text) OR is_admin()))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "objects",
+      "permissive": "PERMISSIVE",
+      "policyname": "storage_verification_read_owner_admin",
+      "schemaname": "storage",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "can_manage_property(property_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "property_private_locations",
+      "permissive": "PERMISSIVE",
+      "policyname": "private_locations_manage_owner_admin",
+      "schemaname": "public",
+      "with_check": "can_manage_property(property_id)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_read_property_private_location(property_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "property_private_locations",
+      "permissive": "PERMISSIVE",
+      "policyname": "private_locations_read_owner_tenancy_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "is_admin()",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "user_roles",
+      "permissive": "PERMISSIVE",
+      "policyname": "user_roles_admin_manage",
+      "schemaname": "public",
+      "with_check": "is_admin()"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "user_roles",
+      "permissive": "PERMISSIVE",
+      "policyname": "user_roles_select_own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((tenant_id = auth.uid()) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "tenant_preferences",
+      "permissive": "PERMISSIVE",
+      "policyname": "preferences_owner_admin",
+      "schemaname": "public",
+      "with_check": "(((tenant_id = auth.uid()) AND has_app_role('tenant'::app_role)) OR is_admin())"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((tenant_id = auth.uid()) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "saved_listings",
+      "permissive": "PERMISSIVE",
+      "policyname": "saved_listings_owner",
+      "schemaname": "public",
+      "with_check": "(((tenant_id = auth.uid()) AND has_app_role('tenant'::app_role)) OR is_admin())"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "conversations",
+      "permissive": "PERMISSIVE",
+      "policyname": "conversations_create_tenant",
+      "schemaname": "public",
+      "with_check": "((tenant_id = auth.uid()) AND has_app_role('tenant'::app_role) AND is_tier1_verified())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(((auth.uid() = tenant_id) OR (auth.uid() = landlord_id)) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "conversations",
+      "permissive": "PERMISSIVE",
+      "policyname": "conversations_read_participants_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(((auth.uid() = tenant_id) OR (auth.uid() = landlord_id)) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "conversations",
+      "permissive": "PERMISSIVE",
+      "policyname": "conversations_update_participants_admin",
+      "schemaname": "public",
+      "with_check": "(((auth.uid() = tenant_id) OR (auth.uid() = landlord_id)) OR is_admin())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(( SELECT auth.uid() AS uid) = id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "profiles_select_own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "is_admin()",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "profiles_update_admin_only",
+      "schemaname": "public",
+      "with_check": "is_admin()"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(( SELECT auth.uid() AS uid) = id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "profiles_update_own",
+      "schemaname": "public",
+      "with_check": "(( SELECT auth.uid() AS uid) = id)"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(NOT (EXISTS ( SELECT 1\n   FROM verification_submissions s\n  WHERE ((s.id = verification_documents.submission_id) AND (s.tier = 'tier_3_property'::verification_tier)))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_documents",
+      "permissive": "RESTRICTIVE",
+      "policyname": "identity_tier3_document_delete",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_documents",
+      "permissive": "RESTRICTIVE",
+      "policyname": "identity_tier3_document_insert",
+      "schemaname": "public",
+      "with_check": "(NOT (EXISTS ( SELECT 1\n   FROM verification_submissions s\n  WHERE ((s.id = verification_documents.submission_id) AND (s.tier = 'tier_3_property'::verification_tier)))))"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(NOT (EXISTS ( SELECT 1\n   FROM verification_submissions s\n  WHERE ((s.id = verification_documents.submission_id) AND (s.tier = 'tier_3_property'::verification_tier)))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_documents",
+      "permissive": "RESTRICTIVE",
+      "policyname": "identity_tier3_document_update",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "is_admin()",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_documents",
+      "permissive": "PERMISSIVE",
+      "policyname": "verification_documents_admin_manage",
+      "schemaname": "public",
+      "with_check": "is_admin()"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_documents",
+      "permissive": "PERMISSIVE",
+      "policyname": "verification_documents_create_owner",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM verification_submissions v\n  WHERE ((v.id = verification_documents.submission_id) AND (v.user_id = auth.uid()) AND (v.status = ANY (ARRAY['pending'::verification_status, 'under_review'::verification_status])))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(is_admin() OR (EXISTS ( SELECT 1\n   FROM verification_submissions v\n  WHERE ((v.id = verification_documents.submission_id) AND (v.user_id = auth.uid())))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_documents",
+      "permissive": "PERMISSIVE",
+      "policyname": "verification_documents_read_owner_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "listings",
+      "permissive": "PERMISSIVE",
+      "policyname": "listings_create_owner",
+      "schemaname": "public",
+      "with_check": "((landlord_id = auth.uid()) AND has_app_role('landlord'::app_role) AND is_tier1_verified() AND can_manage_property(property_id))"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(is_admin() OR ((landlord_id = auth.uid()) AND (status = 'draft'::listing_status)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "listings",
+      "permissive": "PERMISSIVE",
+      "policyname": "listings_delete_draft_owner_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(((status = 'active'::listing_status) AND is_tier1_verified()) OR (landlord_id = auth.uid()) OR is_admin() OR (EXISTS ( SELECT 1\n   FROM tenancies t\n  WHERE ((t.listing_id = listings.id) AND ((auth.uid() = t.tenant_id) OR (auth.uid() = t.landlord_id))))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "listings",
+      "permissive": "PERMISSIVE",
+      "policyname": "listings_read_allowed",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((landlord_id = auth.uid()) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "listings",
+      "permissive": "PERMISSIVE",
+      "policyname": "listings_update_owner_admin",
+      "schemaname": "public",
+      "with_check": "((landlord_id = auth.uid()) OR is_admin())"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "properties",
+      "permissive": "PERMISSIVE",
+      "policyname": "properties_create_verified_landlord",
+      "schemaname": "public",
+      "with_check": "((landlord_id = auth.uid()) AND has_app_role('landlord'::app_role) AND is_tier1_verified())"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "((landlord_id = auth.uid()) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "properties",
+      "permissive": "PERMISSIVE",
+      "policyname": "properties_delete_owner_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((landlord_id = ( SELECT auth.uid() AS uid)) OR can_view_property(id))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "properties",
+      "permissive": "PERMISSIVE",
+      "policyname": "properties_read_allowed",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((landlord_id = auth.uid()) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "properties",
+      "permissive": "PERMISSIVE",
+      "policyname": "properties_update_owner_admin",
+      "schemaname": "public",
+      "with_check": "((landlord_id = auth.uid()) OR is_admin())"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_submissions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "identity_tier3_submission_insert",
+      "schemaname": "public",
+      "with_check": "(tier <> 'tier_3_property'::verification_tier)"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(tier <> 'tier_3_property'::verification_tier)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_submissions",
+      "permissive": "RESTRICTIVE",
+      "policyname": "identity_tier3_submission_update",
+      "schemaname": "public",
+      "with_check": "(tier <> 'tier_3_property'::verification_tier)"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "is_admin()",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_submissions",
+      "permissive": "PERMISSIVE",
+      "policyname": "verification_submissions_admin_update",
+      "schemaname": "public",
+      "with_check": "is_admin()"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_submissions",
+      "permissive": "PERMISSIVE",
+      "policyname": "verification_submissions_create_tier2_self",
+      "schemaname": "public",
+      "with_check": "((user_id = ( SELECT auth.uid() AS uid)) AND is_tier1_verified() AND (tier = 'tier_2_identity'::verification_tier) AND (property_id IS NULL) AND (status = 'pending'::verification_status) AND (reviewed_by IS NULL) AND (reviewed_at IS NULL) AND (review_note IS NULL) AND (rejection_reason IS NULL))"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_submissions",
+      "permissive": "PERMISSIVE",
+      "policyname": "verification_submissions_create_tier3_self",
+      "schemaname": "public",
+      "with_check": "((user_id = ( SELECT auth.uid() AS uid)) AND is_tier1_verified() AND has_app_role('landlord'::app_role) AND (tier = 'tier_3_property'::verification_tier) AND (property_id IS NOT NULL) AND (status = 'pending'::verification_status) AND (reviewed_by IS NULL) AND (reviewed_at IS NULL) AND (review_note IS NULL) AND (rejection_reason IS NULL))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((user_id = auth.uid()) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "verification_submissions",
+      "permissive": "PERMISSIVE",
+      "policyname": "verification_submissions_read_owner_admin",
+      "schemaname": "public",
+      "with_check": null
+    }
+  ],
+  "functions": [
+    {
+      "args": "",
+      "name": "validate_verification_submission",
+      "schema": "public",
+      "source": "\r\nbegin\r\n  if new.tier = 'tier_3_property' then\r\n    if not public.has_app_role('landlord', new.user_id) then\r\n      raise exception 'Tier 3 verification is available only to landlords';\r\n    end if;\r\n\r\n    if new.property_id is null then\r\n      raise exception 'Tier 3 verification must reference a property';\r\n    end if;\r\n\r\n    if not exists (\r\n      select 1\r\n      from public.properties p\r\n      where p.id = new.property_id\r\n        and p.landlord_id = new.user_id\r\n    ) then\r\n      raise exception 'Tier 3 property must belong to the submitting landlord';\r\n    end if;\r\n  else\r\n    new.property_id := null;\r\n  end if;\r\n\r\n  return new;\r\nend;\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.validate_verification_submission()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\nbegin\r\n  if new.tier = 'tier_3_property' then\r\n    if not public.has_app_role('landlord', new.user_id) then\r\n      raise exception 'Tier 3 verification is available only to landlords';\r\n    end if;\r\n\r\n    if new.property_id is null then\r\n      raise exception 'Tier 3 verification must reference a property';\r\n    end if;\r\n\r\n    if not exists (\r\n      select 1\r\n      from public.properties p\r\n      where p.id = new.property_id\r\n        and p.landlord_id = new.user_id\r\n    ) then\r\n      raise exception 'Tier 3 property must belong to the submitting landlord';\r\n    end if;\r\n  else\r\n    new.property_id := null;\r\n  end if;\r\n\r\n  return new;\r\nend;\r\n$function$\n"
+    },
+    {
+      "args": "",
+      "name": "validate_conversation_participants",
+      "schema": "public",
+      "source": "\r\ndeclare\r\n  listing_landlord uuid;\r\n  listing_state public.listing_status;\r\nbegin\r\n  select l.landlord_id, l.status\r\n    into listing_landlord, listing_state\r\n  from public.listings l\r\n  where l.id = new.listing_id;\r\n\r\n  if listing_landlord is null then\r\n    raise exception 'Listing does not exist';\r\n  end if;\r\n\r\n  if new.landlord_id <> listing_landlord then\r\n    raise exception 'Conversation landlord must match listing landlord';\r\n  end if;\r\n\r\n  if new.tenant_id = new.landlord_id then\r\n    raise exception 'Tenant and landlord must be different users';\r\n  end if;\r\n\r\n  if tg_op = 'INSERT' and listing_state <> 'active' then\r\n    raise exception 'New inquiries can only be opened for active listings';\r\n  end if;\r\n\r\n  return new;\r\nend;\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.validate_conversation_participants()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  listing_landlord uuid;\r\n  listing_state public.listing_status;\r\nbegin\r\n  select l.landlord_id, l.status\r\n    into listing_landlord, listing_state\r\n  from public.listings l\r\n  where l.id = new.listing_id;\r\n\r\n  if listing_landlord is null then\r\n    raise exception 'Listing does not exist';\r\n  end if;\r\n\r\n  if new.landlord_id <> listing_landlord then\r\n    raise exception 'Conversation landlord must match listing landlord';\r\n  end if;\r\n\r\n  if new.tenant_id = new.landlord_id then\r\n    raise exception 'Tenant and landlord must be different users';\r\n  end if;\r\n\r\n  if tg_op = 'INSERT' and listing_state <> 'active' then\r\n    raise exception 'New inquiries can only be opened for active listings';\r\n  end if;\r\n\r\n  return new;\r\nend;\r\n$function$\n"
+    },
+    {
+      "args": "",
+      "name": "prevent_conversation_identity_changes",
+      "schema": "public",
+      "source": "\r\nbegin\r\n  if not public.is_admin()\r\n     and (\r\n       new.listing_id is distinct from old.listing_id\r\n       or new.tenant_id is distinct from old.tenant_id\r\n       or new.landlord_id is distinct from old.landlord_id\r\n     ) then\r\n    raise exception 'Conversation listing and participants are immutable';\r\n  end if;\r\n\r\n  return new;\r\nend;\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.prevent_conversation_identity_changes()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\nbegin\r\n  if not public.is_admin()\r\n     and (\r\n       new.listing_id is distinct from old.listing_id\r\n       or new.tenant_id is distinct from old.tenant_id\r\n       or new.landlord_id is distinct from old.landlord_id\r\n     ) then\r\n    raise exception 'Conversation listing and participants are immutable';\r\n  end if;\r\n\r\n  return new;\r\nend;\r\n$function$\n"
+    },
+    {
+      "args": "requested_role app_role, requested_user uuid",
+      "name": "has_app_role",
+      "schema": "public",
+      "source": "\r\n  select exists (\r\n    select 1\r\n    from public.user_roles ur\r\n    where ur.user_id = requested_user\r\n      and ur.role = requested_role\r\n  );\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.has_app_role(requested_role app_role, requested_user uuid DEFAULT auth.uid())\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select exists (\r\n    select 1\r\n    from public.user_roles ur\r\n    where ur.user_id = requested_user\r\n      and ur.role = requested_role\r\n  );\r\n$function$\n"
+    },
+    {
+      "args": "requested_user uuid",
+      "name": "is_admin",
+      "schema": "public",
+      "source": "\r\n  select public.has_app_role('admin', requested_user);\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_admin(requested_user uuid DEFAULT auth.uid())\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select public.has_app_role('admin', requested_user);\r\n$function$\n"
+    },
+    {
+      "args": "requested_user uuid",
+      "name": "is_tier1_verified",
+      "schema": "public",
+      "source": "\r\n  select exists (\r\n    select 1\r\n    from public.profiles p\r\n    where p.id = requested_user\r\n      and p.tier1_verified_at is not null\r\n      and p.account_status = 'active'\r\n  );\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_tier1_verified(requested_user uuid DEFAULT auth.uid())\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select exists (\r\n    select 1\r\n    from public.profiles p\r\n    where p.id = requested_user\r\n      and p.tier1_verified_at is not null\r\n      and p.account_status = 'active'\r\n  );\r\n$function$\n"
+    },
+    {
+      "args": "property_uuid uuid, requested_user uuid",
+      "name": "can_manage_property",
+      "schema": "public",
+      "source": "\r\n  select public.is_admin(requested_user)\r\n    or exists (\r\n      select 1\r\n      from public.properties p\r\n      where p.id = property_uuid\r\n        and p.landlord_id = requested_user\r\n    );\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.can_manage_property(property_uuid uuid, requested_user uuid DEFAULT auth.uid())\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select public.is_admin(requested_user)\r\n    or exists (\r\n      select 1\r\n      from public.properties p\r\n      where p.id = property_uuid\r\n        and p.landlord_id = requested_user\r\n    );\r\n$function$\n"
+    },
+    {
+      "args": "property_uuid uuid, requested_user uuid",
+      "name": "can_view_property",
+      "schema": "public",
+      "source": "\r\n  select public.can_manage_property(property_uuid, requested_user)\r\n    or (\r\n      public.is_tier1_verified(requested_user)\r\n      and exists (\r\n        select 1\r\n        from public.listings l\r\n        where l.property_id = property_uuid\r\n          and l.status = 'active'\r\n      )\r\n    )\r\n    or exists (\r\n      select 1\r\n      from public.tenancies t\r\n      where t.property_id = property_uuid\r\n        and requested_user in (t.tenant_id, t.landlord_id)\r\n    );\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.can_view_property(property_uuid uuid, requested_user uuid DEFAULT auth.uid())\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\n  select public.can_manage_property(property_uuid, requested_user)\r\n    or (\r\n      public.is_tier1_verified(requested_user)\r\n      and exists (\r\n        select 1\r\n        from public.listings l\r\n        where l.property_id = property_uuid\r\n          and l.status = 'active'\r\n      )\r\n    )\r\n    or exists (\r\n      select 1\r\n      from public.tenancies t\r\n      where t.property_id = property_uuid\r\n        and requested_user in (t.tenant_id, t.landlord_id)\r\n    );\r\n$function$\n"
+    },
+    {
+      "args": "p_property_type property_type, p_city cavite_city, p_barangay text, p_public_lat double precision, p_public_lng double precision, p_address_line_1 text, p_exact_lat double precision, p_exact_lng double precision, p_amenity_ids bigint[], p_address_line_2 text, p_postal_code text, p_access_instructions text, p_bedrooms smallint, p_bathrooms numeric, p_floor_area_sqm numeric, p_floor_number smallint, p_total_floors smallint, p_furnishing_status furnishing_status, p_max_occupants smallint",
+      "name": "create_property_setup",
+      "schema": "public",
+      "source": "\r\ndeclare\r\n    v_user_id uuid;\r\n    v_property_id uuid;\r\nbegin\r\n    -- 1. AUTHENTICATION\r\n    v_user_id := auth.uid();\r\n\r\n    if v_user_id is null then\r\n        raise exception 'Authentication required'\r\n            using errcode = '42501';\r\n    end if;\r\n\r\n\r\n    -- 2. ACTIVE ACCOUNT\r\n    if not exists (\r\n        select 1\r\n        from public.profiles p\r\n        where p.id = v_user_id\r\n          and p.account_status = 'active'::public.account_status\r\n    ) then\r\n        raise exception 'Active account required'\r\n            using errcode = '42501';\r\n    end if;\r\n\r\n\r\n    -- 3. LANDLORD ROLE\r\n    if not public.has_app_role(\r\n        'landlord'::public.app_role,\r\n        v_user_id\r\n    ) then\r\n        raise exception 'Landlord role required'\r\n            using errcode = '42501';\r\n    end if;\r\n\r\n\r\n    -- 4. TIER 1 VERIFICATION\r\n    if not public.is_tier1_verified(v_user_id) then\r\n        raise exception 'Tier 1 verification required'\r\n            using errcode = '42501';\r\n    end if;\r\n\r\n\r\n    -- 5. REQUIRED TEXT\r\n    if p_barangay is null\r\n       or pg_catalog.btrim(p_barangay) = '' then\r\n        raise exception 'Barangay is required'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n    if p_address_line_1 is null\r\n       or pg_catalog.btrim(p_address_line_1) = '' then\r\n        raise exception 'Address line 1 is required'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n\r\n    -- 6. REQUIRED COORDINATES\r\n    if p_public_lat is null\r\n       or p_public_lng is null\r\n       or p_exact_lat is null\r\n       or p_exact_lng is null then\r\n        raise exception 'Property coordinates are required'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n\r\n    -- 7. COORDINATE RANGES\r\n    if p_public_lat < -90\r\n       or p_public_lat > 90\r\n       or p_exact_lat < -90\r\n       or p_exact_lat > 90 then\r\n        raise exception 'Invalid latitude'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n    if p_public_lng < -180\r\n       or p_public_lng > 180\r\n       or p_exact_lng < -180\r\n       or p_exact_lng > 180 then\r\n        raise exception 'Invalid longitude'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n\r\n    -- 8. AMENITY VALIDATION\r\n    if exists (\r\n        select 1\r\n        from pg_catalog.unnest(\r\n            coalesce(\r\n                p_amenity_ids,\r\n                '{}'::bigint[]\r\n            )\r\n        ) as selected(amenity_id)\r\n\r\n        left join public.amenities a\r\n            on a.id = selected.amenity_id\r\n\r\n        where a.id is null\r\n           or a.is_active = false\r\n    ) then\r\n        raise exception 'One or more amenities are invalid or inactive'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n\r\n    -- 9. CREATE PROPERTY\r\n    insert into public.properties (\r\n        landlord_id,\r\n        property_type,\r\n        city,\r\n        barangay,\r\n        public_location,\r\n        bedrooms,\r\n        bathrooms,\r\n        floor_area_sqm,\r\n        floor_number,\r\n        total_floors,\r\n        furnishing_status,\r\n        max_occupants\r\n    )\r\n    values (\r\n        v_user_id,\r\n        p_property_type,\r\n        p_city,\r\n        pg_catalog.btrim(p_barangay),\r\n\r\n        extensions.st_setsrid(\r\n            extensions.st_makepoint(\r\n                p_public_lng,\r\n                p_public_lat\r\n            ),\r\n            4326\r\n        )::extensions.geography,\r\n\r\n        p_bedrooms,\r\n        p_bathrooms,\r\n        p_floor_area_sqm,\r\n        p_floor_number,\r\n        p_total_floors,\r\n        p_furnishing_status,\r\n        p_max_occupants\r\n    )\r\n    returning id into v_property_id;\r\n\r\n\r\n    -- 10. CREATE PRIVATE LOCATION\r\n    insert into public.property_private_locations (\r\n        property_id,\r\n        address_line_1,\r\n        address_line_2,\r\n        postal_code,\r\n        exact_location,\r\n        access_instructions\r\n    )\r\n    values (\r\n        v_property_id,\r\n\r\n        pg_catalog.btrim(p_address_line_1),\r\n\r\n        nullif(\r\n            pg_catalog.btrim(p_address_line_2),\r\n            ''\r\n        ),\r\n\r\n        nullif(\r\n            pg_catalog.btrim(p_postal_code),\r\n            ''\r\n        ),\r\n\r\n        extensions.st_setsrid(\r\n            extensions.st_makepoint(\r\n                p_exact_lng,\r\n                p_exact_lat\r\n            ),\r\n            4326\r\n        )::extensions.geography,\r\n\r\n        nullif(\r\n            pg_catalog.btrim(p_access_instructions),\r\n            ''\r\n        )\r\n    );\r\n\r\n\r\n    -- 11. ATTACH AMENITIES\r\n    insert into public.property_amenities (\r\n        property_id,\r\n        amenity_id\r\n    )\r\n    select\r\n        v_property_id,\r\n        selected.amenity_id\r\n    from (\r\n        select distinct\r\n            pg_catalog.unnest(\r\n                coalesce(\r\n                    p_amenity_ids,\r\n                    '{}'::bigint[]\r\n                )\r\n            ) as amenity_id\r\n    ) selected;\r\n\r\n\r\n    -- 12. RETURN RESULT\r\n    return pg_catalog.jsonb_build_object(\r\n        'property_id', v_property_id,\r\n        'status', 'created'\r\n    );\r\nend;\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.create_property_setup(p_property_type property_type, p_city cavite_city, p_barangay text, p_public_lat double precision, p_public_lng double precision, p_address_line_1 text, p_exact_lat double precision, p_exact_lng double precision, p_amenity_ids bigint[] DEFAULT '{}'::bigint[], p_address_line_2 text DEFAULT NULL::text, p_postal_code text DEFAULT NULL::text, p_access_instructions text DEFAULT NULL::text, p_bedrooms smallint DEFAULT 0, p_bathrooms numeric DEFAULT 0, p_floor_area_sqm numeric DEFAULT NULL::numeric, p_floor_number smallint DEFAULT NULL::smallint, p_total_floors smallint DEFAULT NULL::smallint, p_furnishing_status furnishing_status DEFAULT 'unfurnished'::furnishing_status, p_max_occupants smallint DEFAULT NULL::smallint)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare\r\n    v_user_id uuid;\r\n    v_property_id uuid;\r\nbegin\r\n    -- 1. AUTHENTICATION\r\n    v_user_id := auth.uid();\r\n\r\n    if v_user_id is null then\r\n        raise exception 'Authentication required'\r\n            using errcode = '42501';\r\n    end if;\r\n\r\n\r\n    -- 2. ACTIVE ACCOUNT\r\n    if not exists (\r\n        select 1\r\n        from public.profiles p\r\n        where p.id = v_user_id\r\n          and p.account_status = 'active'::public.account_status\r\n    ) then\r\n        raise exception 'Active account required'\r\n            using errcode = '42501';\r\n    end if;\r\n\r\n\r\n    -- 3. LANDLORD ROLE\r\n    if not public.has_app_role(\r\n        'landlord'::public.app_role,\r\n        v_user_id\r\n    ) then\r\n        raise exception 'Landlord role required'\r\n            using errcode = '42501';\r\n    end if;\r\n\r\n\r\n    -- 4. TIER 1 VERIFICATION\r\n    if not public.is_tier1_verified(v_user_id) then\r\n        raise exception 'Tier 1 verification required'\r\n            using errcode = '42501';\r\n    end if;\r\n\r\n\r\n    -- 5. REQUIRED TEXT\r\n    if p_barangay is null\r\n       or pg_catalog.btrim(p_barangay) = '' then\r\n        raise exception 'Barangay is required'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n    if p_address_line_1 is null\r\n       or pg_catalog.btrim(p_address_line_1) = '' then\r\n        raise exception 'Address line 1 is required'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n\r\n    -- 6. REQUIRED COORDINATES\r\n    if p_public_lat is null\r\n       or p_public_lng is null\r\n       or p_exact_lat is null\r\n       or p_exact_lng is null then\r\n        raise exception 'Property coordinates are required'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n\r\n    -- 7. COORDINATE RANGES\r\n    if p_public_lat < -90\r\n       or p_public_lat > 90\r\n       or p_exact_lat < -90\r\n       or p_exact_lat > 90 then\r\n        raise exception 'Invalid latitude'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n    if p_public_lng < -180\r\n       or p_public_lng > 180\r\n       or p_exact_lng < -180\r\n       or p_exact_lng > 180 then\r\n        raise exception 'Invalid longitude'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n\r\n    -- 8. AMENITY VALIDATION\r\n    if exists (\r\n        select 1\r\n        from pg_catalog.unnest(\r\n            coalesce(\r\n                p_amenity_ids,\r\n                '{}'::bigint[]\r\n            )\r\n        ) as selected(amenity_id)\r\n\r\n        left join public.amenities a\r\n            on a.id = selected.amenity_id\r\n\r\n        where a.id is null\r\n           or a.is_active = false\r\n    ) then\r\n        raise exception 'One or more amenities are invalid or inactive'\r\n            using errcode = '22023';\r\n    end if;\r\n\r\n\r\n    -- 9. CREATE PROPERTY\r\n    insert into public.properties (\r\n        landlord_id,\r\n        property_type,\r\n        city,\r\n        barangay,\r\n        public_location,\r\n        bedrooms,\r\n        bathrooms,\r\n        floor_area_sqm,\r\n        floor_number,\r\n        total_floors,\r\n        furnishing_status,\r\n        max_occupants\r\n    )\r\n    values (\r\n        v_user_id,\r\n        p_property_type,\r\n        p_city,\r\n        pg_catalog.btrim(p_barangay),\r\n\r\n        extensions.st_setsrid(\r\n            extensions.st_makepoint(\r\n                p_public_lng,\r\n                p_public_lat\r\n            ),\r\n            4326\r\n        )::extensions.geography,\r\n\r\n        p_bedrooms,\r\n        p_bathrooms,\r\n        p_floor_area_sqm,\r\n        p_floor_number,\r\n        p_total_floors,\r\n        p_furnishing_status,\r\n        p_max_occupants\r\n    )\r\n    returning id into v_property_id;\r\n\r\n\r\n    -- 10. CREATE PRIVATE LOCATION\r\n    insert into public.property_private_locations (\r\n        property_id,\r\n        address_line_1,\r\n        address_line_2,\r\n        postal_code,\r\n        exact_location,\r\n        access_instructions\r\n    )\r\n    values (\r\n        v_property_id,\r\n\r\n        pg_catalog.btrim(p_address_line_1),\r\n\r\n        nullif(\r\n            pg_catalog.btrim(p_address_line_2),\r\n            ''\r\n        ),\r\n\r\n        nullif(\r\n            pg_catalog.btrim(p_postal_code),\r\n            ''\r\n        ),\r\n\r\n        extensions.st_setsrid(\r\n            extensions.st_makepoint(\r\n                p_exact_lng,\r\n                p_exact_lat\r\n            ),\r\n            4326\r\n        )::extensions.geography,\r\n\r\n        nullif(\r\n            pg_catalog.btrim(p_access_instructions),\r\n            ''\r\n        )\r\n    );\r\n\r\n\r\n    -- 11. ATTACH AMENITIES\r\n    insert into public.property_amenities (\r\n        property_id,\r\n        amenity_id\r\n    )\r\n    select\r\n        v_property_id,\r\n        selected.amenity_id\r\n    from (\r\n        select distinct\r\n            pg_catalog.unnest(\r\n                coalesce(\r\n                    p_amenity_ids,\r\n                    '{}'::bigint[]\r\n                )\r\n            ) as amenity_id\r\n    ) selected;\r\n\r\n\r\n    -- 12. RETURN RESULT\r\n    return pg_catalog.jsonb_build_object(\r\n        'property_id', v_property_id,\r\n        'status', 'created'\r\n    );\r\nend;\r\n$function$\n"
+    },
+    {
+      "args": "p_property_id uuid",
+      "name": "can_read_property_private_location",
+      "schema": "public",
+      "source": "\r\n    select\r\n        auth.uid() is not null\r\n        and (\r\n            -- Property owner\r\n            exists (\r\n                select 1\r\n                from public.properties p\r\n                where p.id = p_property_id\r\n                  and p.landlord_id = auth.uid()\r\n            )\r\n\r\n            -- Admin\r\n            or public.is_admin(auth.uid())\r\n\r\n            -- Active tenancy participant\r\n            or exists (\r\n                select 1\r\n                from public.tenancies t\r\n                where t.property_id = p_property_id\r\n                  and t.status = 'active'::public.tenancy_status\r\n                  and (\r\n                      t.tenant_id = auth.uid()\r\n                      or t.landlord_id = auth.uid()\r\n                  )\r\n            )\r\n        );\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.can_read_property_private_location(p_property_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\r\n    select\r\n        auth.uid() is not null\r\n        and (\r\n            -- Property owner\r\n            exists (\r\n                select 1\r\n                from public.properties p\r\n                where p.id = p_property_id\r\n                  and p.landlord_id = auth.uid()\r\n            )\r\n\r\n            -- Admin\r\n            or public.is_admin(auth.uid())\r\n\r\n            -- Active tenancy participant\r\n            or exists (\r\n                select 1\r\n                from public.tenancies t\r\n                where t.property_id = p_property_id\r\n                  and t.status = 'active'::public.tenancy_status\r\n                  and (\r\n                      t.tenant_id = auth.uid()\r\n                      or t.landlord_id = auth.uid()\r\n                  )\r\n            )\r\n        );\r\n$function$\n"
+    },
+    {
+      "args": "requested_roles text[]",
+      "name": "set_user_roles",
+      "schema": "public",
+      "source": "\r\ndeclare\r\n  caller_id uuid;\r\n  normalized_roles text[];\r\nbegin\r\n  -- Get the UUID from the authenticated JWT.\r\n  caller_id := auth.uid();\r\n\r\n  if caller_id is null then\r\n    raise exception 'Authentication required'\r\n      using errcode = '42501';\r\n  end if;\r\n\r\n  -- A user must have at least one application role.\r\n  if requested_roles is null\r\n     or cardinality(requested_roles) = 0 then\r\n    raise exception 'At least one role must be selected'\r\n      using errcode = '22023';\r\n  end if;\r\n\r\n  -- Normalize values and remove duplicates.\r\n  select array_agg(distinct lower(trim(r)))\r\n  into normalized_roles\r\n  from unnest(requested_roles) as role_input(r);\r\n\r\n  -- Only normal application roles may be self-selected.\r\n  if exists (\r\n    select 1\r\n    from unnest(normalized_roles) as selected_role(r)\r\n    where r not in ('tenant', 'landlord')\r\n  ) then\r\n    raise exception 'Only tenant and landlord roles may be selected'\r\n      using errcode = '22023';\r\n  end if;\r\n\r\n  -- Replace only the caller's normal application roles.\r\n  -- An Admin role, if ever assigned through a trusted Admin process,\r\n  -- is deliberately untouched.\r\n  delete from public.user_roles ur\r\n  where ur.user_id = caller_id\r\n    and ur.role in (\r\n      'tenant'::public.app_role,\r\n      'landlord'::public.app_role\r\n    );\r\n\r\n  insert into public.user_roles (\r\n    user_id,\r\n    role\r\n  )\r\n  select\r\n    caller_id,\r\n    r::public.app_role\r\n  from unnest(normalized_roles) as selected_role(r)\r\n  on conflict do nothing;\r\n\r\n  -- Return the caller's resulting normal roles.\r\n  return query\r\n  select ur.role::text\r\n  from public.user_roles ur\r\n  where ur.user_id = caller_id\r\n    and ur.role in (\r\n      'tenant'::public.app_role,\r\n      'landlord'::public.app_role\r\n    )\r\n  order by ur.role::text;\r\nend;\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.set_user_roles(requested_roles text[])\n RETURNS TABLE(role text)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  caller_id uuid;\r\n  normalized_roles text[];\r\nbegin\r\n  -- Get the UUID from the authenticated JWT.\r\n  caller_id := auth.uid();\r\n\r\n  if caller_id is null then\r\n    raise exception 'Authentication required'\r\n      using errcode = '42501';\r\n  end if;\r\n\r\n  -- A user must have at least one application role.\r\n  if requested_roles is null\r\n     or cardinality(requested_roles) = 0 then\r\n    raise exception 'At least one role must be selected'\r\n      using errcode = '22023';\r\n  end if;\r\n\r\n  -- Normalize values and remove duplicates.\r\n  select array_agg(distinct lower(trim(r)))\r\n  into normalized_roles\r\n  from unnest(requested_roles) as role_input(r);\r\n\r\n  -- Only normal application roles may be self-selected.\r\n  if exists (\r\n    select 1\r\n    from unnest(normalized_roles) as selected_role(r)\r\n    where r not in ('tenant', 'landlord')\r\n  ) then\r\n    raise exception 'Only tenant and landlord roles may be selected'\r\n      using errcode = '22023';\r\n  end if;\r\n\r\n  -- Replace only the caller's normal application roles.\r\n  -- An Admin role, if ever assigned through a trusted Admin process,\r\n  -- is deliberately untouched.\r\n  delete from public.user_roles ur\r\n  where ur.user_id = caller_id\r\n    and ur.role in (\r\n      'tenant'::public.app_role,\r\n      'landlord'::public.app_role\r\n    );\r\n\r\n  insert into public.user_roles (\r\n    user_id,\r\n    role\r\n  )\r\n  select\r\n    caller_id,\r\n    r::public.app_role\r\n  from unnest(normalized_roles) as selected_role(r)\r\n  on conflict do nothing;\r\n\r\n  -- Return the caller's resulting normal roles.\r\n  return query\r\n  select ur.role::text\r\n  from public.user_roles ur\r\n  where ur.user_id = caller_id\r\n    and ur.role in (\r\n      'tenant'::public.app_role,\r\n      'landlord'::public.app_role\r\n    )\r\n  order by ur.role::text;\r\nend;\r\n$function$\n"
+    },
+    {
+      "args": "p_property_id uuid, p_title text, p_description text, p_asking_rent_monthly numeric, p_house_rules text, p_rental_term rental_term_type, p_security_deposit_months numeric, p_advance_rent_months numeric, p_minimum_stay_months smallint, p_available_from date",
+      "name": "save_listing_draft",
+      "schema": "public",
+      "source": "\ndeclare\n  v_user_id uuid := auth.uid();\n  v_listing public.listings%rowtype;\nbegin\n  if v_user_id is null then\n    raise exception 'Authentication required' using errcode = '42501';\n  end if;\n\n  if not public.is_tier1_verified(v_user_id) then\n    raise exception 'Tier 1 verified active account required' using errcode = '42501';\n  end if;\n\n  if not public.has_app_role('landlord'::public.app_role, v_user_id) then\n    raise exception 'Landlord role required' using errcode = '42501';\n  end if;\n\n  if p_property_id is null then\n    raise exception 'Property is required' using errcode = '22023';\n  end if;\n\n  if not exists (\n    select 1\n    from public.properties p\n    where p.id = p_property_id\n      and p.landlord_id = v_user_id\n      and p.is_active = true\n  ) then\n    raise exception 'Owned active property required' using errcode = '42501';\n  end if;\n\n  if nullif(pg_catalog.btrim(p_title), '') is null then\n    raise exception 'Listing title is required' using errcode = '22023';\n  end if;\n\n  if nullif(pg_catalog.btrim(p_description), '') is null then\n    raise exception 'Listing description is required' using errcode = '22023';\n  end if;\n\n  if p_asking_rent_monthly is null or p_asking_rent_monthly <= 0 then\n    raise exception 'Monthly asking rent must be greater than zero' using errcode = '22023';\n  end if;\n\n  if p_security_deposit_months is null or p_security_deposit_months < 0 then\n    raise exception 'Security deposit months must be zero or greater' using errcode = '22023';\n  end if;\n\n  if p_advance_rent_months is null or p_advance_rent_months < 0 then\n    raise exception 'Advance rent months must be zero or greater' using errcode = '22023';\n  end if;\n\n  if p_minimum_stay_months is not null and p_minimum_stay_months <= 0 then\n    raise exception 'Minimum stay months must be greater than zero when provided' using errcode = '22023';\n  end if;\n\n  perform pg_catalog.pg_advisory_xact_lock(\n    pg_catalog.hashtextextended(p_property_id::text, 0)\n  );\n\n  select l.*\n  into v_listing\n  from public.listings l\n  where l.property_id = p_property_id\n    and l.landlord_id = v_user_id\n    and l.status = 'draft'::public.listing_status\n  order by l.created_at desc\n  limit 1\n  for update;\n\n  if v_listing.id is null then\n    insert into public.listings (\n      property_id,\n      landlord_id,\n      title,\n      description,\n      house_rules,\n      rental_term,\n      asking_rent_monthly,\n      security_deposit_months,\n      advance_rent_months,\n      minimum_stay_months,\n      available_from,\n      status\n    )\n    values (\n      p_property_id,\n      v_user_id,\n      pg_catalog.btrim(p_title),\n      pg_catalog.btrim(p_description),\n      nullif(pg_catalog.btrim(p_house_rules), ''),\n      p_rental_term,\n      p_asking_rent_monthly,\n      p_security_deposit_months,\n      p_advance_rent_months,\n      p_minimum_stay_months,\n      p_available_from,\n      'draft'::public.listing_status\n    )\n    returning * into v_listing;\n  else\n    update public.listings l\n    set title = pg_catalog.btrim(p_title),\n        description = pg_catalog.btrim(p_description),\n        house_rules = nullif(pg_catalog.btrim(p_house_rules), ''),\n        rental_term = p_rental_term,\n        asking_rent_monthly = p_asking_rent_monthly,\n        security_deposit_months = p_security_deposit_months,\n        advance_rent_months = p_advance_rent_months,\n        minimum_stay_months = p_minimum_stay_months,\n        available_from = p_available_from\n    where l.id = v_listing.id\n      and l.status = 'draft'::public.listing_status\n    returning l.* into v_listing;\n  end if;\n\n  return query\n  select\n    v_listing.id,\n    v_listing.status,\n    v_listing.completeness_score,\n    v_listing.created_at,\n    v_listing.updated_at;\nend;\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.save_listing_draft(p_property_id uuid, p_title text, p_description text, p_asking_rent_monthly numeric, p_house_rules text DEFAULT NULL::text, p_rental_term rental_term_type DEFAULT 'long_term'::rental_term_type, p_security_deposit_months numeric DEFAULT 1, p_advance_rent_months numeric DEFAULT 1, p_minimum_stay_months smallint DEFAULT NULL::smallint, p_available_from date DEFAULT NULL::date)\n RETURNS TABLE(listing_id uuid, listing_status listing_status, completeness_score numeric, created_at timestamp with time zone, updated_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare\n  v_user_id uuid := auth.uid();\n  v_listing public.listings%rowtype;\nbegin\n  if v_user_id is null then\n    raise exception 'Authentication required' using errcode = '42501';\n  end if;\n\n  if not public.is_tier1_verified(v_user_id) then\n    raise exception 'Tier 1 verified active account required' using errcode = '42501';\n  end if;\n\n  if not public.has_app_role('landlord'::public.app_role, v_user_id) then\n    raise exception 'Landlord role required' using errcode = '42501';\n  end if;\n\n  if p_property_id is null then\n    raise exception 'Property is required' using errcode = '22023';\n  end if;\n\n  if not exists (\n    select 1\n    from public.properties p\n    where p.id = p_property_id\n      and p.landlord_id = v_user_id\n      and p.is_active = true\n  ) then\n    raise exception 'Owned active property required' using errcode = '42501';\n  end if;\n\n  if nullif(pg_catalog.btrim(p_title), '') is null then\n    raise exception 'Listing title is required' using errcode = '22023';\n  end if;\n\n  if nullif(pg_catalog.btrim(p_description), '') is null then\n    raise exception 'Listing description is required' using errcode = '22023';\n  end if;\n\n  if p_asking_rent_monthly is null or p_asking_rent_monthly <= 0 then\n    raise exception 'Monthly asking rent must be greater than zero' using errcode = '22023';\n  end if;\n\n  if p_security_deposit_months is null or p_security_deposit_months < 0 then\n    raise exception 'Security deposit months must be zero or greater' using errcode = '22023';\n  end if;\n\n  if p_advance_rent_months is null or p_advance_rent_months < 0 then\n    raise exception 'Advance rent months must be zero or greater' using errcode = '22023';\n  end if;\n\n  if p_minimum_stay_months is not null and p_minimum_stay_months <= 0 then\n    raise exception 'Minimum stay months must be greater than zero when provided' using errcode = '22023';\n  end if;\n\n  perform pg_catalog.pg_advisory_xact_lock(\n    pg_catalog.hashtextextended(p_property_id::text, 0)\n  );\n\n  select l.*\n  into v_listing\n  from public.listings l\n  where l.property_id = p_property_id\n    and l.landlord_id = v_user_id\n    and l.status = 'draft'::public.listing_status\n  order by l.created_at desc\n  limit 1\n  for update;\n\n  if v_listing.id is null then\n    insert into public.listings (\n      property_id,\n      landlord_id,\n      title,\n      description,\n      house_rules,\n      rental_term,\n      asking_rent_monthly,\n      security_deposit_months,\n      advance_rent_months,\n      minimum_stay_months,\n      available_from,\n      status\n    )\n    values (\n      p_property_id,\n      v_user_id,\n      pg_catalog.btrim(p_title),\n      pg_catalog.btrim(p_description),\n      nullif(pg_catalog.btrim(p_house_rules), ''),\n      p_rental_term,\n      p_asking_rent_monthly,\n      p_security_deposit_months,\n      p_advance_rent_months,\n      p_minimum_stay_months,\n      p_available_from,\n      'draft'::public.listing_status\n    )\n    returning * into v_listing;\n  else\n    update public.listings l\n    set title = pg_catalog.btrim(p_title),\n        description = pg_catalog.btrim(p_description),\n        house_rules = nullif(pg_catalog.btrim(p_house_rules), ''),\n        rental_term = p_rental_term,\n        asking_rent_monthly = p_asking_rent_monthly,\n        security_deposit_months = p_security_deposit_months,\n        advance_rent_months = p_advance_rent_months,\n        minimum_stay_months = p_minimum_stay_months,\n        available_from = p_available_from\n    where l.id = v_listing.id\n      and l.status = 'draft'::public.listing_status\n    returning l.* into v_listing;\n  end if;\n\n  return query\n  select\n    v_listing.id,\n    v_listing.status,\n    v_listing.completeness_score,\n    v_listing.created_at,\n    v_listing.updated_at;\nend;\n$function$\n"
+    },
+    {
+      "args": "p_latitude double precision, p_longitude double precision, p_radius_km integer, p_limit integer, p_offset integer",
+      "name": "search_nearby_listings",
+      "schema": "public",
+      "source": "\nDECLARE\n    v_tenant_location extensions.geography;\nBEGIN\n    IF p_latitude IS NULL\n       OR p_latitude NOT BETWEEN -90 AND 90\n       OR p_longitude IS NULL\n       OR p_longitude NOT BETWEEN -180 AND 180\n    THEN\n        RAISE EXCEPTION 'Invalid GPS coordinates'\n            USING ERRCODE = '22023';\n    END IF;\n\n    IF p_radius_km IS NULL\n       OR p_radius_km NOT IN (1, 3, 5)\n    THEN\n        RAISE EXCEPTION 'Radius must be 1, 3, or 5 km'\n            USING ERRCODE = '22023';\n    END IF;\n\n    IF p_limit IS NULL\n       OR p_limit NOT BETWEEN 1 AND 50\n       OR p_offset IS NULL\n       OR p_offset NOT BETWEEN 0 AND 1000\n    THEN\n        RAISE EXCEPTION 'Invalid pagination parameters'\n            USING ERRCODE = '22023';\n    END IF;\n\n    IF auth.uid() IS NULL THEN\n        RAISE EXCEPTION 'Authentication required'\n            USING ERRCODE = '28000';\n    END IF;\n\n    IF NOT public.has_app_role(\n        'tenant'::public.app_role, auth.uid()\n    )\n    OR NOT public.is_tier1_verified(auth.uid())\n    THEN\n        RAISE EXCEPTION 'Tenant verification required'\n            USING ERRCODE = '42501';\n    END IF;\n\n    v_tenant_location :=\n        extensions.ST_SetSRID(\n            extensions.ST_MakePoint(\n                p_longitude,\n                p_latitude\n            ),\n            4326\n        )::extensions.geography;\n\n    RETURN QUERY\n    SELECT\n        l.id,\n        p.id,\n        l.title,\n        l.asking_rent_monthly,\n        p.property_type::text,\n        p.city::text,\n        p.barangay,\n        l.available_from,\n        extensions.ST_Y(\n            p.public_location::extensions.geometry\n        ),\n        extensions.ST_X(\n            p.public_location::extensions.geometry\n        ),\n        ROUND(\n            extensions.ST_Distance(\n                p.public_location,\n                v_tenant_location\n            )::numeric, 2\n        )\n    FROM public.listings l\n    JOIN public.properties p\n        ON p.id = l.property_id\n    WHERE l.status = 'active'::public.listing_status\n      AND p.is_active IS TRUE\n      AND (\n          l.available_from IS NULL\n          OR l.available_from <=\n              (now() AT TIME ZONE 'Asia/Manila')::date\n      )\n      AND extensions.ST_DWithin(\n          p.public_location,\n          v_tenant_location,\n          p_radius_km * 1000.0\n      )\n    ORDER BY\n        extensions.ST_Distance(\n            p.public_location,\n            v_tenant_location\n        ),\n        l.id\n    LIMIT p_limit\n    OFFSET p_offset;\nEND;\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.search_nearby_listings(p_latitude double precision, p_longitude double precision, p_radius_km integer DEFAULT 3, p_limit integer DEFAULT 20, p_offset integer DEFAULT 0)\n RETURNS TABLE(listing_id uuid, property_id uuid, title text, asking_rent_monthly numeric, property_type text, city text, barangay text, available_from date, public_latitude double precision, public_longitude double precision, distance_meters numeric)\n LANGUAGE plpgsql\n STABLE\n SET search_path TO ''\nAS $function$\nDECLARE\n    v_tenant_location extensions.geography;\nBEGIN\n    IF p_latitude IS NULL\n       OR p_latitude NOT BETWEEN -90 AND 90\n       OR p_longitude IS NULL\n       OR p_longitude NOT BETWEEN -180 AND 180\n    THEN\n        RAISE EXCEPTION 'Invalid GPS coordinates'\n            USING ERRCODE = '22023';\n    END IF;\n\n    IF p_radius_km IS NULL\n       OR p_radius_km NOT IN (1, 3, 5)\n    THEN\n        RAISE EXCEPTION 'Radius must be 1, 3, or 5 km'\n            USING ERRCODE = '22023';\n    END IF;\n\n    IF p_limit IS NULL\n       OR p_limit NOT BETWEEN 1 AND 50\n       OR p_offset IS NULL\n       OR p_offset NOT BETWEEN 0 AND 1000\n    THEN\n        RAISE EXCEPTION 'Invalid pagination parameters'\n            USING ERRCODE = '22023';\n    END IF;\n\n    IF auth.uid() IS NULL THEN\n        RAISE EXCEPTION 'Authentication required'\n            USING ERRCODE = '28000';\n    END IF;\n\n    IF NOT public.has_app_role(\n        'tenant'::public.app_role, auth.uid()\n    )\n    OR NOT public.is_tier1_verified(auth.uid())\n    THEN\n        RAISE EXCEPTION 'Tenant verification required'\n            USING ERRCODE = '42501';\n    END IF;\n\n    v_tenant_location :=\n        extensions.ST_SetSRID(\n            extensions.ST_MakePoint(\n                p_longitude,\n                p_latitude\n            ),\n            4326\n        )::extensions.geography;\n\n    RETURN QUERY\n    SELECT\n        l.id,\n        p.id,\n        l.title,\n        l.asking_rent_monthly,\n        p.property_type::text,\n        p.city::text,\n        p.barangay,\n        l.available_from,\n        extensions.ST_Y(\n            p.public_location::extensions.geometry\n        ),\n        extensions.ST_X(\n            p.public_location::extensions.geometry\n        ),\n        ROUND(\n            extensions.ST_Distance(\n                p.public_location,\n                v_tenant_location\n            )::numeric, 2\n        )\n    FROM public.listings l\n    JOIN public.properties p\n        ON p.id = l.property_id\n    WHERE l.status = 'active'::public.listing_status\n      AND p.is_active IS TRUE\n      AND (\n          l.available_from IS NULL\n          OR l.available_from <=\n              (now() AT TIME ZONE 'Asia/Manila')::date\n      )\n      AND extensions.ST_DWithin(\n          p.public_location,\n          v_tenant_location,\n          p_radius_km * 1000.0\n      )\n    ORDER BY\n        extensions.ST_Distance(\n            p.public_location,\n            v_tenant_location\n        ),\n        l.id\n    LIMIT p_limit\n    OFFSET p_offset;\nEND;\n$function$\n"
+    },
+    {
+      "args": "p_listing_id uuid",
+      "name": "publish_listing",
+      "schema": "public",
+      "source": "\ndeclare\n  v_user_id uuid := auth.uid();\n  v_probe public.listings%rowtype;\n  v_listing public.listings%rowtype;\nbegin\n  if v_user_id is null then\n    raise exception 'Authentication required' using errcode = '42501';\n  end if;\n\n  if not public.is_tier1_verified(v_user_id) then\n    raise exception 'Tier 1 verified active account required' using errcode = '42501';\n  end if;\n\n  if not public.has_app_role('landlord'::public.app_role, v_user_id) then\n    raise exception 'Landlord role required' using errcode = '42501';\n  end if;\n\n  if p_listing_id is null then\n    raise exception 'Listing is required' using errcode = '22023';\n  end if;\n\n  select l.*\n  into v_probe\n  from public.listings l\n  where l.id = p_listing_id\n    and l.landlord_id = v_user_id;\n\n  if v_probe.id is null then\n    raise exception 'Owned listing required' using errcode = '42501';\n  end if;\n\n  perform pg_catalog.pg_advisory_xact_lock(\n    pg_catalog.hashtextextended(v_probe.property_id::text, 0)\n  );\n\n  select l.*\n  into v_listing\n  from public.listings l\n  where l.id = p_listing_id\n    and l.landlord_id = v_user_id\n  for update;\n\n  if v_listing.id is null then\n    raise exception 'Owned listing required' using errcode = '42501';\n  end if;\n\n  if v_listing.status <> 'draft'::public.listing_status then\n    raise exception 'Only a draft listing can be published' using errcode = '22023';\n  end if;\n\n  if not exists (\n    select 1\n    from public.properties p\n    where p.id = v_listing.property_id\n      and p.landlord_id = v_user_id\n      and p.is_active = true\n  ) then\n    raise exception 'Owned active property required' using errcode = '42501';\n  end if;\n\n  if not rentlease_property_identity.verified(v_listing.property_id) then\n    raise exception 'Approved Tier 3 verification for this property is required before publishing'\n      using errcode = '42501';\n  end if;\n\n  if exists (\n    select 1\n    from public.listings other\n    where other.property_id = v_listing.property_id\n      and other.id <> v_listing.id\n      and other.status in (\n        'active'::public.listing_status,\n        'paused'::public.listing_status,\n        'rented'::public.listing_status\n      )\n  ) then\n    raise exception 'This property already has a live listing'\n      using errcode = '23505';\n  end if;\n\n  update public.listings l\n  set status = 'active'::public.listing_status\n  where l.id = v_listing.id\n    and l.landlord_id = v_user_id\n    and l.status = 'draft'::public.listing_status\n  returning l.* into v_listing;\n\n  if v_listing.id is null then\n    raise exception 'Listing changed before publication could complete'\n      using errcode = '40001';\n  end if;\n\n  return query\n  select\n    v_listing.id,\n    v_listing.status,\n    v_listing.completeness_score,\n    v_listing.published_at,\n    v_listing.updated_at;\nend;\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.publish_listing(p_listing_id uuid)\n RETURNS TABLE(listing_id uuid, listing_status listing_status, completeness_score numeric, published_at timestamp with time zone, updated_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\ndeclare\n  v_user_id uuid := auth.uid();\n  v_probe public.listings%rowtype;\n  v_listing public.listings%rowtype;\nbegin\n  if v_user_id is null then\n    raise exception 'Authentication required' using errcode = '42501';\n  end if;\n\n  if not public.is_tier1_verified(v_user_id) then\n    raise exception 'Tier 1 verified active account required' using errcode = '42501';\n  end if;\n\n  if not public.has_app_role('landlord'::public.app_role, v_user_id) then\n    raise exception 'Landlord role required' using errcode = '42501';\n  end if;\n\n  if p_listing_id is null then\n    raise exception 'Listing is required' using errcode = '22023';\n  end if;\n\n  select l.*\n  into v_probe\n  from public.listings l\n  where l.id = p_listing_id\n    and l.landlord_id = v_user_id;\n\n  if v_probe.id is null then\n    raise exception 'Owned listing required' using errcode = '42501';\n  end if;\n\n  perform pg_catalog.pg_advisory_xact_lock(\n    pg_catalog.hashtextextended(v_probe.property_id::text, 0)\n  );\n\n  select l.*\n  into v_listing\n  from public.listings l\n  where l.id = p_listing_id\n    and l.landlord_id = v_user_id\n  for update;\n\n  if v_listing.id is null then\n    raise exception 'Owned listing required' using errcode = '42501';\n  end if;\n\n  if v_listing.status <> 'draft'::public.listing_status then\n    raise exception 'Only a draft listing can be published' using errcode = '22023';\n  end if;\n\n  if not exists (\n    select 1\n    from public.properties p\n    where p.id = v_listing.property_id\n      and p.landlord_id = v_user_id\n      and p.is_active = true\n  ) then\n    raise exception 'Owned active property required' using errcode = '42501';\n  end if;\n\n  if not rentlease_property_identity.verified(v_listing.property_id) then\n    raise exception 'Approved Tier 3 verification for this property is required before publishing'\n      using errcode = '42501';\n  end if;\n\n  if exists (\n    select 1\n    from public.listings other\n    where other.property_id = v_listing.property_id\n      and other.id <> v_listing.id\n      and other.status in (\n        'active'::public.listing_status,\n        'paused'::public.listing_status,\n        'rented'::public.listing_status\n      )\n  ) then\n    raise exception 'This property already has a live listing'\n      using errcode = '23505';\n  end if;\n\n  update public.listings l\n  set status = 'active'::public.listing_status\n  where l.id = v_listing.id\n    and l.landlord_id = v_user_id\n    and l.status = 'draft'::public.listing_status\n  returning l.* into v_listing;\n\n  if v_listing.id is null then\n    raise exception 'Listing changed before publication could complete'\n      using errcode = '40001';\n  end if;\n\n  return query\n  select\n    v_listing.id,\n    v_listing.status,\n    v_listing.completeness_score,\n    v_listing.published_at,\n    v_listing.updated_at;\nend;\n$function$\n"
+    },
+    {
+      "args": "p_listing_id uuid",
+      "name": "pause_listing",
+      "schema": "public",
+      "source": "\r\ndeclare\r\n  v_user_id uuid := auth.uid();\r\n  v_listing public.listings%rowtype;\r\nbegin\r\n  if v_user_id is null then\r\n    raise exception 'Authentication required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.is_tier1_verified(v_user_id) then\r\n    raise exception 'Tier 1 verified active account required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.has_app_role('landlord'::public.app_role, v_user_id) then\r\n    raise exception 'Landlord role required' using errcode = '42501';\r\n  end if;\r\n\r\n  if p_listing_id is null then\r\n    raise exception 'Listing is required' using errcode = '22023';\r\n  end if;\r\n\r\n  select l.*\r\n  into v_listing\r\n  from public.listings l\r\n  where l.id = p_listing_id\r\n    and l.landlord_id = v_user_id\r\n  for update;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Owned listing required' using errcode = '42501';\r\n  end if;\r\n\r\n  if v_listing.status <> 'active'::public.listing_status then\r\n    raise exception 'Only an active listing can be paused' using errcode = '22023';\r\n  end if;\r\n\r\n  if exists (\r\n    select 1\r\n    from public.tenancies t\r\n    where t.listing_id = v_listing.id\r\n      and t.status = 'active'::public.tenancy_status\r\n  ) then\r\n    raise exception 'Listing status is controlled by an active tenancy' using errcode = '22023';\r\n  end if;\r\n\r\n  update public.listings l\r\n  set status = 'paused'::public.listing_status,\r\n      paused_at = pg_catalog.now()\r\n  where l.id = v_listing.id\r\n    and l.landlord_id = v_user_id\r\n    and l.status = 'active'::public.listing_status\r\n  returning l.* into v_listing;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Listing changed before pause could complete' using errcode = '40001';\r\n  end if;\r\n\r\n  return query\r\n  select\r\n    v_listing.id,\r\n    v_listing.status,\r\n    v_listing.completeness_score,\r\n    v_listing.published_at,\r\n    v_listing.paused_at,\r\n    v_listing.archived_at,\r\n    v_listing.updated_at;\r\nend;\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.pause_listing(p_listing_id uuid)\n RETURNS TABLE(listing_id uuid, listing_status listing_status, completeness_score numeric, published_at timestamp with time zone, paused_at timestamp with time zone, archived_at timestamp with time zone, updated_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare\r\n  v_user_id uuid := auth.uid();\r\n  v_listing public.listings%rowtype;\r\nbegin\r\n  if v_user_id is null then\r\n    raise exception 'Authentication required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.is_tier1_verified(v_user_id) then\r\n    raise exception 'Tier 1 verified active account required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.has_app_role('landlord'::public.app_role, v_user_id) then\r\n    raise exception 'Landlord role required' using errcode = '42501';\r\n  end if;\r\n\r\n  if p_listing_id is null then\r\n    raise exception 'Listing is required' using errcode = '22023';\r\n  end if;\r\n\r\n  select l.*\r\n  into v_listing\r\n  from public.listings l\r\n  where l.id = p_listing_id\r\n    and l.landlord_id = v_user_id\r\n  for update;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Owned listing required' using errcode = '42501';\r\n  end if;\r\n\r\n  if v_listing.status <> 'active'::public.listing_status then\r\n    raise exception 'Only an active listing can be paused' using errcode = '22023';\r\n  end if;\r\n\r\n  if exists (\r\n    select 1\r\n    from public.tenancies t\r\n    where t.listing_id = v_listing.id\r\n      and t.status = 'active'::public.tenancy_status\r\n  ) then\r\n    raise exception 'Listing status is controlled by an active tenancy' using errcode = '22023';\r\n  end if;\r\n\r\n  update public.listings l\r\n  set status = 'paused'::public.listing_status,\r\n      paused_at = pg_catalog.now()\r\n  where l.id = v_listing.id\r\n    and l.landlord_id = v_user_id\r\n    and l.status = 'active'::public.listing_status\r\n  returning l.* into v_listing;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Listing changed before pause could complete' using errcode = '40001';\r\n  end if;\r\n\r\n  return query\r\n  select\r\n    v_listing.id,\r\n    v_listing.status,\r\n    v_listing.completeness_score,\r\n    v_listing.published_at,\r\n    v_listing.paused_at,\r\n    v_listing.archived_at,\r\n    v_listing.updated_at;\r\nend;\r\n$function$\n"
+    },
+    {
+      "args": "p_listing_id uuid",
+      "name": "archive_listing",
+      "schema": "public",
+      "source": "\r\ndeclare\r\n  v_user_id uuid := auth.uid();\r\n  v_listing public.listings%rowtype;\r\nbegin\r\n  if v_user_id is null then\r\n    raise exception 'Authentication required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.is_tier1_verified(v_user_id) then\r\n    raise exception 'Tier 1 verified active account required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.has_app_role('landlord'::public.app_role, v_user_id) then\r\n    raise exception 'Landlord role required' using errcode = '42501';\r\n  end if;\r\n\r\n  if p_listing_id is null then\r\n    raise exception 'Listing is required' using errcode = '22023';\r\n  end if;\r\n\r\n  select l.*\r\n  into v_listing\r\n  from public.listings l\r\n  where l.id = p_listing_id\r\n    and l.landlord_id = v_user_id\r\n  for update;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Owned listing required' using errcode = '42501';\r\n  end if;\r\n\r\n  if v_listing.status not in (\r\n    'active'::public.listing_status,\r\n    'paused'::public.listing_status\r\n  ) then\r\n    raise exception 'Only an active or paused listing can be archived' using errcode = '22023';\r\n  end if;\r\n\r\n  if exists (\r\n    select 1\r\n    from public.tenancies t\r\n    where t.listing_id = v_listing.id\r\n      and t.status = 'active'::public.tenancy_status\r\n  ) then\r\n    raise exception 'Listing status is controlled by an active tenancy' using errcode = '22023';\r\n  end if;\r\n\r\n  update public.listings l\r\n  set status = 'archived'::public.listing_status,\r\n      archived_at = pg_catalog.now()\r\n  where l.id = v_listing.id\r\n    and l.landlord_id = v_user_id\r\n    and l.status in (\r\n      'active'::public.listing_status,\r\n      'paused'::public.listing_status\r\n    )\r\n  returning l.* into v_listing;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Listing changed before archive could complete' using errcode = '40001';\r\n  end if;\r\n\r\n  return query\r\n  select\r\n    v_listing.id,\r\n    v_listing.status,\r\n    v_listing.completeness_score,\r\n    v_listing.published_at,\r\n    v_listing.paused_at,\r\n    v_listing.archived_at,\r\n    v_listing.updated_at;\r\nend;\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.archive_listing(p_listing_id uuid)\n RETURNS TABLE(listing_id uuid, listing_status listing_status, completeness_score numeric, published_at timestamp with time zone, paused_at timestamp with time zone, archived_at timestamp with time zone, updated_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare\r\n  v_user_id uuid := auth.uid();\r\n  v_listing public.listings%rowtype;\r\nbegin\r\n  if v_user_id is null then\r\n    raise exception 'Authentication required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.is_tier1_verified(v_user_id) then\r\n    raise exception 'Tier 1 verified active account required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.has_app_role('landlord'::public.app_role, v_user_id) then\r\n    raise exception 'Landlord role required' using errcode = '42501';\r\n  end if;\r\n\r\n  if p_listing_id is null then\r\n    raise exception 'Listing is required' using errcode = '22023';\r\n  end if;\r\n\r\n  select l.*\r\n  into v_listing\r\n  from public.listings l\r\n  where l.id = p_listing_id\r\n    and l.landlord_id = v_user_id\r\n  for update;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Owned listing required' using errcode = '42501';\r\n  end if;\r\n\r\n  if v_listing.status not in (\r\n    'active'::public.listing_status,\r\n    'paused'::public.listing_status\r\n  ) then\r\n    raise exception 'Only an active or paused listing can be archived' using errcode = '22023';\r\n  end if;\r\n\r\n  if exists (\r\n    select 1\r\n    from public.tenancies t\r\n    where t.listing_id = v_listing.id\r\n      and t.status = 'active'::public.tenancy_status\r\n  ) then\r\n    raise exception 'Listing status is controlled by an active tenancy' using errcode = '22023';\r\n  end if;\r\n\r\n  update public.listings l\r\n  set status = 'archived'::public.listing_status,\r\n      archived_at = pg_catalog.now()\r\n  where l.id = v_listing.id\r\n    and l.landlord_id = v_user_id\r\n    and l.status in (\r\n      'active'::public.listing_status,\r\n      'paused'::public.listing_status\r\n    )\r\n  returning l.* into v_listing;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Listing changed before archive could complete' using errcode = '40001';\r\n  end if;\r\n\r\n  return query\r\n  select\r\n    v_listing.id,\r\n    v_listing.status,\r\n    v_listing.completeness_score,\r\n    v_listing.published_at,\r\n    v_listing.paused_at,\r\n    v_listing.archived_at,\r\n    v_listing.updated_at;\r\nend;\r\n$function$\n"
+    },
+    {
+      "args": "p_listing_id uuid, p_expected_edit_version uuid, p_title text, p_description text, p_asking_rent_monthly numeric, p_house_rules text, p_rental_term rental_term_type, p_security_deposit_months numeric, p_advance_rent_months numeric, p_minimum_stay_months smallint, p_available_from date",
+      "name": "update_listing_draft",
+      "schema": "public",
+      "source": "\r\ndeclare\r\n v_user uuid := auth.uid();\r\n v_property uuid;\r\n v_listing public.listings%rowtype;\r\nbegin\r\n if v_user is null then raise exception 'Authentication required' using errcode='42501'; end if;\r\n if not public.is_tier1_verified(v_user) then raise exception 'Tier 1 verified active account required' using errcode='42501'; end if;\r\n if not public.has_app_role('landlord'::public.app_role,v_user) then raise exception 'Landlord role required' using errcode='42501'; end if;\r\n if p_listing_id is null or p_expected_edit_version is null then raise exception 'Listing and edit version required' using errcode='22023'; end if;\r\n if current_setting('transaction_isolation') not in ('read committed','read uncommitted') then raise exception 'Draft editing requires READ COMMITTED isolation' using errcode='25001'; end if;\r\n select l.property_id into v_property from public.listings l where l.id=p_listing_id and l.landlord_id=v_user;\r\n if v_property is null then raise exception 'Owned draft required' using errcode='42501'; end if;\r\n -- Same advisory key as create, publish, lifecycle and completeness operations.\r\n perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_property::text,0));\r\n -- Recheck authorization after waiting; property ownership must remain stable.\r\n if not public.is_tier1_verified(v_user) or not public.has_app_role('landlord'::public.app_role,v_user) then raise exception 'Active Tier 1 landlord required' using errcode='42501'; end if;\r\n perform 1 from public.properties p where p.id=v_property and p.landlord_id=v_user and p.is_active=true for share;\r\n if not found then raise exception 'Owned active property required' using errcode='42501'; end if;\r\n select l.* into v_listing from public.listings l where l.id=p_listing_id and l.landlord_id=v_user and l.property_id=v_property for update;\r\n if not found or v_listing.status<>'draft'::public.listing_status or v_listing.edit_version<>p_expected_edit_version then\r\n   raise exception 'Draft changed or is no longer editable' using errcode='40001';\r\n end if;\r\n if nullif(btrim(p_title),'') is null or nullif(btrim(p_description),'') is null then raise exception 'Title and description required' using errcode='22023'; end if;\r\n if p_asking_rent_monthly is null or p_asking_rent_monthly<=0 or p_asking_rent_monthly::text in ('NaN','Infinity','-Infinity') then raise exception 'Positive finite rent required' using errcode='22023'; end if;\r\n if p_rental_term is null then raise exception 'Rental term required' using errcode='22023'; end if;\r\n if p_security_deposit_months is null or p_security_deposit_months<0 or p_security_deposit_months::text in ('NaN','Infinity','-Infinity') then raise exception 'Valid deposit months required' using errcode='22023'; end if;\r\n if p_advance_rent_months is null or p_advance_rent_months<0 or p_advance_rent_months::text in ('NaN','Infinity','-Infinity') then raise exception 'Valid advance months required' using errcode='22023'; end if;\r\n if p_minimum_stay_months is not null and p_minimum_stay_months<=0 then raise exception 'Positive minimum stay required' using errcode='22023'; end if;\r\n update public.listings l set title=btrim(p_title),description=btrim(p_description),\r\n  asking_rent_monthly=p_asking_rent_monthly,house_rules=nullif(btrim(p_house_rules),''),rental_term=p_rental_term,\r\n  security_deposit_months=p_security_deposit_months,advance_rent_months=p_advance_rent_months,\r\n  minimum_stay_months=p_minimum_stay_months,available_from=p_available_from\r\n where l.id=p_listing_id and l.landlord_id=v_user and l.property_id=v_property\r\n  and l.status='draft'::public.listing_status and l.edit_version=p_expected_edit_version\r\n returning l.* into v_listing;\r\n if not found then raise exception 'Draft changed before update' using errcode='40001'; end if;\r\n return query select v_listing.id,v_listing.status,v_listing.completeness_score,\r\n  v_listing.created_at,v_listing.updated_at,v_listing.edit_version;\r\nend;\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.update_listing_draft(p_listing_id uuid, p_expected_edit_version uuid, p_title text, p_description text, p_asking_rent_monthly numeric, p_house_rules text DEFAULT NULL::text, p_rental_term rental_term_type DEFAULT 'long_term'::rental_term_type, p_security_deposit_months numeric DEFAULT 1, p_advance_rent_months numeric DEFAULT 1, p_minimum_stay_months smallint DEFAULT NULL::smallint, p_available_from date DEFAULT NULL::date)\n RETURNS TABLE(listing_id uuid, listing_status listing_status, completeness_score numeric, created_at timestamp with time zone, updated_at timestamp with time zone, edit_version uuid)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare\r\n v_user uuid := auth.uid();\r\n v_property uuid;\r\n v_listing public.listings%rowtype;\r\nbegin\r\n if v_user is null then raise exception 'Authentication required' using errcode='42501'; end if;\r\n if not public.is_tier1_verified(v_user) then raise exception 'Tier 1 verified active account required' using errcode='42501'; end if;\r\n if not public.has_app_role('landlord'::public.app_role,v_user) then raise exception 'Landlord role required' using errcode='42501'; end if;\r\n if p_listing_id is null or p_expected_edit_version is null then raise exception 'Listing and edit version required' using errcode='22023'; end if;\r\n if current_setting('transaction_isolation') not in ('read committed','read uncommitted') then raise exception 'Draft editing requires READ COMMITTED isolation' using errcode='25001'; end if;\r\n select l.property_id into v_property from public.listings l where l.id=p_listing_id and l.landlord_id=v_user;\r\n if v_property is null then raise exception 'Owned draft required' using errcode='42501'; end if;\r\n -- Same advisory key as create, publish, lifecycle and completeness operations.\r\n perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_property::text,0));\r\n -- Recheck authorization after waiting; property ownership must remain stable.\r\n if not public.is_tier1_verified(v_user) or not public.has_app_role('landlord'::public.app_role,v_user) then raise exception 'Active Tier 1 landlord required' using errcode='42501'; end if;\r\n perform 1 from public.properties p where p.id=v_property and p.landlord_id=v_user and p.is_active=true for share;\r\n if not found then raise exception 'Owned active property required' using errcode='42501'; end if;\r\n select l.* into v_listing from public.listings l where l.id=p_listing_id and l.landlord_id=v_user and l.property_id=v_property for update;\r\n if not found or v_listing.status<>'draft'::public.listing_status or v_listing.edit_version<>p_expected_edit_version then\r\n   raise exception 'Draft changed or is no longer editable' using errcode='40001';\r\n end if;\r\n if nullif(btrim(p_title),'') is null or nullif(btrim(p_description),'') is null then raise exception 'Title and description required' using errcode='22023'; end if;\r\n if p_asking_rent_monthly is null or p_asking_rent_monthly<=0 or p_asking_rent_monthly::text in ('NaN','Infinity','-Infinity') then raise exception 'Positive finite rent required' using errcode='22023'; end if;\r\n if p_rental_term is null then raise exception 'Rental term required' using errcode='22023'; end if;\r\n if p_security_deposit_months is null or p_security_deposit_months<0 or p_security_deposit_months::text in ('NaN','Infinity','-Infinity') then raise exception 'Valid deposit months required' using errcode='22023'; end if;\r\n if p_advance_rent_months is null or p_advance_rent_months<0 or p_advance_rent_months::text in ('NaN','Infinity','-Infinity') then raise exception 'Valid advance months required' using errcode='22023'; end if;\r\n if p_minimum_stay_months is not null and p_minimum_stay_months<=0 then raise exception 'Positive minimum stay required' using errcode='22023'; end if;\r\n update public.listings l set title=btrim(p_title),description=btrim(p_description),\r\n  asking_rent_monthly=p_asking_rent_monthly,house_rules=nullif(btrim(p_house_rules),''),rental_term=p_rental_term,\r\n  security_deposit_months=p_security_deposit_months,advance_rent_months=p_advance_rent_months,\r\n  minimum_stay_months=p_minimum_stay_months,available_from=p_available_from\r\n where l.id=p_listing_id and l.landlord_id=v_user and l.property_id=v_property\r\n  and l.status='draft'::public.listing_status and l.edit_version=p_expected_edit_version\r\n returning l.* into v_listing;\r\n if not found then raise exception 'Draft changed before update' using errcode='40001'; end if;\r\n return query select v_listing.id,v_listing.status,v_listing.completeness_score,\r\n  v_listing.created_at,v_listing.updated_at,v_listing.edit_version;\r\nend;\r\n$function$\n"
+    },
+    {
+      "args": "p_listing_id uuid, p_expected_edit_version uuid, p_title text, p_description text, p_asking_rent_monthly numeric, p_house_rules text, p_rental_term rental_term_type, p_security_deposit_months numeric, p_advance_rent_months numeric, p_minimum_stay_months smallint, p_available_from date",
+      "name": "update_published_listing_content",
+      "schema": "public",
+      "source": "\r\ndeclare\r\n v_user uuid := auth.uid();\r\n v_property uuid;\r\n v_listing public.listings%rowtype;\r\n v_status public.listing_status;\r\n v_published_at timestamptz;\r\nbegin\r\n if v_user is null then raise exception 'Authentication required' using errcode='42501'; end if;\r\n if not public.is_tier1_verified(v_user) then raise exception 'Tier 1 verified active account required' using errcode='42501'; end if;\r\n if not public.has_app_role('landlord'::public.app_role,v_user) then raise exception 'Landlord role required' using errcode='42501'; end if;\r\n if p_listing_id is null or p_expected_edit_version is null then raise exception 'Listing and edit version required' using errcode='22023'; end if;\r\n if current_setting('transaction_isolation') not in ('read committed','read uncommitted') then raise exception 'Published editing requires READ COMMITTED isolation' using errcode='25001'; end if;\r\n select l.property_id into v_property from public.listings l where l.id=p_listing_id and l.landlord_id=v_user;\r\n if v_property is null then raise exception 'Owned listing required' using errcode='42501'; end if;\r\n -- Same advisory key as create, publish, lifecycle and completeness operations.\r\n perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_property::text,0));\r\n -- Recheck authorization after waiting; property ownership must remain stable.\r\n if not public.is_tier1_verified(v_user) or not public.has_app_role('landlord'::public.app_role,v_user) then raise exception 'Active Tier 1 landlord required' using errcode='42501'; end if;\r\n perform 1 from public.properties p where p.id=v_property and p.landlord_id=v_user and p.is_active=true for share;\r\n if not found then raise exception 'Owned active property required' using errcode='42501'; end if;\r\n select l.* into v_listing from public.listings l where l.id=p_listing_id and l.landlord_id=v_user and l.property_id=v_property for update;\r\n if not found or v_listing.status not in ('active'::public.listing_status,'paused'::public.listing_status) or v_listing.edit_version<>p_expected_edit_version then\r\n   raise exception 'Listing changed or is no longer editable' using errcode='40001';\r\n end if;\r\n v_status:=v_listing.status;v_published_at:=v_listing.published_at;\r\n if nullif(btrim(p_title),'') is null or nullif(btrim(p_description),'') is null then raise exception 'Title and description required' using errcode='22023'; end if;\r\n if p_asking_rent_monthly is null or p_asking_rent_monthly<=0 or p_asking_rent_monthly::text in ('NaN','Infinity','-Infinity') then raise exception 'Positive finite rent required' using errcode='22023'; end if;\r\n if p_rental_term is null then raise exception 'Rental term required' using errcode='22023'; end if;\r\n if p_security_deposit_months is null or p_security_deposit_months<0 or p_security_deposit_months::text in ('NaN','Infinity','-Infinity') then raise exception 'Valid deposit months required' using errcode='22023'; end if;\r\n if p_advance_rent_months is null or p_advance_rent_months<0 or p_advance_rent_months::text in ('NaN','Infinity','-Infinity') then raise exception 'Valid advance months required' using errcode='22023'; end if;\r\n if p_minimum_stay_months is not null and p_minimum_stay_months<=0 then raise exception 'Positive minimum stay required' using errcode='22023'; end if;\r\n update public.listings l set title=btrim(p_title),description=btrim(p_description),\r\n  asking_rent_monthly=p_asking_rent_monthly,house_rules=nullif(btrim(p_house_rules),''),rental_term=p_rental_term,\r\n  security_deposit_months=p_security_deposit_months,advance_rent_months=p_advance_rent_months,\r\n  minimum_stay_months=p_minimum_stay_months,available_from=p_available_from\r\n where l.id=p_listing_id and l.landlord_id=v_user and l.property_id=v_property\r\n  and l.status=v_listing.status and l.edit_version=p_expected_edit_version\r\n returning l.* into v_listing;\r\n if not found then raise exception 'Listing changed before update' using errcode='40001'; end if;\r\n if v_listing.status<>v_status or v_listing.published_at is distinct from v_published_at then raise exception 'Publication state changed during edit' using errcode='40001'; end if;\r\n return next v_listing;\r\nend;\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.update_published_listing_content(p_listing_id uuid, p_expected_edit_version uuid, p_title text, p_description text, p_asking_rent_monthly numeric, p_house_rules text DEFAULT NULL::text, p_rental_term rental_term_type DEFAULT 'long_term'::rental_term_type, p_security_deposit_months numeric DEFAULT 1, p_advance_rent_months numeric DEFAULT 1, p_minimum_stay_months smallint DEFAULT NULL::smallint, p_available_from date DEFAULT NULL::date)\n RETURNS SETOF listings\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare\r\n v_user uuid := auth.uid();\r\n v_property uuid;\r\n v_listing public.listings%rowtype;\r\n v_status public.listing_status;\r\n v_published_at timestamptz;\r\nbegin\r\n if v_user is null then raise exception 'Authentication required' using errcode='42501'; end if;\r\n if not public.is_tier1_verified(v_user) then raise exception 'Tier 1 verified active account required' using errcode='42501'; end if;\r\n if not public.has_app_role('landlord'::public.app_role,v_user) then raise exception 'Landlord role required' using errcode='42501'; end if;\r\n if p_listing_id is null or p_expected_edit_version is null then raise exception 'Listing and edit version required' using errcode='22023'; end if;\r\n if current_setting('transaction_isolation') not in ('read committed','read uncommitted') then raise exception 'Published editing requires READ COMMITTED isolation' using errcode='25001'; end if;\r\n select l.property_id into v_property from public.listings l where l.id=p_listing_id and l.landlord_id=v_user;\r\n if v_property is null then raise exception 'Owned listing required' using errcode='42501'; end if;\r\n -- Same advisory key as create, publish, lifecycle and completeness operations.\r\n perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_property::text,0));\r\n -- Recheck authorization after waiting; property ownership must remain stable.\r\n if not public.is_tier1_verified(v_user) or not public.has_app_role('landlord'::public.app_role,v_user) then raise exception 'Active Tier 1 landlord required' using errcode='42501'; end if;\r\n perform 1 from public.properties p where p.id=v_property and p.landlord_id=v_user and p.is_active=true for share;\r\n if not found then raise exception 'Owned active property required' using errcode='42501'; end if;\r\n select l.* into v_listing from public.listings l where l.id=p_listing_id and l.landlord_id=v_user and l.property_id=v_property for update;\r\n if not found or v_listing.status not in ('active'::public.listing_status,'paused'::public.listing_status) or v_listing.edit_version<>p_expected_edit_version then\r\n   raise exception 'Listing changed or is no longer editable' using errcode='40001';\r\n end if;\r\n v_status:=v_listing.status;v_published_at:=v_listing.published_at;\r\n if nullif(btrim(p_title),'') is null or nullif(btrim(p_description),'') is null then raise exception 'Title and description required' using errcode='22023'; end if;\r\n if p_asking_rent_monthly is null or p_asking_rent_monthly<=0 or p_asking_rent_monthly::text in ('NaN','Infinity','-Infinity') then raise exception 'Positive finite rent required' using errcode='22023'; end if;\r\n if p_rental_term is null then raise exception 'Rental term required' using errcode='22023'; end if;\r\n if p_security_deposit_months is null or p_security_deposit_months<0 or p_security_deposit_months::text in ('NaN','Infinity','-Infinity') then raise exception 'Valid deposit months required' using errcode='22023'; end if;\r\n if p_advance_rent_months is null or p_advance_rent_months<0 or p_advance_rent_months::text in ('NaN','Infinity','-Infinity') then raise exception 'Valid advance months required' using errcode='22023'; end if;\r\n if p_minimum_stay_months is not null and p_minimum_stay_months<=0 then raise exception 'Positive minimum stay required' using errcode='22023'; end if;\r\n update public.listings l set title=btrim(p_title),description=btrim(p_description),\r\n  asking_rent_monthly=p_asking_rent_monthly,house_rules=nullif(btrim(p_house_rules),''),rental_term=p_rental_term,\r\n  security_deposit_months=p_security_deposit_months,advance_rent_months=p_advance_rent_months,\r\n  minimum_stay_months=p_minimum_stay_months,available_from=p_available_from\r\n where l.id=p_listing_id and l.landlord_id=v_user and l.property_id=v_property\r\n  and l.status=v_listing.status and l.edit_version=p_expected_edit_version\r\n returning l.* into v_listing;\r\n if not found then raise exception 'Listing changed before update' using errcode='40001'; end if;\r\n if v_listing.status<>v_status or v_listing.published_at is distinct from v_published_at then raise exception 'Publication state changed during edit' using errcode='40001'; end if;\r\n return next v_listing;\r\nend;\r\n$function$\n"
+    },
+    {
+      "args": "p_property_id uuid",
+      "name": "lock_owner",
+      "schema": "rentlease_property_edit",
+      "source": "\r\nbegin\r\n if current_setting('transaction_isolation')<>'read committed' then raise exception 'READ COMMITTED required' using errcode='25001';end if;\r\n if auth.uid() is null or not public.is_tier1_verified(auth.uid()) or not public.has_app_role('landlord'::public.app_role,auth.uid()) then\r\n raise exception 'Tier 1 active landlord required' using errcode='42501';end if;\r\n perform pg_advisory_xact_lock(hashtextextended(p_property_id::text,0));\r\n if not exists(select 1 from public.properties where id=p_property_id and landlord_id=auth.uid() and is_active) then\r\n raise exception 'Owned active property required' using errcode='42501';end if;\r\nend",
+      "definition": "CREATE OR REPLACE FUNCTION rentlease_property_edit.lock_owner(p_property_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\r\nbegin\r\n if current_setting('transaction_isolation')<>'read committed' then raise exception 'READ COMMITTED required' using errcode='25001';end if;\r\n if auth.uid() is null or not public.is_tier1_verified(auth.uid()) or not public.has_app_role('landlord'::public.app_role,auth.uid()) then\r\n raise exception 'Tier 1 active landlord required' using errcode='42501';end if;\r\n perform pg_advisory_xact_lock(hashtextextended(p_property_id::text,0));\r\n if not exists(select 1 from public.properties where id=p_property_id and landlord_id=auth.uid() and is_active) then\r\n raise exception 'Owned active property required' using errcode='42501';end if;\r\nend$function$\n"
+    },
+    {
+      "args": "p_listing_id uuid",
+      "name": "reactivate_listing",
+      "schema": "public",
+      "source": "\r\ndeclare\r\n  v_user_id uuid := auth.uid();\r\n  v_probe public.listings%rowtype;\r\n  v_listing public.listings%rowtype;\r\nbegin\r\n  if v_user_id is null then\r\n    raise exception 'Authentication required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.is_tier1_verified(v_user_id) then\r\n    raise exception 'Tier 1 verified active account required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.has_app_role('landlord'::public.app_role, v_user_id) then\r\n    raise exception 'Landlord role required' using errcode = '42501';\r\n  end if;\r\n\r\n  if p_listing_id is null then\r\n    raise exception 'Listing is required' using errcode = '22023';\r\n  end if;\r\n\r\n  select l.*\r\n  into v_probe\r\n  from public.listings l\r\n  where l.id = p_listing_id\r\n    and l.landlord_id = v_user_id;\r\n\r\n  if v_probe.id is null then\r\n    raise exception 'Owned listing required' using errcode = '42501';\r\n  end if;\r\n\r\n  perform pg_catalog.pg_advisory_xact_lock(\r\n    pg_catalog.hashtextextended(v_probe.property_id::text, 0)\r\n  );\r\n\r\n  select l.*\r\n  into v_listing\r\n  from public.listings l\r\n  where l.id = p_listing_id\r\n    and l.landlord_id = v_user_id\r\n  for update;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Owned listing required' using errcode = '42501';\r\n  end if;\r\n\r\n  if v_listing.status <> 'paused'::public.listing_status then\r\n    raise exception 'Only a paused listing can be reactivated' using errcode = '22023';\r\n  end if;\r\n\r\n  if not exists (\r\n    select 1\r\n    from public.properties p\r\n    where p.id = v_listing.property_id\r\n      and p.landlord_id = v_user_id\r\n      and p.is_active = true\r\n  ) then\r\n    raise exception 'Owned active property required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not rentlease_property_identity.verified(v_listing.property_id) then\r\n    raise exception 'Approved Tier 3 verification for this property is required before reactivating'\r\n      using errcode = '42501';\r\n  end if;\r\n\r\n  if exists (\r\n    select 1\r\n    from public.tenancies t\r\n    where t.listing_id = v_listing.id\r\n      and t.status = 'active'::public.tenancy_status\r\n  ) then\r\n    raise exception 'Listing status is controlled by an active tenancy' using errcode = '22023';\r\n  end if;\r\n\r\n  if exists (\r\n    select 1\r\n    from public.listings other\r\n    where other.property_id = v_listing.property_id\r\n      and other.id <> v_listing.id\r\n      and other.status in (\r\n        'active'::public.listing_status,\r\n        'paused'::public.listing_status,\r\n        'rented'::public.listing_status\r\n      )\r\n  ) then\r\n    raise exception 'This property already has a live listing' using errcode = '23505';\r\n  end if;\r\n\r\n  update public.listings l\r\n  set status = 'active'::public.listing_status,\r\n      paused_at = null\r\n  where l.id = v_listing.id\r\n    and l.landlord_id = v_user_id\r\n    and l.status = 'paused'::public.listing_status\r\n  returning l.* into v_listing;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Listing changed before reactivation could complete' using errcode = '40001';\r\n  end if;\r\n\r\n  return query\r\n  select\r\n    v_listing.id,\r\n    v_listing.status,\r\n    v_listing.completeness_score,\r\n    v_listing.published_at,\r\n    v_listing.paused_at,\r\n    v_listing.archived_at,\r\n    v_listing.updated_at;\r\nend;\r\n",
+      "definition": "CREATE OR REPLACE FUNCTION public.reactivate_listing(p_listing_id uuid)\n RETURNS TABLE(listing_id uuid, listing_status listing_status, completeness_score numeric, published_at timestamp with time zone, paused_at timestamp with time zone, archived_at timestamp with time zone, updated_at timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare\r\n  v_user_id uuid := auth.uid();\r\n  v_probe public.listings%rowtype;\r\n  v_listing public.listings%rowtype;\r\nbegin\r\n  if v_user_id is null then\r\n    raise exception 'Authentication required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.is_tier1_verified(v_user_id) then\r\n    raise exception 'Tier 1 verified active account required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not public.has_app_role('landlord'::public.app_role, v_user_id) then\r\n    raise exception 'Landlord role required' using errcode = '42501';\r\n  end if;\r\n\r\n  if p_listing_id is null then\r\n    raise exception 'Listing is required' using errcode = '22023';\r\n  end if;\r\n\r\n  select l.*\r\n  into v_probe\r\n  from public.listings l\r\n  where l.id = p_listing_id\r\n    and l.landlord_id = v_user_id;\r\n\r\n  if v_probe.id is null then\r\n    raise exception 'Owned listing required' using errcode = '42501';\r\n  end if;\r\n\r\n  perform pg_catalog.pg_advisory_xact_lock(\r\n    pg_catalog.hashtextextended(v_probe.property_id::text, 0)\r\n  );\r\n\r\n  select l.*\r\n  into v_listing\r\n  from public.listings l\r\n  where l.id = p_listing_id\r\n    and l.landlord_id = v_user_id\r\n  for update;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Owned listing required' using errcode = '42501';\r\n  end if;\r\n\r\n  if v_listing.status <> 'paused'::public.listing_status then\r\n    raise exception 'Only a paused listing can be reactivated' using errcode = '22023';\r\n  end if;\r\n\r\n  if not exists (\r\n    select 1\r\n    from public.properties p\r\n    where p.id = v_listing.property_id\r\n      and p.landlord_id = v_user_id\r\n      and p.is_active = true\r\n  ) then\r\n    raise exception 'Owned active property required' using errcode = '42501';\r\n  end if;\r\n\r\n  if not rentlease_property_identity.verified(v_listing.property_id) then\r\n    raise exception 'Approved Tier 3 verification for this property is required before reactivating'\r\n      using errcode = '42501';\r\n  end if;\r\n\r\n  if exists (\r\n    select 1\r\n    from public.tenancies t\r\n    where t.listing_id = v_listing.id\r\n      and t.status = 'active'::public.tenancy_status\r\n  ) then\r\n    raise exception 'Listing status is controlled by an active tenancy' using errcode = '22023';\r\n  end if;\r\n\r\n  if exists (\r\n    select 1\r\n    from public.listings other\r\n    where other.property_id = v_listing.property_id\r\n      and other.id <> v_listing.id\r\n      and other.status in (\r\n        'active'::public.listing_status,\r\n        'paused'::public.listing_status,\r\n        'rented'::public.listing_status\r\n      )\r\n  ) then\r\n    raise exception 'This property already has a live listing' using errcode = '23505';\r\n  end if;\r\n\r\n  update public.listings l\r\n  set status = 'active'::public.listing_status,\r\n      paused_at = null\r\n  where l.id = v_listing.id\r\n    and l.landlord_id = v_user_id\r\n    and l.status = 'paused'::public.listing_status\r\n  returning l.* into v_listing;\r\n\r\n  if v_listing.id is null then\r\n    raise exception 'Listing changed before reactivation could complete' using errcode = '40001';\r\n  end if;\r\n\r\n  return query\r\n  select\r\n    v_listing.id,\r\n    v_listing.status,\r\n    v_listing.completeness_score,\r\n    v_listing.published_at,\r\n    v_listing.paused_at,\r\n    v_listing.archived_at,\r\n    v_listing.updated_at;\r\nend;\r\n$function$\n"
+    },
+    {
+      "args": "p_property_ids uuid[]",
+      "name": "get_owned_property_identity_statuses",
+      "schema": "public",
+      "source": "begin\r\n if auth.uid() is null or public.is_tier1_verified(auth.uid()) is not true or public.has_app_role('landlord',auth.uid()) is not true then raise exception 'Eligible owner required' using errcode='42501';end if;\r\n if p_property_ids is null or cardinality(p_property_ids)>1000 or exists(select 1 from unnest(p_property_ids) x where not exists(select 1 from public.properties p where p.id=x and p.landlord_id=auth.uid())) then raise exception 'Owned property IDs required' using errcode='42501';end if;\r\n return query select p.id,rentlease_property_identity.verified(p.id),(x.property_id is not null or c.property_id is null),case when rentlease_property_identity.verified(p.id) then c.approved_submission_id else null end from public.properties p left join rentlease_property_identity.current_identity c on c.property_id=p.id left join rentlease_property_identity.repairs x on x.property_id=p.id where p.id=any(p_property_ids) and p.landlord_id=auth.uid();\r\nend",
+      "definition": "CREATE OR REPLACE FUNCTION public.get_owned_property_identity_statuses(p_property_ids uuid[])\n RETURNS TABLE(property_id uuid, verified boolean, requires_repair boolean, current_submission_id uuid)\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$begin\r\n if auth.uid() is null or public.is_tier1_verified(auth.uid()) is not true or public.has_app_role('landlord',auth.uid()) is not true then raise exception 'Eligible owner required' using errcode='42501';end if;\r\n if p_property_ids is null or cardinality(p_property_ids)>1000 or exists(select 1 from unnest(p_property_ids) x where not exists(select 1 from public.properties p where p.id=x and p.landlord_id=auth.uid())) then raise exception 'Owned property IDs required' using errcode='42501';end if;\r\n return query select p.id,rentlease_property_identity.verified(p.id),(x.property_id is not null or c.property_id is null),case when rentlease_property_identity.verified(p.id) then c.approved_submission_id else null end from public.properties p left join rentlease_property_identity.current_identity c on c.property_id=p.id left join rentlease_property_identity.repairs x on x.property_id=p.id where p.id=any(p_property_ids) and p.landlord_id=auth.uid();\r\nend$function$\n"
+    },
+    {
+      "args": "p_submission_id uuid, p_expected_submission_version uuid, p_expected_property_version uuid, p_expected_correction_version uuid, p_status verification_status, p_same_asset_confirmed boolean, p_note text, p_reason text",
+      "name": "review_property_identity_verification",
+      "schema": "public",
+      "source": "\r\ndeclare s public.verification_submissions%rowtype;q rentlease_property_identity.corrections%rowtype;c rentlease_property_identity.current_identity%rowtype;p public.properties%rowtype;\r\nbegin\r\n if auth.uid() is null or public.is_admin() is not true then raise exception 'Admin required' using errcode='42501';end if;\r\n select * into s from public.verification_submissions where id=p_submission_id and tier='tier_3_property';\r\n if s.id is null then raise exception 'Property submission required' using errcode='22023';end if;\r\n if current_setting('transaction_isolation')<>'read committed' then raise exception 'READ COMMITTED required' using errcode='25001';end if;\r\n perform pg_advisory_xact_lock(hashtextextended(s.property_id::text,0));\r\n select * into s from public.verification_submissions where id=p_submission_id for update;\r\n select * into p from public.properties where id=s.property_id;\r\n perform rentlease_property_identity.require_ready(p.id);\r\n select * into c from rentlease_property_identity.current_identity where property_id=p.id;\r\n select * into q from rentlease_property_identity.corrections where id=s.identity_correction_id for update;\r\n if s.identity_review_version is distinct from p_expected_submission_version or p.edit_version is distinct from p_expected_property_version or (q.id is not null and q.version is distinct from p_expected_correction_version) then raise exception 'Review context changed. Reload before deciding' using errcode='40001';end if;\r\n if not p.is_active or p.landlord_id is distinct from s.user_id or not public.is_tier1_verified(s.user_id) or not public.has_app_role('landlord',s.user_id) or s.identity_revision_id is null or s.ready_for_review_at is null then raise exception 'Eligible owner and finalized evidence required' using errcode='42501';end if;\r\n if q.id is not null and (q.status<>'submitted' or q.submission_id<>s.id or q.base_revision_id<>c.revision_id or q.candidate_revision_id<>s.identity_revision_id) then raise exception 'Correction changed' using errcode='40001';end if;\r\n if q.id is null and s.identity_revision_id<>c.revision_id then raise exception 'Identity changed' using errcode='40001';end if;\r\n if not((s.status='pending' and p_status='under_review') or (s.status='under_review' and p_status in('approved','rejected'))) then raise exception 'Invalid review transition' using errcode='22023';end if;\r\n if p_status='rejected' and nullif(btrim(p_reason),'') is null then raise exception 'Rejection reason required' using errcode='22023';end if;\r\n if p_status='approved' then\r\n  if not exists(select 1 from public.verification_documents d join storage.objects o on o.bucket_id='verification-documents' and o.name=d.storage_path where d.submission_id=s.id and d.document_type in('land_title','tax_declaration','hoa_document','authorization_to_lease')) then raise exception 'Qualifying private proof required' using errcode='22023';end if;\r\n  if q.id is not null then if p_same_asset_confirmed is not true then raise exception 'Confirm evidence corrects the same physical property' using errcode='22023';end if;perform rentlease_property_identity.promote(p.id,s.identity_revision_id);end if;\r\n end if;\r\n update public.verification_submissions set status=p_status,reviewed_by=auth.uid(),review_note=nullif(btrim(p_note),''),rejection_reason=case when p_status='rejected' then btrim(p_reason) else null end,reviewed_at=case when p_status in('approved','rejected') then now() else null end,identity_review_version=gen_random_uuid() where id=s.id;\r\n if p_status='approved' then update rentlease_property_identity.current_identity set approved_submission_id=s.id where property_id=p.id and revision_id=s.identity_revision_id;end if;\r\n if q.id is not null then update rentlease_property_identity.corrections set status=case when p_status='approved' then 'applied' when p_status='rejected' then 'rejected' else status end,version=gen_random_uuid() where id=q.id;end if;\r\nend",
+      "definition": "CREATE OR REPLACE FUNCTION public.review_property_identity_verification(p_submission_id uuid, p_expected_submission_version uuid, p_expected_property_version uuid, p_expected_correction_version uuid, p_status verification_status, p_same_asset_confirmed boolean, p_note text DEFAULT NULL::text, p_reason text DEFAULT NULL::text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'pg_catalog'\nAS $function$\r\ndeclare s public.verification_submissions%rowtype;q rentlease_property_identity.corrections%rowtype;c rentlease_property_identity.current_identity%rowtype;p public.properties%rowtype;\r\nbegin\r\n if auth.uid() is null or public.is_admin() is not true then raise exception 'Admin required' using errcode='42501';end if;\r\n select * into s from public.verification_submissions where id=p_submission_id and tier='tier_3_property';\r\n if s.id is null then raise exception 'Property submission required' using errcode='22023';end if;\r\n if current_setting('transaction_isolation')<>'read committed' then raise exception 'READ COMMITTED required' using errcode='25001';end if;\r\n perform pg_advisory_xact_lock(hashtextextended(s.property_id::text,0));\r\n select * into s from public.verification_submissions where id=p_submission_id for update;\r\n select * into p from public.properties where id=s.property_id;\r\n perform rentlease_property_identity.require_ready(p.id);\r\n select * into c from rentlease_property_identity.current_identity where property_id=p.id;\r\n select * into q from rentlease_property_identity.corrections where id=s.identity_correction_id for update;\r\n if s.identity_review_version is distinct from p_expected_submission_version or p.edit_version is distinct from p_expected_property_version or (q.id is not null and q.version is distinct from p_expected_correction_version) then raise exception 'Review context changed. Reload before deciding' using errcode='40001';end if;\r\n if not p.is_active or p.landlord_id is distinct from s.user_id or not public.is_tier1_verified(s.user_id) or not public.has_app_role('landlord',s.user_id) or s.identity_revision_id is null or s.ready_for_review_at is null then raise exception 'Eligible owner and finalized evidence required' using errcode='42501';end if;\r\n if q.id is not null and (q.status<>'submitted' or q.submission_id<>s.id or q.base_revision_id<>c.revision_id or q.candidate_revision_id<>s.identity_revision_id) then raise exception 'Correction changed' using errcode='40001';end if;\r\n if q.id is null and s.identity_revision_id<>c.revision_id then raise exception 'Identity changed' using errcode='40001';end if;\r\n if not((s.status='pending' and p_status='under_review') or (s.status='under_review' and p_status in('approved','rejected'))) then raise exception 'Invalid review transition' using errcode='22023';end if;\r\n if p_status='rejected' and nullif(btrim(p_reason),'') is null then raise exception 'Rejection reason required' using errcode='22023';end if;\r\n if p_status='approved' then\r\n  if not exists(select 1 from public.verification_documents d join storage.objects o on o.bucket_id='verification-documents' and o.name=d.storage_path where d.submission_id=s.id and d.document_type in('land_title','tax_declaration','hoa_document','authorization_to_lease')) then raise exception 'Qualifying private proof required' using errcode='22023';end if;\r\n  if q.id is not null then if p_same_asset_confirmed is not true then raise exception 'Confirm evidence corrects the same physical property' using errcode='22023';end if;perform rentlease_property_identity.promote(p.id,s.identity_revision_id);end if;\r\n end if;\r\n update public.verification_submissions set status=p_status,reviewed_by=auth.uid(),review_note=nullif(btrim(p_note),''),rejection_reason=case when p_status='rejected' then btrim(p_reason) else null end,reviewed_at=case when p_status in('approved','rejected') then now() else null end,identity_review_version=gen_random_uuid() where id=s.id;\r\n if p_status='approved' then update rentlease_property_identity.current_identity set approved_submission_id=s.id where property_id=p.id and revision_id=s.identity_revision_id;end if;\r\n if q.id is not null then update rentlease_property_identity.corrections set status=case when p_status='approved' then 'applied' when p_status='rejected' then 'rejected' else status end,version=gen_random_uuid() where id=q.id;end if;\r\nend$function$\n"
+    }
+  ]
+}

@@ -144,3 +144,143 @@ Available Locations is a suggestion path with separate state. A genuine location
 Files: services/manualSearchService.ts, services/searchDiagnostics.ts, views/SearchLocationView.tsx under src/features/search-discovery; tests/searchRuntimeCorrections.test.ts; this living document, continuous implementation history and backend ledger. Android RUNTIME-UNVERIFIED after diagnostic/copy correction. Retest rapid typing and leaving Search (no canceled network warning), a successful-empty request, offline failure/Retry, manual search despite suggestion failure, filter/pagination preservation, and a genuinely currently available listing. The November 6 listing should remain excluded on November 1; do not edit it or remove filters simply to make it appear.
 
 Final Available Locations verification (2026-11-01): npm run typecheck PASS; full npm test 884 total / 884 passed / 0 failed / 0 skipped / 0 cancelled (4 additional regressions over 880). New tests reproduced false cancellation/network logging and unknown misclassification before correction; cover safe thrown-fetch diagnostics and manual-search independence. Existing GPS, filters, availability-date, identity, pagination and publication tests remain passing. Whitespace/staged check PASS; 96 documentation links/anchors valid; 314 protected source/backend/configuration hashes unchanged. Prior Property & Listing investigation changes and android/ and ninja-error.txt preserved. Read/applied repository RentLease feature/MVVM/contract/security/test/documentation/ledger/artifact SKILL.md files, systematic-debugging and Supabase guidance in this continuing session. No live mutation, native build, dependency change, commit, push, merge or deployment. Post-correction Android RUNTIME-UNVERIFIED.
+# GPS physical-phone diagnosis — November 2, 2026
+
+Branch `fix/gps-nearby-results` starts at clean/pushed role checkpoint
+`142268175c93d56503ed4408cf6af8a2e919e844`; role branch was not modified.
+Focused trace confirms native foreground permission -> services check -> one High
+accuracy position -> latitude/longitude-preserving adapter -> 1/3/5 km RPC ->
+complete response mapper -> explicit success-empty or error state. No manual
+city/price/preference filter is applied to the GPS request.
+
+Live read-only evidence: 3 eligible listings with valid public points, one archived
+listing excluded. Fifty-four authenticated searches across 6 eligible accounts,
+3 real public anchors and 3 radii return 1/3/3 rows respectively; a 30 km offset
+origin returns zero within 5 km. The installed mapper accepts actual live rows.
+No private coordinates, test records or account mutations were involved.
+
+The reported phone empty result is not reproduced: phone origin is not available
+through ADB (emulator only). User confirms Imus and an empty-result message, while
+manual city search returns records. That distinction does not yet prove a location
+coverage gap or a native defect. Physical-device search origin remains outstanding.
+
+Implemented only the demonstrated stale eligibility diagnostic/copy correction;
+new active-Tier-1 RPC message maps to eligibility and no normal role is required in
+user-facing text. This does not claim to fix successful empty results. Validation:
+69 focused GPS/hook/runtime tests pass, zero failures/skips; typecheck passes.
+No full suite, backend change, commit, push or build. No permanent live backend
+mutation was performed in this phase. See the continuously maintained backend ledger.
+
+
+### November 2, 2026 ? nearby radius and real listing interaction
+
+User clarified the earlier empty search used an emulator located in the USA and confirmed Android GPS works; earlier unresolved phone-origin notes above are superseded. No repeat troubleshooting audit.
+
+Implemented the 1?20 km release-only adjustable slider, batched trusted real thumbnails, real listing-detail navigation/gallery reuse, and GPS state retention on detail Back. Existing manual detail service validates canonical listing IDs and reports unavailable records. Account-keyed lifecycle, abort generations, public location privacy, authentication and eligibility remain unchanged. No Tenancy/Chat/contact behavior added.
+
+Actual GPS source `C:/dev/RentLease-Features/gps` validation/types/tests/version updated to 0.1.1; TypeScript library compile and pack produced `vendor/gps/rentlease-gps-local-0.1.1.tgz`, installed through the local dependency lockfile. No native/app build. Prepared radius-only migration `20261102144651_gps_nearby_radius_1_to_20.sql` with deployed source hash guard; not deployed. Requires backend-first deployment before exercising non-1/3/5 radii live.
+
+Validation: 90 focused frontend tests passed (GPS workflow/transport/device, hook/navigation/card, real search/photos/detail and slider); 90 GPS source validation/RPC/proximity tests plus package source typecheck passed; 34 isolated PostgreSQL checks passed against the captured deployed RPC and prepared migration. New UX remains Android RUNTIME-UNVERIFIED. Skills applied: RentLease feature implementation, MVVM, UI/UX, Supabase contracts, security, runtime tests, documentation, backend ledger and artifact organization; systematic debugging, TDD and targeted code review. No full suite, live mutation, commit, push, merge, deployment or EAS build.
+
+Final frontend TypeScript check passed. Scoped review identified a TalkBack card-label omission; corrected to announce real rent, type, area, distance and availability. Gallery open/advance/close and card announcement assertions are included in the 90 focused tests.
+
+
+### November 3, 2026 - nearby map and listing detail presentation
+
+Added NearbyPropertyMap (existing MapLibre API), NearbyPropertyPreview, NearbyMapResultsView and pure NearbyMap presentation geometry. GPS workflow owns map/list mode, selected real listing ID, approximate user origin and validated camera; only actual search triggers invoke Supabase. Existing radius, photos, detail service and Back routing were extended without replacing their cancellation/account lifecycle. MapTiler configuration is composed through the service dependency, never accessed by Views. Approximate user point is rounded to three decimals; property markers exclusively use RPC publicLocation. No private-location query, tracking/watch or coordinate log was introduced.
+
+LivePropertyDetailView is shared by GPS and manual search: larger photo gallery/fullscreen viewing, price/title/location hierarchy, factual supported fields and clean information sections. Neutral missing-photo states and existing unavailable/retry handling remain. Reference images unavailable; followed written direction and RentLease UI/UX rather than claiming pixel matching.
+
+Validation: 97 targeted GPS, discovery hook, manual search/detail/photo, radius-slider and map tests passed, zero failures/skips. TypeScript passed. No full suite or native build. Android map loading, marker taps, compact/large-font layouts, attribution, photo gestures, Map/List and detail Back acceptance remain pending. Existing radius migration/package changes from November 2 preserved, not replayed/deployed. No commit, push, merge or backend mutation.
+
+Skills read/applied across this continuing implementation: rentlease-feature-implementation, rentlease-ui-ux-design, rentlease-frontend-mvvm-guard, rentlease-supabase-contract-guard, rentlease-security-review, rentlease-test-runtime-verification, rentlease-documentation-maintainer, rentlease-implementation-ledger and rentlease-implementation-artifact-organizer; brainstorming intent/design and targeted requesting-code-review. User's explicit implement-now instruction supplies the design/implementation authorization; no extra approval cycle or speculative design artifact created.
+
+Final scoped review corrected Android price pins from bitmap ViewAnnotation to interactive Marker so selected colors and accessible press targets update natively. User-position annotation remains static. Final rerun: 97/97 focused tests, TypeScript and whitespace checks passed. Native behavior remains runtime-unverified.
+
+
+### November 3, 2026 - immersive map redesign from supplied references
+
+Updated NearbyMapResultsView, NearbyPropertyMap, NearbyPropertyPreview, NearbyRadiusSlider and SearchDiscoveryFlowView in place; extended NearbyMap presentation helpers/camera snapshot and GPS clearSelection only. No service/query/migration changes in this increment. Full safe-area map, scoped navbar hiding, floating compact toolbar/segmented control, disclosed radius/options and one photo-first bottom preview replace the former vertical screen sections. Native attribution and explicit MapTiler/OpenStreetMap credits remain visible.
+
+Marker containment now combines native dp projection, pure whole-label viewport/overlay culling, selected-first collision handling, gesture-time invalidation and TextureView/clipped UI layering. Overlapping/offscreen records remain in List; no remote search/filter behavior changed. Emulator testing exposed Android NullPointerException when project() ran before map readiness on return; fixed with explicit readiness gating and a regression. Frozen initial camera plus saved padding prevent overlay resize/remount framing drift.
+
+Validation: 100/100 focused tests (GPS workflow/transport, navigation, map layout/projection, preview/detail/photos, slider), TypeScript and whitespace pass. Agent-observed emulator showed 3 real loaded results, actual photo preview, selected marker, real listing details and navbar restoration. Native return was retested after readiness fix; final framing confirmation recorded below. No user acceptance implied. No EAS/native build, backend write, commit/push/merge or deployment.
+
+Design skills actually read: rentlease-ui-ux-design, frontend-design, design-taste-frontend (app-screen guidance), impeccable (product register/context loader), hallmark and ui-ux-pro-max. Applied existing RentLease green/Roboto/tokens, photo-first hierarchy, real content, restrained layering and accessible touch targets. Existing engineering/MVVM/security/contract/test/documentation/ledger skills remain applied; targeted requesting-code-review found no further concrete blocker before native readiness testing. Scope follows user's explicit implement-now direction, with no Figma/image generation or design approval detour.
+
+Final agent-observed emulator retest after the readiness and padding fixes: same 3 loaded records, 3 km radius, selected rental/actual photo and identical visible camera framing before details and after Android hardware Back. No crash on the final return. Nearby Map hides the navbar; actual details restore it. Screenshots were inspected locally during this pass and removed afterward; no generated captures are staged. Tests remained 100/100 with final TypeScript/whitespace PASS. These observations apply to this emulator/current session; user physical-device, large-font/TalkBack, broad panning/zoom and pagination acceptance remain outstanding.
+
+
+### November 3, 2026 - GPS radius/marker/performance stabilization
+
+Root causes: radius server contract remained undeployed and 22023 was mapped to network; current marker code explicitly erased labels on camera start, then overlap/inset culled real points; camera settlement emitted observable state, per-listing projection promises/label state crossed the native bridge, and radius was part of the map React key. These are confirmed frontend paths, not duplicate live coordinates or a new RLS finding.
+
+Changed NearbyPropertyMap to memoized v11 GeoJSONSource/symbol layers, native price sprites, selected source and explicit count clusters; kept fullscreen overlay layout. Removed the old culling helper/project path. Source features retain real stable listing IDs/public points; no fabricated geometry. Selection and source/camera generation guards cancel stale cluster expansion. Camera persistence moved to private getCamera()/setCamera() without UI notifications; onCamera callback stabilized, radius removed from map key and intentional framing uses one ease. Map/List/detail Back and account disposal tests updated to exercise private persistence. Added a safe parameters error for SQL22023, including a precise legacy-radius deployment message.
+
+Existing actual-source/package 0.1.1 already meets 1-20; verified again rather than repacking unchanged source. Forward migration unchanged SHA256 9dd16e11c053d80c4b1df074bab6899e3b6c16b9c423072feb1cf04d8506adef. Prepared guarded rollback script plus three rollback checks in the focused local runner. No backend deployment/mutation.
+
+Checks: 106 focused frontend tests, TypeScript, 90 source-package tests and 37 local PostgreSQL migration/rollback checks passed. Unit camera harness: 1000 settlements, zero notifications and zero additional searches; one observed run0.45 ms, explicitly not an Android performance benchmark. Emulator native sources display all 3 actual prices after 8 pan gestures; selected green price, real photo preview, detail destination and Back continuity observed. The initial development Fast Refresh could not replace a function component with a memo object; restarting the existing dev app cleared that transient state. No build/config/library change was needed. Live 2 km produced truthful server-update message and 3 km was restored.
+
+Performance sample after gfxinfo reset: 8 scripted pans took3.54 s including ADB and gesture duration;20 app UI frames recorded,16 janky(80%),p50 17 ms,p90 18 ms,p95/p99 32 ms,0 missed-vsync count. This limited UI-frame counter does not capture full MapLibre GL performance and is not a before/after or physical-device benchmark. Do not claim remaining emulator lag has been proven emulator-only. Physical-device pan/zoom, dense cluster expansion and TalkBack acceptance remain pending.
+
+Applied existing feature/MVVM, Supabase contracts, security, UI/UX, tests, documentation/ledger/artifact skills plus systematic-debugging and requesting-code-review. Scoped review found and fixed a late-cluster-expansion snap-back race. No role audit/full frontend suite, commit, push, merge, deployment or app build. Temporary screenshots/logs were inspected and removed after recording evidence.
+
+
+### November 4, 2026 - authorized GPS radius deployment
+
+Explicit authorization applied only the reviewed radius migration to RentLease cxfsbwbwmwmgtqfonqth. Live project/linked project-ref, absence from migration history, normalized RPC baseline bc659fab2f6311adbba7331a29da4347 and reviewed file SHA256 were verified. Fresh established CLI schema/data/roles backup completed in C:/RentLease-Backups/gps-radius-predeploy-20261104-004219, validated/nonempty/checksummed before apply. Export limits and circular-FK restore warnings recorded in the backend ledger.
+
+Supabase apply_migration(name=gps_nearby_radius_1_to_20) returned success once, remote version20261103164547 (UTC November3 16:45:47 / Singapore November4 00:45:47). Local prepared20261102144651 filename reconciled to20261103164547 without changing bytes; SHA2569dd16e11c053d80c4b1df074bab6899e3b6c16b9c423072feb1cf04d8506adef. Existing migrations were not replayed. Post-source d491c451f08bb49155a70e2b78ec59ce is exactly the approved radius guard/message rewrite; ACL, owner, invoker, stable and search_path metadata unchanged.
+
+Focused read-only live verification passed120 positive calls (20 radii times6 existing eligible actors),15 invalid parameter/type checks and2 authentication/Tier1 denials. Public anchor nearest0, result counts monotonic/bounded,1 match at1/2km and3 at3-20km. Added durable SELECT/DO read-only verification script; no local/frontend broad suites rerun. Before/after record fingerprints and all public/Storage policy digest match. Frontend/package unchanged; docs and local migration filename reconciled. No commit, push, merge or build. Post-deployment Android acceptance not performed.
+
+
+### November 4, 2026 - real OSM Nearby Places in shared listing details
+
+Extended existing overpassService and manualSearchService/manualSearchWorkflow/LivePropertyDetailView rather than adding a second detail or map flow. Added shared NearbyPlace model and strict safe public geography decoder. Four categories load only on expansion, with normalized names/distances, empty/error/retry states, attribution, timeout/cache/deduplication/cancellation and account/listing generation guards. Existing photos, gallery, Back and GPS radius/selection are preserved. Old regression excluding all OSM imports was narrowed because the approved detail service now consumes OSM; private coordinates, GPS RPC calls and writes remain forbidden. No permanent live backend mutation was performed in this phase. No migration/dependency, commit, push, merge, deploy or build.
+
+Validation: 63 focused tests across nearbyPlaces/manualSearch/nearbyMap, TypeScript and whitespace checks; scoped independent code review found no critical/important issues and punctuation was corrected. Public point encoding and existing read policies inspected live without coordinates. Successful real Overpass response and physical Android acceptance remain unverified: network-enabled smoke request received service-unavailable behavior. OSM data coverage is externally maintained; no fabricated POIs or fallback fixtures. Manual device checks: open a real listing from both search routes, expand Nearby Places, inspect real category rows and approximate distances or honest empty state, retry failures, switch listings/accounts while loading, and Back to retained GPS map. No POI map/directions/travel-time work.
+
+Skills actually read/applied: .codex/skills/rentlease-feature-implementation/SKILL.md, rentlease-ui-ux-design/SKILL.md, rentlease-frontend-mvvm-guard/SKILL.md, rentlease-supabase-contract-guard/SKILL.md, rentlease-security-review/SKILL.md, rentlease-test-runtime-verification/SKILL.md, rentlease-documentation-maintainer/SKILL.md, rentlease-implementation-ledger/SKILL.md and rentlease-implementation-artifact-organizer/SKILL.md; global brainstorming (user-authorized one-pass scope overrides its extra approval/doc-commit process), test-driven-development, requesting-code-review, verification-before-completion and plugin supabase/SKILL.md. Existing UI skills/context from preceding pass retained; no broader audit.
+
+
+### November 4, 2026 - Nearby Places automatic loading and request diagnostics correction
+
+Supersedes the earlier expandable/lazy section: automatic nonblocking load in shared manualSearchWorkflow after detail publication, no Show/Hide state/control, compact inline loading/error/Retry, requested category labels. Existing safe public-location projection unchanged. Service now sends project User-Agent and Accept headers, classifies rate limits/query/response/timeouts/network/rejection, emits sanitized development metadata, and permits one documented sequential fallback only for transient failures. Successful cached public results survive expired-cache refresh failures (30-minute stale bound); ordinary rerenders/scrolling issue no requests. Cancel/Back/reset/account guards retained.
+
+Focused tests cover automatic loading, service classification/fallback limit, stale-cache retention, deduplication, cancellation, grouping, privacy and shared GPS/manual navigation. Initial automatic-load regression failed as expected before implementation. Live evidence remains a blocker to claiming real retrieval: baseline primary406/alternative429 missing identification; identified full/reduced queries timed out. Emulator has validated internet but native provider response not verified. No Supabase inspection/mutation needed in this correction, no new migration/dependency, commit/push/merge/deploy/build. No permanent live backend mutation was performed in this phase. Applied previously read RentLease feature/UI/MVVM/contracts/security/test/docs/ledger/artifact skills and systematic-debugging/TDD/verification; reused scoped architecture context rather than repeating audits.
+
+Correction validation: 67/67 targeted tests passed (nearbyPlaces.test.ts, manualSearch.test.ts, nearbyMap.test.ts); npm run typecheck and git diff --check exited 0. Scoped review found no critical/important regression. Successful live POI retrieval and physical-device acceptance remain unresolved; no claims based solely on mocks.
+
+
+### November 4, 2026 - bounded live retrieval investigation and overload protection
+
+Inspected actual generated QL/form POST, 7 nwr selectors/server15 s/maxsize16 MiB/out501, workflow trigger and in-flight/cancellation paths. No new render-driven request source found; existing shared detail and automatic inline UI remain unchanged. Controlled external tests confirm public HTTP failure even for one node category/500 m/out20, not a demonstrated empty area or Android-only bug. No successful live response claimed.
+
+Merged equivalent amenity filters to reduce7to5 clauses; each has a conservative coarse bbox plus exact around-radius filter. Nodes/ways/relations remain supported for real mapped facilities; no geometry recursion. Server timeout8 s and total client budget12 s. At most one alternate only on fast HTTP406/502503504 (under3 s) within that same budget; no second timeout stall, no network/timeout/rate-limit retry. Honors429 Retry-After across locations, default60 s; bounded failure cooldown prevents repeated immediate requests for the same public query. Cache success/retained stale results and account/selection/cancel guards preserved. Request identity and safe diagnostic fields retained.
+
+Live results: node school500 m primary/alternative timeout10.012/10.021 s; optimized school1 km timeout12.008 s, school2 km primary502/non-JSON0.666 s, all-category2 km timeout12.004 s. Returned element/category counts unavailable. User Android502846 ms/20 s timeouts recorded as user evidence, not new agent device testing. Scoped review found no important issue. No permanent live backend mutation was performed in this phase. No commit/push/merge/deploy/build or UI redesign. Applied retained RentLease concern skills, systematic-debugging, TDD, verification and scoped requesting-code-review; no repeated repository audit.
+
+Validation for bounded retrieval correction: 72/72 focused tests passed across nearbyPlaces, manualSearch and nearbyMap; TypeScript and whitespace checks exited 0. Scoped review found no important correctness issue. All live diagnostics lacked a successful JSON response; endpoint availability and physical-device success remain unresolved.
+
+
+### November 4, 2026 - real Discover homepage
+
+Connected TenantDiscoveryView to an independent account-keyed existing manualSearchWorkflow, reusing manualSearchService and SearchListingCard. Default Discover now fetches active/available/published records without location; publishedOnly adds a non-null publication timestamp and ordering is published_at DESC then id. For You remains the separate honest community empty state. Existing search-bar/manual-search, GPS explanation/permission, real detail/gallery/Back and bottom Post navigation remain. Homepage pages survive other feature flows; refreshing retains cards, resets offset and retries a failed refresh from zero. Account change disposes/cancels old feed state. No Overpass debug/query cycle or UI redesign of details.
+
+86/86 focused tests passed (discoverHomepage, manualSearch, searchRuntimeCorrections, nearbyMap, marketplaceWiring), TypeScript and whitespace checks exited0; no broad suite. New regression tests initially failed before ensureLoaded/refresh implementation. Updated prior For You tests to select that explicit tab and route its Discover CTA to the real homepage. Scoped review found no important issue. Physical Android acceptance pending; emulator observation, if available, recorded separately. No permanent live backend mutation was performed in this phase. No migration/dependency, commit/push/merge/deploy/build. Applied retained RentLease feature/UI/MVVM/contract/security/test/docs/ledger/artifact skills plus TDD and scoped review/verification.
+
+
+Discover emulator smoke check: existing logged-in emulator-5554, agent via ADB/UI hierarchy. Observed homepage real card/photo -> full Rental Details with About this rental/photo and no loading/retry -> Android Back to populated Discover. No account/data changes. Temporary on-device hierarchy file removed. Physical-device pagination, pull refresh, account switching and final visual acceptance remain pending; no new build.
+
+
+## November 8 - Recommendation surface integration
+
+Connected the existing live Discover and search-sort Views to a separate deterministic content-scoring model/service and Search-owned account-scoped recommendation workflow. Preferences are used only after explicit session save; edits rerank, hard filters reload a bounded pool, account changes cancel/clear. Existing cards/details/GPS behavior retained. Recommended and Best Match are local bounded ranking modes, not new unsupported RPC sort values. Quality Tier 2 remains unknown because no authorized public signal exists; stored completeness is read directly. 161 focused tests, TypeScript and whitespace pass; Android pending. Exact implementation/evidence are in PROPERTY_RECOMMENDATIONS_IMPLEMENTATION.md and the dedicated feature/ledger files. No backend changes or deployment.
+
+
+## Tenant Search & Discovery audit ? November 10, 2026
+
+Current-tree audit: GPS 1?20 km and native MapTiler/MapLibre flow are implemented and automated-tested; no fresh Android/provider acceptance is claimed. Live GPS function metadata still confirms public-point PostGIS, active Tier 1 and authenticated-only access. OSM Nearby Places is implemented but successful live retrieval remains unverified after retained upstream failures. Saved Listings is missing in the active frontend and blocked by absent authenticated table/column grants and absent saved-list RPCs, despite its existing owner RLS table. Recommendations run a bounded session-preference content rank; optional Tier 2 signal remains undeployed/privacy-blocked.
+
+Fixed a shared search-service defect: failed photo enrichment no longer hides valid authorized text/rent results; account changes/cancellation and listing-query errors still fail safely. Neutral photo placeholder and truthful Saved/GPS availability copy preserve the existing UI. 224 focused cases validated across the nine affected suites (one intentionally changed label assertion rechecked alone); TypeScript/whitespace pass. No full suite repetition. No phone/ADB/Expo/build, backend writes/deployment, commit or push. Existing unrelated changes preserved. Full matrix/priorities/evidence: [tenant audit](../audits/TENANT_SEARCH_DISCOVERY_AUDIT_2026-11-10.md).

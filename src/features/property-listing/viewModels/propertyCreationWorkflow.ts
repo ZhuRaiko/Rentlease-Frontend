@@ -40,18 +40,22 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
     markValidationAttempt() { if(!disposed&&!state.busy&&!state.propertyId&&!state.uncertain&&!state.validationAttempted)update({validationAttempted:true}); },
     locationReady: () => hasConfirmedPropertyLocation(state.draft),
     activate() { if (disposed) { disposed = false; update({ busy: false }); } },
-    dispose() { disposed = true; epoch++; listeners.clear(); },
+    dispose() { disposed = true; epoch++; },
+    invalidateLocation() {
+      if(disposed||state.busy||state.propertyId||state.uncertain)return;
+      update({draft:{...state.draft,exactLatitude:null,exactLongitude:null,publicLatitude:null,publicLongitude:null},error:null,touchedFields:{...state.touchedFields,location:true}});
+    },
     discardLocalEdits() {
       if (disposed || state.busy) return;
       // Local discard never clears the durable receipt/uncertain-operation journal.
       epoch++;
       if (state.propertyId) update({ touchedFields:{}, validationAttempted:false, draft: emptyDraftProperty(), error: null });
-      else { owner = null; update(initial()); }
+      else { owner = null; update({...initial(),locationRevision:state.locationRevision+1}); }
     },
     dirty: () => !state.propertyId && JSON.stringify(state.draft) !== JSON.stringify(emptyDraftProperty()),
     updateField<K extends Exclude<keyof DraftProperty, keyof PropertyLocationInput>>(field: K, value: DraftProperty[K]) {
       if (state.busy || state.propertyId || state.uncertain) return;
-      const addressChanged = ['city', 'barangay', 'addressLine1', 'addressLine2', 'postalCode'].includes(field);
+      const addressChanged = ['city', 'barangay', 'addressLine1', 'addressLine2', 'postalCode'].includes(field) && String(state.draft[field]??'').trim()!==String(value??'').trim();
       update({ touchedFields:{...state.touchedFields,[field]:true}, draft: { ...state.draft, [field]: value, ...(addressChanged ? { exactLatitude: null, exactLongitude: null, publicLatitude: null, publicLongitude: null } : {}) }, ...(addressChanged ? { locationRevision: state.locationRevision + 1 } : {}), error: null });
     },
     next() {

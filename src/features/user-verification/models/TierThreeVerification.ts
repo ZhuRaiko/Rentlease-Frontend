@@ -12,7 +12,7 @@ export function isTierThreeDocumentType(value: string): value is TierThreeDocume
   return tierThreeDocumentOptions.some(option => option.value === value);
 }
 // Presentation eligibility only. Services recheck identity; backend RLS/triggers enforce authorization.
-export const canEnterTierThree = (tierOneVerified: boolean, hasLandlordRole: boolean) => tierOneVerified && hasLandlordRole;
+export const canEnterTierThree = (tierOneVerified: boolean) => tierOneVerified;
 export type VerificationProperty = Pick<Tables<'properties'>, 'id' | 'landlord_id' | 'property_type' | 'barangay' | 'city'>;
 const readable = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 export const verificationPropertyLabel = (property: VerificationProperty) => `${readable(property.property_type)} - ${property.barangay}, ${readable(property.city)}`;

@@ -18,7 +18,7 @@ export function createLandlordPortfolioWorkflow(service: LandlordPortfolioServic
       const g = generation; update({ busy: true, refreshing: state.loaded, error: null });
       try {
         const next = await service.user(); if (!alive(g)) return;
-        if (owner && owner !== next) { owner = null; generation++; update({ ...initial(), error: 'Your account changed. Reload My Listings.' }); return; }
+        if (owner && owner !== next) { owner = null; generation++; update({ ...initial(), error: 'Your account changed. Reload My Rentals.' }); return; }
         owner = next;
         const items = await service.load(next); await service.assertUser(next); if (!alive(g)) return;
         update({ items, loaded: true });

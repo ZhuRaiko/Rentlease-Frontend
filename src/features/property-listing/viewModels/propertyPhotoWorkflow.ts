@@ -21,7 +21,7 @@ export function createPropertyPhotoWorkflow(service: PropertyPhotoService, pick:
   const identity = async (g: number) => {
     if (!alive(g) || !context) throw new Error('Closed');
     try { await service.assertContext(context); }
-    catch (error) { if (alive(g)) { const propertyId=state.propertyId; context = null; generation++; update({ ...initial(propertyId), needsReconcile:true, error: 'Could not verify photo access. Check saved photos to try again, or reopen this property from My Listings.' }); } throw error; }
+    catch (error) { if (alive(g)) { const propertyId=state.propertyId; context = null; generation++; update({ ...initial(propertyId), needsReconcile:true, error: 'Could not verify photo access. Check saved photos to try again, or reopen this property from My Rentals.' }); } throw error; }
     if (!alive(g)) throw new Error('Closed');
     return context;
   };

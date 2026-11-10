@@ -36,7 +36,7 @@ export function createListingDraftService(getClient: () => SupabaseClient<Databa
     await assertContext(c);
     if(error && (error.code==='42703'||error.code==='PGRST204'))throw new ListingDraftError('Draft editing requires the prepared backend migration. Reopen after deployment.','rejected',{cause:error});
     if (error) throw new ListingDraftError('Could not load the current listing draft. Check your connection.', 'rejected', {cause:error});
-    if (selectedListingId && (!data || data.id !== selectedListingId)) throw new ListingDraftError('The selected draft is no longer available. Refresh My Listings before continuing.');
+    if (selectedListingId && (!data || data.id !== selectedListingId)) throw new ListingDraftError('The selected draft is no longer available. Refresh My Rentals before continuing.');
     if (data && (!isPropertyUuid(data.id) || data.property_id !== c.propertyId || data.landlord_id !== c.userId || (!allowNonDraft && data.status !== 'draft'))) throw new ListingDraftError('The returned listing draft could not be verified.');
     return data;
   };

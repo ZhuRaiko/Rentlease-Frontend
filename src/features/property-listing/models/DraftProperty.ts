@@ -1,3 +1,4 @@
+import {propertyModelAttributes,ModelAttributeError,type PropertyModelAttributeDraft} from './PropertyModelAttributes';
 import type { Database, Enums } from '../../../shared/services/supabase/database.types';
 export type PropertySetupArgs = Database['public']['Functions']['create_property_setup']['Args'];
 export interface PropertyLocationInput {
@@ -14,14 +15,14 @@ export const propertyCityOptions: { value: Enums<'cavite_city'>; label: string }
 export const furnishingOptions: { value: Enums<'furnishing_status'>; label: string }[] = [
   { value: 'unfurnished', label: 'Unfurnished' }, { value: 'semi_furnished', label: 'Semi-furnished' }, { value: 'furnished', label: 'Furnished' },
 ];
-export interface DraftProperty {
+export interface DraftProperty extends PropertyModelAttributeDraft {
   propertyType: Enums<'property_type'> | null; city: Enums<'cavite_city'> | null;
   barangay: string; addressLine1: string; addressLine2: string; postalCode: string; accessInstructions: string;
   exactLatitude: number | null; exactLongitude: number | null; publicLatitude: number | null; publicLongitude: number | null;
   bedrooms: string; bathrooms: string; floorAreaSqm: string; floorNumber: string; totalFloors: string;
   furnishingStatus: Enums<'furnishing_status'>; maxOccupants: string; amenityIds: number[];
 }
-export const emptyDraftProperty = (): DraftProperty => ({ propertyType: null, city: null, barangay: '', addressLine1: '', addressLine2: '', postalCode: '', accessInstructions: '', exactLatitude: null, exactLongitude: null, publicLatitude: null, publicLongitude: null, bedrooms: '0', bathrooms: '0', floorAreaSqm: '', floorNumber: '', totalFloors: '', furnishingStatus: 'unfurnished', maxOccupants: '', amenityIds: [] });
+export const emptyDraftProperty = (): DraftProperty => ({ propertyType: null, city: null, propertySubtype:'',lotAreaSqm:'',parkingSpaces:'', barangay: '', addressLine1: '', addressLine2: '', postalCode: '', accessInstructions: '', exactLatitude: null, exactLongitude: null, publicLatitude: null, publicLongitude: null, bedrooms: '', bathrooms: '', floorAreaSqm: '', floorNumber: '', totalFloors: '', furnishingStatus: 'unfurnished', maxOccupants: '', amenityIds: [] });
 export type PropertyCreationInput = Omit<DraftProperty, keyof PropertyLocationInput> & PropertyLocationInput;
 export const hasConfirmedPropertyLocation = (draft: DraftProperty): draft is PropertyCreationInput =>
   [draft.exactLatitude, draft.exactLongitude, draft.publicLatitude, draft.publicLongitude].every(value => typeof value === 'number' && Number.isFinite(value))
@@ -68,7 +69,7 @@ export function propertyValidationIssues(draft:DraftProperty,requireLocation=tru
   if(floors.totalFloors&&floors.totalFloors!==floors.floorNumber)add('totalFloors','floors',floors.totalFloors);
   for(const [field,label,integer,positive] of [['bedrooms','Bedrooms',true,false],['bathrooms','Bathrooms',false,false],['floorAreaSqm','Floor area',false,true],['maxOccupants','Maximum occupants',true,true]] as const){
     const value=draft[field],required=field==='bedrooms'||field==='bathrooms';
-    if(!value.trim()&&!required)continue;
+    if(!value.trim()){if(required)add(field,'property',`Enter a ${field==='bedrooms'?'bedroom':'bathroom'} count, or 0 if none.`,'required');continue;}
     const n=Number(value);
     if(!value.trim()||!Number.isFinite(n)||n<0||(positive&&n===0)||(integer&&(!Number.isInteger(n)||n>32767)))add(field,'property',`Enter a valid ${label.toLowerCase()}.`,!value.trim()&&required?'required':'invalid');
   }
@@ -80,6 +81,7 @@ export function propertyValidationIssues(draft:DraftProperty,requireLocation=tru
   }
   if(!furnishingOptions.some(o=>o.value===draft.furnishingStatus))add('furnishingStatus','property','Choose a supported furnishing status.');
   if(draft.amenityIds.some(id=>!Number.isSafeInteger(id)||id<=0)||new Set(draft.amenityIds).size!==draft.amenityIds.length)add('amenityIds','amenities','Choose valid, distinct amenities from the catalog.');
+  try{propertyModelAttributes(draft.propertyType,draft);}catch(e){add(e instanceof ModelAttributeError?e.field:'propertySubtype','property',e instanceof Error?e.message:'Review optional model attributes.');}
   const order:PropertyValidationSection[]=['property','floors','amenities','address','location'];
   return issues.sort((a,b)=>order.indexOf(a.section)-order.indexOf(b.section));
 }

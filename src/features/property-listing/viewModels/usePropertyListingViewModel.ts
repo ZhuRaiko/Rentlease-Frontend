@@ -1,3 +1,7 @@
+import {createUnfinishedPostWorkflow} from './unfinishedPostWorkflow';
+import {unfinishedPostService} from '../services/unfinishedPostDependencies';
+import type {PredictionReceipt} from '../../../shared/models/RentalPrediction';
+import {propertyMeasurementWarnings} from '../../../shared/models/PropertyMeasurementQuality';
 import {createPropertyIdentityWorkflow} from './propertyIdentityWorkflow';
 import {propertyIdentityService} from '../services/propertyIdentityDependencies';
 import {createPropertyRoutineWorkflow} from './propertyRoutineWorkflow';
@@ -59,6 +63,13 @@ type CounterField = 'bedrooms' | 'bathrooms' | 'parkingSpaces';
 export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dashboard') {
   type Workspace = { propertyId: string | null; listingId: string | null; mode: 'none' | 'create' | 'compose' | 'manage' | 'editPublished'; item: LandlordPortfolioItem | null };
   const [workspace, setWorkspace] = useState<Workspace>({ propertyId: null, listingId: null, mode: initialScreen === 'postingType' ? 'create' : 'none', item: null });
+  const [unfinishedPost]=useState(()=>createUnfinishedPostWorkflow(unfinishedPostService,id=>{
+    if(workspaceRef.current.propertyId===id){detachWorkspace();setHistory([]);setScreen('dashboard');}
+    portfolio.invalidate();setNotice('Unfinished post deleted.');
+  }));
+  const unfinishedPostState=useSyncExternalStore(unfinishedPost.subscribe,unfinishedPost.getSnapshot);
+  useEffect(()=>{unfinishedPost.activate();return()=>unfinishedPost.dispose();},[unfinishedPost]);
+
   const [workspaceEpoch,setWorkspaceEpoch]=useState(0);
   const [hydrationInitialized,setHydrationInitialized]=useState(-1);
   const hydrationReady=useRef(-1),hydrationStarted=useRef(0);
@@ -116,7 +127,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     return accepted.locationRevision === confirmedRevision && hasConfirmedPropertyLocation(accepted.draft)
       && accepted.draft.exactLatitude === location.exactLatitude && accepted.draft.exactLongitude === location.exactLongitude
       && accepted.draft.publicLatitude === location.publicLatitude && accepted.draft.publicLongitude === location.publicLongitude;
-  }));
+  },()=>propertyCreation.invalidateLocation()));
   const locationState = useSyncExternalStore(propertyLocation.subscribe, propertyLocation.getSnapshot);
   useEffect(() => { propertyLocation.activate(); return () => propertyLocation.dispose(); }, [propertyLocation]);
   useEffect(() => {
@@ -205,19 +216,22 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   },[workspace.propertyId,workspace.item,propertyState.draft.propertyType,portfolioState.items,portfolioState.loaded,portfolioState.busy,portfolioState.error]);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  const operationBusy = ():boolean => propertyIdentity.getSnapshot().busy || propertyRoutine.getSnapshot().busy || publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy || publication.getSnapshot().busy || lifecycle.getSnapshot().busy;
+  const operationBusy = ():boolean => unfinishedPost.getSnapshot().busy || propertyIdentity.getSnapshot().busy || propertyRoutine.getSnapshot().busy || publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy || publication.getSnapshot().busy || lifecycle.getSnapshot().busy;
+  const deletedWorkspace=()=>{const status=unfinishedPost.getSnapshot().status;return !!workspaceRef.current.propertyId&&status?.propertyId===workspaceRef.current.propertyId&&status.state!=='live';};
   function canWriteListing(): boolean {
+    if(deletedWorkspace())return false;
     const current = lifecycle.getSnapshot();
     return active.current && propertyRoutine.getSnapshot().status==='idle' && !propertyRoutine.getSnapshot().busy && workspaceRef.current.item?.property.is_active !== false && !current.busy && !current.uncertain && current.loaded && (!current.row || current.row.status === 'draft');
   }
   function canChangeLifecycle(): boolean {
+    if(deletedWorkspace())return false;
     return active.current && propertyRoutine.getSnapshot().status==='idle' && !propertyRoutine.getSnapshot().busy && !propertyCreation.getSnapshot().busy && !propertyPhotos.getSnapshot().busy && !listingDraftPersistence.getSnapshot().busy && !listingDraftPersistence.getSnapshot().uncertain && !publication.getSnapshot().busy && !publication.getSnapshot().uncertain;
   }
   const publicationReadOnly = () => workspaceRef.current.mode==='editPublished'? !publishedContent.getSnapshot().loaded||publishedContent.getSnapshot().uncertain||!['active','paused'].includes(publishedContent.getSnapshot().lastConfirmed?.status??'') : !!workspaceRef.current.propertyId && (!canWriteListing() || !publication.getSnapshot().loaded || publication.getSnapshot().uncertain || (!!publication.getSnapshot().status && publication.getSnapshot().status !== 'draft'));
   const editingPublished=workspace.mode==='editPublished';
   const contentState=editingPublished?publishedContentState:listingDraftState;
   const savedDraftEntry=editingPublished||workspace.mode==='compose'&&workspace.item?.currentListing?.status==='draft'&&!!workspace.listingId;
-  const hydrationFailure=savedDraftEntry?(hydrationDeadline===workspaceEpoch?'Saved details are taking too long to load. Retry or return to My Listings.':publicationState.error || (contentState.errorSource==='load'?contentState.error:null) || (!photoState.loaded?photoState.error:null) || amenityState.error):null;
+  const hydrationFailure=savedDraftEntry?(hydrationDeadline===workspaceEpoch?'Saved details are taking too long to load. Retry or return to My Rentals.':publicationState.error || (contentState.errorSource==='load'?contentState.error:null) || (!photoState.loaded?photoState.error:null) || amenityState.error):null;
   const hydrationLoaded=hydrationInitialized===workspaceEpoch&&!!savedDraftEntry&&photoState.propertyId===workspace.propertyId&&amenityState.propertyId===workspace.propertyId&&publicationState.propertyId===workspace.propertyId&&publicationState.loaded&&!publicationState.busy&&contentState.loaded&&!contentState.busy&&!contentState.uncertain&&contentState.lastConfirmed?.id===workspace.listingId&&photoState.loaded&&!photoState.busy&&amenityState.loaded&&!amenityState.busy;
   const draftHydration={status:!savedDraftEntry?'idle' as const:hydrationReady.current===workspaceEpoch?'ready' as const:hydrationFailure?'error' as const:hydrationLoaded?'ready' as const:'loading' as const,error:hydrationFailure};
   useEffect(()=>{
@@ -303,6 +317,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const goBack = () => {
+    if(unfinishedPost.getSnapshot().confirming){unfinishedPost.cancel();return;}
     if(leaveInitialHydration())return;
     if (propertyPhotos.getSnapshot().mediaViewerOpen) { propertyPhotos.closeMedia(); return; }
     if (operationBusy()) return;
@@ -638,8 +653,17 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     setNotice(`Listing is ${status} in local preview state only.`);
   };
 
+  const deletionCandidate=!!workspace.propertyId&&(!workspace.item||workspace.item.listings.every(l=>l.status==='draft'&&l.published_at===null));
+  useEffect(()=>{void unfinishedPost.open(deletionCandidate?workspace.propertyId:null);},[unfinishedPost,workspaceEpoch,deletionCandidate]);
+  useEffect(()=>{if(screen==='dashboard')void unfinishedPost.refreshPending();},[unfinishedPost,screen]);
+  useEffect(()=>{if(unfinishedPostState.status?.state==='cleanup_pending')portfolio.invalidate();},[unfinishedPostState.status?.propertyId,unfinishedPostState.status?.state]);
+  const deletionBlocked=propertyState.uncertain||listingDraftState.uncertain||listingDraftState.conflict||photoState.needsReconcile||photoState.pendingSelections.length>0||propertyRoutineState.uncertain||propertyIdentityState.uncertain;
   const selectedAmenityIds = workspace.propertyId ? amenityState.selectedIds : propertyState.draft.amenityIds;
-  const physical = editedProperty?.property_id===workspace.propertyId?editedProperty:workspace.item?.property;
+  // Creation freezes this draft after a confirmed receipt; never project location/address.
+  const createdDraft=propertyState.propertyId===workspace.propertyId&&propertyState.step==='created'&&!propertyState.uncertain&&hasConfirmedPropertyLocation(propertyState.draft)?propertyState.draft:null;
+  const optionalNumber=(value:string|undefined)=>!value?.trim()?null:Number(value);
+  const createdPhysical=createdDraft?{property_type:createdDraft.propertyType,city:createdDraft.city,barangay:createdDraft.barangay,total_floors:optionalNumber(createdDraft.totalFloors),max_occupants:optionalNumber(createdDraft.maxOccupants),furnishing_status:createdDraft.furnishingStatus,bedrooms:Number(createdDraft.bedrooms),bathrooms:Number(createdDraft.bathrooms),floor_area_sqm:optionalNumber(createdDraft.floorAreaSqm),floor_number:createdDraft.propertyType==='house'?null:optionalNumber(createdDraft.floorNumber),property_subtype:createdDraft.propertySubtype||null,lot_area_sqm:optionalNumber(createdDraft.lotAreaSqm),parking_spaces:optionalNumber(createdDraft.parkingSpaces)}:null;
+  const physical = editedProperty?.property_id===workspace.propertyId?editedProperty:workspace.item?.property??createdPhysical;
   const confirmedListing = contentState.lastConfirmed?.property_id === workspace.propertyId && (!workspace.listingId || contentState.lastConfirmed.id===workspace.listingId) ? contentState.lastConfirmed : null;
   const completeness = listingCompleteness({title:draft.title,description:draft.description,rent:listingNumber(draft.askingRent),availableDate:!!availabilityDateToLocal(draft.availableDate),
     floorArea:physical ? physical.floor_area_sqm!==null : !!propertyState.draft.floorAreaSqm.trim()&&Number.isFinite(Number(propertyState.draft.floorAreaSqm))&&Number(propertyState.draft.floorAreaSqm)>0,
@@ -657,18 +681,24 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     :!workspace.propertyId&&!propertyState.loaded?'Checking property setup...'
     :operationBusy()?'Finish the current operation before continuing.'
     :firstPropertyIssue?(firstPropertyIssue.kind==='required'?firstPropertyIssue.message:`Check ${propertySectionLabels[firstPropertyIssue.section].toLowerCase()}.`)
-    :workspace.propertyId?'Saved property selected. Continue to listing details.':'Property information is ready. It is not saved yet.';
+    :workspace.propertyId?'Saved property selected. Continue to listing details.':'Property information is ready. Next saves the property before listing details.';
 
   return {
+    unfinishedPost,unfinishedPostState,
+    resumeUnfinishedPostCleanup:(id:string)=>{if(!operationBusy()&&(screen==='dashboard'||workspaceRef.current.propertyId===id))void unfinishedPost.resume(id);},
+    requestUnfinishedPostDeletion:()=>{if(!operationBusy()&&!deletionBlocked)unfinishedPost.requestConfirmation();},
+    confirmUnfinishedPostDeletion:()=>{if(!operationBusy()&&!deletionBlocked)void unfinishedPost.confirm();},
+    unfinishedPostDeletionDisabled:operationBusy()||!!deletionBlocked,
     propertyIdentity,propertyIdentityState,identityLocationState,
     reloadIdentityCorrection:()=>{const id=propertyIdentity.getSnapshot().propertyId;if(id)requestPropertyNavigation(()=>{void propertyIdentity.open(id);});},
     openIdentityCorrection:()=>{const id=workspaceRef.current.propertyId;if(!id||operationBusy()||propertyIdentity.getSnapshot().status!=='idle')return;requestPropertyNavigation(()=>{navigate('identityEdit');void propertyIdentity.open(id);});},
     openIdentityVerification:()=>{if(!operationBusy()&&['draft','submitted','rejected'].includes(propertyIdentity.getSnapshot().context?.correction?.status??''))void propertyVerification.openCorrection();},
     propertyRoutine,propertyRoutineState,
-    propertyEditAvailable:!!workspace.propertyId&&workspace.item?.property.is_active!==false&&!initialHydrationPending(),
+    propertyEditAvailable:!!workspace.propertyId&&workspace.item?.property.is_active!==false&&(!initialHydrationPending()||draftHydration.status==='ready'),
     openPropertyDetails:()=>{const id=workspaceRef.current.propertyId;if(operationBusy()||initialHydrationPending()||!id||propertyRoutine.getSnapshot().status!=='idle')return;navigate('propertyEdit');void propertyRoutine.open(id);},
     reloadPropertyDetails:()=>{const id=propertyRoutine.getSnapshot().propertyId;if(id)requestPropertyNavigation(()=>void propertyRoutine.open(id));},
     propertyValidationIssues:propertyIssues,propertyVisibleValidationIssues:propertyVisibleIssues,
+    propertyMeasurementWarnings:propertyMeasurementWarnings({floor_area_sqm:propertyState.draft.floorAreaSqm.trim()?Number(propertyState.draft.floorAreaSqm):null,bedrooms:propertyState.draft.bedrooms.trim()?Number(propertyState.draft.bedrooms):null,bathrooms:propertyState.draft.bathrooms.trim()?Number(propertyState.draft.bathrooms):null}),
     propertyFormReady,propertyNextDisabled,propertyNextStatus,
     propertyReadinessReviewAvailable:!operationBusy()&&!workspace.propertyId&&propertyState.loaded&&!propertyState.uncertain&&propertyIssues.length>0,
     reviewPropertyReadiness:()=>{if(!operationBusy())requestPropertyValidation();},
@@ -696,6 +726,13 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     retryDraftHydration:()=>{if(!initialHydrationPending())return;propertyPhotos.setProperty(null);propertyAmenities.setProperty(null);publishedContent.setProperty(null);listingDraftPersistence.setProperty(null);publication.setProperty(null);selectWorkspace({...workspaceRef.current});},
     composerSaveDisabled: !!(contentState.lastConfirmed&&(!listingDraftDirty&&!photoState.pendingSelections.length||listingValidationIssue)) || (editingPublished ? initialHydrationPending()||operationBusy()||publishedContentState.uncertain||publishedContentState.conflict||publicationReadOnly() : initialHydrationPending() || operationBusy() || propertyState.uncertain || listingDraftState.uncertain || listingDraftState.conflict || (!workspace.propertyId ? !propertyState.loaded : publicationReadOnly() || photoState.needsReconcile)),
     composerPreview: history.includes('listingComposer') || history.includes('listingDetails') || screen === 'listingComposer' || screen === 'listingDetails',
+    applyRentalEstimate:(result:PredictionReceipt)=>{
+      const current=workspaceRef.current;
+      const matches=result.target.propertyId===current.propertyId||!!current.listingId&&result.target.listingId===current.listingId;
+      if(!active.current||!current.propertyId||!matches||result.currency!=='PHP'||!Number.isFinite(result.estimatedMonthlyRent)||result.estimatedMonthlyRent<=0||propertyRoutine.dirty()||propertyIdentity.dirty())return;
+      updateDraft('askingRent',String(Math.round(result.estimatedMonthlyRent*100)/100));
+    },
+    estimationProperty:physical?{property_subtype:'property_subtype' in physical?physical.property_subtype:null,lot_area_sqm:'lot_area_sqm' in physical?physical.lot_area_sqm:null,parking_spaces:'parking_spaces' in physical?physical.parking_spaces:null,edit_version:'edit_version' in physical?physical.edit_version:null,property_type:physical.property_type,city:physical.city,furnishing_status:physical.furnishing_status,bedrooms:physical.bedrooms,bathrooms:physical.bathrooms,floor_area_sqm:physical.floor_area_sqm,floor_number:physical.floor_number,is_active:workspace.item?.property.is_active,landlord_id:'owner_id' in physical?physical.owner_id:'landlord_id' in physical?physical.landlord_id:undefined}:null,
     workspacePropertyId: workspace.propertyId, workspaceListingId: lifecycleState.listingId ?? listingDraftState.listingId ?? workspace.listingId, workspaceMode: workspace.mode,
     workspacePropertyActive: workspace.item?.property.is_active !== false,
     portfolio, portfolioState, portfolioItems: portfolio.filtered(), portfolioStatistics: portfolio.stats(),
@@ -710,7 +747,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       if (operationBusy() || !['propertySetup', 'listingComposer'].includes(screen) || (screen === 'propertySetup' && current.step !== 'address') || !current.loaded || current.propertyId || current.uncertain) return;
       if (!current.draft.city || !current.draft.barangay.trim() || !current.draft.addressLine1.trim()) return;
       propertyCreation.markFieldTouched('location');
-      void propertyLocation.open({ addressRevision: current.locationRevision, setupId: 'physical-property-setup', query: propertyAddressQuery(current.draft) });
+      void propertyLocation.open({ addressRevision: current.locationRevision, setupId: 'physical-property-setup', query: propertyAddressQuery(current.draft) },hasConfirmedPropertyLocation(current.draft)?current.draft:undefined);
     },
     propertyPhotos: {
       ...propertyPhotos,
@@ -729,9 +766,23 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     },
     photoState,
     mediaItems: propertyMediaItems(photoState.photos, photoState.pendingSelections, photoState.uncertainSelection, photoState.busy && photoState.batch.status === 'running'),
-    nextListingDetails: () => {
-      if(operationBusy())return;
-      if(!workspaceRef.current.propertyId){const current=propertyCreation.getSnapshot();if(!current.loaded||current.uncertain||!requestPropertyValidation())return;}
+    nextListingDetails: async () => {
+      if(initialHydrationPending()||operationBusy())return;
+      if(!workspaceRef.current.propertyId){
+        const current=propertyCreation.getSnapshot();
+        if(!current.loaded||current.uncertain||!requestPropertyValidation())return;
+        let token=workspaceGeneration.current;
+        composerSaving.current=true;setComposerPhase('property');setComposerNotice(null);
+        try {
+          await propertyCreation.submit(true);
+          if(!active.current||token!==workspaceGeneration.current)return;
+          if(!adoptCreatedProperty())return;
+          token=workspaceGeneration.current;
+          setComposerNotice('Property saved. Set your asking rent and save the listing draft when ready.');
+        } finally {
+          if(active.current&&token===workspaceGeneration.current){composerSaving.current=false;setComposerPhase(null);}
+        }
+      }
       navigate('listingDetails');
     },
     editComposerProperty: () => { if(editingPublished)return; if (screen === 'listingDetails') goBack(); else navigate('listingComposer'); },
@@ -782,6 +833,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     },
     activeTab: workspace.item && ['listingComposer', 'listingDetails', 'photoManager', 'preview', 'publishConfirmation'].includes(screen) ? 'listing' as const : listingActiveTab(screen),
     backFromWorkspace: (onClose: () => void) => {
+      if(unfinishedPost.getSnapshot().confirming){unfinishedPost.cancel();return;}
       if(leaveInitialHydration())return;
       if (propertyPhotos.getSnapshot().mediaViewerOpen) { propertyPhotos.closeMedia(); return; }
       if (operationBusy()) return;

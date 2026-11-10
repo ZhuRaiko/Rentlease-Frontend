@@ -59,7 +59,7 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
     clearNotice() { if (!state.busy) update({ notice: null, error: null }); },
     async save(form: ListingDraftFields): Promise<'local' | 'saved' | 'blocked'> {
       if (disposed || state.busy || state.uncertain || state.conflict || !canWrite()) return 'blocked';
-      if (state.lastConfirmed && !editable(state.lastConfirmed.status)) { update({ error: mode==='published'?'This listing can no longer be edited. Return to My Listings.':'This is no longer a draft listing. Draft saving is unavailable.' }); return 'blocked'; }
+      if (state.lastConfirmed && !editable(state.lastConfirmed.status)) { update({ error: mode==='published'?'This listing can no longer be edited. Return to My Rentals.':'This is no longer a draft listing. Draft saving is unavailable.' }); return 'blocked'; }
       if (mode==='published'&&!hasListingMinimum(state.propertyId,form)){update({error:'Enter a title, description and positive rent before saving changes.',errorSource:'save'});return 'blocked';}
       if (!hasListingMinimum(state.propertyId, form)) { update({ notice: 'Progress is local to this session, not saved to your account. A saved property, title, description and positive monthly rent are required.' }); return 'local'; }
       const error = listingDraftValidation(state.propertyId, form); if (error) { update({ error, errorSource: 'save', notice: null }); return 'blocked'; }

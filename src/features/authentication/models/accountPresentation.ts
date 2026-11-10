@@ -1,5 +1,18 @@
-import type { AccountProfile, AppRole } from './AuthProfile';
+import type { AccountProfile, AccountSnapshot, AppRole } from './AuthProfile';
 import type { StatusPresentation } from '../../../shared/models/verificationPresentation';
+import { experiencePreferenceOptions, type ExperiencePreference } from './AuthProfile';
+
+export const experiencePreferenceLabel = (value: ExperiencePreference) => experiencePreferenceOptions.find(option => option.value === value)?.label ?? 'No preference';
+export function accountIdentityLabels(account: AccountSnapshot | null): string[] {
+  const labels = account?.roles.includes('admin') ? ['Admin'] : [account?.profile.experience_preference
+    ? experiencePreferenceLabel(account.profile.experience_preference) : 'RentLease member'];
+  if (account?.ownsProperty === true) labels.push('Property Owner');
+  return labels;
+}
+export function hasProfileChanges(profile: AccountProfile | null, name: string, bio: string, preference: ExperiencePreference) {
+  return !!profile && !!name.trim() && (name.trim() !== (profile.display_name ?? '').trim()
+    || bio.trim() !== (profile.bio ?? '').trim() || preference !== (profile.experience_preference ?? null));
+}
 
 export const roleLabel = (role: AppRole) => ({ tenant: 'Tenant', landlord: 'Landlord', admin: 'Admin' })[role];
 export function accountVerificationSummary(profile: Pick<AccountProfile, 'tier1_verified_at' | 'tier2_verified_at' | 'tier3_verified_at'> | null, roles: AppRole[]) {
@@ -9,7 +22,7 @@ export function accountVerificationSummary(profile: Pick<AccountProfile, 'tier1_
   return [
     { tier: 1 as const, label: 'Tier 1 · Account', status: status(profile?.tier1_verified_at, !roles.includes('admin')), detail: roles.includes('admin') ? 'Admin access bypasses ordinary onboarding.' : 'Email and mobile verification.' },
     { tier: 2 as const, label: 'Tier 2 · Identity', status: status(profile?.tier2_verified_at, true), detail: 'Open Verification for current submission details.' },
-    { tier: 3 as const, label: 'Tier 3 · Property', status: status(profile?.tier3_verified_at, roles.includes('landlord')), detail: 'Account-level indication. Check each individual property in Verification.' },
+    { tier: 3 as const, label: 'Tier 3 · Property', status: { label: 'Checked per Property', tone: 'info' as const }, detail: 'Check each individual property in Verification. Account preferences do not verify a property.' },
   ];
 }
 

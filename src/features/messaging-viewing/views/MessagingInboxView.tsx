@@ -1,132 +1,19 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {YourListingLabel} from '../components/YourListingLabel';
+import {PropertyPhotoThumbnail} from '../../../shared/components/PropertyPhotoThumbnail';
+import {PublicAvatar} from '../../../shared/components/PublicIdentityBadge';
+import {publicIdentityLabel} from '../../../shared/models/PublicIdentity';
+import {ActivityIndicator,FlatList,Pressable,StyleSheet,Text,View} from 'react-native';
+import {ScreenHeader} from '../../../shared/components/ScreenHeader';
+import {colors} from '../../../shared/theme/colors';
+import {ui} from '../../../shared/theme/ui';
+import {messageTime} from '../models/PersistentMessaging';
+import type {MessagingViewingViewModel} from '../viewModels/useMessagingViewingViewModel';
+export function MessagingInboxView({viewModel:vm,onClose,onViewings,onReservations,onMyRequests}:{viewModel:MessagingViewingViewModel;onClose:()=>void;onViewings?:()=>void;onReservations?:()=>void;onMyRequests?:()=>void}){
+ return <View style={styles.screen}><ScreenHeader title="Messages" onBack={onClose} action={onMyRequests?<Pressable accessibilityRole="button" style={styles.action} onPress={onMyRequests}><Text style={styles.link}>My Requests</Text></Pressable>:onViewings?<Pressable accessibilityRole="button" style={styles.action} onPress={onViewings}><Text style={styles.link}>Viewings</Text></Pressable>:undefined}/><FlatList data={vm.inbox} keyExtractor={c=>c.id} refreshing={vm.inboxBusy} onRefresh={vm.refresh} contentContainerStyle={styles.content}
+ ListHeaderComponent={<View style={styles.section}><Text style={styles.copy}>Your private property conversations.</Text>{!onMyRequests&&onReservations?<Pressable accessibilityRole="button" style={styles.action} onPress={onReservations}><Text style={styles.link}>Rental reservations</Text></Pressable>:null}{vm.connection==='unavailable'?<Text accessibilityLiveRegion="polite" style={styles.copy}>Automatic updates unavailable. Pull to refresh.</Text>:null}{vm.propertyContextError?<Pressable accessibilityRole="button" accessibilityLabel="Retry property information" onPress={vm.refreshPropertyContext} style={styles.action}><Text style={styles.copy}>{vm.propertyContextError} Retry</Text></Pressable>:null}{vm.inboxBusy&&!vm.inbox.length?<ActivityIndicator accessibilityLabel="Loading conversations" color={colors.primaryAction}/>:null}{vm.inboxError?<><Text accessibilityRole="alert" style={styles.error}>{vm.inboxError}</Text><Pressable accessibilityRole="button" onPress={()=>void vm.workflow.inbox()} style={styles.action}><Text style={styles.link}>Retry inbox</Text></Pressable></>:null}</View>}
+ ListEmptyComponent={!vm.inboxBusy&&!vm.inboxError?<View style={styles.section}><Text style={styles.heading}>No conversations yet</Text><Text style={styles.copy}>Open a rental in Discover and choose Contact Owner to start a real inquiry.</Text></View>:null}
+ renderItem={({item})=>{const participant=vm.publicIdentities?.[vm.owner===item.tenantId?item.landlordId:item.tenantId],label=publicIdentityLabel(participant,vm.owner===item.tenantId?'owner':'renter'),property=vm.propertyContexts?.[item.listingId];return <Pressable accessibilityRole="button" accessibilityLabel={`Open conversation with ${label} about ${property?.title??item.listingTitle??'this rental'}`} onPress={()=>vm.openConversation(item.id)} style={styles.row}><PublicAvatar url={participant?.avatarUrl} size={42}/><View style={styles.rowText}><Text numberOfLines={1} style={styles.participant}>{label}</Text><Text numberOfLines={1} style={styles.copy}>{property?.title??item.listingTitle??'Listing unavailable'}</Text><YourListingLabel owned={property?.ownsProperty===true}/><Text numberOfLines={1} style={styles.copy}>{item.latestBody??(item.latestType?'Non-text message':'No messages yet')}</Text><Text style={styles.small}>{messageTime(item.activityAt)}</Text></View><PropertyPhotoThumbnail photos={property?.photos??[]} size={58}/></Pressable>;}}
 
-import { AppButton } from '../../../shared/components/AppButton';
-import { colors } from '../../../shared/theme/colors';
-import { radius } from '../../../shared/theme/radius';
-import { spacing } from '../../../shared/theme/spacing';
-import { typography } from '../../../shared/theme/typography';
-import { ConversationRow, ViewingSummaryCard } from '../components/MessagingCards';
-import { MessagingScaffold } from '../components/MessagingScaffold';
-import type { MessagingViewingViewModel } from '../viewModels/useMessagingViewingViewModel';
-
-interface MessagingInboxViewProps {
-  onClose: () => void;
-  viewModel: MessagingViewingViewModel;
+ ListFooterComponent={vm.inboxMore?<Pressable accessibilityRole="button" disabled={vm.inboxBusy} onPress={()=>void vm.workflow.inbox(true)} style={styles.action}><Text style={styles.link}>Load more conversations</Text></Pressable>:null}/></View>;
 }
-
-export function MessagingInboxView({ onClose, viewModel }: MessagingInboxViewProps) {
-  if (viewModel.screen === 'emptyInbox') {
-    return (
-      <MessagingScaffold
-        actionLabel="Restore"
-        onAction={viewModel.openInbox}
-        onClose={onClose}
-        title="Messages"
-      >
-        <View style={styles.emptyState}>
-          <View style={styles.emptyGraphic}>
-            <View style={styles.emptyBubble}>
-              <View style={styles.emptyTail} />
-              <View style={[styles.emptyLine, styles.emptyLineLong]} />
-              <View style={styles.emptyLine} />
-            </View>
-          </View>
-          <Text accessibilityRole="header" style={styles.emptyTitle}>No conversations yet</Text>
-          <Text style={styles.emptyBody}>
-            Property inquiries and viewing updates will appear here once you start a conversation.
-          </Text>
-          <AppButton label="Start a listing inquiry" onPress={viewModel.startInquiry} />
-        </View>
-      </MessagingScaffold>
-    );
-  }
-
-  return (
-    <MessagingScaffold
-      actionLabel="Empty"
-      onAction={() => viewModel.navigate('emptyInbox')}
-      onClose={onClose}
-      title="Messages"
-    >
-      <View style={styles.headingRow}>
-        <View>
-          <Text style={styles.eyebrow}>{viewModel.actor === 'landlord' ? 'LANDLORD INBOX' : 'TENANT INBOX'}</Text>
-          <Text style={styles.heading}>Your conversations</Text>
-        </View>
-        <Pressable accessibilityRole="button" onPress={viewModel.startInquiry} style={styles.newButton}>
-          <Text style={styles.newButtonLabel}>New inquiry</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.searchBar}>
-        <View style={styles.searchIcon}>
-          <View style={styles.searchCircle} />
-          <View style={styles.searchHandle} />
-        </View>
-        <TextInput
-          accessibilityLabel="Search messages"
-          onChangeText={viewModel.setSearchText}
-          placeholder="Search people or listings"
-          placeholderTextColor={colors.textMuted}
-          style={styles.searchInput}
-          value={viewModel.searchText}
-        />
-      </View>
-
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => viewModel.navigate('upcomingViewing')}
-        style={({ pressed }) => [styles.upcomingWrap, pressed && styles.pressed]}
-      >
-        <Text style={styles.sectionLabel}>UPCOMING</Text>
-        <ViewingSummaryCard
-          date="Sunday, September 20, 2026"
-          status="accepted"
-          time="10:30 AM"
-        >
-          <Text style={styles.tapHint}>Tap to view schedule details</Text>
-        </ViewingSummaryCard>
-      </Pressable>
-
-      <Text style={styles.sectionLabel}>ALL MESSAGES</Text>
-      <View>
-        {viewModel.filteredConversations.map((conversation) => (
-          <ConversationRow
-            conversation={conversation}
-            key={conversation.id}
-            onPress={() => viewModel.openConversation(conversation.id)}
-          />
-        ))}
-      </View>
-      {viewModel.filteredConversations.length === 0 ? (
-        <Text style={styles.noSearchResults}>No conversation matches that search.</Text>
-      ) : null}
-    </MessagingScaffold>
-  );
-}
-
-const styles = StyleSheet.create({
-  headingRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  eyebrow: { color: colors.primary, fontFamily: typography.family, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  heading: { color: colors.text, fontFamily: typography.family, fontSize: 23, fontWeight: '900', marginTop: 4 },
-  newButton: { backgroundColor: colors.primaryPale, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 10 },
-  newButtonLabel: { color: colors.primary, fontFamily: typography.family, fontSize: 11, fontWeight: '800' },
-  searchBar: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.pill, flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, minHeight: 48, paddingHorizontal: spacing.md },
-  searchIcon: { height: 20, position: 'relative', width: 20 },
-  searchCircle: { borderColor: colors.textMuted, borderRadius: 7, borderWidth: 1.5, height: 13, left: 1, position: 'absolute', top: 1, width: 13 },
-  searchHandle: { backgroundColor: colors.textMuted, height: 1.5, left: 12, position: 'absolute', top: 13, transform: [{ rotate: '45deg' }], width: 7 },
-  searchInput: { color: colors.text, flex: 1, fontFamily: typography.family, fontSize: 13, paddingVertical: spacing.sm },
-  sectionLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: spacing.xs, marginTop: spacing.lg },
-  upcomingWrap: { marginTop: spacing.xs },
-  tapHint: { color: colors.primary, fontFamily: typography.family, fontSize: 10, fontWeight: '700' },
-  noSearchResults: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, paddingVertical: spacing.xl, textAlign: 'center' },
-  emptyState: { alignItems: 'center', flex: 1, gap: spacing.md, justifyContent: 'center', paddingBottom: spacing.xxl },
-  emptyGraphic: { alignItems: 'center', backgroundColor: colors.primaryPale, borderRadius: 60, height: 120, justifyContent: 'center', width: 120 },
-  emptyBubble: { borderColor: colors.primary, borderRadius: radius.md, borderWidth: 3, height: 52, position: 'relative', width: 68 },
-  emptyTail: { borderBottomColor: colors.primary, borderBottomWidth: 12, borderLeftColor: 'transparent', borderLeftWidth: 12, bottom: -12, height: 0, left: 10, position: 'absolute', width: 0 },
-  emptyLine: { backgroundColor: colors.primary, borderRadius: 2, height: 3, left: 13, position: 'absolute', top: 31, width: 26 },
-  emptyLineLong: { top: 17, width: 40 },
-  emptyTitle: { color: colors.text, fontFamily: typography.family, fontSize: 24, fontWeight: '900', textAlign: 'center' },
-  emptyBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21, maxWidth: 320, textAlign: 'center' },
-  pressed: { opacity: 0.72 },
-});
+const styles=StyleSheet.create({screen:{flex:1,backgroundColor:colors.background},content:{padding:16},section:{gap:8,paddingVertical:12},rowText:{flex:1,minWidth:0,gap:3},participant:{...ui.body,fontWeight:'600'},row:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:14,borderBottomWidth:1,borderBottomColor:colors.outline},heading:{...ui.sectionTitle},copy:{...ui.supporting},small:{...ui.supporting,fontSize:12},error:{...ui.supporting,color:colors.restricted},action:{minHeight:48,justifyContent:'center'},link:{...ui.supporting,color:colors.primaryAction,fontWeight:'600'}});

@@ -32,9 +32,9 @@ test('credential identities are unique and all body/header color pairs meet 4.5:
 test('Profile tier keys coordinate identity without inferring status or property approval', () => {
   const summary = accountVerificationSummary({ tier1_verified_at: 'date', tier2_verified_at: null, tier3_verified_at: 'date' }, ['landlord']);
   assert.deepEqual(summary.map(i => verificationTierIdentities[i.tier].name), ['Account', 'Identity', 'Property']);
-  assert.deepEqual(summary.map(i => i.status.label), ['Verified', 'Not Verified', 'Verified']);
-  assert.match(summary[2]!.detail, /Account-level indication.*each individual property/);
-  assert.equal(accountVerificationSummary(null, ['tenant'])[2]!.status.label, 'Not Applicable');
+  assert.deepEqual(summary.map(i => i.status.label), ['Verified', 'Not Verified', 'Checked per Property']);
+  assert.match(summary[2]!.detail, /each individual property.*Account preferences/);
+  assert.equal(accountVerificationSummary(null, ['tenant'])[2]!.status.label, 'Checked per Property');
 });
 test('all submission decisions stay distinct from credential palettes', () => {
   assert.deepEqual((['pending', 'under_review', 'approved', 'rejected', 'cancelled', 'revoked'] as const).map(s => verificationStatusPresentation(s).label), ['Pending', 'Under Review', 'Verified', 'Rejected', 'Cancelled', 'Revoked']);
@@ -78,8 +78,8 @@ test('Profile overhaul uses one compact ledger, with real tier/status labels and
   assert.doesNotMatch(profile, /styles.profileIsland|styles.profileCard|styles.profileActions/);
   assert.doesNotMatch(summary, /item.detail/);
   assert.match(summary, /item.label.*item.status.label/);
-  assert.match(summary, /account-level indication, not verification of every property/);
-  assert.match(summary, /Account required.*Identity and Property optional/);
+  assert.match(summary, /Property verification applies only to the specific verified property/);
+  assert.match(summary, /Account verification required.*Identity optional/);
   assert.match(profile, /onOpenMatchingPreferences\?\.\(\)/);
   assert.match(profile, /onOpenRatingsReports\?\.\(\)/);
   assert.match(profile, /onOpenAdminModeration\?\.\(\)/);
@@ -92,7 +92,8 @@ test('Tenant, Landlord, dual-role, Admin and absent-profile summaries retain bac
     assert.deepEqual(missing.map(item => item.tier), [1, 2, 3]);
     assert.ok(missing.every(item => item.status.label !== 'Verified'));
     const verified = accountVerificationSummary({ tier1_verified_at: 'date', tier2_verified_at: 'date', tier3_verified_at: 'date' }, [...roles]);
-    assert.ok(verified.every(item => item.status.label === 'Verified'));
+    assert.ok(verified.slice(0,2).every(item => item.status.label === 'Verified'));
+    assert.equal(verified[2]?.status.label,'Checked per Property');
   }
 });
 

@@ -14,10 +14,6 @@ export function resolveProfileReturn(target: ProfileReturnTarget | null, userId:
   target = { ...target, workspace };
   if (access.admin) return target.workspace.type === 'adminModeration' ? target : null;
   if (!access.marketplace || target.workspace.type === 'adminModeration') return null;
-  if (target.mode === 'tenant' && !access.tenant) return null;
-  if (target.mode === 'landlord' && !access.landlord) return null;
-  if (target.workspace.type === 'properties' && !access.landlord) return null;
-  if (target.workspace.type === 'priceEstimate' && (target.workspace.actor === 'landlord' || target.workspace.returnTo === 'properties') && !access.landlord) return null;
   return target;
 }
 
@@ -31,7 +27,7 @@ function profilePredecessor(workspace: NonNullable<AppWorkspace>): AppWorkspace 
     case 'discovery': return workspace.initialScreen === 'home' ? { type: 'discovery', initialScreen: 'home' } : null;
     case 'properties': return { type: 'properties', initialScreen: 'dashboard' };
     case 'messages': return { type: 'messages', initialScreen: 'inbox' };
-    case 'maintenance': case 'adminModeration': return workspace;
+    case 'tenancy': case 'maintenance': case 'adminModeration': return workspace;
     default: return null;
   }
 }

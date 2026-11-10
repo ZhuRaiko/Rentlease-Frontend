@@ -1,3 +1,4 @@
+import type {ReactNode} from 'react';
 import {FeedbackNotice} from '../../../shared/components/FeedbackNotice';
 import { StyleSheet, Text } from 'react-native';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
@@ -7,7 +8,7 @@ import { colors } from '../../../shared/theme/colors';
 import { typography } from '../../../shared/theme/typography';
 import { formatVerificationDate } from '../../../shared/utils/formatVerificationDate';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
-export function PublishedListingStatusView({ viewModel, onClose }: { viewModel: PropertyListingViewModel; onClose: () => void }) {
+export function PublishedListingStatusView({ viewModel, onClose, estimateSection }: { estimateSection?:ReactNode; viewModel: PropertyListingViewModel; onClose: () => void }) {
   const state = viewModel.lifecycleState;
   const row = viewModel.realListing;
   const operation = state.confirmation;
@@ -27,6 +28,7 @@ export function PublishedListingStatusView({ viewModel, onClose }: { viewModel: 
     {row?.paused_at ? <Text style={styles.detail}>Paused: {formatVerificationDate(row.paused_at)}</Text> : null}
     {row?.archived_at ? <Text style={styles.detail}>Archived: {formatVerificationDate(row.archived_at)}</Text> : null}
     {row?.updated_at ? <Text style={styles.detail}>Updated: {formatVerificationDate(row.updated_at)}</Text> : null}
+    {estimateSection}
     {!operation&&row&&['active','paused'].includes(row.status)?<ListingButton label="Edit Listing" disabled={viewModel.lifecycleBlocked} onPress={viewModel.editManagedListing}/>:null}
     {operation ? <>
       <Text accessibilityRole="header" style={styles.title}>{viewModel.lifecycleLabel[operation]}?</Text>
@@ -34,7 +36,7 @@ export function PublishedListingStatusView({ viewModel, onClose }: { viewModel: 
       <ListingButton label={`Confirm ${viewModel.lifecycleLabel[operation].toLowerCase()}`} disabled={viewModel.lifecycleBlocked} onPress={() => void viewModel.lifecycle.confirm()} />
       <ListingButton label="Cancel" tone="outline" onPress={viewModel.lifecycle.cancel} />
     </> : viewModel.lifecycleActions.map(action => <ListingButton key={action} label={viewModel.lifecycleLabel[action]} tone="outline" disabled={viewModel.lifecycleBlocked} onPress={() => viewModel.lifecycle.request(action)} />)}
-    <ListingButton label="Back to My Listings" tone="outline" disabled={state.busy} onPress={viewModel.goDashboard} />
+    <ListingButton label="Back to My Rentals" tone="outline" disabled={state.busy} onPress={viewModel.goDashboard} />
   </ListingWizardScaffold>;
 }
 const styles = StyleSheet.create({ title: { fontFamily: typography.family, color: colors.text, fontSize: 22, fontWeight: '700' }, detail: { fontFamily: typography.family, color: colors.textSecondary, fontSize: 14, lineHeight: 21 } });

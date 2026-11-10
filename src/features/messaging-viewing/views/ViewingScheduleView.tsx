@@ -12,10 +12,10 @@ import {
 } from '../components/MessagingCards';
 import { MessagingScaffold } from '../components/MessagingScaffold';
 import { viewingDates, viewingTimes, type ViewingStatus } from '../models/MessagingViewing';
-import type { MessagingViewingViewModel } from '../viewModels/useMessagingViewingViewModel';
+import type { ViewingPreviewViewModel } from '../viewModels/useViewingPreviewViewModel';
 
 interface ViewingScheduleViewProps {
-  viewModel: MessagingViewingViewModel;
+  viewModel: ViewingPreviewViewModel;
 }
 
 function ScreenIntroduction({ eyebrow, title, body }: { eyebrow: string; title: string; body: string }) {
@@ -36,7 +36,7 @@ function ScheduleStatusScreen({
   body,
   children,
 }: React.PropsWithChildren<{
-  viewModel: MessagingViewingViewModel;
+  viewModel: ViewingPreviewViewModel;
   status: ViewingStatus;
   eyebrow: string;
   title: string;

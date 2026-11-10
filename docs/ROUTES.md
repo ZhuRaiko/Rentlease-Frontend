@@ -29,7 +29,7 @@ Profile's prominent mode switcher has been removed. Its root-supplied marketplac
 
 Android Modal Back delegates only to the current account/workspace registered feature action. Verification, Discovery, Listings, Notifications, Messaging, Maintenance, Ratings & Reports, Price Estimation and Admin each register feature-owned Back with cleanup. Nested screens use their existing ViewModel history before parent dismissal. Discovery hardware Back follows nested feature history first; at Home it requests native Android exit confirmation (Cancel stays; Exit invokes BackHandler.exitApp). Its explicit Profile control remains separate. Listings hardware Back follows wizard/detail history, then dashboard, then Discovery. The Post postingType root exits to Discovery through the existing draft guard. My Listings has no redundant Back to Profile strip. Unsaved listing edits or Matching Preferences require Stay/Leave confirmation before guarded exits. Back on that dialog cancels navigation. This is one pending intent, not another navigation history. Notifications Back returns to Discovery, its current entry origin; permission screens return to the notification center first. Price Estimation retains its Discovery/Listing parent. Chat inbox and Tenancy/Maintenance roots use hardware Back to Discovery; their explicit Profile entry callbacks remain separate. Ratings & Reports retains its Profile parent. Profile-entered Matching Preferences Back uses the same guarded parent exit as Close; introduction Save/Skip behavior remains unchanged.
 
-The common toolbar also appears on eligible ordinary Profile, with no selected tab; Admin/onboarding/restricted screens do not expose it. It has 48dp targets, readable labels and existing safe-area handling. Only the actual selected tab is highlighted; Post is not always marked active. Matching Preferences, Notifications, Ratings/Reports and the separate estimator tool have no falsely selected main tab. Existing Tenancy navigation still opens Maintenance preview.
+The common toolbar also appears on eligible ordinary Profile, with no selected tab; Admin/onboarding/restricted screens do not expose it. It has 48dp targets, readable labels and existing safe-area handling. Only the actual selected tab is highlighted; Post is not always marked active. Matching Preferences, Notifications, Ratings/Reports and the separate estimator tool have no falsely selected main tab. Tenancy opens the real read-only rental workspace; Maintenance preview is accessible inside it.
 
 ## User Verification feature states
 
@@ -90,41 +90,31 @@ The independent GPS path remains backend-backed: Search Location -> explanation 
 
 ## Rental Price Estimation feature states
 
-Tenant entry opens from a Discovery property detail for fair-rent comparison. Landlord entry opens from a listing detail or listing management for asking-rent guidance. `App` swaps the active workspace to `RentalPriceEstimationFlowView` and returns to the corresponding Discovery or Property workspace when the estimator is closed. The universal toolbar remains present throughout this authenticated feature.
+Eligible unified accounts open the estimator from real Discover/manual/GPS listing details (Estimate rental price) or My Listings management. Root-owned workspace return retains the existing Discovery/Properties destination behavior; it does not add persistent nested-detail restoration. Actor sets only the initial tab, never authorization. The existing five-tab toolbar remains.
 
-| Flow | Feature states | Component | Actor |
-|---|---|---|---|
-| Introduction and property selection | `introduction`, `selectProperty` | `RentalPriceEstimationView` | Tenant / Landlord |
-| Property information review and estimate request | `propertyReview`, `loading` | `RentalPriceEstimationView` | Tenant / Landlord |
-| Landlord estimate result | `landlordResult` | `RentalPriceEstimationView` | Landlord |
-| Suggested rental range | `suggestedRange` | `RentalPriceEstimationView` | Landlord |
-| Asking-rent comparison | `landlordComparison` | `RentalPriceEstimationView` | Landlord |
-| Fair-rent comparison | `tenantComparison` | `RentalPriceEstimationView` | Tenant |
-| Methodology, disclaimer and dated estimates | `estimateInformation`, `estimateHistory` | `RentalPriceEstimationView` | Tenant / Landlord |
-| Unavailable and retryable error states | `unavailable`, `error` | `RentalPriceEstimationView` | Tenant / Landlord |
+| Flow | State | Component |
+| --- | --- | --- |
+| Owner/published property selection | Actual rows, pagination, loading/empty/error | RentalPriceEstimationView |
+| Stored property review | Selected candidate and model-input limitation | RentalPriceEstimationView |
+| Inference | Pending request, cancellation, explicit retry | priceEstimationWorkflow |
+| Result | Actual PHP/month prediction, stored asking rent/difference, receipt time | RentalPriceEstimationView |
+| Unavailable | Unsupported type, missing floor area, authorization/service error | RentalPriceEstimationView |
 
-The current result data and loading transition are local presentation previews. No request is sent through `priceEstimationClient`, and no estimate or property data is read from or written to Supabase.
+Back cancels pending inference, then returns through result/review to selection, then to the existing origin. Fake range/confidence/history routes are removed. Proxy deployment, live Render prediction and Android acceptance remain pending. See [Rental Price Estimation](features/RENTAL_PRICE_ESTIMATION.md).
 
 ## Messaging & Viewing Schedules feature states
 
-The Chat item in the universal toolbar opens `MessagingViewingFlowView` at the inbox for both Tenant and Landlord accounts. The Message Landlord action in a Discovery property detail opens the same flow at a new listing inquiry. `App` owns these workspace transitions, while the feature ViewModel owns conversation and viewing-schedule state. Discover, landlord Listing/Post and Chat navigation remain available from the same universal safe-area toolbar.
+Chat opens the real participant inbox for unified accounts. Contact Owner in shared real Listing Details creates/reuses a property inquiry and opens its conversation over the retained Discovery context. The conversation offers Schedule Viewing / appointments to its renter and Viewing requests to its owner; the inbox Viewings action opens appointments across conversations. Existing Post and bottom destinations remain unchanged. No attachment, reservation, or completed-viewing preview is mounted in the real flow.
 
-| Flow | Feature states | Component | Actor |
-|---|---|---|---|
-| Messages and empty inbox | `inbox`, `emptyInbox` | `MessagingInboxView` | Tenant / Landlord |
-| Conversation and listing inquiry | `conversation`, `newInquiry` | `MessagingConversationView` | Tenant / Landlord |
-| Message attachment presentation | `attachment` | `MessagingConversationView` | Tenant / Landlord |
-| Viewing proposal setup | `proposeViewing`, `selectDate`, `selectTime`, `reviewProposal` | `ViewingScheduleView` | Tenant / Landlord |
-| Proposal response states | `proposalPending`, `proposalAccepted`, `proposalDeclined`, `counterProposal` | `ViewingScheduleView` | Tenant / Landlord |
-| Confirmed viewing and upcoming appointment | `viewingDetails`, `upcomingViewing` | `ViewingScheduleView` | Tenant / Landlord |
-| Viewing cancellation and completion | `cancelViewing`, `viewingCancelled`, `viewingCompleted` | `ViewingScheduleView` | Tenant / Landlord |
-| Unavailable listing conversation | `listingUnavailable` | `MessagingConversationView` | Tenant / Landlord |
+`MessagingViewingFlowView` owns the nested appointment workspace; `usePropertyViewingsViewModel` owns its account-keyed persisted workflow. Requests, Upcoming, and Past / cancelled use the same bounded appointment pages. An editor requests, accepts, declines, proposes a different time, or cancels only through the prepared RPC contracts. Editor Back returns to appointments, then Chat, then the original listing origin when present. Unknown writes require retry or an explicit leave confirmation. Account changes unmount and clear the old private workspace; foreground/reentry refresh does not depend on Realtime.
 
-All message sending, attachments, schedule proposals and schedule decisions are local frontend previews. Supabase database persistence, Realtime subscriptions, Storage uploads, push notification delivery and server-authoritative availability checks remain disconnected.
+UC-08 persistence and metadata subscriptions are deployed. UC-09A is deployed as 20261106125046 and read-only live-verified; real appointment/Android acceptance remains pending.
+
+UC-09B is a separate reservation panel in the same account-scoped flow: conversation Request Reservation / Reservation requests, or inbox Rental reservations. It has a move-in/month-duration/message request form, owner decisions, participant cancellation, Pending/Approved/Past categories and history. It does not reuse appointment records or add a bottom tab. Back returns through its editor and management screen to retained Chat/listing context; account switching clears either panel. Its independent migration is deployed as 20261106130211 and read-only live-verified; two-account Android reservation acceptance remains pending. See [Messaging, Viewing & Reservations](features/MESSAGING_VIEWING.md).
 
 ## Maintenance Requests feature states
 
-The Tenancy item in the universal toolbar currently opens `MaintenanceRequestsFlowView` for Tenant and Landlord accounts. `App` owns the workspace transition, while `useMaintenanceRequestsViewModel` owns the request draft, lifecycle status, repair schedule, rejection and dispute presentation state. This provides an authenticated entry for Maintenance without introducing a navigation dependency; the separate Tenancy Management cohort remains scaffolded.
+The Tenancy item opens `TenancyWorkspaceView` for eligible unified accounts. Its Maintenance requests link opens `MaintenanceRequestsFlowView`; Maintenance Back and its Tenancy tab return to the rental workspace. `App` owns the workspace transition, while `useMaintenanceRequestsViewModel` owns the request draft, lifecycle status, repair schedule, rejection and dispute presentation state. This provides an authenticated entry for Maintenance without introducing a navigation dependency; the separate Tenancy workspace now reads actual reservation and tenancy relationships.
 
 | Flow | Feature states | Component | Actor |
 |---|---|---|---|
@@ -260,3 +250,26 @@ My Listings contextual Tier 3 (2026-11-01): property card -> retained dashboard 
 
 
 Milestone 4 route: Edit Property Details (`propertyEdit`) -> Request Identity Correction (`identityEdit`) -> existing contextual Tier 3 Modal; map search/pin UI reuses the existing location tool. Back uses the existing scoped unsaved-property confirmation, preserving unsaved listing context. Admin uses the existing verification detail/review confirmation. No router or global navigation infrastructure is added. Backend deployed as 20261102081459; Android acceptance remains pending. See [identity corrections](features/PROPERTY_LISTING_MANAGEMENT.md#milestone-4-identity-correction-implementation-2026-11-02).
+
+
+## November 7 - Property-centered UC-09 routes
+
+My Listings -> property Manage Requests -> Viewings/Reservations -> existing action editor. Hardware/header Back closes the editor first (preserving uncertain-write safeguards), then returns to the retained portfolio and refreshes counters. Chat Inbox -> My Requests filters actual requester rows; Open conversation returns to the real related conversation. Existing conversation-specific viewing/reservation entries remain. Tenancy -> Upcoming Rentals/Active Rentals/Rental History; Maintenance requests opens the existing preview and Back returns to Tenancy. Root-owned account keys and request generations isolate account/property changes. No new bottom tab. See features/TENANCY.md and features/MESSAGING_VIEWING.md; Android runtime acceptance pending.
+
+
+## November 8 - Content recommendation routes
+
+Discover -> Recommended for You -> existing real Listing Details. View ranked rentals and Search Sort -> Recommended/Best Match use the same 100-result recent filtered pool. Recommended blends preference/authorized verification/completeness; Best Match is relevance only. Both require explicitly saved session preferences. Preferences -> Save reranks; account changes clear; hard filter/query changes reload. Recent/price sorts keep normal server paging. Bounded-ranking and unknown-verification limitations are visible; For You remains community. GPS/map, Post, UC-08/09 and estimator routes are preserved. See features/PROPERTY_RECOMMENDATIONS.md; Android acceptance pending.
+
+
+November 8 inline estimator: saved property/listing detail contexts now offer user-triggered inline rental estimation without leaving details. Real Discover and Chat-linked listing details bind the current listing ID. The standalone estimator route remains compatibility-only; normal details no longer navigate to its picker. See RENTAL_PRICE_ESTIMATION.md for validation and Android acceptance limits. No property creation/publication rules changed.
+
+
+## Rental price guidance and scoped Phase 2 completion - November 10, 2026
+
+Listing draft -> Monthly asking rent -> compact inline guidance for the saved property -> optional Use estimate updates local asking rent. No navigation to the standalone picker and no property creation/publishing for prediction. Property/details inline estimates remain; Back/account/property cancellation preserved. Compatibility-only estimator route retained.
+
+
+### Tenancy dashboard and T1 setup (November 10, local preparation)
+
+The existing Tenancy root is now a structured dashboard; earlier read-only descriptions are historical. It opens same-feature TenancySetupView for an approved reservation/source-bound tenancy. App also injects this renderer into Chat reservation actions, retaining the mounted reservation/conversation workspace. Nested Back returns to that origin, blocks saving and guards uncertain outcomes. No new bottom tab/router. Maintenance still opens its preview and returns to Tenancy. T1 RPCs deployed as 20261110062844; frontend release and actual caller/native acceptance remain pending.

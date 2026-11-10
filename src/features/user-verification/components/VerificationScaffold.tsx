@@ -1,6 +1,7 @@
+import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import type { PropsWithChildren } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {  StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
 import { ui } from '../../../shared/theme/ui';

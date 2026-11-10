@@ -1,4 +1,6 @@
+import type {ReactNode} from 'react';
 import {ListingButton} from '../components/ListingButton';
+import {ScreenContainer} from '../../../shared/components/ScreenContainer';
 import { usePropertyFormFocus } from '../components/usePropertyFormFocus';
 import { PropertyProgressFooter } from '../components/PropertyProgressFooter';
 import { PropertyAmenitiesFields } from '../components/PropertyAmenitiesFields';
@@ -12,17 +14,18 @@ import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
 import { PropertyLocationToolView } from './PropertyLocationToolView';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
-// Page 1: physical property only. Next is local navigation, never persistence.
-export function ListingComposerView({ viewModel: vm, onClose }: { viewModel: PropertyListingViewModel; onClose: () => void }) {
+// Page 1: physical property only. Next confirms property persistence before opening listing details.
+export function ListingComposerView({ viewModel: vm, onClose, estimateSection }: { estimateSection?:ReactNode; viewModel: PropertyListingViewModel; onClose: () => void }) {
   const focus=usePropertyFormFocus(vm.propertyValidationTarget);
   const mapOpen = ['searching', 'candidates', 'map'].includes(vm.locationState.stage);
   return <>
-    <Modal visible={mapOpen} onRequestClose={vm.propertyLocation.cancel} animationType="slide"><PropertyLocationToolView viewModel={vm} onClose={vm.propertyLocation.cancel} /></Modal>
+    <Modal visible={mapOpen} onRequestClose={vm.propertyLocation.cancel} animationType="slide"><ScreenContainer padded={false}><PropertyLocationToolView viewModel={vm} onClose={vm.propertyLocation.cancel} /></ScreenContainer></Modal>
     <ListingWizardScaffold formFocus={focus} footer={<PropertyProgressFooter viewModel={vm}/>} title="Property" onBack={vm.goBack} onClose={onClose}>
       {!vm.workspacePropertyId ? <Text style={styles.copy}>* Required to save the property</Text> : null}
       <PropertyMediaSection viewModel={vm} />
       <ComposerRecoveryFeedback viewModel={vm} />
-    {vm.propertyEditAvailable?<ListingButton label="Edit Property Details" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={vm.openPropertyDetails}/>:null}
+      {estimateSection}
+    {vm.propertyEditAvailable?<ListingButton label="Edit Property" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={vm.openPropertyDetails}/>:null}
       <ComposerPropertyFields viewModel={vm} focus={focus}>
         <View collapsable={false} ref={focus.section('amenities')}><PropertyAmenitiesFields viewModel={vm} /></View>
       </ComposerPropertyFields>

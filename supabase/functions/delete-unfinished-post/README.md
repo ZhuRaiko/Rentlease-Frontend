@@ -1,0 +1,9 @@
+# Delete unfinished post ? prepared only
+
+POST body: `{ "propertyId": "uuid" }`. Caller JWT required; verify_jwt=true. Native clients only; no arbitrary owner/path/bucket arguments or provider logs. The handler authenticates with `/auth/v1/user`, calls `delete_unfinished_post` using the caller JWT, and processes only the committed server-owned media queue using worker-only RPCs and the Storage API. No service credential is sent to the app or retrieved in this task.
+
+HTTP 200 state=completed is full completion; HTTP 202 state=cleanup_pending requires retry. Database deletion commits before external Storage deletion. All retries use the same property ID; retained registry records make them idempotent. Partial cleanup does not undo database deletion or claim full success. `get_unfinished_post_deletion` and `list_unfinished_post_cleanup` allow read-only owner recovery after a lost response or app restart. Owned bytes are removed in batches of at most 1,000; missing objects are safe to retry. Final RPC confirms queued object absence. No SQL deletes from storage.objects.
+
+Deployment requires separate approval, the isolated unfinished_property_deletion migration first, then this named function, then frontend. Preserve existing secrets, estimation functions, UC-09 and Tier 2. Fresh backup/catalog review must include registry FKs and evidence retention; regenerate/compare types after apply. Hosted Storage/Auth/RLS and Android acceptance remain pending. Existing environment contracts are SUPABASE_URL, SUPABASE_ANON_KEY and server-only SUPABASE_SERVICE_ROLE_KEY. No new frontend secret.
+
+Disable new deletion requests only after pending cleanup is reconciled; retain registry and evidence FKs. Reversing migrations does not restore permanently removed properties or bytes. See the continuous Property & Listing feature document, implementation history and backend ledger.

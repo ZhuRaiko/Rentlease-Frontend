@@ -7,8 +7,8 @@ export function createLandlordPortfolioService(getClient: () => SupabaseClient<D
   const failed = (stage: PortfolioStage, error: unknown, identity = false) => {
     const event = portfolioDiagnostic(stage,error);
     try { diagnose(event); } catch { /* Diagnostics cannot affect loading. */ }
-    const message = identity ? 'Sign in again or reload My Listings after your account changes.'
-      : event.classification === 'schema' ? 'My Listings could not load because its database contract is unavailable. Try again after the app and backend are updated.'
+    const message = identity ? 'Sign in again or reload My Rentals after your account changes.'
+      : event.classification === 'schema' ? 'My Rentals could not load because its database contract is unavailable. Try again after the app and backend are updated.'
       : event.classification === 'authorization' ? 'Could not access your properties. Check your account access and try again.'
       : 'Could not load your properties. Check your connection and try again.';
     return new PortfolioError(message,identity);

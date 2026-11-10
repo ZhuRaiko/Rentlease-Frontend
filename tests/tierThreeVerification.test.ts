@@ -27,8 +27,8 @@ function fixture() {
   const ready = async () => { await workflow.refresh(); await workflow.selectProperty(property.id); workflow.chooseDocumentType('land_title'); await workflow.pickDocument(); workflow.navigate('review'); };
   return { workflow, calls, ready, fail: (v: string) => { fail = v; }, setLatest: (v: TierThreeSubmission | null) => { latest = v; }, setProperties: (value: typeof properties) => { properties = value; }, noProperties: () => { properties = []; }, switchUser: () => { user = 'other'; }, cancel: () => { cancel = true; }, pause: () => { paused = true; }, release: () => release?.(), failFinalRefresh: () => { finalRefreshFailure = true; } };
 }
-test('Tier 3 entry requires Tier 1 and landlord, not Tier 2', () => {
-  assert.equal(canEnterTierThree(true, true), true); assert.equal(canEnterTierThree(false, true), false); assert.equal(canEnterTierThree(true, false), false);
+test('Tier 3 account entry requires Tier 1, not a role or Tier 2', () => {
+  assert.equal(canEnterTierThree(true), true); assert.equal(canEnterTierThree(false), false);
 });
 
 test('separate type step and confirmation cancellation retain property/type/file without writes', async () => {

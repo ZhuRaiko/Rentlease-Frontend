@@ -33,7 +33,7 @@ export function createTierThreeVerificationWorkflow({ service, selectDocument, u
       const submission = propertyId ? await service.fetchLatest(id, propertyId) : null; alive(attempt);
       userId = id;
       update({ properties, propertyId, submission, loaded: true, requiresRefresh: false, screen: submission ? 'status' : propertyId ? 'documentType' : state.screen === 'intro' ? 'intro' : 'property' });
-    } catch { if (current(attempt)) update({ properties: [], propertyId: null, submission: null, loaded: false, requiresRefresh: true, error: 'Could not load Tier 3. Check your connection and active Tier 1-verified landlord account, then refresh.' }); }
+    } catch { if (current(attempt)) update({ properties: [], propertyId: null, submission: null, loaded: false, requiresRefresh: true, error: 'Could not load Tier 3. Check your connection and active Tier 1-verified account, then refresh.' }); }
     finally { if (current(attempt)) update({ isLoading: false }); }
   };
   const navigate = (screen: TierThreeScreen) => {

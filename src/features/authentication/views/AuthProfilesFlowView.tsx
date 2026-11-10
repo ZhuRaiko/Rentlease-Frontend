@@ -21,7 +21,7 @@ import { WelcomeView } from './WelcomeView';
 
 const registrationScreens = new Set([
   'registrationName', 'registrationNickname', 'registrationEmail', 'registrationPassword',
-  'emailConfirmation', 'registrationPhone', 'mobileConfirmation', 'verificationPending', 'roleSelection',
+  'emailConfirmation', 'registrationPhone', 'mobileConfirmation', 'verificationPending',
 ]);
 
 interface AuthProfilesFlowViewProps {

@@ -41,7 +41,7 @@ export function PropertyProgressFooter({viewModel:vm,action,guidance}:ProgressFo
     </View>
     <View accessibilityRole="progressbar" accessibilityLabel="Listing completeness" accessibilityValue={{min:0,max:100,now:value.percent,text:`${value.percent} percent, ${value.source==='server'?'backend-confirmed score':'local estimate'}`}} style={styles.track}><View style={[styles.fill,{width:`${value.percent}%`}]}/></View>
     {action ? guidance : vm.propertyNextDisabled?<PropertyReadinessNotice viewModel={vm}/>:null}
-    <ListingButton label={action?.label ?? "Next: Listing"} disabled={action ? action.disabled : vm.propertyNextDisabled} onPress={action?.onPress ?? vm.nextListingDetails}/>
+    <ListingButton label={action?.label ?? (vm.composerPhase==='property'?"Saving property...":"Next: Listing")} disabled={action ? action.disabled : vm.propertyNextDisabled} onPress={action?.onPress ?? vm.nextListingDetails}/>
   </View>;
 }
 const styles=StyleSheet.create({

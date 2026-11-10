@@ -12,7 +12,7 @@ import { ReviewFlowView } from './ReviewFlowView';
 
 interface RatingsReportsFlowViewProps {
   actor: RatingsReportsActor;
-  isLandlord: boolean;
+  canPostProperty: boolean;
   onClose: () => void;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onCreateListing: () => void;
@@ -35,7 +35,7 @@ const reviewScreens = new Set([
 
 export function RatingsReportsFlowView({
   actor,
-  isLandlord,
+  canPostProperty,
   onClose,
   registerBackAction,
   onCreateListing,
@@ -66,20 +66,20 @@ export function RatingsReportsFlowView({
         onChat={onOpenChat}
         onDiscover={onOpenDiscover}
         onListing={() => {
-          if (isLandlord) {
+          if (canPostProperty) {
             onOpenListings();
             return;
           }
           viewModel.openHome();
-          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
+          viewModel.setNotice('Complete account verification to manage listings.');
         }}
         onPost={() => {
-          if (isLandlord) {
+          if (canPostProperty) {
             onCreateListing();
             return;
           }
           viewModel.openHome();
-          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
+          viewModel.setNotice('Complete account verification before posting.');
         }}
         onTenancy={onOpenMaintenance}
       />

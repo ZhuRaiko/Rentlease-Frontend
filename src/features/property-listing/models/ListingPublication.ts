@@ -26,7 +26,7 @@ export function publicationBackendError(error: { code?: string; message?: string
   if (message === 'Authentication required') return new PublicationError('Sign in again before publishing.');
   if (message === 'Tier 1 verified active account required') return new PublicationError('Publication requires an active Tier 1-verified account.');
   if (message === 'Landlord role required') return new PublicationError('The Landlord role is required to publish a listing.');
-  if (message === 'Owned listing required') return new PublicationError('You can publish only your own listing. Reopen My Listings.');
+  if (message === 'Owned listing required') return new PublicationError('You can publish only your own listing. Reopen My Rentals.');
   if (message === 'Owned active property required') return new PublicationError('Publication requires an active property that you own.');
   if (message === 'Only a draft listing can be published') return new PublicationError('Only a draft listing can be published. Check current status.');
   if (/Approved Tier 3 verification for this property/i.test(message)) return new PublicationError('This property must have approved Tier 3 ownership verification before it can be published.');

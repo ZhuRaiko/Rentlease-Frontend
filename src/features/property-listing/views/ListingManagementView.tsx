@@ -1,3 +1,4 @@
+import type {ReactNode} from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '../../../shared/theme/colors';
@@ -14,7 +15,7 @@ import type { PropertyListingViewModel } from '../viewModels/usePropertyListingV
 interface ListingManagementViewProps {
   viewModel: PropertyListingViewModel;
   onClose: () => void;
-  onOpenPriceEstimate: () => void;
+  estimateSection?:ReactNode;
 }
 
 const confirmationContent: Record<
@@ -78,7 +79,7 @@ function EditDestination({
 export function ListingManagementView({
   viewModel,
   onClose,
-  onOpenPriceEstimate,
+  estimateSection,
 }: ListingManagementViewProps) {
   const { screen, listing } = viewModel;
 
@@ -138,7 +139,7 @@ export function ListingManagementView({
       <PropertySummaryCard listing={listing} onPress={() => viewModel.navigate('published')} />
       {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
       <ListingButton label="Edit listing" onPress={viewModel.startEdit} />
-      <ListingButton label="Estimate rental price" onPress={onOpenPriceEstimate} tone="outline" />
+      {estimateSection}
       {listing.status === 'published' ? (
         <ListingButton label="Pause listing" onPress={() => viewModel.navigate('pauseConfirmation')} tone="dark" />
       ) : null}

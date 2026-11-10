@@ -20,6 +20,9 @@ function geocoder(payload: unknown = { features: [feature()] }) {
   return { search, calls };
 }
 const context = { addressRevision: 2, setupId: 'fixture-setup', query: 'Example street, Imus, Cavite, Philippines' };
+test('changed query or candidate clears confirmation and cancel cannot restore it',async()=>{
+ for(const change of ['query','candidate','same-point-candidate'] as const){let invalidations=0;const other={...candidate,id:'B',...(change==='same-point-candidate'?{}:{latitude:15,longitude:121})};const flow=createPropertyLocationWorkflow({searchAddress:async()=>[candidate,other],getMapStyleUrl:()=>'fixture'},undefined,()=>invalidations++);await flow.open(context);flow.chooseCandidate(candidate.id);flow.mapLoaded();flow.confirmExact();await flow.open(context);if(change==='query')flow.updateQuery('Address B');else flow.chooseCandidate('B');flow.cancel();assert.equal(flow.getSnapshot().confirmedPoint,null);assert.ok(invalidations>0);assert.equal(flow.getSnapshot().stage,'closed');}
+});
 function locationHarness(searchAddress: (query: string, signal: AbortSignal) => Promise<typeof candidate[]> = async () => [candidate]) {
   const calls: { query: string; signal: AbortSignal }[] = [];
   const flow = createPropertyLocationWorkflow({ searchAddress: (query, signal) => { calls.push({ query, signal }); return searchAddress(query, signal); }, getMapStyleUrl: () => 'fixture-style' });
@@ -100,9 +103,10 @@ test('invalid native points do not replace the valid working pin; map failure bl
   for (const invalid of [[Infinity, 14], [190, 14], [120, 100], [], ['120', 14]]) h.flow.movePoint(invalid);
   assert.deepEqual(h.flow.getSnapshot().workingPoint, point); h.flow.mapFailed(); assert.equal(h.flow.confirmExact(), false);
 });
-test('cancel before confirmation creates no exact point; cancelling a later adjustment retains prior confirmation', async () => {
+test('cancel without a location change retains prior confirmation; changed pins require reconfirmation', async () => {
   const h = locationHarness(); await h.map(); h.flow.cancel(); assert.equal(h.flow.getSnapshot().confirmedPoint, null);
-  await h.map(); h.flow.confirmExact(); const point = h.flow.getSnapshot().confirmedPoint; await h.map(); h.flow.movePoint([121, 15]); h.flow.cancel(); assert.deepEqual(h.flow.getSnapshot().confirmedPoint, point);
+  await h.map(); h.flow.confirmExact(); const point = h.flow.getSnapshot().confirmedPoint; await h.map(); h.flow.cancel(); assert.deepEqual(h.flow.getSnapshot().confirmedPoint, point);
+  await h.map(); h.flow.movePoint([121, 15]); h.flow.cancel(); assert.equal(h.flow.getSnapshot().confirmedPoint, null);
 });
 test('address revision and different setup invalidate confirmed points and native callbacks immediately', async () => {
   const h = locationHarness(); await h.map(); h.flow.confirmExact(); const oldToken = h.flow.generationToken();

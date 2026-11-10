@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '../theme/colors';
+import {KeyboardViewport} from './KeyboardViewport';
 
 interface ScreenContainerProps extends PropsWithChildren {
   includeBottomInset?: boolean;
@@ -19,7 +20,7 @@ export function ScreenContainer({
       edges={includeBottomInset ? ['top', 'right', 'bottom', 'left'] : ['top', 'right', 'left']}
       style={[styles.container, padded && styles.padded]}
     >
-      {children}
+      <KeyboardViewport>{children}</KeyboardViewport>
     </SafeAreaView>
   );
 }

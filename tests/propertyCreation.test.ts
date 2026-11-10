@@ -15,6 +15,25 @@ const propertyId = 'a0000000-0000-4000-8000-000000000001';
 // Test fixtures only; production coordinates must come from the separate location workflow.
 const location = { exactLatitude: 14.4291, exactLongitude: 120.9367, publicLatitude: 14.43, publicLongitude: 120.94 };
 const validDraft = () => ({ ...emptyDraftProperty(), propertyType: 'studio' as const, city: 'imus' as const, barangay: 'Example barangay', addressLine1: 'Example street', ...location, bedrooms: '1', bathrooms: '1.5', floorAreaSqm: '32', floorNumber: '2', totalFloors: '3', maxOccupants: '2', addressLine2: 'Unit 2', postalCode: '4103', accessInstructions: 'Side entrance' });
+
+test('unanswered room counts cannot reach creation RPC, while explicitly entered zero can',async()=>{
+ const h=workflowHarness();await h.ready();h.flow.updateField('bedrooms','');h.flow.updateField('bathrooms','');
+ await h.flow.submit(true);assert.equal(h.calls(),0);assert.match(h.flow.getSnapshot().error??'',/count/);
+ h.flow.updateField('bedrooms','0');h.flow.updateField('bathrooms','0');await h.flow.submit(true);assert.equal(h.calls(),1);
+});
+test('confirm A then change each address field rejects old confirmation and preserves unrelated fields',async()=>{
+ for(const field of ['city','barangay','addressLine1','addressLine2','postalCode'] as const){const h=workflowHarness();await h.ready();const revision=h.flow.getSnapshot().locationRevision;h.flow.updateField(field,field==='city'?'tagaytay':'Address B');assert.equal(h.flow.locationReady(),false);h.flow.provideConfirmedLocation(location,revision);await h.flow.submit(true);assert.equal(h.calls(),0);assert.equal(h.flow.getSnapshot().draft.bedrooms,'1');h.flow.provideConfirmedLocation({...location,exactLongitude:121},h.flow.getSnapshot().locationRevision);await h.flow.submit(true);assert.equal(h.calls(),1);}
+});
+test('reselecting the same city and cosmetic address whitespace preserve confirmation',async()=>{const h=workflowHarness();await h.ready();const revision=h.flow.getSnapshot().locationRevision;h.flow.updateField('city','imus');h.flow.updateField('addressLine1',' Example street ');assert.equal(h.flow.locationReady(),true);assert.equal(h.flow.getSnapshot().locationRevision,revision);});
+test('creation lifecycle replay preserves UI and address-sync subscriptions',async()=>{const h=workflowHarness();let notices=0;const unsubscribe=h.flow.subscribe(()=>notices++);h.flow.dispose();h.flow.activate();await h.ready();notices=0;h.flow.updateField('addressLine1','Address B');assert.equal(notices,1);assert.equal(h.flow.locationReady(),false);unsubscribe();});
+test('a known failed save retains the newly confirmed location for retry without reporting success',async()=>{
+ const h=workflowHarness();await h.ready();h.flow.updateField('addressLine1','Address B');const exact={latitude:14.5,longitude:121},publicPoint=derivePublicPropertyPoint(exact);const confirmed={exactLatitude:exact.latitude,exactLongitude:exact.longitude,publicLatitude:publicPoint.latitude,publicLongitude:publicPoint.longitude};h.flow.provideConfirmedLocation(confirmed,h.flow.getSnapshot().locationRevision);h.fail(Error('Known fixture rejection'));await h.flow.submit(true);assert.equal(h.flow.getSnapshot().propertyId,null);assert.ok(h.flow.getSnapshot().error);assert.equal(h.flow.getSnapshot().draft.exactLongitude,121);assert.equal(h.flow.getSnapshot().draft.publicLongitude,publicPoint.longitude);h.fail(null);await h.flow.submit(true);assert.equal(h.flow.getSnapshot().propertyId,propertyId);
+});
+test('changing a map pin invalidates the owning creation draft even when cancelled',async()=>{
+ const h=workflowHarness();await h.ready();const candidate={id:'A',label:'Fixture',latitude:location.exactLatitude,longitude:location.exactLongitude};
+ const map=createPropertyLocationWorkflow({searchAddress:async()=>[candidate],getMapStyleUrl:()=>'fixture'},(point,revision)=>{h.flow.provideConfirmedLocation(point,revision);return h.flow.locationReady();},()=>h.flow.invalidateLocation());
+ await map.open({addressRevision:h.flow.getSnapshot().locationRevision,setupId:'fixture',query:'Address A'},location);map.chooseCandidate('A');map.mapLoaded();map.movePoint([121,15]);map.cancel();assert.equal(h.flow.locationReady(),false);await h.flow.submit(true);assert.equal(h.calls(),0);assert.equal(map.getSnapshot().confirmedPoint,null);
+});
 function serviceHarness() {
   let active = true, tierOne = true, landlord = true;
   let userId = 'owner', result: unknown = { property_id: propertyId, status: 'created' }, rpcError: unknown = null;
@@ -203,8 +222,8 @@ test('missing location leaves review available with no error and no backend writ
   assert.equal(h.flow.getSnapshot().draft.addressLine1, 'Example street');
 });
 
-test('UX eligibility refuses restricted, non-Tier-1 and non-Landlord accounts without checking Tier 3', async () => {
-  for (const [active, tierOne, landlord] of [[false, true, true], [true, false, true], [true, true, false]] as const) {
+test('UX eligibility refuses restricted and non-Tier-1 accounts without checking Tier 3', async () => {
+  for (const [active, tierOne, landlord] of [[false, true, true], [true, false, true]] as const) {
     const h = serviceHarness(); h.access(active, tierOne, landlord);
     await assert.rejects(h.service.create('owner', validDraft())); assert.equal(h.calls(), 0);
   }
@@ -227,10 +246,10 @@ test('normal confirmed map path supplies exact/private and generalized/public va
   assert.equal(backend.calls(), 1); assert.deepEqual(backend.payload(), payload); assert.equal(creation.getSnapshot().propertyId, propertyId); assert.equal(creation.getSnapshot().step, 'created');
 });
 
-for (const [message, expected] of [['Landlord role required', /Landlord/], ['Tier 1 verification required', /Tier 1/], ['Barangay is required', /barangay/i], ['Address line 1 is required', /address line 1/i], ['Property coordinates are required', /confirm.*location/i], ['Invalid latitude', /confirm.*location/i], ['One or more amenities are invalid or inactive', /amenit/i]] as const) test(`known property rejection is actionable: ${message}`,async()=>{const h=serviceHarness();h.setError({code:'22023',message});const flow=createPropertyCreationWorkflow(h.service);await flow.initialize();const d=validDraft();for(const key of ['propertyType','city','barangay','addressLine1'] as const)flow.updateField(key,d[key]);flow.provideConfirmedLocation(location,flow.getSnapshot().locationRevision);await flow.submit(true);assert.match(flow.getSnapshot().error??'',expected);assert.equal(flow.getSnapshot().uncertain,false);assert.equal(h.calls(),1);assert.equal(h.values.size,0);});
+for (const [message, expected] of [['Landlord role required', /Landlord/], ['Tier 1 verification required', /Tier 1/], ['Barangay is required', /barangay/i], ['Address line 1 is required', /address line 1/i], ['Property coordinates are required', /confirm.*location/i], ['Invalid latitude', /confirm.*location/i], ['One or more amenities are invalid or inactive', /amenit/i]] as const) test(`known property rejection is actionable: ${message}`,async()=>{const h=serviceHarness();h.setError({code:'22023',message});const flow=createPropertyCreationWorkflow(h.service);await flow.initialize();const d=validDraft();for(const key of ['propertyType','city','barangay','addressLine1','bedrooms','bathrooms'] as const)flow.updateField(key,d[key]);flow.provideConfirmedLocation(location,flow.getSnapshot().locationRevision);await flow.submit(true);assert.match(flow.getSnapshot().error??'',expected);assert.equal(flow.getSnapshot().uncertain,false);assert.equal(h.calls(),1);assert.equal(h.values.size,0);});
 test('real selected amenity IDs reach property RPC and duplicate/invalid IDs are rejected',async()=>{const h=serviceHarness();await h.service.create('owner',{...validDraft(),amenityIds:[4,19]});assert.deepEqual((h.payload() as any).p_amenity_ids,[4,19]);for(const amenityIds of [[-1],[1.5],[NaN],[4,4]])assert.ok(draftPropertyError({...validDraft(),amenityIds}));});
 
-for(const [a,t,l,message] of [[false,true,true,/active account/i],[true,false,true,/Tier 1/],[true,true,false,/Landlord/]] as const)test('preflight account eligibility gives safe error and sends no RPC: '+message,async()=>{const h=serviceHarness();h.access(a,t,l);await assert.rejects(h.service.create('owner',validDraft()),message);assert.equal(h.calls(),0);assert.equal(h.values.size,0);assert.equal((h.diagnostics.at(-1) as any).rpcSent,false);});
+for(const [a,t,l,message] of [[false,true,true,/active account/i],[true,false,true,/Tier 1/]] as const)test('preflight account eligibility gives safe error and sends no RPC: '+message,async()=>{const h=serviceHarness();h.access(a,t,l);await assert.rejects(h.service.create('owner',validDraft()),message);assert.equal(h.calls(),0);assert.equal(h.values.size,0);assert.equal((h.diagnostics.at(-1) as any).rpcSent,false);});
 test('property diagnostics omit raw backend message, coordinates and user objects',async()=>{const h=serviceHarness();h.setError({code:'42501',message:'PRIVATE ADDRESS token=secret'});await assert.rejects(h.service.create('owner',validDraft()));assert.deepEqual(h.diagnostics.at(-1),{stage:'rpc',code:'42501',classification:'backend_permission',rpcSent:true,operation:'create_property_setup',outcome:'confirmed_failed',message:'insufficient_privilege',details:'absent'});assert.deepEqual(propertyCreationDiagnostic('rpc',{code:'token=secret',message:'private',latitude:14},true,'transport_unknown'),{stage:'rpc',code:'unknown',classification:'transport_unknown',rpcSent:true,operation:'create_property_setup',outcome:'uncertain',message:'backend_message_redacted',details:'absent'});});
 test('invalid receipt and local journal error have distinct safe stages',async()=>{const bad=serviceHarness();bad.setResult({});await assert.rejects(bad.service.create('owner',validDraft()));assert.equal((bad.diagnostics.at(-1) as any).stage,'receipt');assert.ok(bad.values.size);const disk=serviceHarness();disk.storageFails(true);await assert.rejects(disk.service.create('owner',validDraft()));assert.equal(disk.calls(),0);assert.equal((disk.diagnostics.at(-1) as any).stage,'journal');});
 
@@ -272,7 +291,7 @@ test('floor relationship errors are immediate and independent of other incomplet
 
 test('invalid floor pair is blocked before journal and RPC, retains values, and corrected retry creates only once',async()=>{
   const backend=serviceHarness(),flow=createPropertyCreationWorkflow(backend.service);await flow.initialize();
-  for(const key of ['propertyType','city','barangay','addressLine1','floorNumber','totalFloors'] as const)flow.updateField(key,({...validDraft(),floorNumber:'6',totalFloors:'5'})[key]);
+  for(const key of ['propertyType','city','barangay','addressLine1','floorNumber','totalFloors','bedrooms','bathrooms'] as const)flow.updateField(key,({...validDraft(),floorNumber:'6',totalFloors:'5'})[key]);
   flow.provideConfirmedLocation(location,flow.getSnapshot().locationRevision);await flow.submit(true);
   assert.match(flow.getSnapshot().error??'',/cannot be higher/);assert.equal(flow.getSnapshot().draft.floorNumber,'6');assert.equal(flow.getSnapshot().draft.totalFloors,'5');assert.equal(flow.getSnapshot().draft.addressLine1,validDraft().addressLine1);assert.equal(backend.calls(),0);assert.equal(backend.values.size,0);
   await assert.rejects(backend.service.create('owner',{...validDraft(),floorNumber:'6',totalFloors:'5'}),/cannot be higher/);assert.equal(backend.calls(),0);
@@ -305,3 +324,5 @@ for(const type of ['apartment','condominium','room','bedspace','studio','boardin
 test('one validation metadata set exposes missing required sections separately from inconsistent optional floors',()=>{
   const issues=propertyValidationIssues({...emptyDraftProperty(),floorNumber:'8',totalFloors:'2'});assert.ok(issues.some(i=>i.section==='floors'&&i.kind==='invalid'));assert.ok(issues.some(i=>i.field==='barangay'&&i.kind==='required'));assert.ok(issues.some(i=>i.field==='propertyType'));assert.equal(new Set(issues.filter(i=>i.section==='floors').map(i=>i.message)).size,1);
 });
+
+test('eligible role-free or legacy tenant account can create without reading normal memberships',async()=>{const h=serviceHarness();h.access(true,true,false);assert.equal(await h.service.getEligibleUserId(),'owner');assert.equal(h.reads.includes('user_roles'),false);await h.service.create('owner',validDraft());assert.equal(h.calls(),1);});

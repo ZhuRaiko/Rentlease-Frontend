@@ -1,3 +1,4 @@
+import {usePublicIdentitiesViewModel} from '../../../shared/viewModels/usePublicIdentitiesViewModel';
 import { ProfileAvatar } from '../components/ProfileAvatar';
 import { InterfaceIcon } from '../../../shared/components/InterfaceIcon';
 import type { ReactNode } from 'react';
@@ -29,20 +30,21 @@ interface ProfileViewProps {
 }
 
 export function ProfileView({ viewModel, marketplaceNavigation, onOpenAdminModeration, onOpenMatchingPreferences, onBack, onOpenRatingsReports, onOpenVerification }: ProfileViewProps) {
+  const ownPublic=usePublicIdentitiesViewModel(viewModel.account?.user.id,viewModel.account?[viewModel.account.user.id]:[]);
+  const publicIdentity=viewModel.account?ownPublic[viewModel.account.user.id]:undefined;
+  const avatarUrl=publicIdentity?.avatarUrl;
   const initials = viewModel.displayName.split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase()).join('');
-  const roles = viewModel.isAdmin
-    ? 'Admin'
-    : viewModel.roleLabels.join(' · ');
+  const roles = viewModel.roleLabels.join(' · ');
   return <View style={styles.screen}>
     <ScreenHeader title="Profile" onBack={onBack} />
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.folio}>
         <View style={styles.identityStage}>
           <View style={styles.identityTop}>
-            <ProfileAvatar initials={initials} />
+            <ProfileAvatar initials={initials} {...(avatarUrl?{source:{uri:avatarUrl}}:{})} />
             <View style={styles.membership}>
-              <Text accessibilityRole="header" style={styles.name}>{viewModel.displayName}</Text>
-              <Text style={styles.role}>{roles || 'Role not selected'}</Text>
+              <Text accessibilityRole="header" style={styles.name}>{publicIdentity?.nickname??'RentLease member'}</Text>
+              <Text style={styles.role}>{roles || 'RentLease member'}</Text>
             </View>
 
           </View>

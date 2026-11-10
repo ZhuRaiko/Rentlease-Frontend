@@ -15,12 +15,13 @@ import { LiveSearchResultsView, LivePropertyDetailView, LiveSearchFiltersView } 
 
 interface SearchDiscoveryFlowViewProps {
   accountId?: string | undefined;
-  isLandlord: boolean;
+  canPostProperty: boolean;
   initialScreen?: 'home' | 'matchingPreferences';
   introduction?: boolean;
   initialPreferences?: MatchingPreferences | undefined;
   onSavePreferences?: ((value: MatchingPreferences) => void) | undefined;
   onIntroductionComplete?: (() => Promise<boolean>) | undefined;
+  registerHomeAction?:((action:(()=>void)|null)=>void)|undefined;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
   onClose: () => void;
   onRootBack: () => void;
@@ -29,7 +30,7 @@ interface SearchDiscoveryFlowViewProps {
   onOpenPriceEstimate: () => void;
   onOpenChat: () => void;
   onOpenMaintenance: () => void;
-  onStartInquiry: () => void;
+  onStartInquiry: (conversationId:string) => void;
   onOpenNotifications: () => void;
 }
 
@@ -44,9 +45,9 @@ const supplementaryScreens = new Set([
 
 export function SearchDiscoveryFlowView({
   accountId,
-  isLandlord,
+  canPostProperty,
   initialScreen = 'home',
-  introduction = false, initialPreferences, onSavePreferences, onIntroductionComplete, registerBackAction,
+  introduction = false, initialPreferences, onSavePreferences, onIntroductionComplete, registerBackAction, registerHomeAction,
   onClose,
   onRootBack,
   onCreateListing,
@@ -56,13 +57,15 @@ export function SearchDiscoveryFlowView({
   onOpenMaintenance,
   onStartInquiry, onOpenNotifications,
 }: SearchDiscoveryFlowViewProps) {
-  const viewModel = useSearchDiscoveryViewModel(initialScreen, { accountId, introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
+  const viewModel = useSearchDiscoveryViewModel(initialScreen, { accountId, onStartInquiry, introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
+  useEffect(()=>{registerHomeAction?.(viewModel.openHome);return()=>registerHomeAction?.(null);});
   const close = () => viewModel.closeFromWorkspace(onClose);
   useEffect(() => {
     registerBackAction?.(() => viewModel.backFromWorkspace(onClose, onRootBack));
     return () => registerBackAction?.(null);
   });
   let content;
+  const immersiveMap=viewModel.screen==='nearbyResults'&&viewModel.gpsState.presentation==='map';
 
   if (viewModel.screen === 'nearbyResults') {
     content = <NearbyListingsView viewModel={viewModel} />;
@@ -71,7 +74,7 @@ export function SearchDiscoveryFlowView({
   } else if (viewModel.screen === 'filters' || viewModel.screen === 'sort') {
     content = <LiveSearchFiltersView viewModel={viewModel} />;
   } else if (viewModel.screen === 'propertyDetails') {
-    content = <LivePropertyDetailView viewModel={viewModel} />;
+    content = <LivePropertyDetailView viewModel={viewModel} accountId={accountId} />;
   } else if (searchScreens.has(viewModel.screen)) {
     content = <SearchLocationView viewModel={viewModel} />;
   } else if (filterScreens.has(viewModel.screen)) {
@@ -81,31 +84,31 @@ export function SearchDiscoveryFlowView({
   }
 
   return (
-    <ScreenContainer includeBottomInset={false} padded={false}>
+    <ScreenContainer includeBottomInset={immersiveMap} padded={false}>
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
       <NavigationConfirmation visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
-      <RentLeaseBottomNavigation
+      {!immersiveMap?<RentLeaseBottomNavigation
         disabled={viewModel.isCompletingIntroduction}
         active={viewModel.screen === 'matchingPreferences' ? null : 'discover'}
         onChat={() => viewModel.requestNavigation(onOpenChat)}
         onDiscover={() => viewModel.requestNavigation(viewModel.openHome)}
         onListing={() => {
-          if (isLandlord && onOpenListings) {
+          if (canPostProperty && onOpenListings) {
             viewModel.requestNavigation(onOpenListings);
             return;
           }
-          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
+          viewModel.setNotice('Complete account verification to manage listings.');
         }}
         onPost={() => {
-          if (isLandlord && onCreateListing) {
+          if (canPostProperty && onCreateListing) {
             viewModel.requestNavigation(onCreateListing);
             return;
           }
-          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
+          viewModel.setNotice('Complete account verification before posting.');
         }}
         onTenancy={() => viewModel.requestNavigation(onOpenMaintenance)}
-      />
+      />:null}
     </ScreenContainer>
   );
 }

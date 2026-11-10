@@ -352,6 +352,8 @@ export type Database = {
       }
       maintenance_requests: {
         Row: {
+          category: string | null
+          care_revision: string
           created_at: string
           description: string
           id: string
@@ -369,6 +371,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category?: string | null
+          care_revision?: string
           created_at?: string
           description: string
           id?: string
@@ -386,6 +390,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: string | null
+          care_revision?: string
           created_at?: string
           description?: string
           id?: string
@@ -891,6 +897,7 @@ export type Database = {
           bio: string | null
           created_at: string
           display_name: string
+          experience_preference: string | null
           id: string
           suspended_until: string | null
           suspension_reason: string | null
@@ -906,6 +913,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string
+          experience_preference?: string | null
           id: string
           suspended_until?: string | null
           suspension_reason?: string | null
@@ -921,6 +929,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string
+          experience_preference?: string | null
           id?: string
           suspended_until?: string | null
           suspension_reason?: string | null
@@ -934,6 +943,9 @@ export type Database = {
       }
       properties: {
         Row: {
+          property_subtype: string | null
+          lot_area_sqm: number | null
+          parking_spaces: number | null
           edit_version: string
           media_version: string
           barangay: string
@@ -955,6 +967,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          property_subtype?: string | null
+          lot_area_sqm?: number | null
+          parking_spaces?: number | null
           edit_version?: string
           media_version?: string
           barangay: string
@@ -976,6 +991,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          property_subtype?: string | null
+          lot_area_sqm?: number | null
+          parking_spaces?: number | null
           edit_version?: string
           media_version?: string
           barangay?: string
@@ -2231,6 +2249,49 @@ export type Database = {
       }
     }
     Functions: {
+      // Prepared local T6 contract; not deployed.
+      get_tenancy_lifecycle: {Args: {p_tenancy_id: string; p_offset?: number}; Returns: Json}
+      write_tenancy_lifecycle: {Args: {p_tenancy_id: string; p_operation_id: string; p_action: string; p_version: string; p_request_revision: string | null; p_reason: string}; Returns: Json}
+
+      // Prepared T3/T4 contracts; not evidence of production deployment.
+      get_tenancy_care: {Args: {p_tenancy_id: string; p_offset?: number}; Returns: Json}
+      get_tenancy_maintenance_history: {Args: {p_request_id: string; p_offset?: number}; Returns: Json}
+      write_tenancy_care: {Args: {p_tenancy_id: string; p_operation_id: string; p_action: string; p_payload: Json}; Returns: Json}
+
+      // Prepared unfinished-post deletion RPCs; deployment is separate.
+      get_unfinished_post_deletion: {Args:{p_property_id:string};Returns:Json}
+      list_unfinished_post_cleanup: {Args:Record<PropertyKey,never>;Returns:Json}
+      delete_unfinished_post: {Args:{p_property_id:string};Returns:Json}
+
+      get_public_identities: { Args: {p_user_ids:string[]}; Returns:Json }
+      get_own_public_identity: { Args:Record<PropertyKey,never>; Returns:Json }
+      get_own_avatar_upload: { Args:{p_path:string}; Returns:Json }
+      set_own_public_identity: { Args:{p_request_id:string;p_expected_version:string;p_nickname:string|null;p_avatar_path:string|null;p_confirm_public:boolean}; Returns:Json }
+      // UC-09B prepared contract; independent of the UC-09A migration.
+      get_rental_reservations: { Args: { p_conversation_id?: string; p_offset?: number; p_limit?: number }; Returns: Json }
+      request_rental_reservation: { Args: { p_conversation_id: string; p_request_id: string; p_move_in_date: string; p_duration_months: number; p_message?: string | null }; Returns: Json }
+      respond_rental_reservation: { Args: { p_reservation_id: string; p_operation_id: string; p_expected_revision: number; p_action: string; p_note?: string | null }; Returns: Json }
+      // UC-09A prepared contract: requires the local property_viewing_scheduling migration.
+      get_property_viewings: { Args: { p_conversation_id?: string; p_offset?: number; p_limit?: number }; Returns: Json }
+      request_property_viewing: { Args: { p_conversation_id: string; p_request_id: string; p_starts_at: string; p_ends_at: string; p_note?: string | null }; Returns: Json }
+      respond_property_viewing: { Args: { p_viewing_id: string; p_operation_id: string; p_expected_revision: number; p_action: string; p_starts_at?: string; p_ends_at?: string; p_note?: string | null }; Returns: Json }
+      // Prepared UC-08 migration contract; unavailable remotely until separately deployed.
+      start_property_inquiry: { Args: {p_listing_id:string}; Returns:string }
+      get_messaging_inbox: { Args: {p_offset?:number;p_limit?:number;p_conversation_id?:string}; Returns:Json }
+      get_conversation_messages: { Args: {p_conversation_id:string;p_direction?:string;p_cursor_at?:string;p_cursor_id?:string;p_limit?:number;p_known_ids?:string[]}; Returns:Json }
+      send_property_message: { Args: {p_conversation_id:string;p_message_id:string;p_body:string}; Returns:Json }
+
+      // Prepared recommendation contract; null is indeterminate, not unverified.
+      // PREPARED T1 tenancy establishment; not deployed.
+      get_tenancy_establishment: {Args:{p_reservation_id:string};Returns:Json}
+      establish_tenancy: {Args:{p_reservation_id:string;p_operation_id:string;p_property_version:string;p_identity_revision:string;p_monthly_rent:number;p_due_day:number};Returns:Json}
+      respond_tenancy_establishment: {Args:{p_reservation_id:string;p_operation_id:string;p_setup_revision:string;p_property_version:string;p_identity_revision:string;p_action:string};Returns:Json}
+      get_tenancy_establishment_links: {Args:{p_reservation_ids:string[]};Returns:{reservation_id:string;tenancy_id:string}[]}
+      // PREPARED rental-location approval contract; not deployed.
+      get_rental_location_approval: {Args:{p_property_id:string};Returns:Json}
+      set_rental_location_approval: {Args:{p_property_id:string;p_revision:string;p_approve:boolean;p_policy:string};Returns:Json}
+      get_rental_prediction_coordinates: {Args:{p_property_id:string;p_listing_id:string|null;p_edit_version:string};Returns:Json}
+      get_recommendation_owner_verification: {Args: {p_listing_ids:string[]}; Returns:{listing_id:string;listing_owner_id:string;owner_tier2_verified:boolean|null}[]}
       get_owned_property_identity_statuses: {Args: {p_property_ids:string[]}; Returns:{property_id:string;verified:boolean;requires_repair:boolean;current_submission_id:string|null}[]}
       get_property_identity_context: {Args: {p_property_id: string}; Returns: Json}
       get_property_identity_operation: {Args: {p_property_id: string; p_operation_id: string}; Returns: Json}
@@ -2241,8 +2302,18 @@ export type Database = {
       get_admin_property_identity_review: {Args: {p_submission_id: string}; Returns: Json}
       review_property_identity_verification: {Args: {p_submission_id: string; p_expected_submission_version: string; p_expected_property_version: string; p_expected_correction_version: string | null; p_status: Database['public']['Enums']['verification_status']; p_same_asset_confirmed: boolean; p_note?: string; p_reason?: string}; Returns: undefined}
 
+      // Confirmed live migration 20261109131034 (November 9, 2026); legacy signatures retained.
+      // RPC nullable inputs below reflect SQL acceptance; generated RPC Args omit null unions.
+      get_owned_property_edit_context_v2: { Args: { p_property_id: string }; Returns: Json }
       get_owned_property_edit_context: { Args: { p_property_id: string }; Returns: Json }
       get_property_details_operation: { Args: { p_property_id: string; p_request_id: string }; Returns: Json }
+      update_property_details_v2: {
+        Args: {
+          p_property_subtype?: string | null
+          p_lot_area_sqm?: number | null
+          p_parking_spaces?: number | null; p_property_id: string; p_expected_edit_version: string; p_request_id: string; p_bedrooms: number; p_bathrooms: number; p_floor_area_sqm: number | null; p_max_occupants: number | null; p_total_floors: number | null; p_furnishing_status: Database["public"]["Enums"]["furnishing_status"]; p_amenity_ids: number[]; p_access_instructions: string | null }
+        Returns: Json
+      }
       update_property_details: {
         Args: { p_property_id: string; p_expected_edit_version: string; p_request_id: string; p_bedrooms: number; p_bathrooms: number; p_floor_area_sqm: number | null; p_max_occupants: number | null; p_total_floors: number | null; p_furnishing_status: Database["public"]["Enums"]["furnishing_status"]; p_amenity_ids: number[]; p_access_instructions: string | null }
         Returns: Json
@@ -2294,6 +2365,33 @@ export type Database = {
       can_view_property: {
         Args: { property_uuid: string; requested_user?: string }
         Returns: boolean
+      }
+      create_property_setup_v2: {
+        Args: {
+          p_property_subtype?: string | null
+          p_lot_area_sqm?: number | null
+          p_parking_spaces?: number | null
+          p_access_instructions?: string
+          p_address_line_1: string
+          p_address_line_2?: string
+          p_amenity_ids?: number[]
+          p_barangay: string
+          p_bathrooms?: number
+          p_bedrooms?: number
+          p_city: Database["public"]["Enums"]["cavite_city"]
+          p_exact_lat: number
+          p_exact_lng: number
+          p_floor_area_sqm?: number
+          p_floor_number?: number
+          p_furnishing_status?: Database["public"]["Enums"]["furnishing_status"]
+          p_max_occupants?: number
+          p_postal_code?: string
+          p_property_type: Database["public"]["Enums"]["property_type"]
+          p_public_lat: number
+          p_public_lng: number
+          p_total_floors?: number
+        }
+        Returns: Json
       }
       create_property_setup: {
         Args: {

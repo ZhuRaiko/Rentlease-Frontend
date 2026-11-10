@@ -1,10 +1,15 @@
+import {ListingButton} from '../components/ListingButton';
+import {UnfinishedPostDeletionAction} from '../components/UnfinishedPostDeletionAction';
+import {RentalPriceGuidance} from '../../../shared/components/RentalPriceGuidance';
+import {InlineRentalEstimate} from '../../../shared/components/InlineRentalEstimate';
+import type {LandlordPortfolioItem} from '../models/LandlordPortfolio';
 import {PropertyIdentityEditView} from './PropertyIdentityEditView';
 import {PropertyRoutineEditView} from './PropertyRoutineEditView';
 import { ListingDraftSavedView } from './ListingDraftSavedView';
 import { PublishedListingStatusView } from './PublishedListingStatusView';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
-import { Modal, StatusBar, StyleSheet, View } from 'react-native';
+import { Modal, StatusBar, StyleSheet, View, Text } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
 import { ScreenContainer } from '../../../shared/components/ScreenContainer';
@@ -18,7 +23,9 @@ import { ListingManagementView } from './ListingManagementView';
 import { ListingPreviewView } from './ListingPreviewView';
 import { PropertyDashboardView } from './PropertyDashboardView';
 
-interface PropertyListingFlowViewProps {
+export interface PropertyListingFlowViewProps {
+ accountId?:string|undefined;
+ renderRequestControls?:((item:LandlordPortfolioItem)=>ReactNode)|undefined;
   renderPropertyVerification?: (propertyId:string,onClose:()=>void,registerBack:(action:(()=>void)|null)=>void)=>ReactNode;
   initialScreen?: 'dashboard' | 'postingType';
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
@@ -58,7 +65,9 @@ const managementScreens = new Set([
 ]);
 
 export function PropertyListingFlowView({
+  accountId,
   renderPropertyVerification,
+  renderRequestControls,
   initialScreen = 'dashboard',
   registerBackAction,
   onClose,
@@ -76,22 +85,27 @@ export function PropertyListingFlowView({
     registerBackAction?.(() => viewModel.backFromWorkspace(onRootBack));
     return () => registerBackAction?.(null);
   });
+  const estimateTarget=viewModel.workspaceListingId?{listingId:viewModel.workspaceListingId}:viewModel.workspacePropertyId?{propertyId:viewModel.workspacePropertyId}:null;
+  const estimateSection=estimateTarget?<InlineRentalEstimate key={`${accountId}:${JSON.stringify(estimateTarget)}:${viewModel.screen}`} accountId={accountId} target={estimateTarget} property={viewModel.estimationProperty} onReview={viewModel.estimationProperty?.landlord_id===accountId&&viewModel.propertyEditAvailable&&viewModel.screen!=='propertyEdit'?viewModel.openPropertyDetails:undefined}/>:null;
+  const priceGuidance=<RentalPriceGuidance key={`${accountId}:${viewModel.workspacePropertyId}:${viewModel.screen}`} accountId={accountId} target={viewModel.workspacePropertyId?{propertyId:viewModel.workspacePropertyId}:null} property={viewModel.estimationProperty} onUseEstimate={viewModel.applyRentalEstimate} disabled={viewModel.listingDraftReadOnly||!!viewModel.composerPhase||viewModel.listingDraftState.busy||viewModel.unfinishedPostState.busy}/>;
   let content;
 
-  if (viewModel.screen === 'dashboard' || viewModel.screen === 'empty') {
-    content = <PropertyDashboardView viewModel={viewModel} />;
+  if(viewModel.screen!=='dashboard'&&viewModel.unfinishedPostState.status?.propertyId===viewModel.workspacePropertyId&&viewModel.unfinishedPostState.status?.state==='cleanup_pending'){
+    content=<View style={{padding:24,gap:12}}><Text accessibilityRole="header">Finishing post deletion</Text><Text>The post was removed. Owned photos still need cleanup. Retry below, or return to My Rentals.</Text><ListingButton label="Back to My Rentals" tone="outline" disabled={viewModel.unfinishedPostState.busy} onPress={viewModel.goDashboard}/></View>;
+  } else if (viewModel.screen === 'dashboard' || viewModel.screen === 'empty') {
+    content = <PropertyDashboardView viewModel={viewModel} renderRequestControls={renderRequestControls}/>;
   } else if (viewModel.screen === 'published' && viewModel.showRealPublication && viewModel.realListing) {
-    content = <PublishedListingStatusView viewModel={viewModel} onClose={close} />;
+    content = <PublishedListingStatusView estimateSection={estimateSection} viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'identityEdit') {
     content=<PropertyIdentityEditView viewModel={viewModel} onClose={close}/>;
   } else if (viewModel.screen === 'propertyEdit') {
-    content=<PropertyRoutineEditView viewModel={viewModel} onClose={close}/>;
+    content=<PropertyRoutineEditView estimateSection={estimateSection} viewModel={viewModel} onClose={close}/>;
   } else if (viewModel.screen === 'draftSaved') {
     content = <ListingDraftSavedView viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'listingComposer') {
-    content = <ListingComposerView viewModel={viewModel} onClose={close} />;
+    content = <ListingComposerView estimateSection={estimateSection} viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'listingDetails') {
-    content = <ListingDetailsView viewModel={viewModel} onClose={close} />;
+    content = <ListingDetailsView priceGuidance={priceGuidance} viewModel={viewModel} onClose={close} />;
   } else if (createScreens.has(viewModel.screen)) {
     content = <CreateListingView onClose={close} viewModel={viewModel} />;
   } else if (previewScreens.has(viewModel.screen)) {
@@ -100,7 +114,7 @@ export function PropertyListingFlowView({
     content = (
       <ListingManagementView
         onClose={close}
-        onOpenPriceEstimate={() => viewModel.requestNavigation(onOpenPriceEstimate)}
+        estimateSection={estimateSection}
         viewModel={viewModel}
       />
     );
@@ -108,7 +122,7 @@ export function PropertyListingFlowView({
     content = (
       <ListingDetailView
         onClose={close}
-        onOpenPriceEstimate={() => viewModel.requestNavigation(onOpenPriceEstimate)}
+        estimateSection={estimateSection}
         viewModel={viewModel}
       />
     );
@@ -122,6 +136,7 @@ export function PropertyListingFlowView({
       </Modal> : null}
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
+      {['dashboard','listingComposer','listingDetails','propertyEdit'].includes(viewModel.screen)?<UnfinishedPostDeletionAction viewModel={viewModel}/>:null}
       <NavigationConfirmation title={viewModel.propertyReturnConfirmation?"Discard property edits?":"Leave Property & Listing Management?"} body={viewModel.propertyReturnConfirmation?"Your listing edits will be kept. Continue without saving these property changes?":"You have unsaved property, photo, or listing changes. Stay to continue editing, or leave without saving."} visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
       <RentLeaseBottomNavigation
         active={viewModel.activeTab}

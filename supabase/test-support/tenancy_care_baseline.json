@@ -1,0 +1,42 @@
+{
+  "enums": {
+    "maintenance_status": [
+      "submitted",
+      "acknowledged",
+      "needs_information",
+      "scheduled",
+      "in_progress",
+      "resolved",
+      "reopened",
+      "rejected",
+      "cancelled"
+    ],
+    "maintenance_priority": [
+      "low",
+      "normal",
+      "high",
+      "urgent"
+    ],
+    "rent_obligation_status": [
+      "upcoming",
+      "due",
+      "overdue",
+      "tenant_marked_paid",
+      "landlord_acknowledged",
+      "waived",
+      "disputed"
+    ]
+  },
+  "triggers": [
+    "CREATE TRIGGER trg_log_maintenance_status_change AFTER UPDATE OF status ON public.maintenance_requests FOR EACH ROW EXECUTE FUNCTION log_maintenance_status_change()",
+    "CREATE TRIGGER trg_maintenance_requests_updated_at BEFORE UPDATE ON public.maintenance_requests FOR EACH ROW EXECUTE FUNCTION set_updated_at()",
+    "CREATE TRIGGER trg_set_maintenance_update_actor BEFORE UPDATE ON public.maintenance_requests FOR EACH ROW EXECUTE FUNCTION set_maintenance_update_actor()",
+    "CREATE TRIGGER trg_validate_maintenance_request BEFORE INSERT ON public.maintenance_requests FOR EACH ROW EXECUTE FUNCTION validate_maintenance_request()"
+  ],
+  "functions": [
+    "CREATE OR REPLACE FUNCTION public.log_maintenance_status_change()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\nbegin\r\n  if new.status is distinct from old.status then\r\n    insert into public.maintenance_updates (\r\n      maintenance_request_id,\r\n      actor_id,\r\n      from_status,\r\n      to_status,\r\n      note\r\n    )\r\n    values (\r\n      new.id,\r\n      new.last_updated_by,\r\n      old.status,\r\n      new.status,\r\n      coalesce(new.landlord_response, new.rejected_reason)\r\n    );\r\n  end if;\r\n\r\n  return new;\r\nend;\r\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.set_maintenance_update_actor()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  actor uuid;\r\nbegin\r\n  actor := coalesce(auth.uid(), new.last_updated_by, old.last_updated_by, new.requested_by);\r\n\r\n  if actor is null then\r\n    raise exception 'Maintenance update actor is required';\r\n  end if;\r\n\r\n  if not public.is_admin(actor)\r\n     and not exists (\r\n       select 1\r\n       from public.tenancies t\r\n       where t.id = new.tenancy_id\r\n         and actor in (t.tenant_id, t.landlord_id)\r\n     ) then\r\n    raise exception 'Maintenance update actor is not a tenancy participant';\r\n  end if;\r\n\r\n  new.last_updated_by := actor;\r\n  return new;\r\nend;\r\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.set_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\r\nbegin\r\n  new.updated_at = now();\r\n  return new;\r\nend;\r\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.validate_maintenance_request()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  actor uuid;\r\nbegin\r\n  actor := coalesce(auth.uid(), new.last_updated_by, new.requested_by);\r\n\r\n  if not exists (\r\n    select 1\r\n    from public.tenancies t\r\n    where t.id = new.tenancy_id\r\n      and t.status = 'active'\r\n      and new.requested_by in (t.tenant_id, t.landlord_id)\r\n  ) then\r\n    raise exception 'Maintenance requests require an active tenancy participant';\r\n  end if;\r\n\r\n  if actor is null then\r\n    raise exception 'Maintenance actor is required';\r\n  end if;\r\n\r\n  new.last_updated_by := actor;\r\n  return new;\r\nend;\r\n$function$\n"
+  ]
+}

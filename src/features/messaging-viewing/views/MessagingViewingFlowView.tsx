@@ -1,91 +1,28 @@
-import { useEffect } from 'react';
-import { StatusBar, StyleSheet, View } from 'react-native';
-
-import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
-import { ScreenContainer } from '../../../shared/components/ScreenContainer';
-import { colors } from '../../../shared/theme/colors';
-import type { MessagingActor } from '../models/MessagingViewing';
-import { useMessagingViewingViewModel } from '../viewModels/useMessagingViewingViewModel';
-import { MessagingConversationView } from './MessagingConversationView';
-import { MessagingInboxView } from './MessagingInboxView';
-import { ViewingScheduleView } from './ViewingScheduleView';
-
-interface MessagingViewingFlowViewProps {
-  actor: MessagingActor;
-  initialScreen?: 'inbox' | 'newInquiry';
-  isLandlord: boolean;
-  onClose: () => void;
-  onRootBack: () => void;
-  registerBackAction?: ((action: (() => void) | null) => void) | undefined;
-  onCreateListing: () => void;
-  onOpenDiscover: () => void;
-  onOpenListings: () => void;
-  onOpenMaintenance: () => void;
+import {ViewingsWorkspace,ReservationsWorkspace} from './RequestWorkspaces';
+import {RequestManagementView} from './RequestManagementView';
+import {useEffect,useState,type ReactNode} from 'react';
+import {StyleSheet,View} from 'react-native';
+import {ScreenContainer} from '../../../shared/components/ScreenContainer';
+import {RentLeaseBottomNavigation} from '../../../shared/components/RentLeaseBottomNavigation';
+import type {MessagingActor} from '../models/MessagingViewing';
+import {useMessagingViewingViewModel} from '../viewModels/useMessagingViewingViewModel';
+import {MessagingInboxView} from './MessagingInboxView';
+import {MessagingConversationView} from './MessagingConversationView';
+import type {Conversation} from '../models/PersistentMessaging';
+interface Props {renderTenancySetup?:((id:string,onBack:()=>void,onChanged:()=>void)=>ReactNode)|undefined;actor?:MessagingActor;accountId?:string|undefined;conversationId?:string|undefined;initialScreen?:'inbox'|'newInquiry';canPostProperty:boolean;onClose:()=>void;onRootBack:()=>void;registerBackAction?:((action:(()=>void)|null)=>void)|undefined;onCreateListing:()=>void;onOpenDiscover:()=>void;onOpenListings:()=>void;onOpenMaintenance:()=>void;returnToListing?:boolean;renderListingDetails?:((id:string,onBack:()=>void)=>ReactNode)|undefined}
+export function MessagingViewingFlowView({accountId,conversationId,canPostProperty,onClose,onRootBack,registerBackAction,onCreateListing,onOpenDiscover,onOpenListings,onOpenMaintenance,returnToListing=false,renderListingDetails,renderTenancySetup}:Props){
+ const [listing,setListing]=useState<{owner:string|undefined;id:string}|null>(null);
+ const activeListing=listing?.owner===accountId?listing:null;
+ const viewModel=useMessagingViewingViewModel(accountId,conversationId);
+ const [panel,setPanel]=useState<{kind:'viewings'|'reservations'|'requests';accountId:string|undefined;conversation:Conversation|null}|null>(null);
+ useEffect(()=>{setPanel(null);setListing(null);},[accountId]);
+ const activePanel=panel?.accountId===accountId?panel:null;
+ const openViewings=()=>setPanel({kind:'viewings',accountId,conversation:viewModel.conversation});
+ const openReservations=()=>setPanel({kind:'reservations',accountId,conversation:viewModel.conversation});
+ const back=()=>{if(activeListing){setListing(null);return;}if(returnToListing)onRootBack();else viewModel.backFromWorkspace(onRootBack);};
+ useEffect(()=>{if(activePanel)return;registerBackAction?.(back);return()=>registerBackAction?.(null);});
+ const closePanel=()=>{setPanel(null);viewModel.refresh();};
+ return <ScreenContainer padded={false} includeBottomInset={!!activePanel||!!activeListing}><View style={styles.content}>{activePanel?.kind==='requests'?<RequestManagementView accountId={accountId} scope={{kind:'requester'}} title="My Requests" onBack={closePanel} registerBackAction={registerBackAction} onOpenConversation={id=>{setPanel(null);viewModel.openConversation(id);}}/>:activePanel?.kind==='viewings'?<ViewingsWorkspace key={`${accountId}-${activePanel.conversation?.id??'all'}`} accountId={accountId} conversation={activePanel.conversation} onBack={closePanel} registerBackAction={registerBackAction}/>:activePanel?.kind==='reservations'?<ReservationsWorkspace renderTenancySetup={renderTenancySetup} key={`${accountId}-${activePanel.conversation?.id??'all'}`} accountId={accountId} conversation={activePanel.conversation} onBack={closePanel} registerBackAction={registerBackAction}/>:viewModel.screen==='inbox'?<MessagingInboxView onMyRequests={()=>setPanel({kind:'requests',accountId,conversation:null})} viewModel={viewModel} onViewings={openViewings} onReservations={openReservations} onClose={returnToListing?onRootBack:onClose}/>:<MessagingConversationView viewModel={viewModel} onViewings={openViewings} onReservations={openReservations} onBack={back} {...(renderListingDetails?{onViewListing:(id:string)=>setListing({owner:accountId,id})}:{})}/>}{activeListing&&renderListingDetails?<View style={styles.overlay}>{renderListingDetails(activeListing.id,()=>setListing(null))}</View>:null}</View>
+ {!activePanel&&!activeListing?<RentLeaseBottomNavigation active="chat" onChat={viewModel.openInbox} onDiscover={onOpenDiscover} onListing={()=>{if(canPostProperty)onOpenListings();}} onPost={()=>{if(canPostProperty)onCreateListing();}} onTenancy={onOpenMaintenance}/>:null}</ScreenContainer>;
 }
-
-const inboxScreens = new Set(['inbox', 'emptyInbox']);
-const conversationScreens = new Set([
-  'conversation',
-  'newInquiry',
-  'attachment',
-  'listingUnavailable',
-]);
-
-export function MessagingViewingFlowView({
-  actor,
-  initialScreen = 'inbox',
-  isLandlord,
-  onClose,
-  onRootBack,
-  registerBackAction,
-  onCreateListing,
-  onOpenDiscover,
-  onOpenListings,
-  onOpenMaintenance,
-}: MessagingViewingFlowViewProps) {
-  const viewModel = useMessagingViewingViewModel(actor, initialScreen);
-  useEffect(() => {
-    registerBackAction?.(() => viewModel.backFromWorkspace(onRootBack));
-    return () => registerBackAction?.(null);
-  });
-  let content;
-
-  if (inboxScreens.has(viewModel.screen)) {
-    content = <MessagingInboxView onClose={onClose} viewModel={viewModel} />;
-  } else if (conversationScreens.has(viewModel.screen)) {
-    content = <MessagingConversationView viewModel={viewModel} />;
-  } else {
-    content = <ViewingScheduleView viewModel={viewModel} />;
-  }
-
-  return (
-    <ScreenContainer includeBottomInset={false} padded={false}>
-      <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
-      <View style={styles.content}>{content}</View>
-      <RentLeaseBottomNavigation
-        active="chat"
-        onChat={viewModel.openInbox}
-        onDiscover={onOpenDiscover}
-        onListing={() => {
-          if (isLandlord) {
-            onOpenListings();
-            return;
-          }
-          viewModel.openInbox();
-          viewModel.setNotice('Listings require the Landlord role. You can continue browsing in Discover.');
-        }}
-        onPost={() => {
-          if (isLandlord) {
-            onCreateListing();
-            return;
-          }
-          viewModel.openInbox();
-          viewModel.setNotice('Posting requires the Landlord role. Verification does not grant roles.');
-        }}
-        onTenancy={onOpenMaintenance}
-      />
-    </ScreenContainer>
-  );
-}
-
-const styles = StyleSheet.create({ content: { flex: 1 } });
+const styles=StyleSheet.create({content:{flex:1},overlay:{position:'absolute',top:0,right:0,bottom:0,left:0}});

@@ -29,7 +29,7 @@ const profileBloom = {
 export function AccountVerificationSummary({ items }: { items: AuthProfilesViewModel['verificationSummary'] }) {
   const { fontScale } = useWindowDimensions();
   return <View style={styles.section}>
-    <Text style={styles.scope}>Account required. Identity and Property optional.</Text>
+    <Text style={styles.scope}>Account verification required. Identity optional; verify each property before publishing.</Text>
     {items.map(item => {
       const identity = verificationTierIdentities[item.tier];
       const accent = profileTierAccents[item.tier];
@@ -49,7 +49,7 @@ export function AccountVerificationSummary({ items }: { items: AuthProfilesViewM
         <View style={styles.statusSurface}><VerificationStatusIndicator {...item.status} /></View>
       </View>;
     })}
-    <Text style={styles.propertyScope}>Property is an account-level indication, not verification of every property.</Text>
+    <Text style={styles.propertyScope}>Property verification applies only to the specific verified property.</Text>
   </View>;
 }
 const styles = StyleSheet.create({
