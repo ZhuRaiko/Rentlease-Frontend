@@ -44,6 +44,10 @@ Cleanup/reconciliation: local migration renamed to actual version without SQL ch
 
 Skills actually read/reused: .codex/skills/rentlease-supabase-contract-guard/SKILL.md, .codex/skills/rentlease-security-review/SKILL.md, .codex/skills/rentlease-implementation-ledger/SKILL.md, .codex/skills/rentlease-documentation-maintainer/SKILL.md, .codex/skills/rentlease-test-runtime-verification/SKILL.md and the Supabase plugin SKILL.md. Only directly affected living/history/ledger status was updated.
 
+## PI-ANDROID-PREP-20261107: read-only acceptance preparation
+
+Codex/Supabase list_migrations, production cxfsbwbwmwmgtqfonqth: confirmed Public Identity 20261107134047 exists alongside prior UC-08/UC-09 entries. Purpose: user's physical Android acceptance preparation. Classification READ_ONLY_INSPECTION; no permanent live backend mutation, signup, upload, message, viewing or reservation. Physical testing is BLOCKED: ADB exposes only emulator-5554, not a physical serial. SDK/dependency/server observations and scenario statuses are recorded in the existing implementation history; they are not Android acceptance or new RLS evidence. Deployed SQL and privileges remain untouched. No rollback, commit, push or build.
+
 ## November 8, 2026 - PUBLIC-VIEW-INVOKER-01
 
 Actor: Codex/Supabase execute_sql, live cxfsbwbwmwmgtqfonqth, READ_ONLY_INSPECTION. Catalog-only SELECTs inspected view definition/options/owner/ACL, profiles SELECT policies and pre-existing column/table SELECT grants, pg_depend/constraints, exact literal function references, and public-identity/inbox/helper owners/EXECUTE privileges. No user rows, documents, tokens or production RPC executions. postgres owns all three checked SECURITY DEFINER identity/inbox/helper functions; anon EXECUTE denied, authenticated allowed. The view is sanitized and relationship-gated but owner-rights by default; no anonymous SELECT. Only get_messaging_inbox literally references it. No FK/external view dependency found. First broad ILIKE reference query overmatched underscores; literal strpos confirmed the exact set. No permanent live backend mutation was performed in this phase.

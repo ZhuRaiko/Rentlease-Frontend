@@ -352,6 +352,8 @@ export type Database = {
       }
       maintenance_requests: {
         Row: {
+          category: string | null
+          care_revision: string
           created_at: string
           description: string
           id: string
@@ -369,6 +371,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category?: string | null
+          care_revision?: string
           created_at?: string
           description: string
           id?: string
@@ -386,6 +390,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: string | null
+          care_revision?: string
           created_at?: string
           description?: string
           id?: string
@@ -2243,6 +2249,15 @@ export type Database = {
       }
     }
     Functions: {
+      // Prepared local T6 contract; not deployed.
+      get_tenancy_lifecycle: {Args: {p_tenancy_id: string; p_offset?: number}; Returns: Json}
+      write_tenancy_lifecycle: {Args: {p_tenancy_id: string; p_operation_id: string; p_action: string; p_version: string; p_request_revision: string | null; p_reason: string}; Returns: Json}
+
+      // Prepared T3/T4 contracts; not evidence of production deployment.
+      get_tenancy_care: {Args: {p_tenancy_id: string; p_offset?: number}; Returns: Json}
+      get_tenancy_maintenance_history: {Args: {p_request_id: string; p_offset?: number}; Returns: Json}
+      write_tenancy_care: {Args: {p_tenancy_id: string; p_operation_id: string; p_action: string; p_payload: Json}; Returns: Json}
+
       // Prepared unfinished-post deletion RPCs; deployment is separate.
       get_unfinished_post_deletion: {Args:{p_property_id:string};Returns:Json}
       list_unfinished_post_cleanup: {Args:Record<PropertyKey,never>;Returns:Json}
@@ -2267,6 +2282,15 @@ export type Database = {
       send_property_message: { Args: {p_conversation_id:string;p_message_id:string;p_body:string}; Returns:Json }
 
       // Prepared recommendation contract; null is indeterminate, not unverified.
+      // PREPARED T1 tenancy establishment; not deployed.
+      get_tenancy_establishment: {Args:{p_reservation_id:string};Returns:Json}
+      establish_tenancy: {Args:{p_reservation_id:string;p_operation_id:string;p_property_version:string;p_identity_revision:string;p_monthly_rent:number;p_due_day:number};Returns:Json}
+      respond_tenancy_establishment: {Args:{p_reservation_id:string;p_operation_id:string;p_setup_revision:string;p_property_version:string;p_identity_revision:string;p_action:string};Returns:Json}
+      get_tenancy_establishment_links: {Args:{p_reservation_ids:string[]};Returns:{reservation_id:string;tenancy_id:string}[]}
+      // PREPARED rental-location approval contract; not deployed.
+      get_rental_location_approval: {Args:{p_property_id:string};Returns:Json}
+      set_rental_location_approval: {Args:{p_property_id:string;p_revision:string;p_approve:boolean;p_policy:string};Returns:Json}
+      get_rental_prediction_coordinates: {Args:{p_property_id:string;p_listing_id:string|null;p_edit_version:string};Returns:Json}
       get_recommendation_owner_verification: {Args: {p_listing_ids:string[]}; Returns:{listing_id:string;listing_owner_id:string;owner_tier2_verified:boolean|null}[]}
       get_owned_property_identity_statuses: {Args: {p_property_ids:string[]}; Returns:{property_id:string;verified:boolean;requires_repair:boolean;current_submission_id:string|null}[]}
       get_property_identity_context: {Args: {p_property_id: string}; Returns: Json}

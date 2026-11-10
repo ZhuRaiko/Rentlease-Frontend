@@ -32,7 +32,7 @@ Server reads only selected property features, listing rent, and catalog amenity 
 
 The handler bounds request bodies at 2 KB, has a 70-second overall deadline, refuses upstream redirects, returns sanitized failure codes and no-store responses, and suppresses same-user concurrent requests within one function instance. This is not a distributed rate limiter. There are no automatic retries. The app waits up to 85 seconds and ignores/cancels stale requests. Client cancellation cannot guarantee the remote model has not already begun computing.
 
-Success returns `estimatedMonthlyRent`, `currency`, `modelVersion`, `target`, `askingRent` (nullable) and proxy receipt time `predictedAt`. The illustrative upstream `range_min`/`range_max` values are discarded. No statistically valid confidence interval is available. `/health` reports status only, not a model hash. `development-v1` is a broad upstream label; the response does not cryptographically attest the source commit or loaded artifacts.
+Success returns `estimatedMonthlyRent`, `currency`, `modelVersion`, `target`, `askingRent` (nullable) and proxy receipt time `predictedAt`. The illustrative upstream `range_min`/`range_max` values are validated and forwarded as nullable `illustrativeRange` (`minimum`, `maximum`). Missing, nonfinite, nonpositive, reversed, or inconsistent bounds are omitted without rejecting a valid estimate. Both boundaries revalidate in the app; old responses without bounds remain compatible. A PHP 0.02 tolerance accommodates independently rounded estimate/bounds. Values are forwarded, never synthesized. The range is calculated from the estimate, not independently predicted by XGBoost. No statistically valid confidence interval is available. `/health` reports status only, not a model hash. `development-v1` is a broad upstream label; the response does not cryptographically attest the source commit or loaded artifacts.
 
 ## Post-deployment acceptance still required
 
@@ -47,6 +47,34 @@ Current CLI help was checked: no deploy dry-run flag exists; no deployment comma
 
 444 focused tests passed, including 57 estimator/proxy tests. TypeScript, whitespace and checkpoint credential scan passed. No material security issue found in this scoped source review. Ready for a separately authorized controlled deployment/configuration; not yet live-verified or Android-accepted. No secrets were configured and no production endpoint/data was modified.
 
+## Current deployment readiness - November 8, 2026
+
+**NOT READY for controlled live acceptance.** From this environment, GET /health timed out after 45.12s and a bounded follow-up after 20.09s; one unauthenticated POST /predict timed out after 20.05s. No successful health, auth rejection or authenticated prediction was observed. This does not distinguish a Render outage from a network-path problem. No replacement secret was retrieved to attempt prediction.
+
+User confirmed secret rotation and matching replacement on Render/Supabase at November 8, 2026, 2:43:51 PM GMT+8; also confirmed ML_API_URL is exactly https://rentlease-ml.onrender.com. Metadata confirms both setting names exist. Rotation/matching/value correctness are user-attested, not independently proven by inference. Secret values and metadata digests were not displayed. Do not retrieve the replacement secret.
+
+Fresh checks: 57 estimator/proxy tests, TypeScript and whitespace passed. Native Edge runtime v1.77.8 resolved the three sanitized source modules with network disabled and no env/secret mounts. ESZIP 33,428 bytes, SHA-256 bb66bab9f3285923910044b2716dfe1de3b8b088143b13aa4f06bee10159e77b; generated artifact outside Git, container automatically removed. This proves packaging, not hosted JWT/Render success. Current CLI 2.109.1 command help was checked.
+
+Frontend/proxy contracts match: caller JWT verified through Auth; active Tier 1; caller-scoped RLS; actual owner or visible published/available listing; strict stored feature mapping; fixed HTTPS Render host; no service-role key, private coordinates, verification documents or invented confidence interval. verify_jwt=true remains unchanged.
+
+Existing estimate-rental-price remains ACTIVE with unchanged bundle hash 3a025cc63b881af7b8a4410a2b6e9aadb99d0d301ac9ad995c1398531be67648. Its reported version changed 7 -> 8 during read-only review (send-sms also incremented); cause was not established. No agent deployment/secret change occurred. New rental-price-estimate remains absent.
+
+### Isolated procedure after blockers are cleared and deployment is separately authorized
+
+1. Obtain a successful /health and authenticated /predict result through an authorized existing server-side secret-managed path; provide only HTTP status, model version and validated PHP/month result. Do not disclose credentials or pretend an unauthenticated probe proves inference.
+2. Confirm the observed legacy version change is expected, recheck source/configuration and existing function inventory, and retain verify_jwt=true. Do not change project-wide secrets during deployment without separate authorization; other functions may consume them.
+3. Deploy only the named new function:
+
+```powershell
+supabase.cmd functions deploy rental-price-estimate --project-ref cxfsbwbwmwmgtqfonqth
+```
+
+Do not omit its name, use --prune or --no-verify-jwt, deploy estimate-rental-price, or run a database push. No migration is needed. Stop on packaging/auth/config errors rather than weakening authorization.
+
+4. Verify the new slug/version/hash and unchanged legacy bundle. From an authorized existing app session, test real owned/public listing inference, anonymous/restricted/foreign-property denial, sanitized upstream failure/timeout, cancellation and account switching. No production fixtures. Preserve legacy functions; any withdrawal needs separate authorization.
+
+End-user gateway/JWT/RLS/Render and Android acceptance remain pending. No deployment, secret configuration, model/training change, production data mutation, commit/push/merge or build occurred; Tier 2 and unrelated pending files are untouched.
+
 ## Local handoff fidelity reconciliation - November 8, 2026
 
 Supersedes earlier not-deployed/readiness-blocked status for the existing integration. Do not rebuild or redeploy to address historical network probes. New changes are local only: shared mapper emits exact fitted amenity vocabulary and three defensible catalog aliases, while keeping unknown numeric/amenity values distinct from explicit zero/empty. Handler/index, target shape, JWT/authorization, fixed host and no-coordinate projections are unchanged. Asking rent remains outside model features.
@@ -54,6 +82,21 @@ Supersedes earlier not-deployed/readiness-blocked status for the existing integr
 The adapter accepts house/apartment/condominium requests and routes them to two fitted groups; explicit subtype, lot, parking and confirmed approximate-location input need separately reviewed schema/contracts. Current inference still sends those missing optional features as null. No exact coordinates, model artifacts or server secrets were read/changed. See the handoff reconciliation design in docs/implementation-reports/audits.
 
 Fresh revised native bundle passed (three sanitized modules, network none): 37,906 bytes, SHA-256 76439e240c4156619da493002634fea165d8223d88382ebe75bebae136e396bb. Following separate authorization, deploy only rental-price-estimate with existing server configuration; preserve estimate-rental-price. First validate these changes with an authorized real inference, denied cases and Android count/warning/Back/account-switch checks. No migrations or live changes were performed here. Earlier user-observed Android success does not validate this revised mapper.
+
+
+### Local illustrative-range revision - November 8, 2026
+
+Prepared locally: show only validated upstream arithmetic bounds beneath the primary PHP/month estimate; asking rent stays separate. The range is not a statistical confidence interval or an accuracy claim. No model inputs, authorization, RLS, cancellation or schema changed. This revision requires separately authorized deployment of only rental-price-estimate (including its shared mapper dependency), followed by hosted prediction and Android acceptance. No deployment or secret retrieval occurred.
+
+
+## Authorized illustrative-range deployment - November 8, 2026
+
+Codex deployed ONLY rental-price-estimate to cxfsbwbwmwmgtqfonqth using `supabase.cmd functions deploy rental-price-estimate --project-ref cxfsbwbwmwmgtqfonqth`, exit 0, under explicit user authorization. FUNCTION_CHANGE: version 2 -> 3, ACTIVE, verify_jwt=true. Deployed bundle SHA-256: 033284738ff501c342a89b508f2a75ad15c2aae1fd6a88861a95cb7f7cf16899. Read-only function inventory and retrieved source confirm range validation/forwarding and Auth checks. Legacy estimate-rental-price remains ACTIVE version 8, JWT enabled, unchanged hash 3a025cc63b881af7b8a4410a2b6e9aadb99d0d301ac9ad995c1398531be67648; send-sms metadata also unchanged.
+
+73 focused tests, TypeScript and whitespace passed. Sanitized network-isolated native packaging (runtime v1.77.8) passed: 40,562 bytes, SHA-256 5a3f754bb8d4daa779f69939c4d02dad58380f50c2dcc71aa7789999fb6ace51. The CLI actually selected runtime v1.74.2 for successful deployment; its hosted bundle hash above is distinct from the preflight artifact. Disposable preflight container automatically removed. No secrets retrieved/changed, migrations, Tier 2 changes, Render modifications, unrelated function deployment, database writes, commit/push or Android build. No rollback executed or authorized; withdrawing/redeploying needs separate authorization. Prior documentation saying this revision is local-only is historical as of this entry.
+
+Hosted authenticated prediction has not been exercised for this revision. Android acceptance pending: valid range below primary estimate, exact illustrative label/explanation, separate asking rent, missing/invalid bounds omitted, retry/cancellation, Back and account switching. Existing app sessions and authorized real properties should be used; no production fixtures were created. Frontend changes remain local and were not distributed by the Edge deployment. Skills read/reused: Supabase plugin, RentLease Supabase contract guard, implementation ledger and test/runtime verification.
+
 
 ## Phase 2B local integration - November 9, 2026
 

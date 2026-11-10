@@ -61,7 +61,16 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
       query = query.order(input.sort === 'Recently Listed' ? 'published_at' : 'asking_rent_monthly',{ ascending: input.sort === 'Price: Low to High', nullsFirst:false }).order('id').range(input.offset,input.offset+19);
       if (signal) query = query.abortSignal(signal);
       const { data,error } = await query; await identity(owner); if (error || !data) throw new ManualSearchError();
-      const rows = (data as unknown[]).map(parseSearchListing), photos = await photoRows(owner,rows,signal);
+      const rows = (data as unknown[]).map(parseSearchListing);
+      let photos:Awaited<ReturnType<typeof photoRows>>;
+      try { photos=await photoRows(owner,rows,signal); }
+      catch(error) {
+        if(error instanceof ManualSearchError&&error.identity)throw error;
+        if(signal?.aborted)throw Object.assign(new Error('Rental search canceled.'),{name:'AbortError'});
+        // Photos are optional enrichment, not a prerequisite for authorized rental results.
+        // photoRows rechecks identity even on failures; never reuse partial or foreign URLs.
+        return rows;
+      }
       return rows.map(row => ({ ...row, thumbnailUrl: photos.find(p => p.propertyId === row.propertyId)?.photo.url ?? null }));
     },
     async locations(owner: string, text: string, offset: number, signal?: AbortSignal) {

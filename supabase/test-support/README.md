@@ -136,7 +136,7 @@ python supabase/tests/run_messaging_contract.py --container rentlease-messaging-
 
 The runner verifies container isolation, initializes a synthetic messaging database, loads the inspected viewing trigger and prepared scheduling migration, then exercises persistence, relationship/state authorization, idempotency, CAS, real concurrent requests/approvals, history and feature-disable rollback. It never reads .env or connects to production. Stop only that disposable container after completion. The last run passed 104 checks. A minimal fixture is not equivalent to a full production restoration or Android acceptance.
 
-`property_viewing_scheduling_rollback.sql` disables the three new scheduling RPCs and removes only their two restrictive policies. It deliberately keeps appointment records, revision/request notes, indexes and private event history for recovery. Existing grants/policies, messages and Realtime configuration remain unchanged. Do not replay the original migration to reenable it after rollback; use a separately reviewed recovery migration. Deployment requires separate authorization.
+`property_viewing_scheduling_rollback.sql` disables the three new scheduling RPCs and removes only their two restrictive policies. It deliberately keeps appointment records, revision/request notes, indexes and private event history for recovery. Existing grants/policies, messages and Realtime configuration remain unchanged. Do not replay the original migration to reenable it after rollback; use a separately reviewed recovery migration. UC-09A was separately deployed as 20261106125046 on November 6; do not replay it. The read-only supabase/tests/verify_viewing_deployment.sql passed118 live checks without creating appointments. These disposable test commands remain local-only. Future deployment/rollback requires separate authorization.
 
 ## UC-09B rental reservations (local only)
 
@@ -149,6 +149,8 @@ python supabase/tests/run_messaging_contract.py --container rentlease-messaging-
 Use a fresh no-volume/no-published-port Supabase PostgreSQL17 container; prefer `--network none`. The final run passed171 checks (67 reservation,55 viewing,49 messaging). It reuses the actual inspected tenancy property/identity guard sources with synthetic current-identity/property data and verifies concurrent approval/tenancy races. Stop only that disposable container afterward. This is not live RLS, a production restore, or Android acceptance evidence.
 
 `property_rental_reservations_rollback.sql` is feature-disable recovery: remove only the three public reservation RPCs; retain private data/event history, indexes/helpers and the additive tenancy conflict guard so approved commitments remain honored. A separately authorized recovery migration is needed to reenable entry points or retire commitments. Never replay the creation file, drop protected reservation records, or remove the guard while approved commitments remain active. No deployment authorization is implied by these tests.
+
+UC-09B was separately deployed as20261106130211 on November6. Do not replay it. The live read-only verify_reservation_deployment.sql passed161 checks without creating reservations/tenancies; existing viewing118 and messaging/Realtime214 checks also passed. These fixture commands remain local-only, and actual Android reservation acceptance is pending. Future deployment or recovery requires separate authorization.
 
 ## Public identity local validation
 

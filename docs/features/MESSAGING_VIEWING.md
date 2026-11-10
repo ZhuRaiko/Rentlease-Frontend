@@ -1,6 +1,6 @@
 # Messaging, viewing scheduling, and rental reservations (UC-08 / UC-09)
 
-Last checked: November 6, 2026 (Asia/Singapore), baseline e6d19068dea29267541fddaece75c8fd417d92d7 on fix/gps-nearby-results. UC-09A is committed; UC-09B changes are uncommitted. Both migrations are undeployed.
+Last checked: November 6, 2026 (Asia/Singapore), frontend checkpoint 07e13306d7695baeb594f8456b2f4bc587d9728e on fix/gps-nearby-results. UC-09A is deployed as 20261106125046 and UC-09B as 20261106130211. Deployment reconciliations are uncommitted.
 
 ## Real Chat property context enhancement (November 7)
 
@@ -14,7 +14,7 @@ Availability: Rented requires a visible actual active tenancy; Reservation appro
 
 Validation: 283 focused frontend tests pass (22 new Chat/property tests plus existing messaging/Realtime, viewing/reservation, discovery/manual-search, public identity, keyboard and property-photo regressions). TypeScript and whitespace checks pass. Existing Metro compiled the Android JS bundle, HTTP 200, without building/installing a binary or exercising native screens/accounts. Real-device acceptance, two-account Realtime, native photo preview/keyboard/Back and long-name layout remain pending. No backend migration or prepared contract is required for this safe RLS-limited implementation; no Supabase data changed, fixtures created, commits/push/merge or Android builds occurred.
 
-## UC-09B rental reservations — local implementation, separate deployment required
+## UC-09B rental reservations — deployed, Android acceptance pending
 
 IMPLEMENTED / AUTOMATED-TESTED locally; Android RUNTIME-UNVERIFIED. This supersedes older reservation-deferred statements below. Rental reservations are separate from viewing appointments: Schedule Viewing requests an inspection; Request Reservation requests a commitment for the intended rental period. No payment/deposit, auto-approval, listing status change, or automatic tenancy creation. A pending request never reserves the unit.
 
@@ -28,7 +28,7 @@ Server reads compute effective expiration even when the stored status has not be
 
 Architecture: `RentalReservation.ts` owns normalized contracts/date/status helpers; `reservationService.ts` owns typed RPCs, identity checks, cancellation/time bounds, strict parsing and safe errors; `reservationWorkflow.ts` owns state, requests, decisions, retry IDs, revisions, paging and stale/account cleanup; `useRentalReservationsViewModel.ts` owns lifecycle/expiry refresh. `RentalReservationsView` and `ReservationDateField` render data using shared controls and the existing native date picker. Views contain no Supabase client. Pending, Approved, and Past / closed filter the loaded 20-record pages with explicit Load more; last 100 audit events are displayed while all events persist.
 
-Prepared [20261106121806_property_rental_reservations.sql](../../supabase/migrations/20261106121806_property_rental_reservations.sql) adds public.rental_reservations (RLS enabled, no client table privileges), a private rentlease_reservations event/projection schema, three authenticated-only empty-search-path RPCs, and one additive tenancy conflict trigger. The current physical property is the rentable unit: conflicts are enforced across different listings for the same property.
+Deployed [20261106130211_property_rental_reservations.sql](../../supabase/migrations/20261106130211_property_rental_reservations.sql) adds public.rental_reservations (RLS enabled, no client table privileges), a private rentlease_reservations event/projection schema, three authenticated-only empty-search-path RPCs, and one additive tenancy conflict trigger. The current physical property is the rentable unit: conflicts are enforced across different listings for the same property.
 
 | Prepared RPC | Enforcement |
 | --- | --- |
@@ -38,11 +38,11 @@ Prepared [20261106121806_property_rental_reservations.sql](../../supabase/migrat
 
 All writes require READ COMMITTED and take the same property advisory transaction lock used by existing property/identity/tenancy guards, followed by relevant row locks. The additive aac_reservation_tenancy_commitment trigger rejects an overlapping manual tenancy for a different renter/owner while an approved hold exists; a manually authorized tenancy for the same participants remains possible, retaining all existing version, identity and activation protections. Conversely reservation requests/approvals reject overlapping proposed/pending-confirmation/active tenancies, with an unknown tenancy end treated as open-ended. Existing tenancy dates are inclusive at their end; reservation end dates are exclusive. Actual concurrent approval and tenancy tests pass. Original UC-08/UC-09A functions, policies, role records, publication, verification, Admin and private document rules are unchanged.
 
-Rollback is [feature-disable source](../../supabase/test-support/property_rental_reservations_rollback.sql): it removes only the three new public RPCs. Records/events/private helpers/indexes and the new tenancy conflict guard remain, so existing approved commitments are not silently abandoned. Any reenable or retirement requires a separately authorized recovery migration; do not replay the creation migration. No permanent live backend mutation was performed in this phase.
+Rollback is [feature-disable source](../../supabase/test-support/property_rental_reservations_rollback.sql): it removes only the three new public RPCs. Records/events/private helpers/indexes and the new tenancy conflict guard remain, so existing approved commitments are not silently abandoned. Any reenable or retirement requires a separately authorized recovery migration; do not replay the creation migration. The original local implementation performed no live mutation; the authorized deployment below applies the reviewed DDL.
 
-Deployment and Android acceptance are pending. After separately authorized deployment, use two eligible accounts: request from a real detail conversation; owner refreshes and approves/declines; renter reopens/cancels; check pending versus approved copy, month-end/Philippine dates, deadline expiry, offline retry, a conflicting owner approval, same-property alternate listings, account switching, Back, small-screen/TalkBack and the optional-message keyboard. No production fixtures were created for this implementation. Existing UC-08 live Realtime delivery/physical keyboard and UC-09A device acceptance remain pending.
+Deployment is complete; Android acceptance is pending. Use two eligible accounts: request from a real detail conversation; owner refreshes and approves/declines; renter reopens/cancels; check pending versus approved copy, month-end/Philippine dates, deadline expiry, offline retry, a conflicting owner approval, same-property alternate listings, account switching, Back, small-screen/TalkBack and the optional-message keyboard. No production fixtures were created for this implementation. Existing UC-08 live Realtime delivery/physical keyboard and UC-09A device acceptance remain pending.
 
-## UC-09A viewing scheduling — local implementation, deployment required
+## UC-09A viewing scheduling — deployed, Android acceptance pending
 
 IMPLEMENTED / AUTOMATED-TESTED locally; Android RUNTIME-UNVERIFIED. This section supersedes the earlier viewing-preview/deferred statements below. UC-08 and its Realtime metadata migration remain deployed and unchanged. UC-09B reservations, payments, tenancy creation, uploads, and automated completion/no-show actions are excluded.
 
@@ -52,7 +52,7 @@ Entry: a real Listing Details inquiry opens its existing property conversation; 
 
 Requests, Upcoming, and Past / cancelled display real loaded appointments, status, listing title, Philippine date/time, notes, actions, and recent event history. Pages load 20 appointments in deterministic starts_at DESC / id DESC order; category controls filter loaded pages and Load more remains available even when a category is empty. Past pending appointments remain labeled pending, never fabricated as completed. Native date/time pickers explicitly use Asia/Manila; UTC timestamps are stored. Times must be future and end after start; notes are optional, at most 1,000 characters. No invented availability slots. Both endpoints are on the chosen Philippine calendar date in this initial UI.
 
-Prepared migration: [20261106114837_property_viewing_scheduling.sql](../../supabase/migrations/20261106114837_property_viewing_scheduling.sql). The live table and participant-validation trigger are reused, with revision/request_note columns, private event snapshots, three RPCs, and two restrictive direct-write policies. Existing UC-08 policies/functions/publications, roles, verification and location rules are untouched. Before deployment the UI reports the missing backend update; no local success is substituted.
+Deployed migration: [20261106125046_property_viewing_scheduling.sql](../../supabase/migrations/20261106125046_property_viewing_scheduling.sql). The live table and participant-validation trigger are reused, with revision/request_note columns, private event snapshots, three RPCs, and two restrictive direct-write policies. Existing UC-08 policies/functions/publications, roles, verification and location rules are untouched. The frontend RPC signatures match the deployed contracts; no frontend cutover change was required.
 
 | Prepared RPC | Enforcement |
 | --- | --- |
@@ -64,9 +64,23 @@ Only authenticated RPC EXECUTE is granted, with empty search paths and explicit 
 
 Validation: 70 focused frontend tests passed, including 38 scheduling tests and existing messaging/Realtime/rendering/keyboard regressions. 104 disposable PostgreSQL checks passed (55 new scheduling and 49 UC-08 checks), including actual parallel request/approval sessions and record-preserving feature-disable rollback. TypeScript and whitespace checks passed. Minimal synthetic fixtures reuse inspected live trigger/helper contracts; they are not a restored production database or live Android acceptance.
 
-Deployment requires separate authorization and fresh live source/grant/history checks plus backup. [Rollback source](../../supabase/test-support/property_viewing_scheduling_rollback.sql) disables only new RPCs/policies; it deliberately retains appointments, columns, and private event history for recovery. Do not replay this migration after rollback; any reenable requires a separately reviewed migration. No permanent live backend mutation was performed in this phase.
+The separately authorized November 6 deployment passed fresh backup, live guards and read-only verification. [Rollback source](../../supabase/test-support/property_viewing_scheduling_rollback.sql) disables only new RPCs/policies; it deliberately retains appointments, columns, and private event history for recovery. Do not replay this migration after rollback; any reenable requires a separately reviewed migration. The original implementation phase performed no live mutation; the authorized deployment below applies the prepared DDL.
 
 Android after deployment: renter requests from a Discover/manual/GPS detail conversation, owner refreshes/approves or proposes another time, renter refreshes/accepts/declines, either cancels; reopen both inbox and thread appointment lists, check Back origin, Manila time on a foreign-timezone emulator, offline retry, overlapping approvals, account switching, note keyboard, small screen/font scaling and TalkBack. Realtime is not required for scheduling; use pull-to-refresh/foreground refresh. Existing two-account UC-08 Realtime delivery and physical keyboard acceptance remain pending.
+
+## November 6 UC-09B deployment verification
+
+Applied exactly once as 20261106130211_property_rental_reservations; reviewed/deployed SQL SHA25627f729196059a5d406002eb3c9a2f1f00855581463b65bb3298164f81c59880a. Filename reconciled without SQL changes; preparation header retained. Backup:C:/RentLease-Backups/uc09b-reservations-predeploy-20261106-205858 contains schema/roles, nine relevant public-table data sets, full migration history/catalog, reviewed migration/rollback, verifier, postflight contracts/receipt and SHA256 manifest. Restoration was not tested; matching Auth/private identity dependencies and coordinated circular message-FK restoration are required.
+
+161 read-only reservation checks passed over7 existing accounts/5 conversations:10 participant and35 denied pairs,25 denied applicant impersonation attempts andone eligible role-free account. Five new function bodies match reviewed source, with authenticated-only public RPCs and postgres-only private schema/helpers/events; RLS is enabled and no direct reservation client privileges exist. Frontend parameters/defaults/jsonb contracts match. Existing24 full migration entries and UC-08/UC-09A/helper sources, policies, grants, columns, constraints and publications are unchanged; only the intended additive tenancy conflict trigger is new. UC-09A118 and UC-08/Realtime214 read-only regression checks also passed. No production reservations, tenancies or test messages were created; positive state transitions, CAS/idempotency, expiration and conflict races remain the earlier local-suite evidence, plus live exact-source/structural checks. Two-account Android acceptance remains pending.
+
+Record IDs/counts match the actual recovery backup for all nine tables. Messages grew from9 at initial catalog inspection to11 by the backup; postflight also has11. The tools sent no messages; the concurrent actor/cause was not attributed, and full row-content equality is not asserted. No frontend changes, unrelated deployment, commit, push, merge or build. Both UC-09 migrations are now deployed; do not replay either.
+
+## November 6 UC-09A deployment verification
+
+Applied once as 20261106125046; exact reviewed SQL SHA25651ee198eb7a3d99e2ddc87562baf258636bba67c3cb889005ad96966e59ddb50. Local filename reconciled without changing SQL bytes; historical preparation header retained. Fresh backup: C:/RentLease-Backups/uc09a-viewing-predeploy-20261106-204734 (schema, roles, affected conversation/message/viewing data, full history/catalog, reviewed sources, verifier, receipt and SHA256 manifest). Restore not tested; the data-only messages dump reports circular foreign keys, requiring coordinated restoration. No private record contents appear in reports.
+
+118 read-only viewing checks and214 existing messaging/Realtime checks passed across7 existing accounts/5 conversations:10 participant and35 denied pairs, including one eligible role-free actor. Three viewing RPC sources/signatures/privileges match the approved migration/frontend; original UC-08 sources, policies, grants, triggers and prior23 migration rows remain intact. Existing viewing publication membership remains unchanged; its all-column projection naturally gained revision/request_note. No appointment/event direct client grants were added. Affected record counts and ID sets match backup (5 conversations,9 messages,0 appointments); no test appointments or data writes were performed. Positive appointment persistence, transitions and conflicts remain local-suite evidence, not live mutation/Android proof. UC-09B was not deployed during that earlier UC-09A task; no commit/push/build occurred. Two-account Android scheduling and existing Realtime/keyboard acceptance remain pending.
 
 ## Status and scope
 
@@ -130,6 +144,7 @@ Focused frontend checks, TypeScript and whitespace are recorded in the history.7
 
 Deployment reconciliation:November5,2026, remote20261105144546, exact source SHA2561cf3e01b79d15d69c38bc19beefa73118c6c48c3892df4d99761a03ab936cb2c. Historical preparation comment retained without changing reviewed bytes. Fresh external backup:C:/RentLease-Backups/uc08-realtime-predeploy-20261105-224205 (schema/roles/catalog/history/source/verification/manifest; no message data export). Original RPCs/policies/triggers, prior history and unrelated publications were preserved. Concurrent application activity changed conversations3->5 and messages8->9; deployment/verification issued no data writes and cannot claim identical conversation row fingerprints. Frontend metadata selections match the deployed columns without code changes. Two-account Android delivery/reconnect/account-switch and physical-keyboard acceptance remain pending.
 
+
 ## Property-centered UC-09 integration - November 7, 2026
 
 IMPLEMENTED / AUTOMATED-TESTED, uncommitted after Chat checkpoint 946d51908ca4af901790542b640bd455364f2156; physical Android acceptance pending.
@@ -143,3 +158,11 @@ Existing participant RPCs are fully paginated in bounded 20-row reads: at most 1
 Tenancy is now a real read-only workspace; see [Tenancy](TENANCY.md). Maintenance preview remains separately accessible inside it. Five bottom tabs and Post remain unchanged. Request approval never creates a tenancy or payment.
 
 Validation: 338 focused tests passed / 0 failed (29 new UC-09 navigation/data tests plus one new ownership test); TypeScript and whitespace pass. Includes UC-08/Realtime, UC-09 actions/conflicts/revisions/expiry, Public Identity, portfolio, publication/lifecycle and Back regressions. Updated custom renderer mocks reflect extracted reusable request workspaces. Native navigation, account switching, two-account writes/refresh and keyboard acceptance remain pending. Offset pagination is not a transactional snapshot; concurrent remote changes require refresh. No automatic cross-screen Realtime request subscription was added.
+
+
+## Tenancy T1 handoff - November 10, 2026
+
+Approved reservations in the root-composed Chat workspace now offer a contextual Establish tenancy (owner) / Review tenancy setup action. App supplies the feature renderer; reservation services/status actions/history and messaging contracts are unchanged. The new local T1 backend requires separate deployment; absent RPC explains the update requirement. Explicit owner proposal and renter confirmation, current property/identity review, unique source links and receipts govern the setup; reservation approval never automatically creates a tenancy. See [Tenancy](TENANCY.md) for dashboard, lifecycle boundaries and validation. Maintenance remains preview. No production write/deployment in this implementation.
+
+
+T1 deployment update (November 10): tenancy establishment backend is now deployed as 20261110062844. Earlier local-only deployment caveats above are historical. Existing reservation/messaging contracts and data were preserved. Frontend release and actual two-account positive acceptance remain pending; see Tenancy and the shared backend ledger.

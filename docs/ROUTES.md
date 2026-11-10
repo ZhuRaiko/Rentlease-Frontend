@@ -108,9 +108,9 @@ Chat opens the real participant inbox for unified accounts. Contact Owner in sha
 
 `MessagingViewingFlowView` owns the nested appointment workspace; `usePropertyViewingsViewModel` owns its account-keyed persisted workflow. Requests, Upcoming, and Past / cancelled use the same bounded appointment pages. An editor requests, accepts, declines, proposes a different time, or cancels only through the prepared RPC contracts. Editor Back returns to appointments, then Chat, then the original listing origin when present. Unknown writes require retry or an explicit leave confirmation. Account changes unmount and clear the old private workspace; foreground/reentry refresh does not depend on Realtime.
 
-UC-08 persistence and metadata subscriptions are deployed. UC-09A is locally implemented/tested but requires its separately authorized migration deployment. Before deployment the appointment screen reports that backend requirement.
+UC-08 persistence and metadata subscriptions are deployed. UC-09A is deployed as 20261106125046 and read-only live-verified; real appointment/Android acceptance remains pending.
 
-UC-09B is a separate reservation panel in the same account-scoped flow: conversation Request Reservation / Reservation requests, or inbox Rental reservations. It has a move-in/month-duration/message request form, owner decisions, participant cancellation, Pending/Approved/Past categories and history. It does not reuse appointment records or add a bottom tab. Back returns through its editor and management screen to retained Chat/listing context; account switching clears either panel. Its independent prepared migration is also undeployed. Neither missing contract fabricates successful persistence. See [Messaging, Viewing & Reservations](features/MESSAGING_VIEWING.md).
+UC-09B is a separate reservation panel in the same account-scoped flow: conversation Request Reservation / Reservation requests, or inbox Rental reservations. It has a move-in/month-duration/message request form, owner decisions, participant cancellation, Pending/Approved/Past categories and history. It does not reuse appointment records or add a bottom tab. Back returns through its editor and management screen to retained Chat/listing context; account switching clears either panel. Its independent migration is deployed as 20261106130211 and read-only live-verified; two-account Android reservation acceptance remains pending. See [Messaging, Viewing & Reservations](features/MESSAGING_VIEWING.md).
 
 ## Maintenance Requests feature states
 
@@ -251,16 +251,25 @@ My Listings contextual Tier 3 (2026-11-01): property card -> retained dashboard 
 
 Milestone 4 route: Edit Property Details (`propertyEdit`) -> Request Identity Correction (`identityEdit`) -> existing contextual Tier 3 Modal; map search/pin UI reuses the existing location tool. Back uses the existing scoped unsaved-property confirmation, preserving unsaved listing context. Admin uses the existing verification detail/review confirmation. No router or global navigation infrastructure is added. Backend deployed as 20261102081459; Android acceptance remains pending. See [identity corrections](features/PROPERTY_LISTING_MANAGEMENT.md#milestone-4-identity-correction-implementation-2026-11-02).
 
+
 ## November 7 - Property-centered UC-09 routes
 
 My Listings -> property Manage Requests -> Viewings/Reservations -> existing action editor. Hardware/header Back closes the editor first (preserving uncertain-write safeguards), then returns to the retained portfolio and refreshes counters. Chat Inbox -> My Requests filters actual requester rows; Open conversation returns to the real related conversation. Existing conversation-specific viewing/reservation entries remain. Tenancy -> Upcoming Rentals/Active Rentals/Rental History; Maintenance requests opens the existing preview and Back returns to Tenancy. Root-owned account keys and request generations isolate account/property changes. No new bottom tab. See features/TENANCY.md and features/MESSAGING_VIEWING.md; Android runtime acceptance pending.
+
 
 ## November 8 - Content recommendation routes
 
 Discover -> Recommended for You -> existing real Listing Details. View ranked rentals and Search Sort -> Recommended/Best Match use the same 100-result recent filtered pool. Recommended blends preference/authorized verification/completeness; Best Match is relevance only. Both require explicitly saved session preferences. Preferences -> Save reranks; account changes clear; hard filter/query changes reload. Recent/price sorts keep normal server paging. Bounded-ranking and unknown-verification limitations are visible; For You remains community. GPS/map, Post, UC-08/09 and estimator routes are preserved. See features/PROPERTY_RECOMMENDATIONS.md; Android acceptance pending.
 
+
 November 8 inline estimator: saved property/listing detail contexts now offer user-triggered inline rental estimation without leaving details. Real Discover and Chat-linked listing details bind the current listing ID. The standalone estimator route remains compatibility-only; normal details no longer navigate to its picker. See RENTAL_PRICE_ESTIMATION.md for validation and Android acceptance limits. No property creation/publication rules changed.
+
 
 ## Rental price guidance and scoped Phase 2 completion - November 10, 2026
 
 Listing draft -> Monthly asking rent -> compact inline guidance for the saved property -> optional Use estimate updates local asking rent. No navigation to the standalone picker and no property creation/publishing for prediction. Property/details inline estimates remain; Back/account/property cancellation preserved. Compatibility-only estimator route retained.
+
+
+### Tenancy dashboard and T1 setup (November 10, local preparation)
+
+The existing Tenancy root is now a structured dashboard; earlier read-only descriptions are historical. It opens same-feature TenancySetupView for an approved reservation/source-bound tenancy. App also injects this renderer into Chat reservation actions, retaining the mounted reservation/conversation workspace. Nested Back returns to that origin, blocks saving and guards uncertain outcomes. No new bottom tab/router. Maintenance still opens its preview and returns to Tenancy. T1 RPCs deployed as 20261110062844; frontend release and actual caller/native acceptance remain pending.

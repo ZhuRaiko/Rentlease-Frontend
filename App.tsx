@@ -1,3 +1,5 @@
+import {TenancyCareWorkspaceView} from './src/features/tenancy/views/TenancyCareWorkspaceView';
+import {TenancySetupView} from './src/features/tenancy/views/TenancySetupView';
 import {TenancyWorkspaceView} from './src/features/tenancy/views/TenancyWorkspaceView';
 import {OwnedPropertiesWorkspace} from './src/app/OwnedPropertiesWorkspace';
 import {LivePropertyDetailView} from './src/features/search-discovery/views/LiveSearchViews';
@@ -17,7 +19,6 @@ import { useAuthProfilesViewModel } from './src/features/authentication/viewMode
 import { UserVerificationFlowView } from './src/features/user-verification/views/UserVerificationFlowView';
 import { AdminModerationFlowView } from './src/features/admin-moderation/views/AdminModerationFlowView';
 import { MessagingViewingFlowView } from './src/features/messaging-viewing/views/MessagingViewingFlowView';
-import { MaintenanceRequestsFlowView } from './src/features/maintenance/views/MaintenanceRequestsFlowView';
 import { NotificationsFlowView } from './src/features/notifications/views/NotificationsFlowView';
 import { RatingsReportsFlowView } from './src/features/ratings-reports/views/RatingsReportsFlowView';
 import { defaultMarketplaceMode, defaultPreviewActor, initialMarketplaceWorkspace, propertiesWorkspace, type AppWorkspace } from './src/shared/models/marketplaceNavigation';
@@ -30,6 +31,7 @@ traceAuthBoot('APP_MODULE_READY');
 export default function App() {
   const auth = useAuthProfilesViewModel();
   const discoveryHomeAction=useRef<(()=>void)|null>(null);
+  const [tenancyConversation,setTenancyConversation]=useState<{owner:string;id:string}|null>(null);
   const [inquiryConversation,setInquiryConversation]=useState<{userId:string;id:string}|null>(null);
   const [activityMode, setActivityMode] = useState<UserRole>('tenant');
   const previewActor: UserRole = activityMode;
@@ -42,6 +44,7 @@ export default function App() {
     if (action) workspaceBackAction.current = { workspace, userId: auth.account?.user.id ?? null, action };
     else if (workspaceBackAction.current?.workspace === workspace) workspaceBackAction.current = null;
   }, [workspace, auth.account?.user.id]);
+  const renderTenancySetup=(id:string,onBack:()=>void,onChanged:()=>void)=><TenancySetupView key={`${auth.account?.user.id}:${id}`} accountId={auth.account?.user.id} reservationId={id} onBack={onBack} onChanged={onChanged} registerBackAction={registerWorkspaceBack}/>;
   const workspaceDestination = auth.account ? getWorkspaceDestination(auth.account) : null;
   const canEnterAdmin = workspaceDestination === 'adminModeration';
   const canEnterMarketplace = workspaceDestination === 'discovery' && !auth.matchingIntroductionGate;
@@ -56,6 +59,7 @@ export default function App() {
       accountPresent: auth.account !== null, destination: workspaceDestination, workspace: workspace?.type ?? null,
       modalVisible: workspace !== null && (workspace.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace) });
   }, [auth.screen, auth.asyncState, auth.account, workspaceDestination, workspace, canEnterAdmin, canEnterMarketplace]);
+  useEffect(()=>{if(workspace?.type!=='tenancy'||tenancyConversation?.owner!==auth.account?.user.id)setTenancyConversation(null);},[workspace?.type,auth.account?.user.id]);
   useEffect(()=>{if(workspace?.type!=='discovery'||inquiryConversation?.userId!==auth.account?.user.id)setInquiryConversation(null);},[workspace?.type,auth.account?.user.id]);
   const validProfileReturn = resolveProfileReturn(profileReturnTarget, auth.account?.user.id ?? null, access);
   const allowedProfileReturn = profileBackTarget(profileReturnTarget, auth.account?.user.id ?? null, previewActor, access);
@@ -199,7 +203,7 @@ export default function App() {
             onOpenNotifications={() => { if (canEnterMarketplace) setWorkspace({ type: 'notifications' }); }}
             onStartInquiry={(id) => { if(auth.account) setInquiryConversation({userId:auth.account.user.id,id}); }}
           />
-          {inquiryConversation&&inquiryConversation.userId===auth.account?.user.id?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><MessagingViewingFlowView renderListingDetails={(id,onBack)=><ChatListingDetails key={`${auth.account?.user.id}:${id}`} owner={auth.account?.user.id} id={id} onBack={onBack}/>}
+          {inquiryConversation&&inquiryConversation.userId===auth.account?.user.id?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><MessagingViewingFlowView renderTenancySetup={renderTenancySetup} renderListingDetails={(id,onBack)=><ChatListingDetails key={`${auth.account?.user.id}:${id}`} owner={auth.account?.user.id} id={id} onBack={onBack}/>}
             accountId={auth.account?.user.id} conversationId={inquiryConversation.id} returnToListing
             canPostProperty={canEnterMarketplace} onRootBack={()=>setInquiryConversation(null)} onClose={openProfile} registerBackAction={registerWorkspaceBack}
             onOpenDiscover={()=>{setInquiryConversation(null);discoveryHomeAction.current?.();}} onCreateListing={()=>openProperties('postingType')}
@@ -244,7 +248,7 @@ export default function App() {
           />
         ) : null}
         {workspace?.type === 'messages' ? (
-          <MessagingViewingFlowView renderListingDetails={(id,onBack)=><ChatListingDetails key={`${auth.account?.user.id}:${id}`} owner={auth.account?.user.id} id={id} onBack={onBack}/>}
+          <MessagingViewingFlowView renderTenancySetup={renderTenancySetup} renderListingDetails={(id,onBack)=><ChatListingDetails key={`${auth.account?.user.id}:${id}`} owner={auth.account?.user.id} id={id} onBack={onBack}/>}
             accountId={auth.account?.user.id}
             onRootBack={openDiscovery}
             registerBackAction={registerWorkspaceBack}
@@ -262,24 +266,9 @@ export default function App() {
             onOpenMaintenance={() => setWorkspace({ type: 'tenancy' })}
           />
         ) : null}
-        {workspace?.type==='tenancy'?<TenancyWorkspaceView key={auth.account?.user.id} accountId={auth.account?.user.id} onBack={openDiscovery} registerBackAction={registerWorkspaceBack} onMaintenance={()=>setWorkspace({type:'maintenance'})} onDiscover={openDiscovery} onListings={()=>openProperties('dashboard')} onPost={()=>openProperties('postingType')} onChat={()=>setWorkspace({type:'messages',initialScreen:'inbox'})}/>:null}
-        {workspace?.type === 'maintenance' ? (
-          <MaintenanceRequestsFlowView
-            onRootBack={()=>setWorkspace({type:'tenancy'})}
-            registerBackAction={registerWorkspaceBack}
-            actor={previewActor}
-            canPostProperty={canEnterMarketplace}
-            onClose={openProfile}
-            onCreateListing={() =>
-              openProperties('postingType')
-            }
-            onOpenChat={() => setWorkspace({ type: 'messages', initialScreen: 'inbox' })}
-            onOpenDiscover={openDiscovery}
-            onOpenListings={() =>
-              openProperties('dashboard')
-            }
-          />
-        ) : null}
+        {workspace?.type==='tenancy'?<TenancyWorkspaceView externalPanelOpen={tenancyConversation?.owner===auth.account?.user.id&&!!tenancyConversation} onOpenConversation={id=>{if(auth.account)setTenancyConversation({owner:auth.account.user.id,id});}} key={auth.account?.user.id} accountId={auth.account?.user.id} onBack={openDiscovery} registerBackAction={registerWorkspaceBack} onMaintenance={()=>setWorkspace({type:'maintenance'})} onDiscover={openDiscovery} onListings={()=>openProperties('dashboard')} onPost={()=>openProperties('postingType')} onChat={()=>setWorkspace({type:'messages',initialScreen:'inbox'})}/>:null}
+        {workspace?.type==='tenancy'&&tenancyConversation&&tenancyConversation.owner===auth.account?.user.id?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><MessagingViewingFlowView key={`${tenancyConversation.owner}:${tenancyConversation.id}`} accountId={auth.account?.user.id} conversationId={tenancyConversation.id} returnToListing onRootBack={()=>setTenancyConversation(null)} onClose={()=>setTenancyConversation(null)} registerBackAction={registerWorkspaceBack} canPostProperty={canEnterMarketplace} onCreateListing={()=>openProperties('postingType')} onOpenListings={()=>openProperties('dashboard')} onOpenDiscover={openDiscovery} onOpenMaintenance={()=>setTenancyConversation(null)} renderTenancySetup={renderTenancySetup} renderListingDetails={(id,onBack)=><ChatListingDetails key={`${auth.account?.user.id}:${id}`} owner={auth.account?.user.id} id={id} onBack={onBack}/>}/></View>:null}
+        {workspace?.type === 'maintenance' ? <TenancyCareWorkspaceView key={auth.account?.user.id} accountId={auth.account?.user.id} onBack={()=>setWorkspace({type:'tenancy'})} registerBackAction={registerWorkspaceBack}/> : null}
         {workspace?.type === 'ratingsReports' ? (
           <RatingsReportsFlowView
             registerBackAction={registerWorkspaceBack}

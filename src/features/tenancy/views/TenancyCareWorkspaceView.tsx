@@ -1,0 +1,12 @@
+import {useEffect,useState} from 'react';
+import {ActivityIndicator,ScrollView,Text,View} from 'react-native';
+import {ScreenContainer} from '../../../shared/components/ScreenContainer';
+import {ScreenHeader} from '../../../shared/components/ScreenHeader';
+import {AppButton} from '../../../shared/components/AppButton';
+import {KeyboardAwareScrollView} from '../../../shared/components/KeyboardAwareScrollView';
+import {ui} from '../../../shared/theme/ui';
+import {useTenancyCareListViewModel} from '../viewModels/useTenancyCareListViewModel';
+import {TenancyCarePanel} from './TenancyCarePanel';
+export function TenancyCareWorkspaceView({accountId,onBack,registerBackAction}:{accountId:string|undefined;onBack:()=>void;registerBackAction:((action:(()=>void)|null)=>void)}){const vm=useTenancyCareListViewModel(accountId),[selected,setSelected]=useState<{owner:string|undefined;id:string}|null>(null),id=selected?.owner===accountId?selected?.id:null;
+ const back=()=>{if(id)setSelected(null);else onBack();};useEffect(()=>{registerBackAction(back);return()=>registerBackAction(null);});
+ return <ScreenContainer padded={false}><ScreenHeader title="Maintenance Requests" onBack={back}/>{id?<KeyboardAwareScrollView contentContainerStyle={{padding:16,gap:14}}><TenancyCarePanel key={`${accountId}:${id}`} accountId={accountId} tenancyId={id} maintenanceOnly/></KeyboardAwareScrollView>:<ScrollView contentContainerStyle={{padding:16,gap:14}}><Text style={ui.body}>Choose a rental to view its maintenance requests. Active rentals support new requests and landlord responses; ended rentals retain read-only history.</Text>{vm.busy?<ActivityIndicator accessibilityLabel="Loading rental relationships"/>:null}{vm.error?<Text accessibilityRole="alert" style={ui.supporting}>{vm.error}</Text>:null}<AppButton label="Refresh rentals" variant="secondary" disabled={vm.busy} onPress={vm.refresh}/>{!vm.busy&&!vm.error&&!vm.rows.length?<Text style={ui.body}>No active or ended tenancies are available. An approved reservation alone does not establish a tenancy.</Text>:null}{vm.rows.map(t=><View key={t.id} style={{...ui.panel,padding:14,gap:8}}><Text style={ui.body}>{accountId===t.landlord_id?'Your property tenancy':'Your rental'} - {t.status}</Text><Text style={ui.supporting}>Started {t.start_date}</Text><Text selectable style={ui.supporting}>Tenancy: {t.id}</Text><AppButton label="Open maintenance requests" variant="secondary" onPress={()=>setSelected({owner:accountId,id:t.id})}/></View>)}</ScrollView>}</ScreenContainer>;}

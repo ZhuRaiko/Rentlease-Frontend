@@ -282,3 +282,12 @@ Evidence: mocked service/transport/workflow/rendering/navigation tests and TypeS
 
 
 Client read-only smoke evidence for Discover: agent used existing signed-in emulator through ADB to open one real homepage card, confirm full detail content/photo after loading, then Back. This exercises existing authenticated listing/photo/detail reads; exact request payloads/IDs/session are not logged, and visible-card count is not a total result count. No SQL/admin inspection or data mutation. Nearby Places may follow its normal asynchronous detail lifecycle; no provider diagnostic/retry cycle was initiated. Temporary UI hierarchy file deleted. This is not new physical-device acceptance or a denied-case live RLS test.
+
+
+### 2026-11-10 / TENANT-DISCOVERY-AUDIT
+
+Actor: Codex, connected Supabase execute_sql. Classification READ_ONLY_INSPECTION; project cxfsbwbwmwmgtqfonqth. Catalog-only SELECTs inspected pg_proc/pg_get_functiondef, owners/config/ACL for search_nearby_listings and recommendation verification RPC presence; information_schema saved_listings columns/column privileges; pg_constraint definitions; pg_policies; pg_class RLS; has_table_privilege for authenticated SELECT/INSERT/DELETE; public RPC name inventory matching saved/favorite/bookmark. No application rows, private locations, credentials or GPS/POI values were read; no user RPC was executed.
+
+Results: GPS remains security invoker with empty search_path, authenticated execution, 1?20 km validation, active Tier 1, public_location PostGIS and active/available listing predicates. Recommendation signal RPC absent. saved_listings exists with tenant/listing composite key and owner RLS, but authenticated SELECT/INSERT/DELETE table grants and relevant column grants are absent; no public saved/favorite/bookmark RPC exists. Thus Saved Listings requires a separately authorized backend contract, not a speculative frontend query. Existing privacy-blocked recommendation migration and all unrelated migrations remain untouched. Source provenance: deployed GPS radius file 20261103164547_gps_nearby_radius_1_to_20.sql and existing generated types; no migration was created/changed in this audit.
+
+No permanent live backend mutation was performed. No provider request, Android/ADB/Expo/build, deployment, commit/push or data cleanup obligation. Frontend photo-only resilience regression, 224 focused cases and TypeScript evidence are in TENANT_SEARCH_DISCOVERY_AUDIT_2026-11-10.md. Native/provider/current caller-JWT/RLS runtime acceptance remains unverified.

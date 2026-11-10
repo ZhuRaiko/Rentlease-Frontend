@@ -1,5 +1,6 @@
+import {parseRentalCoordinates} from '../../../src/shared/models/RentalCoordinateProjection.ts';
 import {mapPredictionInput,parseModelPrediction,parsePredictionTarget,isPredictionId,PredictionError} from '../../../src/shared/models/RentalPrediction.ts';
-export interface ProxyConfig {supabaseUrl:string;anonKey:string;mlUrl:string;mlSecret:string;timeoutMs?:number}
+export interface ProxyConfig {supabaseUrl:string;anonKey:string;mlUrl:string;mlSecret:string;timeoutMs?:number;approvedCoordinates?:boolean}
 const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,apikey,content-type,x-client-info','Access-Control-Allow-Methods':'POST,OPTIONS','Cache-Control':'no-store'};
 const reply=(status:number,body:unknown)=>new Response(JSON.stringify(body),{status,headers:{...headers,'Content-Type':'application/json'}});
 const MODEL_FIELDS=',property_subtype,lot_area_sqm,parking_spaces';
@@ -28,7 +29,7 @@ export function createPredictionHandler(config:ProxyConfig,http:typeof fetch=fet
   const propertyPath=(fields:string)=>'/rest/v1/properties?select='+fields+'&id=eq.'+propertyId+'&limit=1';
   // Older production schemas do not have Phase 2A yet. Retry only a precisely
   // identified missing optional column, never permissions, cache or other errors.
-  const responseForProperty=await http(config.supabaseUrl.replace(/\/$/,'')+propertyPath(PROPERTY_FIELDS+MODEL_FIELDS),{headers:authHeaders,signal:controller.signal});
+  const responseForProperty=await http(config.supabaseUrl.replace(/\/$/,'')+propertyPath(PROPERTY_FIELDS+MODEL_FIELDS+(config.approvedCoordinates?',edit_version':'')),{headers:authHeaders,signal:controller.signal});
   let rows:unknown;
   if(responseForProperty.ok)rows=await responseForProperty.json();
   else{
@@ -47,7 +48,14 @@ export function createPredictionHandler(config:ProxyConfig,http:typeof fetch=fet
   const links=await read('/rest/v1/property_amenities?select=amenities(name)&property_id=eq.'+propertyId+'&limit=101');
   const names=Array.isArray(links)&&links.length<101&&links.every(l=>typeof l?.amenities?.name==='string')?links.map(l=>l.amenities.name):null;
   const input=mapPredictionInput(property,names);
-  const response=await http(ml.origin+'/predict',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+config.mlSecret},body:JSON.stringify(input),signal:controller.signal,redirect:'error'});
+  let coordinates=null;
+  if(config.approvedCoordinates&&isPredictionId(property.edit_version)){
+   const projection=await http(config.supabaseUrl.replace(/\/$/,'')+'/rest/v1/rpc/get_rental_prediction_coordinates',{method:'POST',headers:authHeaders,signal:controller.signal,body:JSON.stringify({p_property_id:propertyId,p_listing_id:target.listingId??null,p_edit_version:property.edit_version})});
+   if(projection.ok){let value:unknown=null;try{value=await projection.json();}catch{}coordinates=parseRentalCoordinates(value,propertyId,property.edit_version);}
+   else {let error;try{error=await projection.json();}catch{}if(!(projection.status===404&&error?.code==='PGRST202'))throw new PredictionError('Access unavailable.','access');}
+  }
+  const modelInput={...input,...(coordinates??{})};
+  const response=await http(ml.origin+'/predict',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+config.mlSecret},body:JSON.stringify(modelInput),signal:controller.signal,redirect:'error'});
   if(!response.ok)return reply(response.status===422?422:response.status===429?429:503,{code:response.status===422?'model_input':response.status===429?'rate_limit':'upstream'});
   // Shared parsing forwards only validated illustrative bounds; invalid bounds remain null.
   let result;try{result=parseModelPrediction(await response.json());}catch{return reply(502,{code:'invalid_result'});}
