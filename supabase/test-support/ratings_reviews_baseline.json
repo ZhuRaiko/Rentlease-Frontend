@@ -1,0 +1,71 @@
+{
+  "columns": [
+    {
+      "name": "id",
+      "type": "uuid",
+      "default": "gen_random_uuid()",
+      "notnull": true
+    },
+    {
+      "name": "tenancy_id",
+      "type": "uuid",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "reviewer_id",
+      "type": "uuid",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "reviewee_id",
+      "type": "uuid",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "rating",
+      "type": "smallint",
+      "default": null,
+      "notnull": true
+    },
+    {
+      "name": "comment",
+      "type": "text",
+      "default": null,
+      "notnull": false
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "default": "now()",
+      "notnull": true
+    },
+    {
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "default": "now()",
+      "notnull": true
+    }
+  ],
+  "triggers": [
+    {
+      "function": "CREATE OR REPLACE FUNCTION public.set_updated_at()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\r\nbegin\r\n  new.updated_at = now();\r\n  return new;\r\nend;\r\n$function$\n",
+      "definition": "CREATE TRIGGER trg_reviews_updated_at BEFORE UPDATE ON public.reviews FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+    },
+    {
+      "function": "CREATE OR REPLACE FUNCTION public.validate_review()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  tenancy_row public.tenancies%rowtype;\r\nbegin\r\n  select *\r\n    into tenancy_row\r\n  from public.tenancies\r\n  where id = new.tenancy_id;\r\n\r\n  if tenancy_row.id is null or tenancy_row.status <> 'ended' then\r\n    raise exception 'Reviews are allowed only after an ended tenancy';\r\n  end if;\r\n\r\n  if new.reviewer_id = tenancy_row.tenant_id then\r\n    if new.reviewee_id <> tenancy_row.landlord_id then\r\n      raise exception 'Tenant may review only the landlord for this tenancy';\r\n    end if;\r\n  elsif new.reviewer_id = tenancy_row.landlord_id then\r\n    if new.reviewee_id <> tenancy_row.tenant_id then\r\n      raise exception 'Landlord may review only the tenant for this tenancy';\r\n    end if;\r\n  else\r\n    raise exception 'Reviewer is not a party to this tenancy';\r\n  end if;\r\n\r\n  return new;\r\nend;\r\n$function$\n",
+      "definition": "CREATE TRIGGER trg_validate_review BEFORE INSERT OR UPDATE ON public.reviews FOR EACH ROW EXECUTE FUNCTION validate_review()"
+    }
+  ],
+  "constraints": [
+    "CHECK ((reviewer_id <> reviewee_id))",
+    "PRIMARY KEY (id)",
+    "CHECK (((rating >= 1) AND (rating <= 5)))",
+    "FOREIGN KEY (reviewee_id) REFERENCES profiles(id) ON DELETE RESTRICT",
+    "FOREIGN KEY (reviewer_id) REFERENCES profiles(id) ON DELETE RESTRICT",
+    "FOREIGN KEY (tenancy_id) REFERENCES tenancies(id) ON DELETE CASCADE",
+    "UNIQUE (tenancy_id, reviewer_id)"
+  ]
+}

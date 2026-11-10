@@ -2,7 +2,7 @@
 
 ## Status - November 10, 2026
 
-T7A frontend IMPLEMENTED LOCALLY / AUTOMATED-TESTED / RUNTIME-UNVERIFIED on feature/ratings-reviews. Backend externally deployed as `20261110140910_tenancy_ratings_reviews`; November 10 metadata read confirmed 35 migrations and the published-review RPC definition. Retained local source `supabase/migrations/20261110125450_tenancy_ratings_reviews.sql` must not be replayed or renamed. T7B/T7C native interface, approved-corpus adapter and authenticated Edge/Python bridge are implemented locally; production processing remains unavailable until separate Python/Edge deployment and hosted acceptance. No deployment or production data write in this pass.
+T7A frontend IMPLEMENTED LOCALLY / AUTOMATED-TESTED / RUNTIME-UNVERIFIED on feature/ratings-reviews. Backend externally deployed as `20261110140910_tenancy_ratings_reviews`; November 10 metadata read confirmed 35 migrations and the published-review RPC definition. Retained local source `supabase/migrations/20261110125450_tenancy_ratings_reviews.sql` must not be replayed or renamed. T7B/T7C native interface, approved-corpus adapter and authenticated Edge/Python bridge are implemented. At this source-control checkpoint the developer reports Python /wordcloud deployed on Render and review-wordcloud Edge ACTIVE v1 with JWT verification enabled. No fresh hosted calls were made for this checkpoint; end-to-end caller/native acceptance remains pending. No deployment or production data write in this pass.
 
 ## Review targets and eligibility
 
