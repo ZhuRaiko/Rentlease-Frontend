@@ -421,3 +421,7 @@ verify_jwt = true
 # Prepared only; separate deployment authorization required.
 [functions.delete-unfinished-post]
 verify_jwt = true
+
+# Local only; separate deployment authorization required.
+[functions.review-wordcloud]
+verify_jwt = true
