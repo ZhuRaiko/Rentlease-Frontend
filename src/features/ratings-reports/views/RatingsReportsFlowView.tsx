@@ -1,3 +1,4 @@
+import {TenancyReviewChooser} from './TenancyReviewChooser';
 import { useEffect } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
@@ -11,6 +12,7 @@ import { ReportFlowView } from './ReportFlowView';
 import { ReviewFlowView } from './ReviewFlowView';
 
 interface RatingsReportsFlowViewProps {
+  accountId?:string|undefined;
   actor: RatingsReportsActor;
   canPostProperty: boolean;
   onClose: () => void;
@@ -34,6 +36,7 @@ const reviewScreens = new Set([
 ]);
 
 export function RatingsReportsFlowView({
+  accountId,
   actor,
   canPostProperty,
   onClose,
@@ -46,13 +49,14 @@ export function RatingsReportsFlowView({
 }: RatingsReportsFlowViewProps) {
   const viewModel = useRatingsReportsViewModel(actor);
   useEffect(() => {
+    if(reviewScreens.has(viewModel.screen))return;
     registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
     return () => registerBackAction?.(null);
   });
   const content = viewModel.screen === 'home' ? (
-    <RatingsReportsHomeView onClose={onClose} viewModel={viewModel} />
+    <RatingsReportsHomeView accountId={accountId} onClose={onClose} viewModel={viewModel} />
   ) : reviewScreens.has(viewModel.screen) ? (
-    <ReviewFlowView viewModel={viewModel} />
+    <TenancyReviewChooser key={accountId} accountId={accountId} onBack={viewModel.openHome} registerBackAction={registerBackAction}/>
   ) : (
     <ReportFlowView viewModel={viewModel} />
   );

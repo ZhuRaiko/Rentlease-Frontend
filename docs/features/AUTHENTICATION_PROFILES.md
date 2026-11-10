@@ -367,3 +367,7 @@ The [isolated security deployment plan](../implementation-reports/audits/PUBLIC_
 ### Invoker hardening deployed November 8
 
 Deployed as 20261108071009_public_profiles_security_invoker. security_invoker=true, 26 previous history rows and all captured RLS/grants/RPCs unchanged; advisor view warning cleared. Hosted SQL acceptance passed 89 checks across seven existing accounts. Windows submission converted LF to CRLF: actual payload SHA-256 bb23a32ad4b318cbc09ca0520ecfc9352d16f7c587d2251186cb7f12ea66526f; normalized LF matches reviewed 18f1ac665c9499df8e13a60feccdb272bde50154c5f8947be50c16696473874b. Byte discrepancy is recorded for review; no replay/rollback. The renamed source and aggregate deployment documentation are included in the reconciliation checkpoint; private backup contents are excluded. End-user HTTP/avatar-image and physical Android acceptance remain pending. Prior PREPARED headers/plan describe historical stages, not current production status.
+
+## T7A approved reputation display - November 10, 2026
+
+Own Profile includes an independently loaded approved reciprocal-feedback summary. Existing consent-protected name/avatar and Auth state remain unchanged; no legal-name/contact/document fields are added. The review backend is prepared, not deployed; see [Ratings and Reviews](RATINGS_REVIEWS.md).

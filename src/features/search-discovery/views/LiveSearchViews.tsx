@@ -1,3 +1,4 @@
+import {PublishedRentalReviews} from '../../../shared/components/RentalReviews';
 import {InlineRentalEstimate} from '../../../shared/components/InlineRentalEstimate';
 import {PublicAvatar} from '../../../shared/components/PublicIdentityBadge';
 import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
@@ -72,7 +73,7 @@ export function LivePropertyDetailView({viewModel:vm,accountId,onOpenPriceEstima
         {vm.isOwnListing?<Text style={styles.copy}>This is your listing.</Text>:vm.contactOwner?<DiscoveryButton label={s.inquiryBusy?'Opening conversation...':'Contact Owner'} disabled={s.inquiryBusy} onPress={()=>void vm.contactOwner?.()}/>:null}
         {s.inquiryError?<Text accessibilityRole="alert" style={styles.error}>{s.inquiryError}</Text>:null}
       </View>
-      <InlineRentalEstimate key={`${accountId}:${d.listingId}`} accountId={accountId} target={{listingId:d.listingId}} property={{property_type:d.propertyType,city:d.city,furnishing_status:d.furnishing,bedrooms:d.bedrooms,bathrooms:d.bathrooms,floor_area_sqm:d.floorArea}}/>
+      <PublishedRentalReviews key={`${accountId}:${d.propertyId}`} accountId={accountId} kind="property" targetId={d.propertyId}/><PublishedRentalReviews key={`${accountId}:${d.ownerId}`} accountId={accountId} kind="user" targetId={d.ownerId}/><InlineRentalEstimate key={`${accountId}:${d.listingId}`} accountId={accountId} target={{listingId:d.listingId}} property={{property_type:d.propertyType,city:d.city,furnishing_status:d.furnishing,bedrooms:d.bedrooms,bathrooms:d.bathrooms,floor_area_sqm:d.floorArea}}/>
       <View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>About this rental</Text><Text style={styles.copy}>{d.description}</Text></View>
       <View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>Amenities</Text>{d.amenities.length?<View style={styles.row}>{d.amenities.map((a,i)=><Text key={i} style={styles.amenity}>{a}</Text>)}</View>:<Text style={styles.copy}>No property amenities recorded.</Text>}</View>
       <View style={styles.detailSection}>

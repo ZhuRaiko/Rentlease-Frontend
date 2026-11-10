@@ -165,3 +165,7 @@ Architecture only; no Admin behavior is implemented here. See the [integrated de
 ## Milestone 4 identity comparison and approval (2026-11-02)
 
 The existing verification detail now displays current/proposed property identity and location-change indication. Controlled Tier 3 review uses submission/property/correction UUID versions and explicit same-physical-property evidence confirmation. Approval atomically promotes and binds the proposed identity; rejection preserves the prior approved identity and feedback/history. Unknown/stale outcomes require authoritative refresh, never automatic review replay. Tier 2 retains its original review path. Deployed and read-only verified as 20261102081459; physical Android acceptance remains pending. See [Property identity corrections](PROPERTY_LISTING_MANAGEMENT.md#milestone-4-identity-correction-implementation-2026-11-02) for contracts, privacy, legacy repair exclusion and deployment/client prerequisites.
+
+## T7A review moderation entry - November 10, 2026
+
+Admin Dashboard adds a locally implemented ratings/reviews queue using the prepared T7A active-Admin/revision/receipt contracts. Existing verification queues and private evidence handling are unchanged. Review approvals/rejections/hiding have separate immutable history and private notes; no review migration was deployed. See [Ratings and Reviews](RATINGS_REVIEWS.md).

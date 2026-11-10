@@ -1,6 +1,6 @@
 import {TenancyReadError,type TenancyDetails} from '../models/TenancyDetails';
 import type {TenancyDetailsService} from '../services/tenancyDetailsService';
-export type TenancyDetailsPanel='details'|'property'|'reservation'|'care'|'lifecycle';
+export type TenancyDetailsPanel='details'|'property'|'reservation'|'care'|'lifecycle'|'reviews';
 const initial=()=>({phase:'idle' as 'idle'|'loading'|'success'|'error',data:null as TenancyDetails|null,error:null as string|null,panel:'details' as TenancyDetailsPanel});
 export function createTenancyDetailsWorkflow(service:Pick<TenancyDetailsService,'read'>,actor:string|undefined,id:string,sourceId:string|null){
  let state=initial(),disposed=false,generation=0,transport:AbortController|null=null;

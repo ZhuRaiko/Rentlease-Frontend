@@ -1,3 +1,4 @@
+import {PublishedRentalReviews} from '../../../shared/components/RentalReviews';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '../../../shared/components/AppButton';
@@ -12,7 +13,9 @@ import type { RatingsReportsViewModel } from '../viewModels/useRatingsReportsVie
 export function RatingsReportsHomeView({
   onClose,
   viewModel,
+  accountId,
 }: {
+  accountId?: string|undefined;
   onClose: () => void;
   viewModel: RatingsReportsViewModel;
 }) {
@@ -27,29 +30,13 @@ export function RatingsReportsHomeView({
       {viewModel.notice ? <Text style={styles.notice}>{viewModel.notice}</Text> : null}
 
       <View style={styles.reviewAvailableCard}>
-        <View style={styles.availableTop}>
-          <View style={styles.availableBadge}><Text style={styles.availableBadgeText}>1 AVAILABLE</Text></View>
-          <Text style={styles.availableMeta}>Until September 30</Text>
-        </View>
-        <Text style={styles.availableTitle}>{viewModel.reviewSubject.role} review available</Text>
-        <Text style={styles.availableBody}>Your tenancy at 2-Bedroom House with Balcony has ended. Share your experience with {viewModel.reviewSubject.name}.</Text>
-        <AppButton label={`Rate ${viewModel.reviewSubject.role.toLowerCase()}`} onPress={viewModel.startReview} />
+        <Text style={styles.availableTitle}>Reviews after a completed tenancy</Text>
+        <Text style={styles.availableBody}>Share property feedback and a separate review of your rental participant. New feedback remains pending until approved.</Text>
+        <AppButton label="Review completed rentals" onPress={viewModel.startReview}/>
       </View>
+      {accountId?<PublishedRentalReviews accountId={accountId} kind="user" targetId={accountId}/>:null}
 
-      <Text style={styles.sectionLabel}>YOUR REPUTATION</Text>
-      <Pressable accessibilityRole="button" onPress={() => viewModel.navigate('reviewsSummary')} style={styles.ratingSummary}>
-        <View>
-          <Text style={styles.ratingValue}>{viewModel.averageRating}</Text>
-          <StarRating compact readonly value={5} />
-        </View>
-        <View style={styles.summaryCopy}>
-          <Text style={styles.summaryTitle}>{viewModel.publishedReviews.length} published reviews</Text>
-          <Text style={styles.summaryBody}>See what tenants and landlords shared</Text>
-        </View>
-        <Text style={styles.chevron}>›</Text>
-      </Pressable>
-
-      <Text style={styles.sectionLabel}>REPORT A CONCERN</Text>
+      <Text style={styles.sectionLabel}>REPORT A CONCERN (PREVIEW)</Text>
       <View style={styles.actions}>
         <SelectionCard
           body="Report a user, listing, or message for the safety team to review."
