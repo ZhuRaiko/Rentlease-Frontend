@@ -15,6 +15,7 @@ import { NearbyListingsView } from './NearbyListingsView';
 import { LiveSearchResultsView, LivePropertyDetailView, LiveSearchFiltersView } from './LiveSearchViews';
 
 interface SearchDiscoveryFlowViewProps {
+  notificationUnread?:number|null;
   accountId?: string | undefined;
   canPostProperty: boolean;
   initialScreen?: 'home' | 'matchingPreferences';
@@ -45,7 +46,7 @@ const supplementaryScreens = new Set([
 ]);
 
 export function SearchDiscoveryFlowView({
-  accountId,
+  notificationUnread=null,accountId,
   canPostProperty,
   initialScreen = 'home',
   introduction = false, initialPreferences, onSavePreferences, onIntroductionComplete, registerBackAction, registerHomeAction,
@@ -83,7 +84,7 @@ export function SearchDiscoveryFlowView({
   } else if (filterScreens.has(viewModel.screen)) {
     content = <DiscoveryFilterView onClose={close} viewModel={viewModel} />;
   } else {
-    content = <TenantDiscoveryView onClose={close} onOpenNotifications={() => viewModel.requestNavigation(onOpenNotifications)} viewModel={viewModel} />;
+    content = <TenantDiscoveryView notificationUnread={notificationUnread} onClose={close} onOpenNotifications={() => viewModel.requestNavigation(onOpenNotifications)} viewModel={viewModel} />;
   }
 
   return (

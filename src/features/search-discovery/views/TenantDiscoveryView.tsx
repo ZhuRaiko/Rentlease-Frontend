@@ -11,8 +11,8 @@ import { SearchListingCard } from '../components/SearchListingCard';
 import type { SearchDiscoveryViewModel } from '../viewModels/useSearchDiscoveryViewModel';
 const profileAvatar = require('../../../assets/authentication/profile-avatar.png');
 const rentLeaseHome = require('../../../assets/authentication/rentlease-home.png');
-interface TenantDiscoveryViewProps {viewModel:SearchDiscoveryViewModel;onClose:()=>void;onOpenNotifications:()=>void}
-export function TenantDiscoveryView({viewModel,onClose,onOpenNotifications}:TenantDiscoveryViewProps){
+interface TenantDiscoveryViewProps {notificationUnread?:number|null;viewModel:SearchDiscoveryViewModel;onClose:()=>void;onOpenNotifications:()=>void}
+export function TenantDiscoveryView({notificationUnread=null,viewModel,onClose,onOpenNotifications}:TenantDiscoveryViewProps){
   const [matchingInfo,setMatchingInfo]=useState(false);
   if(viewModel.screen!=='home')return <View style={styles.screen}><DiscoveryHeader onBack={viewModel.goBack} title="Discovery"/><View style={styles.stateScreen}><Text style={styles.stateTitle}>This feature is not connected yet</Text><Text style={styles.stateBody}>Search available rentals or use Nearby rentals for GPS map results.</Text><DiscoveryButton label="Search rentals" onPress={()=>viewModel.navigate('searchLocation')}/></View></View>;
   const community=viewModel.homeTab==='forYou',s=viewModel.discoverState,r=viewModel.recommendationState;
@@ -20,7 +20,7 @@ export function TenantDiscoveryView({viewModel,onClose,onOpenNotifications}:Tena
     <View style={styles.feedHeader}>
       <View style={styles.wordmark}><Text accessibilityRole="header" style={styles.wordmarkText}>RentLease</Text><Image resizeMode="contain" source={rentLeaseHome} style={styles.wordmarkIcon}/></View>
       <View style={styles.headerActions}><Pressable accessibilityLabel="Open Saved Listings" accessibilityRole="button" onPress={viewModel.openSavedListings} style={styles.headerAction}><Text style={{fontSize:24,color:colors.primaryAction}}>?</Text></Pressable>
-        <Pressable accessibilityLabel="Open Notifications" accessibilityRole="button" onPress={onOpenNotifications} style={styles.headerAction}><InterfaceIcon name="notifications" color={colors.text}/></Pressable>
+        <Pressable accessibilityLabel={notificationUnread===null?'Open Notifications, unread count unavailable':`Open Notifications, ${notificationUnread} unread`} accessibilityRole="button" onPress={onOpenNotifications} style={styles.headerAction}><InterfaceIcon name="notifications" color={colors.text}/>{notificationUnread!==null&&notificationUnread>0?<Text style={{color:colors.primaryAction,fontWeight:'700'}}>{notificationUnread>99?'99+':notificationUnread}</Text>:null}</Pressable>
         <Pressable accessibilityLabel="Open Profile" accessibilityRole="button" onPress={onClose} style={styles.headerAction}><Image resizeMode="cover" source={profileAvatar} style={styles.headerAvatar}/></Pressable>
       </View>
     </View>

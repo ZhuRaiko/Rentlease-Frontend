@@ -15,7 +15,7 @@ Status describes frontend implementation, not live runtime validation. Detailed 
 | Maintenance Requests | PREVIEW UI; persistence/uploads/notifications DEFERRED | Not yet created |
 | Ratings & Reports | T7A reviews IMPLEMENTED/TESTED locally; moderation backend PREPARED, native/hosted acceptance pending. Property/user reporting implemented locally; backend prepared, not deployed | [Ratings and Reviews](features/RATINGS_REVIEWS.md) |
 | Admin & Moderation | Tier 2 queue/private viewing/approval USER-REPORTED development-build PASS; new zoom and Tier 3 compatibility AUTOMATED-TESTED, Android RUNTIME-UNVERIFIED; non-image viewing DEFERRED; other moderation PREVIEW | [Admin Verification](features/ADMIN_VERIFICATION.md) |
-| Notifications | PREVIEW UI; device permission/push delivery/persistence DEFERRED | Not yet created |
+| Notifications | Persistent in-app center and event integration implemented locally; backend prepared, not deployed; push excluded | [Notifications](features/NOTIFICATIONS.md) |
 
 Actual screen identifiers and preview reachability are recorded in [ROUTES.md](ROUTES.md). Architecture and feature isolation remain in [ARCHITECTURE.md](ARCHITECTURE.md). No additional feature documents are created merely to populate an index.
 

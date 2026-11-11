@@ -1,3 +1,6 @@
+import {useInAppNotifications} from './src/features/notifications/viewModels/useInAppNotifications';
+import {TenancyDetailsView} from './src/features/tenancy/views/TenancyDetailsView';
+import {ReportingWorkspace} from './src/shared/components/Reporting';
 import {TenancyCareWorkspaceView} from './src/features/tenancy/views/TenancyCareWorkspaceView';
 import {TenancySetupView} from './src/features/tenancy/views/TenancySetupView';
 import {TenancyWorkspaceView} from './src/features/tenancy/views/TenancyWorkspaceView';
@@ -48,6 +51,7 @@ export default function App() {
   const workspaceDestination = auth.account ? getWorkspaceDestination(auth.account) : null;
   const canEnterAdmin = workspaceDestination === 'adminModeration';
   const canEnterMarketplace = workspaceDestination === 'discovery' && !auth.matchingIntroductionGate;
+  const notifications=useInAppNotifications(canEnterMarketplace||canEnterAdmin?auth.account?.user.id:undefined);
   const access = { marketplace: canEnterMarketplace, admin: canEnterAdmin };
   const requestMarketplaceExit = useMarketplaceExitConfirmation(workspace, auth.account?.user.id ?? null, canEnterMarketplace && !canEnterAdmin);
   useEffect(() => {
@@ -177,7 +181,7 @@ export default function App() {
           <UserVerificationFlowView tierOneVerified={!!auth.account?.profile.tier1_verified_at} onClose={openProfile} registerBackAction={registerWorkspaceBack} />
         ) : null}
         {workspace?.type === 'discovery' ? (
-          <View style={{flex:1}}><SearchDiscoveryFlowView
+          <View style={{flex:1}}><SearchDiscoveryFlowView notificationUnread={notifications.page?.unread??null}
             accountId={auth.account?.user.id}
             onRootBack={requestMarketplaceExit}
             initialScreen={workspace.initialScreen}
@@ -290,7 +294,8 @@ export default function App() {
           <AdminModerationFlowView accountId={auth.account?.user.id} registerBackAction={registerWorkspaceBack} onClose={openProfile} />
         ) : null}
         {workspace?.type === 'notifications' ? (
-          <NotificationsFlowView
+          <NotificationsFlowView key={auth.account?.user.id} accountId={auth.account?.user.id} viewModel={notifications}
+            renderTarget={(target,onBack)=>target.kind==='conversation'?<MessagingViewingFlowView accountId={auth.account?.user.id} conversationId={target.id} returnToListing onRootBack={onBack} onClose={onBack} registerBackAction={registerWorkspaceBack} canPostProperty={canEnterMarketplace} onCreateListing={()=>openProperties('postingType')} onOpenDiscover={openDiscovery} onOpenListings={()=>openProperties('dashboard')} onOpenMaintenance={()=>setWorkspace({type:'tenancy'})} renderTenancySetup={renderTenancySetup} renderListingDetails={(id,back)=><ChatListingDetails owner={auth.account?.user.id} id={id} onBack={back}/>}/>:target.kind==='tenancy'?<TenancyDetailsView accountId={auth.account?.user.id} tenancyId={target.id} reservationId={null} onBack={onBack} registerBackAction={registerWorkspaceBack}/>:<ReportingWorkspace accountId={auth.account?.user.id} scope={{mode:'mine'}} onBack={onBack} registerBackAction={registerWorkspaceBack}/>}
             registerBackAction={registerWorkspaceBack}
             canPostProperty={canEnterMarketplace}
             onClose={openDiscovery}

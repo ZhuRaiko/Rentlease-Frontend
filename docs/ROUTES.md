@@ -278,3 +278,8 @@ The existing Tenancy root is now a structured dashboard; earlier read-only descr
 ## Reporting - November 11, 2026 (local)
 
 Rental Details and actual Chat conversations open source-bound report modals. Ratings & Reports status routes open the current account report workspace. Admin reportsQueue/detail identifiers open the shared independent-Admin queue, with guarded nested Back. Existing root navigation and T7 review moderation remain intact. Backend rollout is required; missing RPCs show an actionable error.
+
+
+## In-app notifications - November 11, 2026 (local)
+
+Existing Discovery bell opens the persisted account inbox with an unread badge. Root-composed nested targets open exact authorized conversations or tenancy details, or the reporter's own report-status workspace. Destination screens own hardware/visible Back; return refreshes the retained center. No router/new bottom tab or push-permission route was added. Legacy notification fixtures are outside the normal route. Prepared migration rollout is required.
