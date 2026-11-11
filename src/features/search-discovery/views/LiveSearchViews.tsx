@@ -1,3 +1,4 @@
+import {ReportAction} from '../../../shared/components/Reporting';
 import {SaveListingButton,SavedListingsFeedback} from '../components/SaveListingButton';
 import {PublishedRentalReviews} from '../../../shared/components/RentalReviews';
 import {InlineRentalEstimate} from '../../../shared/components/InlineRentalEstimate';
@@ -77,7 +78,7 @@ export function LivePropertyDetailView({viewModel:vm,accountId,onOpenPriceEstima
         {s.inquiryError?<Text accessibilityRole="alert" style={styles.error}>{s.inquiryError}</Text>:null}
       </View>
       <PublishedRentalReviews key={`${accountId}:${d.propertyId}`} accountId={accountId} kind="property" targetId={d.propertyId}/><PublishedRentalReviews key={`${accountId}:${d.ownerId}`} accountId={accountId} kind="user" targetId={d.ownerId}/><InlineRentalEstimate key={`${accountId}:${d.listingId}`} accountId={accountId} target={{listingId:d.listingId}} property={{property_type:d.propertyType,city:d.city,furnishing_status:d.furnishing,bedrooms:d.bedrooms,bathrooms:d.bathrooms,floor_area_sqm:d.floorArea}}/>
-      <View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>About this rental</Text><Text style={styles.copy}>{d.description}</Text></View>
+      <View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>About this rental</Text><Text style={styles.copy}>{d.description}</Text><ReportAction accountId={accountId} kind="listing" contextId={d.listingId}/></View>
       <View style={styles.detailSection}><Text accessibilityRole="header" style={styles.heading}>Amenities</Text>{d.amenities.length?<View style={styles.row}>{d.amenities.map((a,i)=><Text key={i} style={styles.amenity}>{a}</Text>)}</View>:<Text style={styles.copy}>No property amenities recorded.</Text>}</View>
       <View style={styles.detailSection}>
         <Text accessibilityRole="header" style={styles.heading}>Nearby Places</Text>

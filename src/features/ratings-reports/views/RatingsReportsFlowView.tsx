@@ -1,3 +1,4 @@
+import {ReportingWorkspace} from '../../../shared/components/Reporting';
 import {TenancyReviewChooser} from './TenancyReviewChooser';
 import { useEffect } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
@@ -49,7 +50,7 @@ export function RatingsReportsFlowView({
 }: RatingsReportsFlowViewProps) {
   const viewModel = useRatingsReportsViewModel(actor);
   useEffect(() => {
-    if(reviewScreens.has(viewModel.screen))return;
+    if(viewModel.screen!=='home')return;
     registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
     return () => registerBackAction?.(null);
   });
@@ -58,7 +59,7 @@ export function RatingsReportsFlowView({
   ) : reviewScreens.has(viewModel.screen) ? (
     <TenancyReviewChooser key={accountId} accountId={accountId} onBack={viewModel.openHome} registerBackAction={registerBackAction}/>
   ) : (
-    <ReportFlowView viewModel={viewModel} />
+    <ReportingWorkspace key={accountId} accountId={accountId} scope={{mode:'mine'}} onBack={viewModel.openHome} registerBackAction={registerBackAction}/>
   );
 
   return (

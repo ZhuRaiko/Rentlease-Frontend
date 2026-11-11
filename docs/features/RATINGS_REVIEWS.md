@@ -74,3 +74,8 @@ Validation: 21 focused frontend cases passed (10 new cloud plus 11 existing revi
 ### Live bridge local validation - November 10, 2026
 
 28 focused frontend/Edge/review tests and 15 focused Python tests passed, including the unchanged prototype API and multilingual processor. Cross-language check runs the actual Python processor through Edge/native response validation with synthetic reviews; hosted auth remains unverified. TypeScript passed after correcting an Edge nullable-count annotation; only the seven bridge tests were rerun for that correction. Windows subprocess transport explicitly uses UTF-8; HTTP JSON bytes already decode as UTF-8. Whitespace checked in both repositories. No deployment, production write, commit/push, Expo/ADB/build or device testing. Manual after release: open an approved multilingual corpus beyond 20 rows; select/reset terms and inspect emoji highlights; change property/account, hide a review and refresh, test missing/denied/error paths, and verify price estimation still works.
+
+
+## Property and user reports - November 11, 2026
+
+Real reporting entry points, reporter statuses and independent Admin report decisions are implemented locally with a prepared, undeployed backend contract. T7 review moderation is unchanged. See [Reporting and moderation](REPORTING_MODERATION.md); older report-preview descriptions are historical for these connected routes. General enforcement remains outside this scope.

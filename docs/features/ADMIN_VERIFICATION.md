@@ -169,3 +169,8 @@ The existing verification detail now displays current/proposed property identity
 ## T7A review moderation entry - November 10, 2026
 
 Admin Dashboard adds a locally implemented ratings/reviews queue using the prepared T7A active-Admin/revision/receipt contracts. Existing verification queues and private evidence handling are unchanged. Review approvals/rejections/hiding have separate immutable history and private notes; no review migration was deployed. See [Ratings and Reviews](RATINGS_REVIEWS.md).
+
+
+## Property and user reports - November 11, 2026
+
+Real reporting entry points, reporter statuses and independent Admin report decisions are implemented locally with a prepared, undeployed backend contract. T7 review moderation is unchanged. See [Reporting and moderation](REPORTING_MODERATION.md); older report-preview descriptions are historical for these connected routes. General enforcement remains outside this scope.

@@ -1,3 +1,4 @@
+import {ReportQueueSummary} from '../../../shared/components/Reporting';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { AppButton } from '../../../shared/components/AppButton';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -11,14 +12,14 @@ import { AdminHeading, AdminStatCard, AuditCard } from '../components/AdminCards
 import { AdminScaffold } from '../components/AdminScaffold';
 import type { AdminModerationViewModel } from '../viewModels/useAdminModerationViewModel';
 
-export function AdminDashboardView({ onExit, viewModel, onReviewModeration }: { onExit: () => void; viewModel: AdminModerationViewModel; onReviewModeration?:()=>void }) {
+export function AdminDashboardView({ onExit, viewModel, onReviewModeration, accountId }: { accountId?:string|undefined; onExit: () => void; viewModel: AdminModerationViewModel; onReviewModeration?:()=>void }) {
   return (
     <AdminScaffold onExit={onExit} title="Admin Dashboard">{onReviewModeration?<AppButton label="Moderate ratings and reviews" variant="secondary" onPress={onReviewModeration}/>:null}
       <View style={styles.previewBanner}>
         <View style={styles.previewDot} />
         <View style={styles.previewCopy}>
           <Text style={styles.previewTitle}>Verification queue + moderation preview</Text>
-          <Text style={styles.previewBody}>Verification loads real submission metadata. Verification review is connected. Reports, enforcement and audit remain previews.</Text>
+          <Text style={styles.previewBody}>Verification loads real submission metadata. Verification review is connected. Report moderation uses a separately prepared secure contract. Enforcement and general audit remain previews.</Text>
         </View>
       </View>
       <AdminHeading
@@ -31,9 +32,7 @@ export function AdminDashboardView({ onExit, viewModel, onReviewModeration }: { 
       <FeedbackNotice tone="error" message={viewModel.verification.error ?? viewModel.verification.reviewError} />
       <View style={styles.statsGrid}>
         <AdminStatCard label="Pending verifications" tone="warning" value={viewModel.verification.status === 'success' ? viewModel.pendingVerificationCount : '--'} />
-        <AdminStatCard label="Open reports (Preview)" tone="danger" value={viewModel.openReportCount} />
         <AdminStatCard label="Restrictions (Preview)" value={viewModel.restrictions.length} />
-        <AdminStatCard label="Decisions today (Preview)" tone="positive" value="12" />
       </View>
 
       <View style={styles.sectionHeader}>
@@ -48,13 +47,7 @@ export function AdminDashboardView({ onExit, viewModel, onReviewModeration }: { 
           onPress={() => viewModel.navigate('verificationQueue')}
           tone="warning"
         />
-        <QueueSummary
-          body="User, listing, and message reports requiring review."
-          count={viewModel.openReportCount}
-          label="Reports queue"
-          onPress={() => viewModel.navigate('reportsQueue')}
-          tone="danger"
-        />
+        <ReportQueueSummary accountId={accountId} onOpen={()=>viewModel.navigate('reportsQueue')}/>
       </View>
 
       <View style={styles.sectionHeader}>

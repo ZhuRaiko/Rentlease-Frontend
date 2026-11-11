@@ -273,3 +273,8 @@ Listing draft -> Monthly asking rent -> compact inline guidance for the saved pr
 ### Tenancy dashboard and T1 setup (November 10, local preparation)
 
 The existing Tenancy root is now a structured dashboard; earlier read-only descriptions are historical. It opens same-feature TenancySetupView for an approved reservation/source-bound tenancy. App also injects this renderer into Chat reservation actions, retaining the mounted reservation/conversation workspace. Nested Back returns to that origin, blocks saving and guards uncertain outcomes. No new bottom tab/router. Maintenance still opens its preview and returns to Tenancy. T1 RPCs deployed as 20261110062844; frontend release and actual caller/native acceptance remain pending.
+
+
+## Reporting - November 11, 2026 (local)
+
+Rental Details and actual Chat conversations open source-bound report modals. Ratings & Reports status routes open the current account report workspace. Admin reportsQueue/detail identifiers open the shared independent-Admin queue, with guarded nested Back. Existing root navigation and T7 review moderation remain intact. Backend rollout is required; missing RPCs show an actionable error.

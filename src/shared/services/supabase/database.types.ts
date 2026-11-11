@@ -2249,6 +2249,11 @@ export type Database = {
       }
     }
     Functions: {
+      // Prepared reporting contract; not evidence of hosted deployment.
+      get_rental_report: { Args: { p_report_id:string; p_admin?:boolean }; Returns: Json }
+      get_rental_reports: { Args: { p_admin?:boolean; p_kind?:string; p_status?:string; p_offset?:number }; Returns: Json }
+      submit_rental_report: { Args: { p_operation_id:string; p_kind:string; p_context_id:string; p_reason:string; p_details?:string }; Returns: Json }
+      moderate_rental_report: { Args: { p_report_id:string; p_operation_id:string; p_revision:string; p_status:string; p_note:string; p_public_summary?:string }; Returns: Json }
       // Prepared Saved Listings contract; not evidence of hosted deployment.
       get_saved_listing_states: { Args: { p_listing_ids: string[] }; Returns: Json }
       get_saved_listings: { Args: { p_offset?: number; p_sort?: string }; Returns: Json }
