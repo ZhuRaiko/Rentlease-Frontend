@@ -1,3 +1,5 @@
+import {PostingEstimateView} from './PostingEstimateView';
+import {PostingReviewView} from './PostingReviewView';
 import {ListingButton} from '../components/ListingButton';
 import {UnfinishedPostDeletionAction} from '../components/UnfinishedPostDeletionAction';
 import {RentalPriceGuidance} from '../../../shared/components/RentalPriceGuidance';
@@ -9,7 +11,7 @@ import { ListingDraftSavedView } from './ListingDraftSavedView';
 import { PublishedListingStatusView } from './PublishedListingStatusView';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
-import { Modal, StatusBar, StyleSheet, View, Text } from 'react-native';
+import { Alert, Modal, StatusBar, StyleSheet, View, Text } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
 import { ScreenContainer } from '../../../shared/components/ScreenContainer';
@@ -102,6 +104,11 @@ export function PropertyListingFlowView({
     content=<PropertyRoutineEditView estimateSection={estimateSection} viewModel={viewModel} onClose={close}/>;
   } else if (viewModel.screen === 'draftSaved') {
     content = <ListingDraftSavedView viewModel={viewModel} onClose={close} />;
+  } else if(viewModel.screen==='postingEstimate'&&viewModel.postingWizard){
+    const estimate=viewModel.workspacePropertyId?<RentalPriceGuidance key={`${accountId}:${viewModel.workspacePropertyId}`} accountId={accountId} target={{propertyId:viewModel.workspacePropertyId}} property={viewModel.estimationProperty} variant="posting" disabled={viewModel.listingDraftReadOnly} onUseEstimate={result=>Alert.alert('Use estimated monthly rent?',`Replace your asking rent with PHP ${result.estimatedMonthlyRent.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} per month? This does not save the listing.`,[{text:'Cancel',style:'cancel'},{text:'Use Estimated Price',onPress:()=>viewModel.applyRentalEstimate(result)}])}/>:<Text>Save your property details before requesting an estimate.</Text>;
+    content=<PostingEstimateView viewModel={viewModel} onClose={close} estimateSection={estimate}/>;
+  } else if(viewModel.screen==='postingReview'&&viewModel.postingWizard){
+    content=<PostingReviewView viewModel={viewModel} onClose={close}/>;
   } else if (viewModel.screen === 'listingComposer') {
     content = <ListingComposerView estimateSection={estimateSection} viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'listingDetails') {
@@ -136,16 +143,16 @@ export function PropertyListingFlowView({
       </Modal> : null}
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
-      {['dashboard','listingComposer','listingDetails','propertyEdit'].includes(viewModel.screen)?<UnfinishedPostDeletionAction viewModel={viewModel}/>:null}
+      {(!viewModel.postingWizard||viewModel.screen==='dashboard')&&['dashboard','listingComposer','listingDetails','propertyEdit'].includes(viewModel.screen)?<UnfinishedPostDeletionAction viewModel={viewModel}/>:null}
       <NavigationConfirmation title={viewModel.propertyReturnConfirmation?"Discard property edits?":"Leave Property & Listing Management?"} body={viewModel.propertyReturnConfirmation?"Your listing edits will be kept. Continue without saving these property changes?":"You have unsaved property, photo, or listing changes. Stay to continue editing, or leave without saving."} visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
-      <RentLeaseBottomNavigation
+      {!(viewModel.postingWizard&&['listingComposer','listingDetails','postingEstimate','postingReview','publishConfirmation'].includes(viewModel.screen))?<RentLeaseBottomNavigation
         active={viewModel.activeTab}
         onChat={() => viewModel.requestNavigation(onOpenChat)}
         onDiscover={() => viewModel.requestNavigation(onOpenDiscover)}
         onListing={viewModel.goDashboard}
         onPost={viewModel.openPostingType}
         onTenancy={() => viewModel.requestNavigation(onOpenMaintenance)}
-      />
+      />:null}
     </ScreenContainer>
   );
 }

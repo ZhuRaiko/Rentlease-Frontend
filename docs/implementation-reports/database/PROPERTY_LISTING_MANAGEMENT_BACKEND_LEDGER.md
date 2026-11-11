@@ -1898,3 +1898,18 @@ Recovery data: one consistent COPY dump of 15 relevant tables (properties/listin
 This supports reviewed selective property/listing/media recovery, not full database/Auth/Storage/PITR recovery. Hosted restore of these exact artifacts remains untested. No permanent application/schema/Storage mutation, migration/Edge deployment, commit/push, phone access, ADB, Expo launch or build occurred. Immediate fresh baseline and coordinated deployment freeze plus separate deployment authorization are still required. The earlier XGBoost schema-only backup is superseded for this broader deletion recovery scope; retain both backups. Receipt/scope/media manifest/current policies/source hashes are in the protected directory, never Git.
 
 Actor/tool: Codex via metadata/fingerprint Supabase SELECTs, existing secure Supabase CLI, and read-only public Storage HTTPS. Classification READ_ONLY_INSPECTION / authorized external backup. One auto-review blocked an unintended relative metadata destination before execution; absolute restricted destination was verified and used. Initial partial catalog write was replaced with verified complete catalog inventory plus full schema definitions. No rejected action was bypassed. Skills actually read for this backup pass: rentlease-implementation-ledger, rentlease-supabase-contract-guard, rentlease-security-review and rentlease-documentation-maintainer; existing Supabase backup procedure and deletion recovery documentation reused.
+
+
+## November 11, 2026 - T8-A frontend-only posting composition
+
+Reused the existing property creation, photo attachment, versioned draft save, property-specific verification, publication confirmation and protected estimation contracts. No new tables/RPCs or feature/private-coordinate payloads. Approval-aware generalized-location controls remain attached to estimation. No live backend inspection, user RPC, inference or data mutation was performed for T8-A; prior deployment evidence is historical and unchanged. No permanent live backend mutation was performed in this phase. No cleanup required. Current local automated evidence is in the coordinated implementation history; hosted/native acceptance remains pending.
+
+
+## November 11, 2026 - T8-A UI/UX refinement
+
+Presentation-only form grouping, mounted disclosure/focus handling, media layout, progress, footer and estimator amount styling. Existing RPCs, mapping, location/privacy, unknown/zero, upload and publication behavior are reused without backend changes. No new live backend queries, user RPCs, inference, schema/permission changes or writes. No permanent live backend mutation was performed in this phase. No production cleanup required; hosted/native acceptance is not established by the focused frontend checks.
+
+
+### T8-B frontend reuse - November 11, 2026
+
+No permanent live backend mutation or inspection was performed. Unified editor reuses existing property routine/versioned receipts, draft and published-content services, photos and correction contracts. No migration, RLS, Storage, Edge, model or deployment change. Property/photo/listing writes remain separate existing operations; local synthetic tests do not attest hosted caller authorization.

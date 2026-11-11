@@ -6,19 +6,19 @@ import {ui} from '../theme/ui';
 import {formatMonthlyPhp,type PredictionTarget,type PredictionReceipt} from '../models/RentalPrediction';
 import {useInlineRentalEstimate} from '../viewModels/useInlineRentalEstimate';
 const currency=new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP',minimumFractionDigits:2,maximumFractionDigits:2});
-export function InlineRentalEstimate({accountId,target,property,onReview,variant='details',onUseEstimate,disabled=false}:{variant?:'details'|'guidance';onUseEstimate?:((result:PredictionReceipt)=>void)|undefined;disabled?:boolean;accountId:string|undefined;target:PredictionTarget;property?:Record<string,unknown>|null;onReview?:(()=>void)|undefined}){
+export function InlineRentalEstimate({accountId,target,property,onReview,variant='details',onUseEstimate,disabled=false}:{variant?:'details'|'guidance'|'posting';onUseEstimate?:((result:PredictionReceipt)=>void)|undefined;disabled?:boolean;accountId:string|undefined;target:PredictionTarget;property?:Record<string,unknown>|null;onReview?:(()=>void)|undefined}){
  const {height:screenHeight}=useWindowDimensions();
  const [infoOpen,setInfoOpen]=useState(false);
  const [copyHeight,setCopyHeight]=useState(0),[viewportHeight,setViewportHeight]=useState(0);
  const vm=useInlineRentalEstimate(accountId,target,property),result=vm.eligibility?.eligible===false?null:vm.result;
- if(variant==='guidance')return <View style={styles.guidance}>
- <Text accessibilityRole="header" style={styles.guidanceHeading}>Rental price guidance</Text>
+ if(variant==='guidance'||variant==='posting')return <View style={styles.guidance}>
+ <Text accessibilityRole="header" style={styles.guidanceHeading}>{variant==='posting'?'XGBoost rental estimate':'Rental price guidance'}</Text>
  {vm.eligibility?.eligible===false?<Text style={ui.supporting}>{vm.eligibility.reason}</Text>:<>
- {(!result||vm.busy)&&(!vm.error||vm.retryable!==false)?<View style={styles.guidanceActions}><Pressable accessibilityRole="button" accessibilityLabel={vm.error?'Retry estimate':'Get estimated rent'} accessibilityState={{disabled:disabled||vm.busy,busy:vm.busy}} disabled={disabled||vm.busy} onPress={()=>void vm.workflow.predict()} style={styles.smallAction}><Text style={styles.actionText}>{vm.busy?'Estimating\u2026':vm.error?'Retry estimate':result?'Estimate again':'Get estimated rent'}</Text></Pressable>{vm.busy?<ActivityIndicator accessibilityLabel="Estimating rental price"/>:null}</View>:null}
- {result?<><Text style={ui.supporting}>XGBoost estimated rent</Text><Text style={styles.guidanceAmount}>{formatMonthlyPhp(result.estimatedMonthlyRent)}</Text>
+ {(!result||vm.busy)&&(!vm.error||vm.retryable!==false)?<View style={styles.guidanceActions}><Pressable accessibilityRole="button" accessibilityLabel={vm.error?'Retry estimate':variant==='posting'?'Estimate Rental Price':'Get estimated rent'} accessibilityState={{disabled:disabled||vm.busy,busy:vm.busy}} disabled={disabled||vm.busy} onPress={()=>void vm.workflow.predict()} style={styles.smallAction}><Text style={styles.actionText}>{vm.busy?'Estimating\u2026':vm.error?'Retry estimate':result?'Estimate again':variant==='posting'?'Estimate Rental Price':'Get estimated rent'}</Text></Pressable>{vm.busy?<ActivityIndicator accessibilityLabel="Estimating rental price"/>:null}</View>:null}
+ {result?<><Text style={ui.supporting}>XGBoost estimated rent</Text><Text style={variant==='posting'?styles.postingAmount:styles.guidanceAmount}>{formatMonthlyPhp(result.estimatedMonthlyRent)}</Text>
  {result.illustrativeRange?<Text style={ui.supporting}>Illustrative range: {currency.format(result.illustrativeRange.minimum)}{'\u2013'}{currency.format(result.illustrativeRange.maximum)}</Text>:null}
  <Text style={ui.supporting}>{'Your asking rent stays your choice. The \u00b130% range is illustrative, not a statistical confidence interval.'}</Text>
- {onUseEstimate?<View style={styles.useRow}><Pressable accessibilityRole="button" accessibilityLabel="Use estimate" accessibilityHint="Fills the asking rent field without saving" accessibilityState={{disabled:disabled||vm.busy}} disabled={disabled||vm.busy} onPress={()=>{if(!disabled&&!vm.busy)onUseEstimate(result);}} style={[styles.smallAction,{alignSelf:'flex-end'}]}><Text style={styles.actionText}>Use estimate</Text></Pressable></View>:null}</>:null}
+ {onUseEstimate?<View style={styles.useRow}><Pressable accessibilityRole="button" accessibilityLabel={variant==='posting'?'Use Estimated Price':'Use estimate'} accessibilityHint="Fills the asking rent field without saving" accessibilityState={{disabled:disabled||vm.busy}} disabled={disabled||vm.busy} onPress={()=>{if(!disabled&&!vm.busy)onUseEstimate(result);}} style={[styles.smallAction,{alignSelf:'flex-end'}]}><Text style={styles.actionText}>{variant==='posting'?'Use Estimated Price':'Use estimate'}</Text></Pressable></View>:null}</>:null}
  </>}
  {vm.error?<Text accessibilityRole="alert" style={ui.supporting}>{vm.error}</Text>:null}
  </View>;
@@ -50,6 +50,7 @@ export function InlineRentalEstimate({accountId,target,property,onReview,variant
 }
 
 const styles=StyleSheet.create({
+ postingAmount:{...ui.pageTitle,fontSize:28,lineHeight:36,color:colors.primaryAction},
  guidance:{borderTopWidth:1,borderTopColor:colors.outline,paddingTop:12,gap:4},
  guidanceHeading:{...ui.supporting,color:colors.ink,fontWeight:'600'},guidanceAmount:{...ui.body,fontSize:16,fontWeight:'700'},
  guidanceActions:{flexDirection:'row',alignItems:'center',gap:8},useRow:{alignItems:'flex-end'},

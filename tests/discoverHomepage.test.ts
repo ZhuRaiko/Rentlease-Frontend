@@ -24,6 +24,7 @@ function renderHome(){const full=resolve('src/features/search-discovery/views/Te
  if(key.endsWith('/DiscoveryControls'))return{DiscoveryButton:'DiscoveryButton',DiscoveryHeader:'DiscoveryHeader',DiscoverySearchBar:'DiscoverySearchBar'};
  if(key.endsWith('/SaveListingButton'))return{SavedListingsFeedback:'SavedListingsFeedback'};
  if(key.endsWith('/SearchListingCard'))return{SearchListingCard:'SearchListingCard'};
+ if(key.endsWith('/DiscoveryIcon'))return{DiscoveryIcon:'DiscoveryIcon'};
  if(key.endsWith('/InterfaceIcon'))return{InterfaceIcon:'InterfaceIcon'};
  if(key.endsWith('.png'))return 1;if(key.endsWith('/PublicIdentityBadge'))return{PublicAvatar:'Avatar',PublicIdentityBadge:'Identity'};if(key.endsWith('/usePublicIdentitiesViewModel'))return{usePublicIdentitiesViewModel:()=>({})};return actual(key);
  };new Function('require','module','exports',ts.transpileModule(readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText)(req,mod,mod.exports);return mod.exports.TenantDiscoveryView;}
@@ -57,4 +58,38 @@ test('without saved preferences only the compact entry opens the existing editor
 test('Saved Listings has a dedicated route without changing marketplace navigation',()=>{
  const flow=readFileSync('src/features/search-discovery/views/SearchDiscoveryFlowView.tsx','utf8');
  assert.match(flow,/screen==='savedListings'/);assert.match(flow,/<SavedListingsView viewModel=/);assert.match(flow,/<RentLeaseBottomNavigation/);
+});
+
+
+test('Discovery header uses a native bookmark and anchored unread badge without bare text',()=>{
+ const render=renderHome();let saved=0,notifications=0;
+ for(const unread of [null,0,1,100]){
+  const tree=render({notificationUnread:unread,onOpenNotifications:()=>notifications++,viewModel:{screen:'home',homeTab:'discover',discoverState:{phase:'success',rows:[]},discover:{},openSavedListings:()=>saved++}});
+  const all=nodes(tree),save=all.find(n=>n.props?.accessibilityLabel==='Open Saved Listings');
+  assert.equal(nodes(save).find(n=>n.type==='DiscoveryIcon').props.name,'bookmark');save.props.onPress();
+  const bell=all.find(n=>n.props?.accessibilityLabel?.startsWith('Open Notifications'));
+  bell.props.onPress();assert.ok(bell.props.style.minHeight>=48);assert.ok(bell.props.style.minWidth>=48);
+  const badge=nodes(bell).find(n=>n.props?.style?.position==='absolute');
+  if(unread===null||unread===0)assert.equal(badge,undefined);
+  else {assert.equal(badge.props.pointerEvents,'none');assert.equal(nodes(badge).find(n=>n.type==='Text').props.children,unread>99?'99+':String(unread));assert.equal(bell.props.children.props.style.position,'relative');}
+  function inspect(n:any):void{
+   if(!n||typeof n!=='object')return;
+   const children=[n.props?.children].flat(Infinity);
+   if(n.type!=='Text')for(const child of children)assert.ok(typeof child!=='string'&&typeof child!=='number',`Bare text under ${n.type}: ${child}`);
+   children.forEach(inspect);
+   if(n.type==='FlatList'){inspect(n.props.ListHeaderComponent);inspect(n.props.ListFooterComponent);inspect(n.props.ListEmptyComponent);}
+  }
+  inspect(tree);
+ }
+ assert.equal(saved,4);assert.equal(notifications,4);
+});
+
+
+test('Discovery header uses the supplied account avatar and retains Profile action',()=>{
+ const render=renderHome();let opened=0;
+ for(const url of ['https://example.test/one.jpg',null,'https://example.test/updated.jpg']){
+ const tree=render({avatarUrl:url,avatarKey:'account-one',onClose:()=>opened++,viewModel:{screen:'home',homeTab:'discover',discoverState:{phase:'success',rows:[]},discover:{}}});
+ const profile=nodes(tree).find(n=>n.props?.accessibilityLabel==='Open Profile');const avatar=nodes(profile).find(n=>n.type==='Avatar');assert.equal(avatar.props.url,url);assert.equal(avatar.props.size,33);profile.props.onPress();
+ }
+ assert.equal(opened,3);assert.doesNotMatch(readFileSync('src/features/search-discovery/views/TenantDiscoveryView.tsx','utf8'),/profile-avatar.png/);
 });

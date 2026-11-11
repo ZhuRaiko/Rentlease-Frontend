@@ -1,3 +1,4 @@
+import {usePublicIdentitiesViewModel} from '../../../shared/viewModels/usePublicIdentitiesViewModel';
 import {SavedListingsView} from './SavedListingsView';
 import { useEffect } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
@@ -59,6 +60,7 @@ export function SearchDiscoveryFlowView({
   onOpenMaintenance,
   onStartInquiry, onOpenNotifications,
 }: SearchDiscoveryFlowViewProps) {
+  const ownIdentity=usePublicIdentitiesViewModel(accountId,accountId?[accountId]:[]);
   const viewModel = useSearchDiscoveryViewModel(initialScreen, { accountId, onStartInquiry, introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
   useEffect(()=>{registerHomeAction?.(viewModel.openHome);return()=>registerHomeAction?.(null);});
   const close = () => viewModel.closeFromWorkspace(onClose);
@@ -84,7 +86,7 @@ export function SearchDiscoveryFlowView({
   } else if (filterScreens.has(viewModel.screen)) {
     content = <DiscoveryFilterView onClose={close} viewModel={viewModel} />;
   } else {
-    content = <TenantDiscoveryView notificationUnread={notificationUnread} onClose={close} onOpenNotifications={() => viewModel.requestNavigation(onOpenNotifications)} viewModel={viewModel} />;
+    content = <TenantDiscoveryView avatarKey={accountId??'anonymous'} avatarUrl={accountId?ownIdentity[accountId]?.avatarUrl:null} notificationUnread={notificationUnread} onClose={close} onOpenNotifications={() => viewModel.requestNavigation(onOpenNotifications)} viewModel={viewModel} />;
   }
 
   return (

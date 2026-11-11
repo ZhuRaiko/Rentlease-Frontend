@@ -1,3 +1,4 @@
+import {PostingProgress} from '../components/PostingProgress';
 import {PropertyVerificationAction} from '../components/PropertyVerificationAction';
 import { ListingCompletenessSummary } from '../components/ListingCompletenessSummary';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -53,7 +54,7 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
 
   if (screen === 'publishConfirmation') {
     return (
-      <ListingWizardScaffold onBack={viewModel.goBack} onClose={onClose} title="Ready to publish?">
+      <ListingWizardScaffold progress={viewModel.postingWizard?<PostingProgress step={4}/>:undefined} onBack={viewModel.goBack} onClose={onClose} title="Ready to publish?">
         <ListingCompletenessSummary value={viewModel.completeness} />
         <ListingWorkspaceFeedback viewModel={viewModel} scope="publication" />
         <PropertyVerificationAction viewModel={viewModel} />
@@ -70,7 +71,7 @@ export function ListingPreviewView({ viewModel, onClose }: ListingPreviewViewPro
             <Text style={styles.fact}>{draft.address}</Text>
           </View>
         </SectionCard>
-        <ListingButton label={viewModel.workspacePropertyId ? (viewModel.publicationState.busy ? "Publishing..." : "Publish listing") : "Publish listing preview"} disabled={viewModel.publicationState.busy || viewModel.listingDraftReadOnly} onPress={() => void viewModel.confirmPublish()} />
+        <ListingButton tone={viewModel.postingWizard?"brand":"green"} label={viewModel.workspacePropertyId ? (viewModel.publicationState.busy ? "Publishing..." : "Publish listing") : "Publish listing preview"} disabled={viewModel.publicationState.busy || viewModel.listingDraftReadOnly} onPress={() => void viewModel.confirmPublish()} />
         <ListingButton label="Keep editing" onPress={viewModel.goBack} tone="outline" />
       </ListingWizardScaffold>
     );

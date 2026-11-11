@@ -1,3 +1,5 @@
+import {PublicAvatar} from '../../../shared/components/PublicIdentityBadge';
+import { DiscoveryIcon } from '../components/DiscoveryIcon';
 import {SavedListingsFeedback} from '../components/SaveListingButton';
 import {useState} from 'react';
 import { InterfaceIcon } from '../../../shared/components/InterfaceIcon';
@@ -9,19 +11,18 @@ import { typography } from '../../../shared/theme/typography';
 import { DiscoveryButton, DiscoveryHeader, DiscoverySearchBar } from '../components/DiscoveryControls';
 import { SearchListingCard } from '../components/SearchListingCard';
 import type { SearchDiscoveryViewModel } from '../viewModels/useSearchDiscoveryViewModel';
-const profileAvatar = require('../../../assets/authentication/profile-avatar.png');
 const rentLeaseHome = require('../../../assets/authentication/rentlease-home.png');
-interface TenantDiscoveryViewProps {notificationUnread?:number|null;viewModel:SearchDiscoveryViewModel;onClose:()=>void;onOpenNotifications:()=>void}
-export function TenantDiscoveryView({notificationUnread=null,viewModel,onClose,onOpenNotifications}:TenantDiscoveryViewProps){
+interface TenantDiscoveryViewProps {avatarUrl?:string|null|undefined;avatarKey?:string;notificationUnread?:number|null;viewModel:SearchDiscoveryViewModel;onClose:()=>void;onOpenNotifications:()=>void}
+export function TenantDiscoveryView({avatarUrl,avatarKey='anonymous',notificationUnread=null,viewModel,onClose,onOpenNotifications}:TenantDiscoveryViewProps){
   const [matchingInfo,setMatchingInfo]=useState(false);
   if(viewModel.screen!=='home')return <View style={styles.screen}><DiscoveryHeader onBack={viewModel.goBack} title="Discovery"/><View style={styles.stateScreen}><Text style={styles.stateTitle}>This feature is not connected yet</Text><Text style={styles.stateBody}>Search available rentals or use Nearby rentals for GPS map results.</Text><DiscoveryButton label="Search rentals" onPress={()=>viewModel.navigate('searchLocation')}/></View></View>;
   const community=viewModel.homeTab==='forYou',s=viewModel.discoverState,r=viewModel.recommendationState;
   return <View style={styles.screen}>
     <View style={styles.feedHeader}>
       <View style={styles.wordmark}><Text accessibilityRole="header" style={styles.wordmarkText}>RentLease</Text><Image resizeMode="contain" source={rentLeaseHome} style={styles.wordmarkIcon}/></View>
-      <View style={styles.headerActions}><Pressable accessibilityLabel="Open Saved Listings" accessibilityRole="button" onPress={viewModel.openSavedListings} style={styles.headerAction}><Text style={{fontSize:24,color:colors.primaryAction}}>?</Text></Pressable>
-        <Pressable accessibilityLabel={notificationUnread===null?'Open Notifications, unread count unavailable':`Open Notifications, ${notificationUnread} unread`} accessibilityRole="button" onPress={onOpenNotifications} style={styles.headerAction}><InterfaceIcon name="notifications" color={colors.text}/>{notificationUnread!==null&&notificationUnread>0?<Text style={{color:colors.primaryAction,fontWeight:'700'}}>{notificationUnread>99?'99+':notificationUnread}</Text>:null}</Pressable>
-        <Pressable accessibilityLabel="Open Profile" accessibilityRole="button" onPress={onClose} style={styles.headerAction}><Image resizeMode="cover" source={profileAvatar} style={styles.headerAvatar}/></Pressable>
+      <View style={styles.headerActions}><Pressable accessibilityLabel="Open Saved Listings" accessibilityRole="button" onPress={viewModel.openSavedListings} style={styles.headerAction}><DiscoveryIcon name="bookmark" color={colors.text} size={24}/></Pressable>
+        <Pressable accessibilityLabel={notificationUnread===null?'Open Notifications, unread count unavailable':`Open Notifications, ${notificationUnread} unread`} accessibilityRole="button" onPress={onOpenNotifications} style={styles.headerAction}><View style={styles.notificationIcon}><InterfaceIcon name="notifications" color={colors.text}/>{notificationUnread!==null&&notificationUnread>0?<View pointerEvents="none" accessible={false} style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{notificationUnread>99?'99+':String(notificationUnread)}</Text></View>:null}</View></Pressable>
+        <Pressable accessibilityLabel="Open Profile" accessibilityRole="button" onPress={onClose} style={styles.headerAction}><PublicAvatar key={avatarKey} url={avatarUrl} size={33}/></Pressable>
       </View>
     </View>
     <View style={styles.feedTabs}>
@@ -65,6 +66,7 @@ export function TenantDiscoveryView({notificationUnread=null,viewModel,onClose,o
 const styles=StyleSheet.create({
   headingRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},infoAction:{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center'},preferenceAction:{minHeight:44,justifyContent:'center',alignSelf:'flex-start'},preferenceText:{...ui.supporting,color:colors.primaryAction},recommendations:{gap:6,paddingVertical:8},recommendationCards:{gap:12},recommendationCard:{width:280,gap:5},screen:{backgroundColor:colors.canvas,flex:1},feedHeader:{...ui.rule,backgroundColor:colors.background,alignItems:'center',flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',minHeight:64,gap:spacing.sm,paddingHorizontal:spacing.md,paddingVertical:spacing.xs},
   wordmark:{alignItems:'center',flexDirection:'row',gap:spacing.xxs,flex:1,minWidth:0},wordmarkText:{color:colors.ink,fontFamily:typography.family,fontSize:23,fontWeight:'700',letterSpacing:-0.5,flexShrink:1},wordmarkIcon:{height:26,width:26},
+  notificationIcon:{position:'relative',width:24,height:24,overflow:'visible'},notificationBadge:{position:'absolute',top:-10,right:-12,minWidth:20,minHeight:20,paddingHorizontal:4,borderRadius:12,backgroundColor:colors.primaryAction,alignItems:'center',justifyContent:'center'},notificationBadgeText:{color:colors.white,fontFamily:typography.family,fontWeight:'700',fontSize:11,lineHeight:15},
   headerActions:{alignItems:'center',flexDirection:'row',gap:spacing.xs},headerAction:{alignItems:'center',justifyContent:'center',minHeight:48,minWidth:48},headerAvatar:{borderColor:colors.border,borderRadius:18,borderWidth:1,height:33,width:33},
   feedTabs:{backgroundColor:colors.background,alignItems:'center',flexDirection:'row',gap:spacing.md,minHeight:50,justifyContent:'center'},feedTabTarget:{minHeight:48,justifyContent:'center',paddingHorizontal:spacing.sm},feedTabMuted:{...ui.supporting,fontSize:14},feedTabActive:{color:colors.primaryAction,fontFamily:typography.family,fontSize:14,fontWeight:'700',borderBottomWidth:2,borderBottomColor:colors.primaryAction,paddingVertical:spacing.xs},tabDivider:{backgroundColor:colors.text,height:18,width:1},
   feedNotice:{...ui.supporting,backgroundColor:colors.background,paddingHorizontal:spacing.md,paddingVertical:spacing.sm},feedScroll:{flex:1},feedContent:{flexGrow:1,justifyContent:'center',alignItems:'center',gap:spacing.sm,padding:spacing.sm,maxWidth:600,width:'100%',alignSelf:'center'},

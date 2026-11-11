@@ -25,7 +25,7 @@ export function PropertyDashboardView({ viewModel: vm,renderRequestControls }: {
     {vm.portfolioItems.map(item => {
       const listing = item.currentListing;
       const verificationAction=item.tier3.requiresRepair?null:propertyVerificationActionLabel(item.tier3.status);
-      const action = !listing ? 'Continue Posting' : listing.status === 'draft' ? 'Continue Posting' : ['active', 'paused'].includes(listing.status) ? 'Manage listing' : listing.status === 'removed' ? 'View status' : 'View listing';
+      const action = !listing ? 'Continue Editing' : listing.status === 'draft' ? 'Continue Editing' : ['active', 'paused'].includes(listing.status) ? 'Manage Status' : listing.status === 'removed' ? 'View status' : 'View listing';
       return <View key={item.propertyId} style={styles.card}>
         {item.coverPhoto ? <Image accessibilityLabel={`Cover of ${listing?.title || portfolioType(item.property)}`} source={{ uri: item.coverPhoto.publicUrl }} style={styles.cover} /> : <View style={styles.placeholder}><Text style={styles.supporting}>Property photos not added yet</Text></View>}
         <View style={styles.content}>
@@ -38,7 +38,7 @@ export function PropertyDashboardView({ viewModel: vm,renderRequestControls }: {
           {renderRequestControls?.(item)}
           <ListingButton label={action} tone="outline" disabled={vm.portfolioActionsDisabled} onPress={() => vm.openPortfolioItem(item.propertyId)} />
           {item.property.is_active&&(!listing||!['draft','active','paused'].includes(listing.status))?<ListingButton label="Edit Property" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>vm.openPortfolioProperty(item.propertyId)}/>:null}
-          {listing&&item.property.is_active&&['active','paused'].includes(listing.status)?<ListingButton label="Edit Listing" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>vm.editPortfolioListing(item.propertyId)}/>:null}
+          {listing&&item.property.is_active&&['active','paused'].includes(listing.status)?<ListingButton label="Edit Rental" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>vm.editPortfolioListing(item.propertyId)}/>:null}
           {vm.propertyVerificationState?.propertyId===item.propertyId?<FeedbackNotice tone="error" message={vm.propertyVerificationState.error}/>:null}
           {verificationAction?<ListingButton label={verificationAction} tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>void vm.openPortfolioVerification(item.propertyId)}/>:null}
           {canReviewPortfolioPublication(item)?<ListingButton label="Review Publication" tone="outline" disabled={vm.portfolioActionsDisabled} onPress={()=>vm.reviewPortfolioPublication(item.propertyId)}/>:null}

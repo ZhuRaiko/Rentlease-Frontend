@@ -1,3 +1,5 @@
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {ui} from '../../../shared/theme/ui';
 import type {ScrollView as NativeScrollView} from 'react-native';
 import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import type { PropsWithChildren, RefObject, ReactNode } from 'react';
@@ -18,6 +20,7 @@ interface ListingWizardScaffoldProps extends PropsWithChildren {
   title?: string;
   description?: string;
   footer?:ReactNode;
+  progress?:ReactNode;
   formFocus?:{scrollRef:RefObject<NativeScrollView|null>;contentRef:RefObject<View|null>};
 }
 
@@ -29,29 +32,31 @@ export function ListingWizardScaffold({
   step,
   stepLabel,
   title,
-  description, formFocus, footer,
+  description, formFocus, footer, progress,
 }: ListingWizardScaffoldProps) {
+  const insets=useSafeAreaInsets();
   const scroll = (
     <ScrollView
-      style={footer?styles.scrollArea:undefined}
+      style={[footer?styles.scrollArea:undefined,progress?{backgroundColor:colors.canvas}:null]}
       ref={formFocus?.scrollRef}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[styles.scrollContent,progress&&!footer?{paddingBottom:Math.max(spacing.xl,insets.bottom)}:null]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
       <View collapsable={false} ref={formFocus?.contentRef}>
-      <View style={styles.topBar}>
+      <View style={[styles.topBar,progress?{flexDirection:'row',alignItems:'center',justifyContent:'space-between',height:56}:null]}>
         <Pressable
           accessibilityLabel={onBack ? 'Back' : 'Close'}
           accessibilityRole="button"
           hitSlop={12}
           onPress={onBack ?? onClose}
-          style={styles.closeButton}
+          style={progress?{minHeight:48,minWidth:48,justifyContent:'center'}:styles.closeButton}
         >
-          <View style={[styles.closeLine, styles.closeLineOne]} />
-          <View style={[styles.closeLine, styles.closeLineTwo]} />
+          {progress?<Text style={ui.body}>Back</Text>:<><View style={[styles.closeLine, styles.closeLineOne]} /><View style={[styles.closeLine, styles.closeLineTwo]} /></>}
         </Pressable>
+        {progress?<Pressable accessibilityRole="button" accessibilityLabel="Close posting" onPress={onClose} style={{minHeight:48,minWidth:48,justifyContent:'center'}}><Text style={ui.supporting}>Close</Text></Pressable>:null}
       </View>
+      {progress}
       {step ? (
         <>
           <View style={styles.progressTrack}>
@@ -86,7 +91,7 @@ export function ListingWizardScaffold({
       </View>
     </ScrollView>
   );
-  return footer?<View style={styles.frame}>{scroll}<View style={styles.footer}>{footer}</View></View>:scroll;
+  return footer?<View style={styles.frame}>{scroll}<View style={[styles.footer,progress?{paddingBottom:Math.max(spacing.sm,insets.bottom)}:null]}>{footer}</View></View>:scroll;
 }
 
 const styles = StyleSheet.create({

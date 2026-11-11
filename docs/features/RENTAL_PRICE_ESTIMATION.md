@@ -1,7 +1,16 @@
 # Rental Price Estimation
 
+## T8-A posting integration - November 11, 2026
+
+New posting now has a dedicated optional Estimate step between Listing and Review. It reuses the existing RentalPriceGuidance/InlineRentalEstimate workflow, generalized-location approval controls and protected persisted-property ID client. Use Estimated Price requires confirmation and changes only local asking rent; Keep My Price restores the price entered before that step. No request on opening, no automatic adoption/save/publication and no model, coordinate, API or fitted-artifact changes. Unsupported/failed estimates can be skipped. Existing non-wizard details/edit guidance remains. Local automated checks pass; hosted/native acceptance of this revision is pending. See the current [posting flow](PROPERTY_LISTING_MANAGEMENT.md).
+
+
 Current backend status (November 10, 2026): Phase 2C deployed as 20261110053904, Tier 2 RPC deployed as 20261110053950, rental-price-estimate ACTIVE v5 with JWT verification enabled. Earlier prepared/undeployed statements below are historical. No owner was automatically opted in. Frontend release and authenticated end-to-end/manual acceptance remain pending; catalog/source and limited no-identity denial checks passed. See the latest backend ledger for exact receipts and deployment scope.
 
+
+### T8-A presentation refinement - November 11, 2026
+
+The posting result uses a larger existing-brand amount; optional explanatory copy is collapsed. Approval controls, real supplied range, eligibility, explicit confirmation, Keep My Price, transient retry and optional continuation are unchanged. This is presentation only; no estimator service/model/input changes or fresh hosted inference. Native acceptance remains pending.
 
 ## Status - November 8, 2026
 

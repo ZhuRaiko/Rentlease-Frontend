@@ -1,3 +1,4 @@
+import {ui} from '../../../shared/theme/ui';
 import { FieldLabel } from './FieldLabel';
 import type { ReactNode, Ref } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -61,6 +62,8 @@ export function ListingField({
 }
 
 interface ChoiceChipProps {
+  comfortable?:boolean;
+  role?:'radio'|'checkbox';
   label: string;
   selected: boolean;
   onPress: () => void;
@@ -68,20 +71,23 @@ interface ChoiceChipProps {
   disabled?: boolean;
 }
 
-export function ChoiceChip({ label, selected, onPress, tone = 'green', disabled = false }: ChoiceChipProps) {
+export function ChoiceChip({ label, selected, onPress, tone = 'green', disabled = false,comfortable=false,role='checkbox' }: ChoiceChipProps) {
   return (
     <Pressable
-      accessibilityRole="checkbox"
+      accessibilityRole={role}
       accessibilityState={{ checked: selected, disabled }}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
         selected && styles[`${tone}Chip`],
+        comfortable&&styles.comfortableChip,
+        comfortable&&selected&&styles.comfortableSelected,
+        comfortable&&disabled&&{opacity:0.65},
         pressed && styles.pressed,
       ]}
     >
-      <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>{label}</Text>
+      <Text style={[styles.chipLabel, selected && styles.chipLabelSelected,comfortable&&styles.comfortableLabel,comfortable&&selected&&{color:colors.primaryAction}]}>{label}</Text>
     </Pressable>
   );
 }
@@ -136,6 +142,8 @@ const styles = StyleSheet.create({
   prefix: { color: colors.text, fontFamily: typography.family, fontSize: 16, fontWeight: '700' },
   input: { color: colors.text, flex: 1, fontFamily: typography.family, fontSize: 14, padding: 0 },
   multiline: { minHeight: 90 },
+  comfortableChip:{minHeight:48,minWidth:48,justifyContent:'center',paddingHorizontal:12,borderRadius:10,backgroundColor:colors.background,borderColor:colors.outline},
+  comfortableSelected:{backgroundColor:colors.primaryPale,borderColor:colors.primaryAction},comfortableLabel:{...ui.supporting,fontWeight:'600',color:colors.ink},
   chip: {
     backgroundColor: colors.surface,
     borderColor: colors.border,
