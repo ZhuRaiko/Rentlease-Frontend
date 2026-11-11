@@ -1,15 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect,useState,type ReactNode } from 'react';
+import type {InAppTarget} from '../models/InAppNotification';
+import type {InAppNotificationsViewModel} from '../viewModels/useInAppNotifications';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
 import { ScreenContainer } from '../../../shared/components/ScreenContainer';
 import { colors } from '../../../shared/theme/colors';
-import type { NotificationTarget } from '../models/Notification';
-import { useNotificationsViewModel } from '../viewModels/useNotificationsViewModel';
+
 import { NotificationCenterView } from './NotificationCenterView';
-import { NotificationPermissionView } from './NotificationPermissionView';
 
 interface NotificationsFlowViewProps {
+  viewModel:InAppNotificationsViewModel;
+  renderTarget:(target:InAppTarget,onBack:()=>void)=>ReactNode;
+  accountId:string|undefined;
   canPostProperty: boolean;
   onClose: () => void;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
@@ -23,6 +26,7 @@ interface NotificationsFlowViewProps {
 }
 
 export function NotificationsFlowView({
+  viewModel,renderTarget,accountId,
   canPostProperty,
   onClose,
   registerBackAction,
@@ -34,35 +38,17 @@ export function NotificationsFlowView({
   onOpenRatingsReports,
   onOpenVerification,
 }: NotificationsFlowViewProps) {
-  const viewModel = useNotificationsViewModel();
-  useEffect(() => {
-    registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
-    return () => registerBackAction?.(null);
-  });
-
-  const openTarget = (target: NotificationTarget) => {
-    if (target === 'messages') onOpenChat();
-    else if (target === 'maintenance') onOpenMaintenance();
-    else if (target === 'verification') onOpenVerification();
-    else if (target === 'ratingsReports') onOpenRatingsReports();
-    else if (target === 'discovery') onOpenDiscover();
-    else if (target === 'listings' && canPostProperty) onOpenListings();
-    else if (target === 'listings') {
-      viewModel.setNotice('Complete account verification to manage listings.');
-    }
-  };
-
-  const content = viewModel.screen === 'center' || viewModel.screen === 'empty' ? (
-    <NotificationCenterView onClose={onClose} onOpenTarget={openTarget} viewModel={viewModel} />
-  ) : (
-    <NotificationPermissionView viewModel={viewModel} />
-  );
+  const [selected,setSelected]=useState<{owner:string|undefined;target:InAppTarget}|null>(null);
+  const active=selected?.owner===accountId?selected?.target:null;
+  const closeTarget=()=>{setSelected(null);void viewModel.workflow.refresh();};
+  useEffect(()=>{if(active)return;registerBackAction?.(onClose);return()=>registerBackAction?.(null);});
+  const content=active?renderTarget(active,closeTarget):<NotificationCenterView onClose={onClose} viewModel={viewModel} onOpenTarget={target=>setSelected({owner:accountId,target})}/>;
 
   return (
     <ScreenContainer includeBottomInset={false} padded={false}>
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
-      <RentLeaseBottomNavigation
+      {!active?<RentLeaseBottomNavigation
         active={null}
         onChat={onOpenChat}
         onDiscover={onOpenDiscover}
@@ -71,19 +57,19 @@ export function NotificationsFlowView({
             onOpenListings();
             return;
           }
-          viewModel.openCenter();
-          viewModel.setNotice('Complete account verification to manage listings.');
+
+
         }}
         onPost={() => {
           if (canPostProperty) {
             onCreateListing();
             return;
           }
-          viewModel.openCenter();
-          viewModel.setNotice('Complete account verification before posting.');
+
+
         }}
         onTenancy={onOpenMaintenance}
-      />
+      />:null}
     </ScreenContainer>
   );
 }

@@ -695,6 +695,7 @@ export type Database = {
       }
       notifications: {
         Row: {
+          event_key: string | null
           body: string
           created_at: string
           data: Json
@@ -705,6 +706,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          event_key?: string | null
           body: string
           created_at?: string
           data?: Json
@@ -715,6 +717,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          event_key?: string | null
           body?: string
           created_at?: string
           data?: Json
@@ -2249,6 +2252,10 @@ export type Database = {
       }
     }
     Functions: {
+      // Prepared notification RPCs; not evidence of production deployment.
+      get_in_app_notifications: {Args:{p_before?:string|null;p_before_id?:string|null};Returns:Json}
+      read_in_app_notifications: {Args:{p_id?:string|null;p_through?:string|null};Returns:undefined}
+      get_in_app_notification_target: {Args:{p_id:string};Returns:Json}
       // Prepared reporting contract; not evidence of hosted deployment.
       get_rental_report: { Args: { p_report_id:string; p_admin?:boolean }; Returns: Json }
       get_rental_reports: { Args: { p_admin?:boolean; p_kind?:string; p_status?:string; p_offset?:number }; Returns: Json }
