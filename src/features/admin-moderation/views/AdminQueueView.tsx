@@ -1,3 +1,4 @@
+import {ReportQueueSummary} from '../../../shared/components/Reporting';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { AppButton } from '../../../shared/components/AppButton';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -14,7 +15,7 @@ import {
 import { AdminScaffold } from '../components/AdminScaffold';
 import type { AdminModerationViewModel } from '../viewModels/useAdminModerationViewModel';
 
-export function AdminQueueView({ viewModel }: { viewModel: AdminModerationViewModel }) {
+export function AdminQueueView({ viewModel,accountId }: { viewModel: AdminModerationViewModel;accountId?:string|undefined }) {
   if (viewModel.screen === 'reviewQueues') {
     return (
       <AdminScaffold onBack={viewModel.goBack} title="Admin Review Queues">
@@ -31,13 +32,7 @@ export function AdminQueueView({ viewModel }: { viewModel: AdminModerationViewMo
             onPress={() => viewModel.navigate('verificationQueue')}
             tone="warning"
           />
-          <QueueOverview
-            count={viewModel.openReportCount}
-            label="Reports"
-            meta="1 urgent item"
-            onPress={() => viewModel.navigate('reportsQueue')}
-            tone="danger"
-          />
+          <ReportQueueSummary accountId={accountId} onOpen={()=>viewModel.navigate('reportsQueue')}/>
         </View>
         <View style={styles.guidanceCard}>
           <Text style={styles.guidanceTitle}>Queue handling guidance</Text>

@@ -1,3 +1,4 @@
+import {ReportingWorkspace} from '../../../shared/components/Reporting';
 import {ReviewModerationPanel} from '../../../shared/components/RentalReviews';
 import {KeyboardAwareScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {ScreenHeader} from '../../../shared/components/ScreenHeader';
@@ -32,19 +33,20 @@ export function AdminModerationFlowView({ onClose, registerBackAction, accountId
   const viewModel = useAdminModerationViewModel();
   const [reviewOwner,setReviewOwner]=useState<string|null>(null),reviewOpen=!!accountId&&reviewOwner===accountId,reviewGuard=useRef<(()=>boolean)|null>(null),registerReviewGuard=useCallback((guard:(()=>boolean)|null)=>{reviewGuard.current=guard;},[]),closeReviews=()=>{if(!reviewGuard.current||reviewGuard.current())setReviewOwner(null);};
   useEffect(() => {
+    if(viewModel.screen==='reportsQueue'||reportScreens.has(viewModel.screen))return;
     registerBackAction?.(reviewOpen?closeReviews:() => viewModel.backFromWorkspace(onClose));
     return () => registerBackAction?.(null);
   });
   let content;
 
   if(reviewOpen){content=<View style={{flex:1}}><ScreenHeader title="Review moderation" onBack={closeReviews}/><KeyboardAwareScrollView contentContainerStyle={{padding:16,gap:12}}><ReviewModerationPanel key={accountId} accountId={accountId} registerExitGuard={registerReviewGuard}/></KeyboardAwareScrollView></View>;} else if (viewModel.screen === 'dashboard') {
-    content = <AdminDashboardView onExit={onClose} viewModel={viewModel} onReviewModeration={()=>{if(accountId)setReviewOwner(accountId);}}/>;
+    content = <AdminDashboardView accountId={accountId} onExit={onClose} viewModel={viewModel} onReviewModeration={()=>{if(accountId)setReviewOwner(accountId);}}/>;
+  } else if(viewModel.screen==='reportsQueue'||reportScreens.has(viewModel.screen)){content=<ReportingWorkspace key={accountId} accountId={accountId} scope={{mode:'admin',kind:'all',status:'submitted'}} onBack={viewModel.goBack} registerBackAction={registerBackAction}/>;
   } else if (queueScreens.has(viewModel.screen)) {
-    content = <AdminQueueView viewModel={viewModel} />;
+    content = <AdminQueueView accountId={accountId} viewModel={viewModel} />;
   } else if (verificationScreens.has(viewModel.screen)) {
     content = <VerificationModerationView viewModel={viewModel} />;
-  } else if (reportScreens.has(viewModel.screen)) {
-    content = <ReportModerationView viewModel={viewModel} />;
+
   } else if (enforcementScreens.has(viewModel.screen)) {
     content = <EnforcementView viewModel={viewModel} />;
   } else {
@@ -63,7 +65,7 @@ export function AdminModerationFlowView({ onClose, registerBackAction, accountId
     <ScreenContainer includeBottomInset={false} padded={false}>
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
-      {!reviewOpen?<AdminBottomNavigation
+      {!reviewOpen&&viewModel.screen!=='reportsQueue'&&!reportScreens.has(viewModel.screen)?<AdminBottomNavigation
         active={active}
         onAudit={() => viewModel.openSection('auditHistory')}
         onDashboard={() => viewModel.openSection('dashboard')}

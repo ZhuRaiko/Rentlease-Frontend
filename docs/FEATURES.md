@@ -13,8 +13,10 @@ Status describes frontend implementation, not live runtime validation. Detailed 
 | Messaging, Viewing & Reservations | UC-08 RPC/Realtime metadata DEPLOYED; Android acceptance pending. UC-09A viewing and UC-09B reservations DEPLOYED / read-only LIVE-VERIFIED. Android RUNTIME-UNVERIFIED. Payments/automatic tenancy/uploads excluded. | [Messaging, Viewing & Reservations](features/MESSAGING_VIEWING.md) |
 | Tenancy Management | Wireframe dashboard and real upcoming/active/history reads; T1 backend deployed 20261110062844; frontend release and Android acceptance pending | [Tenancy](features/TENANCY.md) |
 | Maintenance Requests | PREVIEW UI; persistence/uploads/notifications DEFERRED | Not yet created |
-| Ratings & Reports | T7A reviews IMPLEMENTED/TESTED locally; moderation backend PREPARED, native/hosted acceptance pending. Reports remain PREVIEW | [Ratings and Reviews](features/RATINGS_REVIEWS.md) |
+| Ratings & Reports | T7A reviews IMPLEMENTED/TESTED locally; moderation backend PREPARED, native/hosted acceptance pending. Property/user reporting implemented locally; backend prepared, not deployed | [Ratings and Reviews](features/RATINGS_REVIEWS.md) |
 | Admin & Moderation | Tier 2 queue/private viewing/approval USER-REPORTED development-build PASS; new zoom and Tier 3 compatibility AUTOMATED-TESTED, Android RUNTIME-UNVERIFIED; non-image viewing DEFERRED; other moderation PREVIEW | [Admin Verification](features/ADMIN_VERIFICATION.md) |
 | Notifications | PREVIEW UI; device permission/push delivery/persistence DEFERRED | Not yet created |
 
 Actual screen identifiers and preview reachability are recorded in [ROUTES.md](ROUTES.md). Architecture and feature isolation remain in [ARCHITECTURE.md](ARCHITECTURE.md). No additional feature documents are created merely to populate an index.
+
+Reporting details and deployment limits: [Reporting and moderation](features/REPORTING_MODERATION.md).

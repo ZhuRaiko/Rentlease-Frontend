@@ -80,6 +80,7 @@ test('location query races cannot repopulate an old set of suggestions',async()=
 function renderSource(path:string,name:string,state?:{value:any}) {
   const full=resolve(path),actual=createRequire(full),mod={exports:{} as any};
   const requireMock=(key:string):any=>{
+    if(key.endsWith('/Reporting'))return{ReportAction:'ReportAction'};
     if(key.endsWith('/RentalReviews'))return{PublishedRentalReviews:'PublishedRentalReviews'};
     if(key.endsWith('/InlineRentalEstimate'))return {InlineRentalEstimate:'InlineRentalEstimate'};
     if(key==='react')return {useState:(v:any)=>[state?state.value:v,(next:any)=>{if(state)state.value=next;}],useEffect:()=>{}};

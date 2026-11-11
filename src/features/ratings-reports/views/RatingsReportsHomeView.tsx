@@ -36,23 +36,9 @@ export function RatingsReportsHomeView({
       </View>
       {accountId?<PublishedRentalReviews accountId={accountId} kind="user" targetId={accountId}/>:null}
 
-      <Text style={styles.sectionLabel}>REPORT A CONCERN (PREVIEW)</Text>
-      <View style={styles.actions}>
-        <SelectionCard
-          body="Report a user, listing, or message for the safety team to review."
-          onPress={viewModel.openReportMenu}
-          title="Start a report"
-          tone="danger"
-        />
-        <SelectionCard
-          body="Follow updates or respond when more information is requested."
-          meta={viewModel.reportPreview.id}
-          onPress={() => viewModel.navigate('reportStatus')}
-          title="Track report status"
-          tone="blue"
-        />
-      </View>
-      <Text style={styles.safetyNote}>Reports are confidential. The reported person will not see who submitted the report in this frontend presentation.</Text>
+      <Text style={styles.sectionLabel}>REPORT A CONCERN</Text>
+      <Text style={styles.availableBody}>Report a listing from Rental Details, or report the other participant from a relevant conversation. Reports are confidential and do not automatically restrict accounts.</Text>
+      <AppButton label="My submitted reports" variant="secondary" onPress={()=>viewModel.navigate('reportStatus')}/>
     </RatingsReportsScaffold>
   );
 }
