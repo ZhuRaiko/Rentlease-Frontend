@@ -201,3 +201,10 @@ Validation evidence: the first focused component/location/photo/estimator run ex
 Responsive policy was checked with 411dp normal and 320dp/150% component inputs; this is not actual native visual acceptance. User should verify keyboard overlap, long labels, font scaling/TalkBack, invalid fields auto-expanding, maps, photo gallery/recovery and every wizard Back/Close/save/estimate/publication path on Android. No device/ADB/Expo/build, live backend interaction, deployment, commit or push. No permanent live backend mutation was performed in this phase.
 
 Final refinement checkpoint: final TypeScript and git diff --check passed. All 12 refinement-specific checks passed, including the two final keyboard-dismissal/contrast additions. The earlier two fixture failures passed targeted rechecks; no broad repeated suite or native pass is claimed. No commit, push, deployment or device action.
+
+
+## November 11, 2026 - range-first detail spotlight
+
+Changed only InlineRentalEstimate spotlight presentation and its tests, plus existing records. Read AGENTS and applied rentlease-ui-ux-design, impeccable and hallmark against the supplied range wireframe; prior architecture/MVVM/testing guidance retained. Real supplied range appears before compact secondary metrics. Interval marker derives from numerical bounds, with an accessible descriptive label; no range is invented when missing. Two-decimal PHP formatting and narrow/font-scale stacking preserve reading order. Default, posting and guidance variants retain existing behavior.
+
+24 focused estimation tests pass, including new range ordering, supplied bounds, marker position, small/large values, unsupported/loading/retry and existing account/duplicate guards. TypeScript and diff whitespace pass. No native screenshot verification claimed; Android acceptance pending. No service, model, backend, provider, 360 or navigation edits; no commit/push.

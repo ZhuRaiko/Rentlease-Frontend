@@ -315,3 +315,47 @@ Local-only: replaced the literal question-mark Saved header placeholder with the
 ### T8-B Discovery profile avatar - November 11, 2026
 
 Discovery no longer renders the bundled sample profile photo. SearchDiscoveryFlowView uses the same usePublicIdentitiesViewModel(accountId,[accountId]) source as Profile, passes its authorized avatarUrl to TenantDiscoveryView, and renders shared PublicAvatar keyed by account. Existing identity-change subscription and foreground refresh handle replacement/removal; owner/key masking and cancellation prevent previous-account publication. Image failure uses the neutral native fallback. Existing URL resolution and public-identity privacy rules remain; no new fetching service, bucket permission or private path exposure. The Profile press action and 48dp target remain. Local header tests cover supplied/replaced/removed URLs and navigation; existing public-identity tests cover failed image fallback, URL changes and late/account-switched reads. Android foreground/return, logout/login and actual image acceptance remain user-run. No backend/device actions, commit or push.
+
+
+### T8-C UI-only Saved refinement - November 11, 2026
+
+No live backend inspection or mutation. Existing get_saved_listing_states, set_saved_listing and get_saved_listings contracts, projections and privacy rules remain unchanged. Local presentation tests do not establish hosted authorization or native acceptance. No deployment or push.
+
+
+### T8-D1 UI-only interaction - November 11, 2026
+
+No permanent live backend mutation or inspection. Existing search/GPS, Saved RPCs, content scorer, Tier 2 signal, public identity and notification contracts remain unchanged. Only local success-notice presentation IDs/consumption were added to the existing bookmark workflow; unknown outcomes/receipts remain. No deployment or source-control action.
+
+
+### T8-D2 UI-only Rental Details - November 11, 2026
+
+No live backend inspection or mutation. Existing detail/public-location, identity, review, NLP, estimation, bookmark, OSM and contact contracts retained. Public MapLibre preview receives only the existing projected public point and resolves the existing public style configuration; no new endpoint, private table or device/geocoder access. Tests are local and do not establish hosted authorization or native availability.
+
+
+### Managed Nearby Places local preparation - November 11, 2026
+
+No permanent live backend mutation or read-only production query was performed. Prepared 20261111100000_nearby_places_cache and nearby-places Edge are NOT DEPLOYED. 27 isolated synthetic Postgres/PostGIS checks passed, including real concurrent lease calls, active/public context gates, service-only workers, private RLS/no direct grants, TTL/retention/cooldown/quota/row bounds. Disposable container uses network=none/no host mounts or production credentials. Existing captured Tier 1 helper source confirms active account + verified timestamp semantics; fixture substitutes a bounded synthetic helper, not hosted RLS proof. Official Geoapify and Supabase docs read; no credential/provider or Supabase project call. Project cxfsbwbwmwmgtqfonqth remains unchanged. Deployment must use fresh separately authorized baseline/backup and only the named migration/Edge; no blanket push/history repair.
+
+
+### Authorized Nearby Places backend deployment - November 11, 2026
+
+DEPLOYED BACKEND; frontend/UI release was not performed. Applied only reviewed local 20261111100000_nearby_places_cache.sql via Supabase apply_migration; actual hosted version **20261111133612_nearby_places_cache**, 39 total migrations. Hosted history payload equals the reviewed SQL after newline normalization; prior 38 history entries remain unchanged. Historical LOCAL ONLY/NOT DEPLOYED statements above describe preparation. Do not replay the original local timestamp or blanket db push.
+
+Deployed only **nearby-places v1 ACTIVE, verify_jwt=true**. Downloaded hosted function contains exactly the five reviewed source/dependency files, byte-for-byte. Existing send-sms v13, estimate-rental-price v10, rental-price-estimate v7, delete-unfinished-post v3 and review-wordcloud v2 metadata unchanged. GEOAPIFY_API_KEY confirmed by name using CLI metadata; its value was not printed, changed or used in local source. Built-in Supabase server env names retained. Supabase plugin used for isolated migration/deployment and read-only checks.
+
+Preflight: branch feature/final-integration, dirty T8-C/D and configuration preserved. Production relevant column types, public properties/listings RLS, active-account/Tier 1 helper and PostGIS extensions schema matched; new schema/RPC names absent. Current official Geoapify docs still support reviewed categories, Places-result caching and Free usage under published quota/attribution requirements. Public pricing lists 3,000 credits/day and 5 requests/second; selected account usage/custom limits could not be independently accessed. Transport category breadth/raw terminal-tag availability remains a coverage limitation, not relabelled ordinary stops. General terms/account agreement remains authoritative; no paid plan was enabled.
+
+Actual Deno: entrypoint deno check passed and **15 Deno runtime tests passed / 0 failed**, mocked HTTP only. The initial temporary test path under node_modules was rejected by Deno's type-stripping rule; the same tests run from supabase/tests/nearby_runtime.test.ts passed. No application source correction or provider request was required.
+
+Fresh recovery checkpoint: **C:/RentLease-Backups/nearby-places-predeploy-20261111-133426**. 29 original manifested artifacts; readable schema/roles/data/metadata/164 prior function definitions, seven COPY sections, 38-row migration history, relevant profile/role/property/listing/identity records, reviewed source/rollback guidance. SHA-256 manifest reread verified. Restricted ACLs (current Windows user, SYSTEM, Administrators; disabled root inheritance) verified before and after receipt additions. Single dump transaction snapshot; schema/scoped-record fingerprints matched before/after capture and after deployment. Existing catalog objects/grants/RLS/policies/triggers/functions and original records remain unchanged. Protected postcheck receipts and separate deployment manifest retained. Scoped same-project recovery only: retained Auth/shared dependencies needed; no Auth passwords/sessions, Storage bytes, exact private-location data or PITR/full restore. Hosted restore was NOT tested.
+
+Hosted security: private cache and limits tables have RLS, no authenticated/service-role direct table reads; context RPC postgres-owned SECURITY DEFINER/pg_catalog and authenticated-only; worker RPCs postgres-owned/pg_catalog and service_role-only. Anonymous and invalid-token HTTPS POST checks returned HTTP 401. Read-only role checks denied no-identity context and authenticated worker execution, then rolled back. Cache/counter rows remained zero. No production users, listings, POIs or fixtures created. Migration adds only the intended schema/functions/history.
+
+**Positive real-provider/caller-JWT/cache verification remains PENDING**: no existing authorized end-user session was available in this environment. No impersonated JWT, service-role location bypass or new test account was used. No Geoapify request was made by this deployment verification, so estimated provider credits for these checks are zero; actual account dashboard consumption is unverified. Real category/distance/attribution/freshness, miss-to-hit with no additional provider call, cross-account denial and live timeout/rate-limit behavior are not claimed. Deno/local isolated checks cover those mechanics only.
+
+Next acceptance with an existing authorized account/listing: request Nearby in Imus/Dasmarinas/Tagaytay; inspect actual named/genuine-empty results and conservative transport coverage; repeat from an authorized viewer and compare cache fetchedAt plus provider counters; verify inaccessible listing denial, bounded errors and credits in provider dashboard. Then user Android checks map/Nearby independence, stale timestamp/attribution, Retry, Back, foreground and account changes at normal/narrow/large-font sizes. No Android, Expo/ADB/build, UI deployment, Git commit/push or unrelated infrastructure action occurred.
+
+
+## November 11, 2026 - T8-D2 presentation correction
+
+Local native presentation only. No backend inspection, SQL, RPC, provider request, secret access, migration or deployment performed. Existing nearby-places v1/cache, authorized public point, reviews, NLP and prediction contracts retained. Native map styling changes only its compact height; coordinate source, order, camera and bounded failure/retry remain. Previous deployment evidence and pending positive caller/provider acceptance above remain unchanged.

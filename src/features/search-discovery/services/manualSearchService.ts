@@ -1,6 +1,6 @@
 import {readPublicPropertyPhotos} from '../../../shared/services/publicPropertyPhotos';
-import {parsePublicPoint,placeCategories,type PublicPoint} from '../../../shared/models/NearbyPlace';
-import {fetchNearbyAmenities,cachedNearbyAmenities} from '../../../shared/services/maps/overpass/overpassService';
+import {parsePublicPoint} from '../../../shared/models/NearbyPlace';
+import {createNearbyPlacesService} from '../../../shared/services/maps/nearbyPlacesService';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import { cityLabels, locationQuery, ManualSearchError, parseSearchListing, record, validateSearchInput, type AvailableLocation, type SearchDetail, type SearchInput, type SearchListing, type SearchPhoto } from '../models/ManualSearch';
@@ -108,9 +108,8 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
         if(typeof data!=='string'||!/^[0-9a-f-]{36}$/i.test(data))throw new ManualSearchError('Conversation confirmation could not be read.');return data;
       }catch(e){if(!(e instanceof ManualSearchError))traceInquiryDiagnostic(inquiryDiagnostic('start_property_inquiry',e));throw e instanceof ManualSearchError?e:new ManualSearchError('Conversation creation was not confirmed. Retry to reopen the same inquiry.');}finally{clearTimeout(timer);}
     },
-    cachedPlaces(point:PublicPoint){return cachedNearbyAmenities({...point,radiusMeters:2000,categories:placeCategories});},
-    async places(owner:string,point:PublicPoint,signal?:AbortSignal) {
-      await identity(owner);const rows=await fetchNearbyAmenities({...point,radiusMeters:2000,categories:placeCategories},signal);await identity(owner);return rows;
+    async places(owner:string,listingId:string,signal?:AbortSignal) {
+      await identity(owner);const result=await createNearbyPlacesService(getClient)(owner,listingId,signal);await identity(owner);return result;
     },
     async detail(owner: string, id: string, signal?: AbortSignal): Promise<SearchDetail> {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new ManualSearchError('Choose a valid listing.');

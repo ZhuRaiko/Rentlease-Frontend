@@ -1,8 +1,8 @@
 import {placeCategories,straightLineMeters,validPoint,type PlaceCategory,type NearbyPlace,type PublicPoint} from '../../../models/NearbyPlace';
 export type AmenityCategory=PlaceCategory;
 export interface NearbyAmenityQuery extends PublicPoint {radiusMeters:number;categories:readonly PlaceCategory[]}
-export type NearbyFailure='timeout'|'rate_limit'|'query'|'response'|'unavailable'|'network'|'rejected';
-export class NearbyPlacesError extends Error {constructor(message:string,readonly kind:NearbyFailure='unavailable',readonly status?:number,readonly retryAfterMs?:number){super(message);this.name='NearbyPlacesError';}}
+import {NearbyPlacesError,type NearbyFailure} from '../../../models/NearbyPlacesResponse';
+export {NearbyPlacesError,type NearbyFailure} from '../../../models/NearbyPlacesResponse';
 export interface NearbyDiagnostic {endpoint:string;status:number|null;kind:NearbyFailure|'success';elapsedMs:number}
 export const OVERPASS_ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter'] as const;
 export const OVERPASS_USER_AGENT='RentLease/0.1 (+https://github.com/ZhuRaiko/Rentlease-Frontend)';
@@ -51,11 +51,11 @@ export function parseNearbyPlaces(raw:unknown,query:NearbyAmenityQuery):NearbyPl
     if(!name||!cat||!q.categories.includes(cat)||!['node','way','relation'].includes(String(e.type))||!Number.isSafeInteger(e.id)||Number(e.id)<=0||typeof point.lat!=='number'||typeof point.lon!=='number'||!validPoint(location))continue;
     const distance=straightLineMeters(q,location);if(distance>q.radiusMeters)continue;
     const address=['addr:housenumber','addr:street','addr:city'].map(k=>text(t[k])).filter(Boolean).join(', ');
-    const place:NearbyPlace={osmType:e.type as NearbyPlace['osmType'],osmId:e.id as number,name,category:cat,location:{latitude:Number(location.latitude.toFixed(5)),longitude:Number(location.longitude.toFixed(5))},distanceMeters:Math.round(distance),...(address?{address}:{}),...(text(t.opening_hours)?{openingHours:text(t.opening_hours)!}:{}),...(text(t.operator)?{operator:text(t.operator)!}:{}),...(text(t.wikidata)?{wikidata:text(t.wikidata)!}:{})};
+    const place:NearbyPlace={osmType:e.type as 'node'|'way'|'relation',osmId:e.id as number,name,category:cat,location:{latitude:Number(location.latitude.toFixed(5)),longitude:Number(location.longitude.toFixed(5))},distanceMeters:Math.round(distance),...(address?{address}:{}),...(text(t.opening_hours)?{openingHours:text(t.opening_hours)!}:{}),...(text(t.operator)?{operator:text(t.operator)!}:{}),...(text(t.wikidata)?{wikidata:text(t.wikidata)!}:{})};
     if(places.some(p=>(p.osmType===place.osmType&&p.osmId===place.osmId)||(p.osmType!==place.osmType&&p.category===cat&&p.name.toLocaleLowerCase()===name.toLocaleLowerCase()&&(!p.wikidata||!place.wikidata||p.wikidata===place.wikidata)&&straightLineMeters(p.location,location)<=40)))continue;
     places.push(place);
   }
-  return places.sort((a,b)=>a.distanceMeters-b.distanceMeters||a.name.localeCompare(b.name)||a.osmId-b.osmId);
+  return places.sort((a,b)=>a.distanceMeters-b.distanceMeters||a.name.localeCompare(b.name)||(a.osmId??0)-(b.osmId??0));
 }
 const aborted=()=>Object.assign(new Error('Nearby places request canceled.'),{name:'AbortError'});
 export function createOverpassService(fetcher:typeof fetch=fetch,now:()=>number=Date.now,timeoutMs=12000,diagnose:(event:NearbyDiagnostic)=>void=traceNearby){

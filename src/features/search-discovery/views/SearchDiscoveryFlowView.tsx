@@ -80,7 +80,7 @@ export function SearchDiscoveryFlowView({
   } else if (viewModel.screen === 'filters' || viewModel.screen === 'sort') {
     content = <LiveSearchFiltersView viewModel={viewModel} />;
   } else if (viewModel.screen === 'propertyDetails') {
-    content = <LivePropertyDetailView viewModel={viewModel} accountId={accountId} />;
+    content = <LivePropertyDetailView viewModel={viewModel} accountId={accountId} {...(onOpenListings?{onManageRental:()=>viewModel.requestNavigation(onOpenListings)}:{})} />;
   } else if (searchScreens.has(viewModel.screen)) {
     content = <SearchLocationView viewModel={viewModel} />;
   } else if (filterScreens.has(viewModel.screen)) {

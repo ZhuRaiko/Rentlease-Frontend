@@ -199,3 +199,8 @@ Reused the existing property creation, photo attachment, versioned draft save, p
 ## November 11, 2026 - T8-A UI/UX refinement
 
 Presentation-only form grouping, mounted disclosure/focus handling, media layout, progress, footer and estimator amount styling. Existing RPCs, mapping, location/privacy, unknown/zero, upload and publication behavior are reused without backend changes. No new live backend queries, user RPCs, inference, schema/permission changes or writes. No permanent live backend mutation was performed in this phase. No production cleanup required; hosted/native acceptance is not established by the focused frontend checks.
+
+
+## November 11, 2026 - range-first UI only
+
+No live inspection, SQL, API/provider call, secret access or deployment. Existing PredictionReceipt.illustrativeRange minimum/maximum and estimatedMonthlyRent are consumed unchanged by the native spotlight. No range calculation, authorization, Edge/Render contract or fitted model change. Focused local tests only; native/hosted status unchanged.

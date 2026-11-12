@@ -4,7 +4,7 @@ import {useReviewWordCloud} from '../viewModels/useReviewWordCloud';
 import {highlightSegments,termColors,type ReviewCloudProcessor} from '../models/ReviewWordCloud';
 import {ui} from '../theme/ui';
 import {colors} from '../theme/colors';
-export function PropertyReviewWordCloud({accountId,propertyId,processor}:{accountId:string|undefined;propertyId:string;processor?:ReviewCloudProcessor}){
+export function PropertyReviewWordCloud({accountId,propertyId,processor,compact=false}:{accountId:string|undefined;propertyId:string;processor?:ReviewCloudProcessor;compact?:boolean}){
  const vm=useReviewWordCloud(accountId,propertyId,processor),term=vm.cloud?.terms.find(t=>t.id===vm.selected);
  const rows=vm.corpus?.rows.filter(r=>!term||term.matches.some(m=>m.id===r.id))??[];
  return <View style={styles.panel}><Text style={ui.sectionTitle}>Frequently mentioned</Text>
@@ -18,7 +18,7 @@ export function PropertyReviewWordCloud({accountId,propertyId,processor}:{accoun
  {vm.cloud?.status==='insufficient_data'?<Text style={ui.supporting}>Not enough recurring terms yet. Themes need at least two usable reviews and two distinct reviews mentioning a term.</Text>:null}
  <View style={styles.terms}>{vm.cloud?.terms.map(t=><Pressable key={t.id} accessibilityRole="button" accessibilityState={{selected:vm.selected===t.id}} accessibilityLabel={`${t.text}, mentioned in ${t.review_count} distinct reviews`} onPress={()=>void vm.workflow.select(t.id)} style={[styles.term,vm.selected===t.id?styles.selected:null]}><Text style={{color:termColors[t.color],fontSize:Math.round(16*t.font_size_rem),fontWeight:'600',flexShrink:1}}>{t.text}</Text></Pressable>)}</View>
  {term?<><Text accessibilityLiveRegion="polite" style={ui.body}>{term.text}: {term.review_count} distinct reviews</Text><AppButton label="Clear selected term" variant="secondary" onPress={()=>void vm.workflow.select(null)}/>{rows.map(r=><View key={r.id} style={styles.review}><Text style={ui.body}>{highlightSegments(r.text??'',term.matches.find(m=>m.id===r.id)?.spans??[]).map((s,i)=><Text key={i} style={s.marked?styles.mark:undefined}>{s.text}</Text>)}</Text></View>)}</>:null}
- <AppButton label="Refresh review themes" variant="secondary" disabled={vm.status==='loading'} onPress={()=>void vm.workflow.load()}/>
+ {!compact||vm.error?<AppButton label={compact?'Retry review themes':'Refresh review themes'} variant="secondary" disabled={vm.status==='loading'} onPress={()=>void vm.workflow.load()}/>:null}
  </>}
  </View>;
 }

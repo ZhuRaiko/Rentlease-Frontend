@@ -1,3 +1,4 @@
+import {useDiscoverySaveToast} from './useDiscoverySaveToast';
 import {useSavedListings} from './useSavedListings';
 import {recommendationService} from '../services/recommendationDependencies';
 import {createRecommendationWorkflow} from './recommendationWorkflow';
@@ -68,8 +69,7 @@ export function useSearchDiscoveryViewModel(
   const rankedRows=recommendationSort==='Best Match'?recommendationState.bestMatch:recommendationState.recommended;
   const searchResultState=rankedSearch?{...manualState,rows:rankedRows.map(r=>r.candidate.listing),phase:recommendationState.phase==='success'?'success' as const:recommendationState.phase==='error'||recommendationState.phase==='unavailable'?'error' as const:'loading' as const,error:recommendationState.error??(recommendationState.phase==='unavailable'?'Choose supported Matching Preferences to rank rentals.':null),more:false,refreshing:false,hasMore:false}:manualState;
   const resultSortLabel=rankedSearch?recommendationSort:manualState.sort;
-  const recommendedIds=new Set(activePreferences?recommendationState.recommended.slice(0,3).map(r=>r.candidate.listing.listingId):[]);
-  const discoverRows=discoverState.rows.filter(row=>!recommendedIds.has(row.listingId));
+  const discoverRows=discoverState.rows;
   const ownerIdentities=usePublicIdentitiesViewModel(options.accountId,manualState.detail?[manualState.detail.ownerId]:[]);
   const [liveFilterDraft,setLiveFilterDraft] = useState<SearchFilters>(defaultSearchFilters);
   useEffect(() => { manual.activate(); return () => manual.dispose(); }, [manual]);
@@ -77,6 +77,7 @@ export function useSearchDiscoveryViewModel(
   const gpsState = useSyncExternalStore(gps.subscribe, gps.getSnapshot, gps.getSnapshot);
   useEffect(() => { gps.activate(); return () => gps.dispose(); }, [gps]);
   const bookmarks=useSavedListings(options.accountId,[...discoverState.rows,...manualState.rows,...recommendationState.recommended.map(r=>r.candidate.listing),...(manualState.detail?[manualState.detail]:[])].map(r=>r.listingId),screen==='savedListings');
+  const saveToast=useDiscoverySaveToast(bookmarks.workflow,options.accountId,screen==='home');
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const nearbyDetail = useRef(false);
@@ -299,7 +300,7 @@ export function useSearchDiscoveryViewModel(
       else navigation.requestNavigation(goBack);
     },
     screen,
-    homeTab,openForYou:()=>setHomeTab('forYou'),discover,discoverState,discoverRows,
+    saveToast,homeTab,openForYou:()=>setHomeTab('forYou'),discover,discoverState,discoverRows,
     recommendations,recommendationState,hasRecommendationPreferences:activePreferences!==null,rankedSearch,searchResultState,resultSortLabel,
     openRecommendedResults:()=>{setRecommendationSort('Recommended');setHistory(current=>[...current,screen]);setScreen('resultsList');},
     refreshDiscover:()=>{void discover.refresh();void recommendations.load();},

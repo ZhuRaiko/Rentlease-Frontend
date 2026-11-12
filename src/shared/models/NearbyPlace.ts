@@ -1,7 +1,7 @@
 export type PlaceCategory = 'school' | 'hospital' | 'mall' | 'transport_terminal';
 export interface PublicPoint { latitude:number; longitude:number }
 export interface NearbyPlace {
-  osmType:'node'|'way'|'relation'; osmId:number; name:string; category:PlaceCategory;
+  osmType?:'node'|'way'|'relation'; osmId?:number; providerId?:string; name:string; category:PlaceCategory;
   location:PublicPoint; distanceMeters:number;
   address?:string; openingHours?:string; operator?:string; wikidata?:string;
 }
