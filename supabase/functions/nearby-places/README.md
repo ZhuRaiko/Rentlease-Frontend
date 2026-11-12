@@ -1,0 +1,40 @@
+# Nearby Places managed bridge
+
+Backend deployed November 11, 2026: hosted migration 20261111133612, nearby-places v1 ACTIVE/JWT verified. Reviewed local migration filename remains 20261111100000; never replay it. Actual Deno entrypoint check and 15 runtime tests passed. Restricted recovery backup and postchecks are recorded in the Search Discovery ledger. Positive end-user/provider/cache acceptance remains pending without an authorized caller session; frontend release was not performed.
+
+Mobile sends only `{listingId}` to `nearby-places` (JWT verification enabled). No coordinates, category selection, actor or URL input is accepted. Edge validates the actual Auth user, calls `get_nearby_places_context` using the caller JWT, then coordinates a shared cache using service-only RPCs. Context is reread before returning, rejecting changed visibility/identity/public point/version. Existing active/published/available listing, matching property owner, active property and Tier 1 gates are enforced. This reuses the scope of the existing active detail path; draft/ended-participant location access is not added. Only the public 300 m Web Mercator grid center is projected with ST_Y latitude/ST_X longitude. No exact/private location or device/address alternative exists.
+
+## Provider and documented taxonomy
+
+Reviewed November 11, 2026: [Places API](https://apidocs.geoapify.com/docs/places/), [pricing](https://www.geoapify.com/pricing/), [terms](https://www.geoapify.com/terms-and-conditions/), [Supabase function Auth](https://supabase.com/docs/guides/functions/auth). Official Places docs state cache/storage permission; pricing allows the Free plan in production subject to quota/features and Geoapify/data-source attribution. General terms phrase Free commercial use more conditionally: confirm the selected account's current terms/plan before release. No paid plan was activated, credentials read, or provider request made.
+
+- Schools: education.school, education.college, education.university.
+- Healthcare: healthcare.hospital, healthcare.clinic_or_praxis (includes documented clinical subcategories; no pharmacies/dentists inferred).
+- Malls: commercial.shopping_mall; not all commercial shops.
+- Transport: public_transport.bus/train/ferry/subway/light_rail are documented but include stops. Output requires explicit optional source tags: amenity=bus_station/ferry_terminal, railway=station, or public_transport=station. No ordinary stops/platforms/subway entrances are relabeled. Places documentation does not guarantee raw OSM tag availability, so transport output may be empty even where stations exist. Verify this response detail in controlled acceptance; no undocumented terminal category is invented. A future approved provider adapter may improve coverage.
+
+One fixed HTTPS request, strict circle filter 2,000 m plus proximity ordering; limit 100, no pagination/retry loop. Locally recomputed straight-line distance enforces the same radius. Maximum 20 named unique provider IDs/category, 80 total; unknown metadata discarded. The set is explicitly limited, not an exhaustive inventory. Geoapify IDs are retained separately; no fake OSM IDs. Names/coordinates/categories must validate; unnamed/outside/unmatched POIs are omitted, malformed responses fail instead of becoming empty success. No opening-hours/address/rating enrichment is invented.
+
+## Shared cache and quotas
+
+Migration: `supabase/migrations/20261111100000_nearby_places_cache.sql`. `rentlease_nearby` is private, tables have RLS, no direct client or service-role table access. Public RPC EXECUTE is authenticated-only for the context, service_role-only for claim/finish. Privileged access is necessary only for cross-user cache leases, counters and normalized cache writes, never listing/private-location reads. Built-in service credentials stay in Edge.
+
+SHA-256 key binds exact approved public grid center, 2 km radius, fixed category set, provider and adapter/schema version; no actor/property/address in the cache key. TTL 24 h fresh, at most 72 h total retention for explicitly stale fallback. This finite freshness policy is chosen under the documented Places caching permission, not a claim that all OSM providers allow permanent caching. Cleanup runs on requests; expired rows are removed and a hard 1,000-cache-row cap evicts nonleased entries. Rows/response sizes and actor-counter count are bounded; actor counters are rate-limit-only and expire after two days. No raw provider JSON or exact property coordinate is stored.
+
+A short transaction/advisory lock serializes DB claim decisions, returning a 30 s token lease. Provider I/O is outside the transaction. Competing instances get fresh hit, explicit busy, or aged stale results; they do not each fetch. Token/expiry checks reject stale writers. Invalid/provider failure never replaces cache with empty data. Failure cooldown is global plus per-key; Retry-After seconds or HTTP date is honored (bounded to PostgreSQL positive integer range), no endpoint/key rotation. Total Edge deadline 12 s; client transport/auth bound 15 s. No infinite spinner.
+
+Defaults: 20 requests/actor/minute, at most 2 refresh starts/second, 300 refresh starts/day, fixed 100-result query. These are conservative local app budgets, not a subscription promise. Check actual plan credit costs and usage dashboard before enabling. No automatic retries. Geoapify Free currently documents 3,000 credits/day and 5 requests/second; multiple result pages/places can consume multiple credits. All results display a Geoapify follow-link and OSM attribution; separate MapTiler attribution remains unchanged.
+
+## Configuration / isolated release
+
+Required server env names: `GEOAPIFY_API_KEY`, built-ins `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Never put provider/service keys in EXPO_PUBLIC variables or source. JWT verification plus actual `/auth/v1/user` validation are retained. No secret values are logged or returned.
+
+Before any separately authorized deployment: fresh relevant schema/role/history baseline and restricted backup; confirm helper semantics/column types and no migration/function/schema collision. Apply only this migration; verify RLS/ACLs/functions and denied caller paths. Deploy only nearby-places with JWT verification and configured server key. Release the frontend after backend verification. No blanket db push, migration repair or unrelated deployment.
+
+Local withdrawal guidance: `supabase/test-support/nearby_places_rollback.sql`. Disable the new Edge entry/client feature, then revoke only new RPC entry points. Cache rows/counters remain for controlled retention/purge; no production application data or existing policies are rolled back. This is not a tested hosted restore procedure.
+
+## Evidence and acceptance
+
+Pure provider/handler/mobile tests run with mocked HTTP, and the SQL runner uses a disposable Postgres/PostGIS container with network=none and no host mounts. Auth helper and app tables there are synthetic contracts, not hosted RLS acceptance. No Deno executable is installed; Edge source is covered by project TypeScript and Node-executed handler tests, not a claim of Deno serve/deployed runtime acceptance.
+
+Separately configure the key, review account terms and approve provider use of the existing public location. With an existing authorized listing in Imus/Dasmarinas/Tagaytay: verify named real results or genuine empty; verify categories (especially terminal source tags), nearest-distance/radius, bounded coverage, shared cache reuse with a second authorized viewer, denied/changed/inactive/future listing, TTL/stale/cooldown and quota consumption. Then user-run Android tab/Back/foreground/account switching, map-independent timeout/retry and attribution. No production fixture creation required. Provider availability/reliability and live taxonomy coverage remain unverified.

@@ -189,3 +189,18 @@ Deployed ONLY rental-price-estimate via supabase.cmd functions deploy rental-pri
 Minimal hosted verification: read-only transaction with authenticated database role but empty caller identity exercised owner-context, coordinate-projection and recommendation reads; all three raised insufficient_privilege as expected, transaction rolled back. No setter, approval/withdrawal, fixture or application write was executed as a smoke test. Anonymous HTTP POST to deployed Edge rejected 401 without credentials or model request. These are actual limited denial checks and catalog/source verification, NOT positive owner/non-owner caller-JWT/PostgREST/inference acceptance. No authorized end-user session/token was retrieved or used. Real opt-in, withdrawal and stale-location positive flows remain local test evidence plus pending manual/hosted acceptance.
 
 Durable production effects are exactly the two authorized migrations (including unapproved revision initialization) and named Edge v5. No speculative repair, automatic rollback or migration replay. Recovery backup remains C:/RentLease-Backups/phase2c-tier2-predeploy-20261110-050404; reviewed rollback requires separately authorized coordinated client/proxy withdrawal and in-flight reconciliation, retaining approval/invalidation/evidence state. No frontend release, Git commit/push, ADB/Expo/device/build or broad tests. User manual acceptance: explicit current public-point opt-in -> estimate/range with asking rent unchanged -> withdraw -> normal null-coordinate estimate; routine edits retain consent but invalidate stale feature result; location/identity correction clears consent; account switching and owner/non-owner denial; Tier 2 notice and approved/revoked/unknown ranking under existing 80/10/10 rules.
+
+
+## November 11, 2026 - T8-A frontend-only posting composition
+
+Reused the existing property creation, photo attachment, versioned draft save, property-specific verification, publication confirmation and protected estimation contracts. No new tables/RPCs or feature/private-coordinate payloads. Approval-aware generalized-location controls remain attached to estimation. No live backend inspection, user RPC, inference or data mutation was performed for T8-A; prior deployment evidence is historical and unchanged. No permanent live backend mutation was performed in this phase. No cleanup required. Current local automated evidence is in the coordinated implementation history; hosted/native acceptance remains pending.
+
+
+## November 11, 2026 - T8-A UI/UX refinement
+
+Presentation-only form grouping, mounted disclosure/focus handling, media layout, progress, footer and estimator amount styling. Existing RPCs, mapping, location/privacy, unknown/zero, upload and publication behavior are reused without backend changes. No new live backend queries, user RPCs, inference, schema/permission changes or writes. No permanent live backend mutation was performed in this phase. No production cleanup required; hosted/native acceptance is not established by the focused frontend checks.
+
+
+## November 11, 2026 - range-first UI only
+
+No live inspection, SQL, API/provider call, secret access or deployment. Existing PredictionReceipt.illustrativeRange minimum/maximum and estimatedMonthlyRent are consumed unchanged by the native spotlight. No range calculation, authorization, Edge/Render contract or fitted model change. Focused local tests only; native/hosted status unchanged.

@@ -12,11 +12,12 @@ export function PropertyReadinessNotice({viewModel:vm}:{viewModel:PropertyListin
 }
 interface ProgressFooterProps {
   viewModel: PropertyListingViewModel;
-  action?: {label:string;disabled:boolean;onPress:()=>void};
+  action?: {label:string;disabled:boolean;onPress:()=>void}|undefined;
   guidance?: ReactNode;
+  compact?:boolean;
 }
 // Shared presentation for both posting steps; readiness and saving stay in the ViewModel.
-export function PropertyProgressFooter({viewModel:vm,action,guidance}:ProgressFooterProps) {
+export function PropertyProgressFooter({viewModel:vm,action,guidance,compact=false}:ProgressFooterProps) {
   const [expanded,setExpanded]=useState(false);
   const {height}=useWindowDimensions();
   const value=vm.completeness;
@@ -24,6 +25,7 @@ export function PropertyProgressFooter({viewModel:vm,action,guidance}:ProgressFo
     const next=!expanded;setExpanded(next);
     AccessibilityInfo.announceForAccessibility(next?'Completeness information expanded.':'Completeness information collapsed.');
   };
+  if(compact&&action)return <View style={styles.footer}>{guidance}<ListingButton tone="brand" label={action.label} disabled={action.disabled} onPress={action.onPress}/></View>;
   return <View style={styles.footer}>
     {expanded?<ScrollView style={{maxHeight:Math.min(180,height*0.25)}} contentContainerStyle={styles.information} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" nestedScrollEnabled accessibilityLabel="Listing completeness explanation">
       <Text accessibilityRole="header" style={styles.informationTitle}>About completeness</Text>

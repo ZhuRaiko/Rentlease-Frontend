@@ -1,5 +1,6 @@
+import type {NearbyPlacesResult} from '../../../shared/models/NearbyPlacesResponse';
 import type {NearbyPlace,PublicPoint} from '../../../shared/models/NearbyPlace';
-import {NearbyPlacesError} from '../../../shared/services/maps/overpass/overpassService';
+import {NearbyPlacesError} from '../../../shared/models/NearbyPlacesResponse';
 import { defaultSearchFilters, ManualSearchError, type SearchInput, type SearchListing, type SearchDetail, type SearchFilters, type SearchSort, type SearchAmenity, type AvailableLocation } from '../models/ManualSearch';
 interface Service {
   user(): Promise<string>;
@@ -8,10 +9,10 @@ interface Service {
   detail(owner: string,id: string,signal?: AbortSignal): Promise<SearchDetail>;
   inquire?(owner:string,listingId:string):Promise<string>;
   cachedPlaces?(point:PublicPoint):NearbyPlace[]|null;
-  places?(owner:string,point:PublicPoint,signal?:AbortSignal):Promise<NearbyPlace[]>;
+  places?(owner:string,listingId:string,signal?:AbortSignal):Promise<NearbyPlace[]|NearbyPlacesResult>;
   catalogue(): Promise<SearchAmenity[]>;
 }
-const placesInitial=()=>({placesStale:false,placesPhase:'idle' as 'idle'|'loading'|'success'|'error',placesRows:[] as NearbyPlace[],placesError:null as string|null});
+const placesInitial=()=>({placesStale:false,placesLimited:false,placesFetchedAt:null as string|null,placesPhase:'idle' as 'idle'|'loading'|'success'|'error',placesRows:[] as NearbyPlace[],placesError:null as string|null});
 const initial = () => ({...placesInitial(), phase:'idle' as 'idle'|'loading'|'success'|'error', rows:[] as SearchListing[], query:'',filters:defaultSearchFilters(),sort:'Recently Listed' as SearchSort,error:null as string|null,more:false,refreshing:false,hasMore:false,locations:[] as AvailableLocation[],locationsStatus:'idle' as 'idle'|'loading'|'success'|'error',locationsBusy:false,locationsError:null as string|null,locationsMore:false,amenities:[] as SearchAmenity[],catalogueError:null as string|null,detail:null as SearchDetail|null,inquiryBusy:false,inquiryError:null as string|null,detailBusy:false,detailError:null as string|null,selectedId:null as string|null });
 export function createManualSearchWorkflow(service: Service, options:{publishedOnly?:boolean}={}) {
   let state = initial(), disposed = false, generation = 0, locationGeneration = 0, detailGeneration = 0, nextOffset = 0, locationOffset = 0;
@@ -57,8 +58,8 @@ export function createManualSearchWorkflow(service: Service, options:{publishedO
     update({placesPhase:'loading',placesError:null,...(cached?{placesRows:cached,placesStale:true}:{})});
     try{const owner=await service.user();if(disposed||g!==placesGeneration)return;
       if(!service.places)throw new NearbyPlacesError('Nearby places service is unavailable.');
-      const rows=await service.places(owner,detail.publicLocation!,controller.signal);await check(owner);
-      if(!disposed&&g===placesGeneration&&state.detail===detail)update({placesRows:rows,placesPhase:'success',placesStale:false});
+      const rows=await service.places(owner,detail.listingId,controller.signal);await check(owner);
+      if(!disposed&&g===placesGeneration&&state.detail===detail)update({placesRows:Array.isArray(rows)?rows:rows.rows,placesPhase:'success',placesStale:Array.isArray(rows)?false:rows.stale,placesLimited:Array.isArray(rows)?false:rows.limited,placesFetchedAt:Array.isArray(rows)?null:rows.fetchedAt});
     }catch(e){if(!disposed&&g===placesGeneration&&!identityFailure(e))update({placesPhase:'error',placesError:e instanceof NearbyPlacesError?e.message:'Could not load nearby places. Check your connection and retry.'});}
   };
   return {

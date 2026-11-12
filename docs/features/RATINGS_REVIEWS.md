@@ -79,3 +79,8 @@ Validation: 21 focused frontend cases passed (10 new cloud plus 11 existing revi
 ## Property and user reports - November 11, 2026
 
 Real reporting entry points, reporter statuses and independent Admin report decisions are implemented locally with a prepared, undeployed backend contract. T7 review moderation is unchanged. See [Reporting and moderation](REPORTING_MODERATION.md); older report-preview descriptions are historical for these connected routes. General enforcement remains outside this scope.
+
+
+### T8-D2 presentation - November 11, 2026
+
+Rental Details consolidates Property/Landlord/Themes behind RentalFeedbackSection, using compact authorized review/word-cloud presentations. Default public profile and tenancy/moderation behavior remains. Removed a confirmed raw JSX whitespace child from PublishedRentalReviews. Compact sources initialize/revalidate through existing hooks and show retry only on failure; approved-only ingestion, participant visibility, corpus checks and Unicode highlights are unchanged. Local only; Android/native acceptance remains unverified. Focused evidence is recorded in the continuous Search Discovery implementation history. No backend/deployment action.

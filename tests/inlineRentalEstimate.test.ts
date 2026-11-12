@@ -30,7 +30,7 @@ import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {resolve} from 'node:path';
 import ts from 'typescript';
-function renderInline(vm:any,info?:{open:boolean},onReview?:()=>void,extra:Record<string,unknown>={}){const path=resolve('src/shared/components/InlineRentalEstimate.tsx'),actual=createRequire(path),mod={exports:{} as any};const jsx=(type:any,props:any)=>({type,props});const req=(key:string):any=>key==='react'?{useState:()=>[info?.open??false,(v:boolean)=>{if(info)info.open=v;}]}:key==='react/jsx-runtime'?{jsx,jsxs:jsx}:key==='react-native'?{ActivityIndicator:'Loading',Modal:'Modal',ScrollView:'ScrollView',StyleSheet:{create:(v:any)=>v,absoluteFillObject:{}},useWindowDimensions:()=>({height:640,width:360}),Text:'Text',View:'View',Pressable:'Pressable'}:key.endsWith('/AppButton')?{AppButton:'Button'}:key.endsWith('/useInlineRentalEstimate')?{useInlineRentalEstimate:()=>vm}:actual(key);new Function('require','module','exports',ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText)(req,mod,mod.exports);return mod.exports.InlineRentalEstimate({accountId:'A',target,onReview,...extra});}
+function renderInline(vm:any,info?:{open:boolean},onReview?:()=>void,extra:Record<string,unknown>={}){const path=resolve('src/shared/components/InlineRentalEstimate.tsx'),actual=createRequire(path),mod={exports:{} as any};const jsx=(type:any,props:any)=>({type,props});const req=(key:string):any=>key==='react'?{useState:()=>[info?.open??false,(v:boolean)=>{if(info)info.open=v;}]}:key==='react/jsx-runtime'?{jsx,jsxs:jsx}:key==='react-native'?{ActivityIndicator:'Loading',Modal:'Modal',ScrollView:'ScrollView',StyleSheet:{create:(v:any)=>v,absoluteFillObject:{}},useWindowDimensions:()=>({height:640,width:320,fontScale:1.5}),Text:'Text',View:'View',Pressable:'Pressable'}:key.endsWith('/AppButton')?{AppButton:'Button'}:key.endsWith('/useInlineRentalEstimate')?{useInlineRentalEstimate:()=>vm}:actual(key);new Function('require','module','exports',ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText)(req,mod,mod.exports);return mod.exports.InlineRentalEstimate({accountId:'A',target,onReview,...extra});}
 const nodes=(v:any):any[]=>v&&typeof v==='object'&&!(v.type==='Modal'&&v.props.visible===false)?[v,...[v.props?.children].flat(Infinity).flatMap(nodes)]:[];
 test('inline presentation exposes one immediate estimate action and no accordion',()=>{
  let calls=0;const workflow={predict(){calls++;}};
@@ -109,4 +109,49 @@ test('guidance loading, retry and unsupported states stay local and never offer 
  const busy=nodes(renderInline({workflow,busy:true},undefined,undefined,{variant:'guidance'}));assert.ok(busy.some(n=>n.type==='Loading'));assert.equal(busy.find(n=>n.props.accessibilityLabel==='Get estimated rent').props.disabled,true);
  const error=nodes(renderInline({workflow,error:'Temporary failure',retryable:true},undefined,undefined,{variant:'guidance'}));assert.ok(error.some(n=>n.props.accessibilityLabel==='Retry estimate'));assert.ok(!error.some(n=>n.props.accessibilityLabel==='Use estimate'));
  const unsupported=nodes(renderInline({workflow,eligibility:{eligible:false,reason:'Unsupported saved category'}},undefined,undefined,{variant:'guidance'}));assert.ok(!unsupported.some(n=>n.props.accessibilityLabel==='Get estimated rent'));
+});
+
+test('posting estimator exposes real results, explicit adoption and transient retry without requiring prediction',()=>{let applied:any=null,predicts=0;const workflow={predict:async()=>{predicts++;}};const initial=nodes(renderInline({workflow},undefined,undefined,{variant:'posting',onUseEstimate:(r:any)=>applied=r}));initial.find(n=>n.props?.accessibilityLabel==='Estimate Rental Price')!.props.onPress();assert.equal(predicts,1);assert.equal(applied,null);const ready=nodes(renderInline({workflow,result:receipt},undefined,undefined,{variant:'posting',onUseEstimate:(r:any)=>applied=r}));ready.find(n=>n.props?.accessibilityLabel==='Use Estimated Price')!.props.onPress();assert.equal(applied,receipt);const failed=nodes(renderInline({workflow,error:'Temporary failure',retryable:true},undefined,undefined,{variant:'posting'}));assert.ok(failed.some(n=>n.props?.accessibilityLabel==='Retry estimate'));const unsupported=nodes(renderInline({workflow,eligibility:{eligible:false,reason:'Unsupported saved category'}},undefined,undefined,{variant:'posting'}));assert.match(JSON.stringify(unsupported),/Unsupported saved category/);assert.ok(!unsupported.some(n=>n.props?.accessibilityLabel==='Use Estimated Price'));});
+
+
+test('spotlight follows reference with two truthful metrics and one protected action',()=>{
+ let calls=0;const workflow={predict(){calls++;}};
+ const initial=nodes(renderInline({workflow},undefined,undefined,{variant:'spotlight',askingRent:9999}));
+ const text=initial.filter(n=>n.type==='Text').map(n=>[n.props.children].flat().join('')).join(' ');
+ assert.match(text,/Is this rent fairly priced/);assert.match(text,/9,999/);assert.match(text,/Not requested/);
+ const actions=initial.filter(n=>n.type==='Pressable');assert.equal(actions.length,1);actions[0].props.onPress();assert.equal(calls,1);
+ const result=nodes(renderInline({workflow,result:receipt},undefined,undefined,{variant:'spotlight',askingRent:9999}));assert.ok(result.some(n=>n.props?.children==="Model's point estimate"));assert.doesNotMatch(JSON.stringify(result),/Not requested/);
+ const denied=nodes(renderInline({workflow,eligibility:{eligible:false,reason:'Unsupported property'}},undefined,undefined,{variant:'spotlight'}));assert.equal(denied.filter(n=>n.type==='Pressable').length,0);assert.match(JSON.stringify(denied),/Unsupported property/);
+});
+
+
+test('range-first spotlight consumes supplied bounds before secondary metrics with a calculated accessible marker',()=>{
+ const result={...receipt,estimatedMonthlyRent:11747.67,illustrativeRange:{minimum:8223.37,maximum:15271.97}};
+ const tree=nodes(renderInline({workflow:{predict(){}},result},undefined,undefined,{variant:'spotlight',askingRent:1}));
+ const texts=tree.filter(n=>n.type==='Text').map(n=>[n.props.children].flat().join(''));
+ assert.ok(texts.indexOf('Illustrative rental range')<texts.indexOf("Landlord's asking rent"));
+ assert.ok(texts.includes('\u20b18,223.37'));assert.ok(texts.includes('\u20b115,271.97'));assert.ok(texts.includes('\u20b11.00'));
+ const interval=tree.find(n=>n.props?.accessibilityLabel?.startsWith('Illustrative rental range from'));
+ assert.ok(interval);assert.match(interval.props.accessibilityLabel,/not a confidence interval/);
+ const marker=tree.find(n=>n.props?.testID==='rental-range-marker');
+ assert.equal(marker.props.style[1].left,`${(11747.67-8223.37)/(15271.97-8223.37)*100}%`);
+ const bounds=tree.find(n=>n.props?.testID==='rental-range-bounds');assert.equal(bounds.props.style[1].flexDirection,'column');
+});
+test('range-first states never fabricate bounds and keep loading and retry guards',()=>{
+ for(const state of [{},{busy:true},{error:'Network unavailable',retryable:true},{eligibility:{eligible:false,reason:'Unsupported'}}]){
+  let calls=0;const tree=nodes(renderInline({...state,workflow:{predict(){calls++;}}},undefined,undefined,{variant:'spotlight'}));
+  assert.ok(!tree.some(n=>n.props?.testID==='rental-range-bounds'));
+  const action=tree.find(n=>n.type==='Pressable');if('busy' in state)assert.equal(action.props.disabled,true);
+  if('eligibility' in state)assert.equal(action,undefined);
+  if('error' in state){action.props.onPress();assert.equal(calls,1);}
+ }
+});
+test('range bounds retain cents for small and large real contract values; absent range stays absent',()=>{
+ for(const amount of [.1,1234567890.12]){
+  const range={minimum:amount*.7,maximum:amount*1.3};
+  const tree=nodes(renderInline({workflow:{predict(){}},result:{...receipt,estimatedMonthlyRent:amount,illustrativeRange:range}},undefined,undefined,{variant:'spotlight'}));
+  const text=JSON.stringify(tree);const php=new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP',minimumFractionDigits:2,maximumFractionDigits:2});
+  assert.ok(text.includes(php.format(range.minimum)));assert.ok(text.includes(php.format(range.maximum)));
+ }
+ const tree=nodes(renderInline({workflow:{predict(){}},result:receipt},undefined,undefined,{variant:'spotlight'}));assert.ok(!tree.some(n=>n.props?.testID==='rental-range-bounds'));
 });

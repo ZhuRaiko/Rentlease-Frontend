@@ -104,7 +104,10 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const propertyVerificationState=useSyncExternalStore(propertyVerification.subscribe,propertyVerification.getSnapshot);
   useEffect(()=>{propertyVerification.activate();return()=>propertyVerification.dispose();},[propertyVerification]);
   const [showRealPublication, setShowRealPublication] = useState(false);
-  const [screen, setScreen] = useState<ListingScreen>(initialScreen);
+  const [screen, setScreen] = useState<ListingScreen>(initialScreen==='postingType'?'listingComposer':initialScreen);
+  const [postingWizard,setPostingWizard]=useState(initialScreen==='postingType');
+  const postingWizardRef=useRef(postingWizard);postingWizardRef.current=postingWizard;
+  const [postingOriginalPrice,setPostingOriginalPrice]=useState<string|null>(null);
   useEffect(()=>{propertyVerification.setProperty(workspace.propertyId);if(['listingDetails','publishConfirmation'].includes(screen))void measureHydration('verification',()=>propertyVerification.refresh(),workspaceEpoch);},[propertyVerification,workspace.propertyId,screen]);
   const [history, setHistory] = useState<ListingScreen[]>([]);
   const [draft, setDraft] = useState<ListingDraft>(emptyListingDraft);
@@ -221,7 +224,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   function canWriteListing(): boolean {
     if(deletedWorkspace())return false;
     const current = lifecycle.getSnapshot();
-    return active.current && propertyRoutine.getSnapshot().status==='idle' && !propertyRoutine.getSnapshot().busy && workspaceRef.current.item?.property.is_active !== false && !current.busy && !current.uncertain && current.loaded && (!current.row || current.row.status === 'draft');
+    return active.current && (propertyRoutine.getSnapshot().status==='idle'||postingWizardRef.current&&propertyRoutine.getSnapshot().status==='ready'&&!propertyRoutine.dirty()&&!propertyRoutine.getSnapshot().uncertain&&!propertyRoutine.getSnapshot().conflict) && !propertyRoutine.getSnapshot().busy && workspaceRef.current.item?.property.is_active !== false && !current.busy && !current.uncertain && current.loaded && (!current.row || current.row.status === 'draft');
   }
   function canChangeLifecycle(): boolean {
     if(deletedWorkspace())return false;
@@ -321,9 +324,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if(leaveInitialHydration())return;
     if (propertyPhotos.getSnapshot().mediaViewerOpen) { propertyPhotos.closeMedia(); return; }
     if (operationBusy()) return;
-    if(screen==='identityEdit'){if(['searching','candidates','map'].includes(propertyIdentity.location.getSnapshot().stage)){propertyIdentity.location.cancel();return;}const id=workspaceRef.current.propertyId;requestPropertyNavigation(()=>{setHistory(current=>current.slice(0,-1));setScreen('propertyEdit');if(id)void propertyRoutine.open(id);});return;}
+    if(screen==='identityEdit'){if(['searching','candidates','map'].includes(propertyIdentity.location.getSnapshot().stage)){propertyIdentity.location.cancel();return;}const id=workspaceRef.current.propertyId;requestPropertyNavigation(()=>{setHistory(current=>current.slice(0,-1));setScreen(postingWizard?'listingComposer':'propertyEdit');if(id)void propertyRoutine.open(id);});return;}
     if(screen==='propertyEdit'){requestPropertyNavigation(()=>{setHistory(current=>{setScreen(current.at(-1)??'dashboard');return current.slice(0,-1);});});return;}
-    if(screen==='listingDetails'&&workspaceRef.current.mode==='editPublished'){requestNavigation(history.at(-1)==='published'?returnToManagedListing:goDashboard);return;}
+    if(screen==='listingDetails'&&workspaceRef.current.mode==='editPublished'&&!postingWizard){requestNavigation(history.at(-1)==='published'?returnToManagedListing:goDashboard);return;}
     if (screen === 'listingDetails') { setScreen('listingComposer'); setHistory(current => current.at(-1) === 'listingComposer' ? current.slice(0, -1) : current); return; }
     if (lifecycle.getSnapshot().confirmation) { lifecycle.cancel(); return; }
     if (['propertySetup', 'listingComposer'].includes(screen) && ['searching', 'candidates', 'map'].includes(propertyLocation.getSnapshot().stage)) { propertyLocation.cancel(); return; }
@@ -370,7 +373,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
   const startCreate = (nextScreen: 'listingComposer' | 'postingType' = 'listingComposer') => {
     composerSaving.current = false; setComposerPhase(null); setComposerNotice(null);
-    detachWorkspace(); setHistory([]); setScreen(nextScreen);
+    detachWorkspace();setPostingWizard(true);setPostingOriginalPrice(null); setHistory([]); setScreen(nextScreen);
     void propertyCreation.startNew();
   };
   const openPortfolioItem = (propertyId: string, publishedEdit=false,fromManagement=false) => {
@@ -387,9 +390,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     selectWorkspace({ propertyId, listingId: row?.id ?? null, mode: publishedEdit?'editPublished':row && row.status !== 'draft' ? 'manage' : 'compose', item });
     savedDraft.current = emptyListingDraft; setDraft(emptyListingDraft); setNotice(null);
     setShowRealPublication(!!row && row.status !== 'draft'); setHistory(fromManagement?['dashboard','published']:['dashboard']);
-    if(publishedEdit)setScreen('listingDetails');
-    else if (row && row.status !== 'draft') { lifecycle.setListing(row); setScreen('published'); }
-    else setScreen(row?.status === 'draft' ? 'listingDetails' : 'listingComposer');
+    if(publishedEdit){setPostingWizard(true);setScreen('listingComposer');void propertyRoutine.open(propertyId);}
+    else if (row && row.status !== 'draft') { setPostingWizard(false); lifecycle.setListing(row); setScreen('published'); }
+    else {setPostingWizard(true);setScreen('listingComposer');void propertyRoutine.open(propertyId);}
   };
 
   function returnToManagedListing() {
@@ -461,7 +464,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const openSavedDraft = () => {
     const receipt = savedConfirmation.current, row = listingDraftPersistence.getSnapshot().lastConfirmed;
     if (operationBusy() || !receipt || receipt.generation !== workspaceGeneration.current || receipt.propertyId !== workspaceRef.current.propertyId || row?.id !== receipt.listingId || row.status !== 'draft') return;
-    savedConfirmation.current = null; setHistory(['dashboard']); setScreen('preview'); setComposerNotice(null);
+    savedConfirmation.current = null; setPostingWizard(true);setHistory(['dashboard']); setScreen('listingComposer');void propertyRoutine.open(row.property_id); setComposerNotice(null);
   };
   const saveDraft = async () => {
     if(initialHydrationPending())return;
@@ -492,10 +495,15 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if(!workspaceRef.current.propertyId&&issue){focusPropertyIssue(issue);return false;}setPropertyValidationTarget(null);return true;
   }
   const savePublishedChanges=async()=>{
-    if(initialHydrationPending()||operationBusy()||publishedContent.getSnapshot().uncertain||publishedContent.getSnapshot().conflict||!listingDraftDirty||listingFieldIssue(draft))return;
-    const token=workspaceGeneration.current;const result=await publishedContent.save({...draft});
+    if(initialHydrationPending()||operationBusy()||publishedContent.getSnapshot().uncertain||publishedContent.getSnapshot().conflict||(!listingDraftDirty&&!propertyPhotos.getSnapshot().pendingSelections.length)||listingFieldIssue(draft))return;
+    const token=workspaceGeneration.current;
+    if(propertyPhotos.getSnapshot().pendingSelections.length){await propertyPhotos.resumeQueue();if(!active.current||token!==workspaceGeneration.current)return;}
+    if(propertyPhotos.getSnapshot().needsReconcile||propertyPhotos.getSnapshot().pendingSelections.length||propertyPhotos.getSnapshot().busy)return;
+    if(!listingDraftDirty){setComposerNotice('Confirmed photo changes are saved. Listing status is unchanged.');return;}
+    const result=await publishedContent.save({...draft});
     if(!active.current||token!==workspaceGeneration.current||result!=='saved')return;
     const row=publishedContent.getSnapshot().lastConfirmed;if(!row)return;
+    if(postingWizard){setComposerNotice('Rental changes saved. Publication status is unchanged.');portfolio.invalidate();return;}
     const item=workspaceRef.current.item;
     selectWorkspace({...workspaceRef.current,mode:'manage',item:item?{...item,currentListing:row,listings:item.listings.map(l=>l.id===row.id?row:l)}:null});
     lifecycle.setListing(row);setShowRealPublication(true);setHistory(['dashboard']);setScreen('published');setNotice('Listing changes saved. Publication status is unchanged.');
@@ -539,7 +547,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       setComposerPhase('draft');
       const outcome = await listingDraftPersistence.save(submittedDraft);
       if (!live()) return;
-      if (outcome === 'saved') { showDraftSaved(); return; }
+      if (outcome === 'saved') { if(postingWizard&&screen==='postingReview')setComposerNotice('Listing draft saved. Nothing has been published.');else showDraftSaved(); return; }
       setComposerNotice('Property and confirmed photos are retained. Check the listing draft details or save status before continuing.');
     } finally { if (live()) { composerSaving.current = false; setComposerPhase(null); } }
   };
@@ -675,7 +683,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const propertyVisibleIssues=propertyIssues.filter(issue=>propertyState.validationAttempted||propertyState.touchedFields[issue.field]||(issue.section==='floors'&&(propertyState.touchedFields.floorNumber||propertyState.touchedFields.totalFloors)));
   const floorIssues=propertyVisibleIssues.some(issue=>issue.section==='floors')?propertyFloorIssues(propertyState.draft):{floorNumber:null,totalFloors:null};
   const propertyFormReady=!!workspace.propertyId||propertyIssues.length===0;
-  const propertyNextDisabled=operationBusy()||(!workspace.propertyId&&(!propertyState.loaded||propertyState.uncertain))||!propertyFormReady;
+  const propertyNextDisabled=operationBusy()||(postingWizard&&!!workspace.item&&(propertyRoutineState.status!=='ready'||propertyRoutineState.uncertain||propertyRoutineState.conflict))||(!workspace.propertyId&&(!propertyState.loaded||propertyState.uncertain))||!propertyFormReady;
   const firstPropertyIssue=propertyIssues[0];
   const propertyNextStatus=!workspace.propertyId&&propertyState.uncertain?'Check property creation status before continuing.'
     :!workspace.propertyId&&!propertyState.loaded?'Checking property setup...'
@@ -684,6 +692,13 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     :workspace.propertyId?'Saved property selected. Continue to listing details.':'Property information is ready. Next saves the property before listing details.';
 
   return {
+    postingWizard,
+    editorMode: (editingPublished?'published':workspace.item?'draft':'create') as 'create'|'draft'|'published',
+    postingStep: screen==='listingComposer'?1 as const:screen==='listingDetails'?2 as const:screen==='postingEstimate'?3 as const:4 as const,
+    continuePostingEstimate:()=>{if(!postingWizard||screen!=='listingDetails'||initialHydrationPending()||operationBusy()||!workspaceRef.current.propertyId||publicationReadOnly())return;const issue=listingFieldIssue(draft);if(issue){setComposerNotice(issue.message);return;}setPostingOriginalPrice(draft.askingRent);setComposerNotice(null);navigate('postingEstimate');},
+    continuePostingReview:()=>{if(postingWizard&&screen==='postingEstimate'&&!operationBusy())navigate('postingReview');},
+    keepPostingPrice:()=>{if(postingWizard&&screen==='postingEstimate'&&postingOriginalPrice!==null&&!operationBusy()){updateDraft('askingRent',postingOriginalPrice);setComposerNotice('Your chosen asking rent is retained. Nothing has been saved.');}},
+    postingPublishReady: !!(postingWizard&&!operationBusy()&&!publicationReadOnly()&&!publicationEligibility(workspace.propertyId,listingDraftState.lastConfirmed,draft,listingDraftState.uncertain)&&listingDraftState.lastConfirmed&&listingDraftState.lastConfirmed.completeness_score>=0.8&&propertyVerificationState.propertyId===workspace.propertyId&&propertyVerificationState.loaded&&propertyVerificationState.status==='approved'&&!propertyVerificationState.error&&!propertyPhotos.dirty()),
     unfinishedPost,unfinishedPostState,
     resumeUnfinishedPostCleanup:(id:string)=>{if(!operationBusy()&&(screen==='dashboard'||workspaceRef.current.propertyId===id))void unfinishedPost.resume(id);},
     requestUnfinishedPostDeletion:()=>{if(!operationBusy()&&!deletionBlocked)unfinishedPost.requestConfirmation();},
@@ -695,7 +710,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     openIdentityVerification:()=>{if(!operationBusy()&&['draft','submitted','rejected'].includes(propertyIdentity.getSnapshot().context?.correction?.status??''))void propertyVerification.openCorrection();},
     propertyRoutine,propertyRoutineState,
     propertyEditAvailable:!!workspace.propertyId&&workspace.item?.property.is_active!==false&&(!initialHydrationPending()||draftHydration.status==='ready'),
-    openPropertyDetails:()=>{const id=workspaceRef.current.propertyId;if(operationBusy()||initialHydrationPending()||!id||propertyRoutine.getSnapshot().status!=='idle')return;navigate('propertyEdit');void propertyRoutine.open(id);},
+    openPropertyDetails:()=>{const id=workspaceRef.current.propertyId;if(operationBusy()||initialHydrationPending()||!id||propertyRoutine.getSnapshot().status!=='idle')return;if(postingWizard){navigate('listingComposer');return;}navigate('propertyEdit');void propertyRoutine.open(id);},
     reloadPropertyDetails:()=>{const id=propertyRoutine.getSnapshot().propertyId;if(id)requestPropertyNavigation(()=>void propertyRoutine.open(id));},
     propertyValidationIssues:propertyIssues,propertyVisibleValidationIssues:propertyVisibleIssues,
     propertyMeasurementWarnings:propertyMeasurementWarnings({floor_area_sqm:propertyState.draft.floorAreaSqm.trim()?Number(propertyState.draft.floorAreaSqm):null,bedrooms:propertyState.draft.bedrooms.trim()?Number(propertyState.draft.bedrooms):null,bathrooms:propertyState.draft.bathrooms.trim()?Number(propertyState.draft.bathrooms):null}),
@@ -783,9 +798,14 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
           if(active.current&&token===workspaceGeneration.current){composerSaving.current=false;setComposerPhase(null);}
         }
       }
+      if(postingWizard&&workspaceRef.current.item){
+        if(propertyRoutine.getSnapshot().status!=='ready'||propertyRoutine.getSnapshot().uncertain||propertyRoutine.getSnapshot().conflict)return;
+        if(propertyRoutine.dirty()&&!await propertyRoutine.save())return;
+        if(!active.current||propertyRoutine.getSnapshot().propertyId!==workspaceRef.current.propertyId)return;
+      }
       navigate('listingDetails');
     },
-    editComposerProperty: () => { if(editingPublished)return; if (screen === 'listingDetails') goBack(); else navigate('listingComposer'); },
+    editComposerProperty: () => { if (screen === 'listingDetails') goBack(); else navigate('listingComposer'); },
     propertySummary: physical ? {
       floorTotalLabel: physical.property_type==='house'?'stories':'floors in building',
       type: propertyTypeOptions.find(o => o.value === physical.property_type)?.label ?? 'Property',
@@ -837,6 +857,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       if(leaveInitialHydration())return;
       if (propertyPhotos.getSnapshot().mediaViewerOpen) { propertyPhotos.closeMedia(); return; }
       if (operationBusy()) return;
+      if(postingWizard&&screen==='listingComposer'&&!history.length){goBack();return;}
       if (screen === 'propertySetup') { goBack(); return; }
       if (screen === 'listingComposer' && workspaceRef.current.mode === 'create' && !history.length) requestNavigation(onClose);
       else if (screen === 'postingType') requestNavigation(onClose);
@@ -858,7 +879,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     goDashboard: () => { if (!operationBusy()) requestNavigation(goDashboard); },
     updateDraft,
     startCreate: () => requestNavigation(startCreate, true),
-    openPostingType: () => requestNavigation(() => startCreate('postingType'), true),
+    openPostingType: () => requestNavigation(() => startCreate('listingComposer'), true),
     setListingQuery: (value: string) => { setListingQuery(value); portfolio.setQuery(value); },
     choosePropertyType,
     toggleFurnished,

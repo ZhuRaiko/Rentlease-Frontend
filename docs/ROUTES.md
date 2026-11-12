@@ -283,3 +283,11 @@ Rental Details and actual Chat conversations open source-bound report modals. Ra
 ## In-app notifications - November 11, 2026 (local)
 
 Existing Discovery bell opens the persisted account inbox with an unread badge. Root-composed nested targets open exact authorized conversations or tenancy details, or the reporter's own report-status workspace. Destination screens own hardware/visible Back; return refreshes the retained center. No router/new bottom tab or push-permission route was added. Legacy notification fixtures are outside the normal route. Prepared migration rollout is required.
+
+
+## T8-A new posting - November 11, 2026 (local)
+
+Root Post now opens Property Details directly. New-post workspace screens: listingComposer -> listingDetails -> postingEstimate -> postingReview. Typed screen/history ownership remains in usePropertyListingViewModel. Map/gallery/protected physical editing and existing publishConfirmation are retained; Back/Close use existing guards. Root bottom tabs/deletion controls are hidden within the new four-step wizard. Draft/published editing entry points retain their existing routes pending T8-B.
+
+
+T8-B local: Continue Editing (saved drafts) and Edit Rental (active/paused listings) enter the existing four-step Property/Listing/Estimate/Review wizard at Property. Manage Status remains separate; secure identity correction retains its guarded context and returns to Property. No new router or root destination.

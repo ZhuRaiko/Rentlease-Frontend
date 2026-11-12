@@ -8,7 +8,7 @@ import { typography } from '../../../shared/theme/typography';
 interface ListingButtonProps {
   label: string;
   onPress: () => void;
-  tone?: 'green' | 'dark' | 'orange' | 'outline' | 'danger';
+  tone?: 'brand' | 'green' | 'dark' | 'orange' | 'outline' | 'danger';
   disabled?: boolean;
   compact?: boolean;
 }
@@ -48,6 +48,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   compact: { minHeight: 38, paddingHorizontal: spacing.sm },
+  brand:{backgroundColor:colors.primaryAction,paddingVertical:10},
   green: { backgroundColor: colors.primary },
   dark: { backgroundColor: colors.text },
   orange: { backgroundColor: '#DF9415' },

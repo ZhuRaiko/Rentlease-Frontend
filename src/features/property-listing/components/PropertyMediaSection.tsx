@@ -7,17 +7,17 @@ import { ui } from '../../../shared/theme/ui';
 import { ListingButton } from './ListingButton';
 import { PropertyMediaViewer } from './PropertyMediaViewer';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
-export function PropertyMediaSection({ viewModel: vm }: { viewModel: PropertyListingViewModel }) {
+export function PropertyMediaSection({ viewModel: vm,compact=false }: { viewModel: PropertyListingViewModel;compact?:boolean }) {
   const state = vm.photoState, flow = vm.propertyPhotos, items = vm.mediaItems, active = items[state.activeMediaIndex];
   const blocked = state.busy || !!vm.composerPhase || state.needsReconcile || (!!vm.workspacePropertyId && !state.loaded);
   return <View style={styles.section}>
     <PropertyMediaViewer viewModel={vm} />
-    <Text accessibilityRole="header" style={styles.heading}>Photos &amp; 360°</Text>
-    <CompletenessHint value={vm.completeness} factor="photoCount" />
-    {active ? <Pressable accessibilityRole="button" accessibilityLabel={`Open photo ${state.activeMediaIndex + 1} fullscreen, ${active.status}`} onPress={() => flow.openMedia(state.activeMediaIndex)}>
+    {!compact?<Text accessibilityRole="header" style={styles.heading}>Photos &amp; 360°</Text>:null}
+    <CompletenessHint value={vm.completeness} factor="photoCount" hidden={compact} />
+    {active ? (!compact?<Pressable accessibilityRole="button" accessibilityLabel={`Open photo ${state.activeMediaIndex + 1} fullscreen, ${active.status}`} onPress={() => flow.openMedia(state.activeMediaIndex)}>
       <Image source={{ uri: active.uri }} accessibilityLabel={active.label} style={styles.large} resizeMode="contain" />
       <View style={styles.badge}><Text style={styles.badgeText}>{active.cover ? 'Cover · ' : ''}{active.status}</Text></View>
-    </Pressable> : <View style={[styles.large, styles.empty]}><Text style={styles.body}>Show tenants the rooms and spaces.</Text><Text style={styles.copy}>Add up to 10 clear property photos.</Text></View>}
+    </Pressable>:null) : <View style={[compact?styles.compact:styles.large, styles.empty]}><Text style={styles.body}>Show tenants the rooms and spaces.</Text><Text style={styles.copy}>Add up to 10 clear property photos.</Text></View>}
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
       {items.map((item, index) => <View key={item.key} style={styles.thumbShell}>
         <Pressable accessibilityRole="button" accessibilityState={{ selected: index === state.activeMediaIndex }} accessibilityLabel={`View photo ${index + 1}, ${item.status}${item.cover ? ', cover' : ''}`} onPress={() => flow.openMedia(index)} style={[styles.thumb, index === state.activeMediaIndex && styles.active]}>
@@ -26,7 +26,7 @@ export function PropertyMediaSection({ viewModel: vm }: { viewModel: PropertyLis
         </Pressable>
         {item.status !== 'Needs attention' ? <Pressable accessibilityRole="button" accessibilityLabel={`Remove photo ${index + 1}`} accessibilityState={{ disabled: blocked || !!item.photoId && !!state.pendingSelections.length }} disabled={blocked || !!item.photoId && !!state.pendingSelections.length} onPress={() => item.photoId ? flow.requestRemove(item.photoId) : flow.removePending(item.pendingIndex!)} style={styles.remove}><Text style={styles.removeText}>×</Text></Pressable> : null}
       </View>)}
-      <Pressable accessibilityRole="button" accessibilityLabel="Add property photos" disabled={blocked || items.length >= 10} onPress={() => void flow.addPhotos()} style={styles.addThumb}><Text style={styles.addLabel}>+</Text></Pressable>
+      {!compact?<Pressable accessibilityRole="button" accessibilityLabel="Add property photos" disabled={blocked || items.length >= 10} onPress={() => void flow.addPhotos()} style={styles.addThumb}><Text style={styles.addLabel}>+</Text></Pressable>:null}
     </ScrollView>
     <View style={styles.row}><Text style={styles.copy}>{items.length} / 10 photos</Text>
       {active?.photoId && !active.cover ? <Pressable accessibilityRole="button" disabled={blocked || !!state.pendingSelections.length} onPress={() => void flow.setCover(active.photoId!)} style={styles.action}><Text style={styles.link}>Set as cover</Text></Pressable> : null}
@@ -48,6 +48,7 @@ export function PropertyMediaSection({ viewModel: vm }: { viewModel: PropertyLis
 }
 const styles = StyleSheet.create({
   section: { gap: spacing.sm }, heading: { ...ui.sectionTitle }, body: { ...ui.body }, copy: { ...ui.supporting },
+  compact:{width:'100%',minHeight:100,borderRadius:10,backgroundColor:colors.surface},
   large: { width: '100%', aspectRatio: 4 / 3, borderRadius: 10, backgroundColor: colors.surface }, empty: { alignItems: 'center', justifyContent: 'center', padding: spacing.md, gap: spacing.xs },
   badge: { position: 'absolute', left: 8, bottom: 8, backgroundColor: colors.background, borderRadius: 6, padding: spacing.xs }, badgeText: { ...ui.supporting, fontWeight: '600' },
   strip: { gap: spacing.sm }, thumbShell: { width: 102, height: 100 }, thumb: { borderWidth: 2, borderColor: 'transparent', borderRadius: 8, overflow: 'hidden', width: 100, height: 96 }, active: { borderColor: colors.primary }, thumbImage: { width: '100%', height: '100%' },

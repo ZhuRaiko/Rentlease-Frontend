@@ -9,6 +9,8 @@ export type ListingScreen =
   | 'propertyEdit'
   | 'identityEdit'
   | 'listingComposer'
+  | 'postingEstimate'
+  | 'postingReview'
   | 'listingDetails'
   | 'draftSaved'
   | 'photoUpload'

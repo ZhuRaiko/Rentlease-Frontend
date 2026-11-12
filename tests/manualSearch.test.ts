@@ -77,13 +77,14 @@ test('punctuation-only location input does not silently search everywhere',()=>{
 test('stale real-detail completion is discarded after cancellation',async()=>{let release!:(row:any)=>void;const f=createManualSearchWorkflow({user:async()=>'tenant',search:async()=>[],locations:async()=>({locations:[],received:0}),catalogue:async()=>[],detail:async()=>new Promise(r=>{release=r;})});const pending=f.openDetail(raw().id);await new Promise(r=>setImmediate(r));f.cancelDetail();release({...parseSearchListing(raw()),photos:[],amenities:[]});await pending;assert.equal(f.getSnapshot().detail,null);assert.equal(f.getSnapshot().selectedId,null);});
 test('available-location pagination deduplicates names while raw offset advances',async()=>{const calls:number[]=[];const location={key:'imus',city:'imus',barangay:'',label:'Imus, Cavite',query:'Imus'};const f=createManualSearchWorkflow({user:async()=>'tenant',search:async()=>[],detail:async()=>{throw Error();},catalogue:async()=>[],locations:async(_owner,_text,offset)=>{calls.push(offset);return {locations:[location],received:offset?1:20};}});await f.locations('');await f.locations('',true);assert.deepEqual(calls,[0,20]);assert.equal(f.getSnapshot().locations.length,1);assert.equal(f.getSnapshot().locationsMore,false);});
 test('location query races cannot repopulate an old set of suggestions',async()=>{let release!:(rows:any)=>void;const f=createManualSearchWorkflow({user:async()=>'tenant',search:async()=>[],detail:async()=>{throw Error();},catalogue:async()=>[],locations:async(_owner,text)=>text==='old'?new Promise(r=>{release=r;}):({locations:[],received:0})});const pending=f.locations('old');await new Promise(r=>setImmediate(r));await f.locations('new');release({locations:[{key:'old'}],received:1});await pending;assert.deepEqual(f.getSnapshot().locations,[]);});
-function renderSource(path:string,name:string,state?:{value:any}) {
+function renderSource(path:string,name:string,state?:{value:any;tab?:string}) {
   const full=resolve(path),actual=createRequire(full),mod={exports:{} as any};
   const requireMock=(key:string):any=>{
     if(key.endsWith('/Reporting'))return{ReportAction:'ReportAction'};
+    if(key.endsWith('/RentalFeedbackSection'))return{RentalFeedbackSection:'RentalFeedbackSection'};if(key.endsWith('/PublicLocationMap'))return{PublicLocationMap:'PublicLocationMap'};
     if(key.endsWith('/RentalReviews'))return{PublishedRentalReviews:'PublishedRentalReviews'};
     if(key.endsWith('/InlineRentalEstimate'))return {InlineRentalEstimate:'InlineRentalEstimate'};
-    if(key==='react')return {useState:(v:any)=>[state?state.value:v,(next:any)=>{if(state)state.value=next;}],useEffect:()=>{}};
+    let hookIndex=0; if(key==='react')return {useState:(v:any)=>{const at=hookIndex++;return[state?(at%2===0?state.value:state.tab??v):v,(next:any)=>{if(state){if(at%2===0)state.value=next;else state.tab=next;}}];},useEffect:()=>{}};
     if(key==='react/jsx-runtime')return {jsx:(type:any,props:any)=>({type,props}),jsxs:(type:any,props:any)=>({type,props})};
     if(key.endsWith('/KeyboardAwareScrollView'))return{KeyboardAwareScrollView:'ScrollView'};
   if(key==='react-native')return {useWindowDimensions:()=>({width:360,height:800}),View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',FlatList:'FlatList',StyleSheet:{create:(v:any)=>v}};
@@ -117,9 +118,9 @@ test('detail safely projects only public point; ordinary search does not fetch l
  b.calls.length=0;await b.service.search('tenant',{query:'',filters:defaultSearchFilters(),sort:'Recently Listed',offset:0});assert.doesNotMatch(String(b.calls.find(c=>c.table==='listings'&&c.method==='select')?.args[0]),/public_location/);
 });
 test('automatic real detail presents separate named OSM categories and approximate straight-line distances',()=>{
- const render=renderSource('src/features/search-discovery/views/LiveSearchViews.tsx','LivePropertyDetailView');
+ const render=renderSource('src/features/search-discovery/views/LiveSearchViews.tsx','LivePropertyDetailView',{value:null,tab:'places'});
  const props={viewModel:{manualState:{detail:{...parseSearchListing(raw()),photos:[],amenities:['Wi-Fi'],publicLocation:{latitude:14.43,longitude:120.94}},placesPhase:'success',placesRows:[{osmType:'node',osmId:1,name:'Mapped school',category:'school',distanceMeters:150}]},manual:{},goBack(){}}};
- const tree=render(props),serialized=JSON.stringify(tree);assert.match(serialized,/Mapped school/);assert.match(serialized,/Approx\./);assert.match(serialized,/150 m/);assert.match(serialized,/straight-line/);assert.match(serialized,/No named places mapped/);assert.match(serialized,/OpenStreetMap contributors/);assert.match(serialized,/Wi-Fi/);
+ const tree=render(props),serialized=JSON.stringify(tree);assert.match(serialized,/Mapped school/);assert.match(serialized,/Approx\./);assert.match(serialized,/150 m/);assert.match(serialized,/straight-line/);assert.doesNotMatch(serialized,/No named places mapped/);assert.match(serialized,/OpenStreetMap contributors/);assert.match(serialized,/Wi-Fi/);
  const nodes=(t:any):any[]=>t&&typeof t==='object'?[t,...[t.props?.children].flat(Infinity).flatMap(nodes)]:[];assert.equal(nodes(tree).some(n=>n.props?.accessibilityState?.expanded!==undefined),false);
 });
 

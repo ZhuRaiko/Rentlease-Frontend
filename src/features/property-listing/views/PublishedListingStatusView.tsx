@@ -17,7 +17,7 @@ export function PublishedListingStatusView({ viewModel, onClose, estimateSection
     : row?.status === 'removed' ? 'This listing is no longer active on RentLease.'
     : row?.status === 'archived' ? 'This listing is archived. Your property and photos are retained.'
     : 'Edit your listing or manage its publication status.';
-  return <ListingWizardScaffold title="Manage Listing" description={description} onBack={viewModel.goBack} onClose={onClose}>
+  return <ListingWizardScaffold title="Manage Status" description={description} onBack={viewModel.goBack} onClose={onClose}>
     <FeedbackNotice message={viewModel.notice==='Listing changes saved. Publication status is unchanged.'?viewModel.notice:null}/>
     <ListingWorkspaceFeedback viewModel={viewModel} scope="management" />
     <Text style={styles.title}>{row?.title}</Text>
@@ -29,7 +29,7 @@ export function PublishedListingStatusView({ viewModel, onClose, estimateSection
     {row?.archived_at ? <Text style={styles.detail}>Archived: {formatVerificationDate(row.archived_at)}</Text> : null}
     {row?.updated_at ? <Text style={styles.detail}>Updated: {formatVerificationDate(row.updated_at)}</Text> : null}
     {estimateSection}
-    {!operation&&row&&['active','paused'].includes(row.status)?<ListingButton label="Edit Listing" disabled={viewModel.lifecycleBlocked} onPress={viewModel.editManagedListing}/>:null}
+    {!operation&&row&&['active','paused'].includes(row.status)?<ListingButton label="Edit Rental" disabled={viewModel.lifecycleBlocked} onPress={viewModel.editManagedListing}/>:null}
     {operation ? <>
       <Text accessibilityRole="header" style={styles.title}>{viewModel.lifecycleLabel[operation]}?</Text>
       <Text style={styles.detail}>{operation === 'archive' ? 'Archiving is final in this workflow. Your listing record, property and photos will be kept.' : operation === 'pause' ? 'Pause this listing? You may request reactivation later.' : 'Return this listing to Published? RentLease will recheck this property?s verification and publication requirements.'}</Text>

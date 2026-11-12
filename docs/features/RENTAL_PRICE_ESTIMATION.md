@@ -1,7 +1,16 @@
 # Rental Price Estimation
 
+## T8-A posting integration - November 11, 2026
+
+New posting now has a dedicated optional Estimate step between Listing and Review. It reuses the existing RentalPriceGuidance/InlineRentalEstimate workflow, generalized-location approval controls and protected persisted-property ID client. Use Estimated Price requires confirmation and changes only local asking rent; Keep My Price restores the price entered before that step. No request on opening, no automatic adoption/save/publication and no model, coordinate, API or fitted-artifact changes. Unsupported/failed estimates can be skipped. Existing non-wizard details/edit guidance remains. Local automated checks pass; hosted/native acceptance of this revision is pending. See the current [posting flow](PROPERTY_LISTING_MANAGEMENT.md).
+
+
 Current backend status (November 10, 2026): Phase 2C deployed as 20261110053904, Tier 2 RPC deployed as 20261110053950, rental-price-estimate ACTIVE v5 with JWT verification enabled. Earlier prepared/undeployed statements below are historical. No owner was automatically opted in. Frontend release and authenticated end-to-end/manual acceptance remain pending; catalog/source and limited no-identity denial checks passed. See the latest backend ledger for exact receipts and deployment scope.
 
+
+### T8-A presentation refinement - November 11, 2026
+
+The posting result uses a larger existing-brand amount; optional explanatory copy is collapsed. Approval controls, real supplied range, eligibility, explicit confirmation, Keep My Price, transient retry and optional continuation are unchanged. This is presentation only; no estimator service/model/input changes or fresh hosted inference. Native acceptance remains pending.
 
 ## Status - November 8, 2026
 
@@ -227,3 +236,15 @@ Validation for corrections only: five coordinate/service/proxy/disclosure tests 
 ## Production preflight / backup completed - November 10, 2026
 
 BACKUP VERIFIED; NO DEPLOYMENT AUTHORIZED. Fresh production baseline: 29 migrations through 20261109181552_unfinished_property_deletion; proposed coordinate and Tier 2 contracts absent. Relevant guard sources/policies/types/RLS/triggers compatible; named rental-price-estimate remains ACTIVE v4 with JWT verification. Restricted recovery backup C:/RentLease-Backups/phase2c-tier2-predeploy-20261110-050404 verified (28 artifacts, 114 function definitions, 18 COPY sections, deployed/proposed Edge sources and reread hashes/ACLs). Catalog unchanged across backup; profiles changed but dump eligibility matches current and other selected records stayed unchanged. Prior 28 history payloads unchanged, only known deletion additions versus older baseline. Recovery is selective, preserves existing Auth/Storage dependencies and has not been hosted-restore tested. No technical preflight blocker; immediate baseline/freeze and separate isolated schema/Edge/frontend authorization still required. Exact hashes, operations and limitations are recorded in this feature's backend ledger and protected receipt. No permanent live backend mutation was performed in this phase. No phone/ADB/Expo/build, tests, commit or push.
+
+
+### T8-D2 presentation - November 11, 2026
+
+Rental Details adds the opt-in spotlight presentation to the same InlineRentalEstimate. It follows the gallery/summary, shows actual asking-rent context and Get Rental Price Estimate, and preserves ID-only authorization, eligibility, retry, real result and illustrative-range behavior. No tenant price adoption, automatic call, model, coordinate, Edge or API change. Local only; Android/native acceptance remains unverified. Focused evidence is recorded in the continuous Search Discovery implementation history. No backend/deployment action.
+
+
+## T8-D2 range-first presentation - November 11, 2026
+
+LOCAL PRESENTATION ONLY. Rental Details spotlight now leads successful results with the supplied illustrative rental range: labeled lower/upper bounds (PHP, two decimals), a compact +/-30% indicator and a simple interval rail. Marker position is (point estimate - minimum) / (maximum - minimum); no asking-rent marker, probability distribution or risk classification. Asking rent and model point estimate are smaller secondary metrics with explicit monthly units. Missing bounds do not produce a fabricated range. Narrow effective widths, enlarged fonts and long amounts switch to vertical metrics. Existing model parser validates supplied +/-30% bounds; this component neither recalculates bounds nor changes prediction semantics.
+
+The existing workflow still clears a previous result on a new request, blocks duplicates and cancels stale account/listing work. Eligibility, retries, protected transport and listing price remain unchanged. Supporting text retains illustrative/not-calibrated-confidence limitations. Validation: 24 focused estimation cases passed; TypeScript and whitespace passed. Native 320dp/411dp, enlarged text, large amounts, loading transitions and screen-reader traversal remain user-run visual acceptance. No backend/deployment/device/Git actions.
