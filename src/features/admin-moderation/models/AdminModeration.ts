@@ -6,7 +6,9 @@ export type AdminModerationScreen =
   | 'reportDetails'
   | 'reviewDetails'
   | 'activeRestrictions'
-  | 'auditHistory';
+  | 'restrictionDetails'
+  | 'auditHistory'
+  | 'auditEntry';
 
 export type AdminNavigationSection = 'dashboard' | 'queues' | 'enforcement' | 'audit';
 

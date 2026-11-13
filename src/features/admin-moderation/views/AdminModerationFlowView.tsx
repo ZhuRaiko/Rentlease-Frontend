@@ -7,9 +7,12 @@ import { AdminBottomNavigation } from '../components/AdminScaffold';
 import type { AdminNavigationSection } from '../models/AdminModeration';
 import { useAdminModerationViewModel } from '../viewModels/useAdminModerationViewModel';
 import { AdminDashboardView } from './AdminDashboardView';
-import { AdminNotConnectedView } from './AdminNotConnectedView';
+import { AdminActionsView } from './AdminActionsView';
+import { AdminAuditEntryView } from './AdminAuditEntryView';
+import { AdminAuditView } from './AdminAuditView';
 import { AdminQueueView } from './AdminQueueView';
 import { ReportModerationView } from './ReportModerationView';
+import { RestrictionDetailView } from './RestrictionDetailView';
 import { ReviewModerationView } from './ReviewModerationView';
 import { VerificationModerationView } from './VerificationModerationView';
 
@@ -20,7 +23,7 @@ interface AdminModerationFlowViewProps {
 }
 
 // Decision screens own the bottom edge (sticky action bar), so the section bar is hidden there.
-const detailScreens = new Set(['verificationDetails', 'reportDetails', 'reviewDetails']);
+const detailScreens = new Set(['verificationDetails', 'reportDetails', 'reviewDetails', 'restrictionDetails', 'auditEntry']);
 
 export function AdminModerationFlowView({ onClose, registerBackAction, accountId }: AdminModerationFlowViewProps) {
   const viewModel = useAdminModerationViewModel(accountId);
@@ -41,9 +44,13 @@ export function AdminModerationFlowView({ onClose, registerBackAction, accountId
   } else if (viewModel.screen === 'reviewDetails') {
     content = <ReviewModerationView viewModel={viewModel} />;
   } else if (viewModel.screen === 'activeRestrictions') {
-    content = <AdminNotConnectedView section="enforcement" />;
+    content = <AdminActionsView viewModel={viewModel} />;
+  } else if (viewModel.screen === 'restrictionDetails') {
+    content = <RestrictionDetailView viewModel={viewModel} />;
+  } else if (viewModel.screen === 'auditEntry') {
+    content = <AdminAuditEntryView viewModel={viewModel} />;
   } else {
-    content = <AdminNotConnectedView section="audit" />;
+    content = <AdminAuditView viewModel={viewModel} />;
   }
 
   const active: AdminNavigationSection = viewModel.screen === 'auditHistory' ? 'audit' : viewModel.screen === 'activeRestrictions' ? 'enforcement' : viewModel.screen === 'dashboard' ? 'dashboard' : 'queues';

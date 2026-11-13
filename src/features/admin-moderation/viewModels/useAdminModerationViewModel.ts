@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Alert } from 'react-native';
+import { randomUUID } from 'expo-crypto';
 import { getSupabaseClient } from '../../../shared/services/supabase/client';
 import { useRentalReviews } from '../../../shared/viewModels/useRentalReviews';
 import { useReporting } from '../../../shared/viewModels/useReporting';
 import type { ReportScope } from '../../../shared/models/Reporting';
 import type { ReviewStatus } from '../../../shared/models/RentalReview';
 import { createAdminVerificationService } from '../services/adminVerificationService';
+import { createAdminActionsService } from '../services/adminActionsService';
+import { createAdminActionsWorkflow } from './adminActionsWorkflow';
+import { reportActionOptions, type AdminAuditEntry, type AuditKind } from '../models/AdminActions';
+import { auditRelatedTarget, type AuditRelated } from '../models/AuditPresentation';
 import { createAdminVerificationQueue } from './adminVerificationQueue';
 import type { AdminModerationScreen, AdminQueueTab } from '../models/AdminModeration';
 import {
@@ -39,6 +44,10 @@ export function useAdminModerationViewModel(accountId?: string) {
   const [verificationQueue] = useState(() => createAdminVerificationQueue(createAdminVerificationService(getSupabaseClient)));
   const verification = useSyncExternalStore(verificationQueue.subscribe, verificationQueue.getSnapshot);
   useEffect(() => { verificationQueue.activate(); void verificationQueue.refresh(); return () => verificationQueue.dispose(); }, [verificationQueue]);
+  // Admin actions and audit log (migration 20261113180000): one workflow for the Actions tab, the Audit tab, recent decisions and the action sheet.
+  const [actionsWorkflow] = useState(() => createAdminActionsWorkflow(createAdminActionsService(getSupabaseClient), randomUUID));
+  const actions = useSyncExternalStore(actionsWorkflow.subscribe, actionsWorkflow.getSnapshot);
+  useEffect(() => { actionsWorkflow.activate(); return () => actionsWorkflow.dispose(); }, [actionsWorkflow]);
   const reports = useReporting(accountId, reportScope);
   const [reviewStatus, setReviewStatusState] = useState<ReviewStatus>('pending');
   const reviews = useRentalReviews(accountId, { mode: 'moderation', status: reviewStatus });
@@ -49,6 +58,8 @@ export function useAdminModerationViewModel(accountId?: string) {
   const [queueTab, setQueueTab] = useState<AdminQueueTab>('verification');
   const [reportFilter, setReportFilter] = useState<ReportQueueFilter>('open');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedRestrictionId, setSelectedRestrictionId] = useState<string | null>(null);
+  const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null);
   const [reportDecision, setReportDecision] = useState<ReportDecisionStatus | null>(null);
   const [reportNote, setReportNote] = useState('');
   const [reportPublicSummary, setReportPublicSummary] = useState('');
@@ -57,6 +68,18 @@ export function useAdminModerationViewModel(accountId?: string) {
   const [reviewDecision, setReviewDecision] = useState<ReviewDecisionStatus | null>(null);
   const [reviewNote, setReviewNote] = useState('');
   const resetReviewDraft = () => { setReviewDecision(null); setReviewNote(''); };
+
+  // Coming back from an audit entry (or from a report opened out of one) keeps the rows, filter and "Load more" progress already on screen.
+  const previousScreen = useRef<AdminModerationScreen>(screen);
+  useEffect(() => {
+    const previous = previousScreen.current;
+    previousScreen.current = screen;
+    if (screen === 'activeRestrictions') void actionsWorkflow.loadRestrictions();
+    else if (screen === 'auditHistory') { if (previous !== 'auditEntry' || actionsWorkflow.getSnapshot().audit.status !== 'success') void actionsWorkflow.loadAudit(); }
+    else if (screen === 'dashboard') void actionsWorkflow.loadRecent();
+  }, [screen, actionsWorkflow]);
+  // A successful restore removes the account from the list, so return to the list with the confirmation.
+  useEffect(() => { if (actions.submit.notice && screen === 'restrictionDetails') { setSelectedRestrictionId(null); setScreen('activeRestrictions'); setHistory([]); } }, [actions.submit.notice]);
 
   const resetReportDraft = () => { setReportDecision(null); setReportNote(''); setReportPublicSummary(''); };
   // A saved decision clears the form (the report reloads with its new status); same behavior as before.
@@ -70,6 +93,8 @@ export function useAdminModerationViewModel(accountId?: string) {
   }, [reviews.notice]);
 
   const reportRowsAll = reports.data?.rows ?? [];
+  const selectedRestriction = selectedRestrictionId ? actions.restrictions.rows.find((row) => row.userId === selectedRestrictionId) ?? null : null;
+  const reportActions = reportActionOptions(selectedReportId ? (reports.data?.rows ?? []).find((row) => row.id === selectedReportId) ?? null : null);
   const selectedReport = selectedReportId ? reportRowsAll.find((row) => row.id === selectedReportId) ?? null : null;
   const reportLocked = reports.busy || reports.saving || !!reports.pending || !reports.ready;
   const reportDirty = !!reportDecision || !!reportNote || !!reportPublicSummary;
@@ -105,7 +130,8 @@ export function useAdminModerationViewModel(accountId?: string) {
   };
 
   const leave = () => {
-    if (verificationQueue.getSnapshot().reviewBusy) return;
+    if (verificationQueue.getSnapshot().reviewBusy || actionsWorkflow.getSnapshot().submit.busy) return;
+    actionsWorkflow.cancelAction();
     verificationQueue.cancelReview();
     verificationQueue.closePrivateDocument();
     setHistory((current) => {
@@ -116,7 +142,9 @@ export function useAdminModerationViewModel(accountId?: string) {
   };
 
   const openSection = (next: AdminModerationScreen, tab?: AdminQueueTab) => {
-    if (verificationQueue.getSnapshot().reviewBusy) return;
+    if (verificationQueue.getSnapshot().reviewBusy || actionsWorkflow.getSnapshot().submit.busy) return;
+    actionsWorkflow.cancelAction();
+    actionsWorkflow.dismissNotice();
     verificationQueue.cancelReview();
     verificationQueue.closePrivateDocument();
     if (tab) setQueueTab(tab);
@@ -124,31 +152,71 @@ export function useAdminModerationViewModel(accountId?: string) {
     setHistory([]);
   };
 
-  const openVerification = (id: string) => {
+  const openVerification = (id: string, trail: AdminModerationScreen[] = ['reviewQueues']) => {
     if (verificationQueue.getSnapshot().reviewBusy) return;
     void verificationQueue.select(id);
     setScreen('verificationDetails');
-    setHistory(['reviewQueues']);
+    setHistory(trail);
   };
 
-  const openReport = (id: string) => {
+  const openReport = (id: string, trail: AdminModerationScreen[] = ['reviewQueues']) => {
     if (reports.saving) return;
     setSelectedReportId(id);
     resetReportDraft();
     setScreen('reportDetails');
-    setHistory(['reviewQueues']);
+    setHistory(trail);
   };
 
-  const openReview = (id: string) => {
+  const openReview = (id: string, trail: AdminModerationScreen[] = ['reviewQueues']) => {
     if (reviews.saving) return;
     setSelectedReviewId(id);
     resetReviewDraft();
     setScreen('reviewDetails');
-    setHistory(['reviewQueues']);
+    setHistory(trail);
+  };
+
+  const openRestriction = (userId: string) => {
+    if (actions.submit.busy) return;
+    actionsWorkflow.dismissNotice();
+    setSelectedRestrictionId(userId);
+    setScreen('restrictionDetails');
+    setHistory(['activeRestrictions']);
+  };
+  // ---- Audit entries. The record is looked up in the loaded rows each time, so a refresh can never leave a stale copy on screen.
+  const selectedAuditEntry: AdminAuditEntry | null = selectedAuditId ? actions.audit.rows.find((row) => row.id === selectedAuditId) ?? null : null;
+  const openAuditEntry = (id: string) => {
+    if (actions.audit.rows.some((row) => row.id === id)) { setSelectedAuditId(id); navigate('auditEntry'); }
+  };
+  /** The report, submission or review an audit row points at, but only when that record is in the data this session already loaded (otherwise no button). */
+  const auditRelatedAvailable = (entry: AdminAuditEntry): AuditRelated | null => {
+    const target = auditRelatedTarget(entry);
+    if (!target) return null;
+    const present = target.kind === 'report' ? reportRowsAll.some((row) => row.id === target.id)
+      : target.kind === 'verification' ? verification.queue.some((item) => item.submissionId === target.id)
+      : (reviewRows ?? []).some((row) => row.id === target.id);
+    return present ? target : null;
+  };
+  const openAuditRelated = (entry: AdminAuditEntry) => {
+    const target = auditRelatedAvailable(entry);
+    if (!target) return;
+    const trail: AdminModerationScreen[] = ['auditHistory', 'auditEntry'];
+    if (target.kind === 'report') openReport(target.id, trail);
+    else if (target.kind === 'verification') openVerification(target.id, trail);
+    else openReview(target.id, trail);
+  };
+  const openRestore = () => {
+    if (!selectedRestriction || !selectedRestriction.restorable) return;
+    actionsWorkflow.openAction({ action: 'restore_account', targetUserId: selectedRestriction.userId, targetListingId: null, reportId: null, targetLabel: selectedRestriction.name });
+  };
+  const openReportAction = () => {
+    const option = reportActions[0], row = selectedReport;
+    if (!option || !row) return;
+    actionsWorkflow.openAction({ action: option.action, targetUserId: option.targetUserId, targetListingId: option.targetListingId, reportId: row.id, targetLabel: row.label });
   };
 
   /** Back on a report review keeps the old guards: wait while saving, confirm before discarding a draft or a pending operation. */
   const guardedBack = (leave: () => void) => {
+    if (actions.submit.busy) { Alert.alert('Action in progress', 'Wait for the result before leaving.'); return; }
     if (screen === 'reviewDetails' && reviews.saving) { Alert.alert('Review in progress', 'Wait until the result is confirmed.'); return; }
     if (screen !== 'reportDetails') { leave(); return; }
     if (reports.saving) { Alert.alert('Report action in progress', 'Wait for the outcome before leaving.'); return; }
@@ -242,7 +310,17 @@ export function useAdminModerationViewModel(accountId?: string) {
     decisionOptions, reportDecision, setReportDecision,
     reportNote, setReportNote, reportPublicSummary, setReportPublicSummary,
     reportCanSave, saveReportDecision,
-    // Reviews (pending only; decisions use the existing review moderation panel)
+    // Actions, restrictions and the audit log (real data; migration 20261113180000)
+    restrictions: actions.restrictions, auditLog: actions.audit, recentDecisions: actions.recent,
+    actionDraft: actions.draft, actionSubmit: actions.submit,
+    selectedRestriction, openRestriction, openRestore, reportActions, openReportAction,
+    updateActionDraft: actionsWorkflow.updateDraft, cancelAction: actionsWorkflow.cancelAction, confirmAction: actionsWorkflow.confirmAction, dismissActionNotice: actionsWorkflow.dismissNotice,
+    refreshRestrictions: () => actionsWorkflow.loadRestrictions(),
+    loadAudit: (kind: AuditKind, offset = 0) => actionsWorkflow.loadAudit(kind, offset),
+    loadMoreAudit: () => actionsWorkflow.loadMoreAudit(),
+    selectedAuditEntry, openAuditEntry, auditRelatedAvailable, openAuditRelated,
+    refreshRecentDecisions: () => actionsWorkflow.loadRecent(),
+    // Reviews (status filters and paging; decisions use the structured review screen)
     reviewStatus,
     setReviewStatus: (next: ReviewStatus) => { if (!reviewLocked) { setReviewStatusState(next); setSelectedReviewId(null); resetReviewDraft(); } },
     reviewRows: reviewRows ?? [],

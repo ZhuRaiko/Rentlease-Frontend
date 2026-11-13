@@ -9,6 +9,12 @@ export type AdminErrorCode =
   | 'same_property_confirmation_required' | 'qualifying_proof_required' | 'owner_evidence_required'
   | 'invalid_review_transition' | 'rejection_reason_required' | 'admin_required' | 'access_unavailable'
   | 'report_changed' | 'invalid_report_transition' | 'operation_changed'
+  // Admin actions (suspend, restore, remove) and the audit log, migration 20261113180000.
+  | 'action_not_supported' | 'action_reason_length' | 'action_target_shape' | 'action_end_date_past' | 'action_end_date_not_suspension'
+  | 'action_self_target' | 'action_admin_target' | 'action_target_unavailable' | 'action_account_not_active' | 'action_account_not_restricted'
+  | 'action_listing_not_removable' | 'action_listing_tenancy_open'
+  | 'action_report_required' | 'action_report_unavailable' | 'action_report_not_upheld' | 'action_report_target_mismatch' | 'action_conflicting_retry'
+  | 'action_not_applied' | 'audit_unavailable' | 'audit_filter_invalid' | 'transaction_mode'
   | 'permission_denied' | 'conflict' | 'invalid_request' | 'backend_update_required'
   | 'network' | 'timeout' | 'unknown';
 
@@ -43,6 +49,29 @@ const rules: Rule[] = [
   rule('report changed', 'report_changed', 'Report changed', 'The report was updated after you opened it.', 'Reload the report and review the latest details.'),
   rule('invalid transition', 'invalid_report_transition', 'Status change not allowed', "A report can't move to that status from its current one.", 'Reload the report to see its current status.'),
   rule('operation changed', 'operation_changed', 'Decision changed', 'This decision was already started with different details.', 'Reload and make the decision again.'),
+  // Admin actions and audit log. Literals are lowercase substrings of the messages raised in 20261113180000_admin_actions_audit.sql;
+  // tests/adminActionsErrorDrift.test.ts fails if a message there has no rule here or a rule here matches nothing there.
+  rule('action not supported', 'action_not_supported', 'Action not available', "That action isn't available from the app.", 'Choose one of the listed actions.', false),
+  rule('reason must be 10 to 500 characters', 'action_reason_length', 'Reason needed', 'A reason of 10 to 500 characters is required.', 'Update the reason, then confirm again.', false),
+  rule('choose exactly one target', 'action_target_shape', 'Choose one target', 'An action applies to one account or one listing.', 'Go back, pick the account or listing, and try again.', false),
+  rule('end date must be in the future', 'action_end_date_past', 'End date has passed', 'The end date must be in the future.', 'Choose a later end date or no end date, then confirm again.', false),
+  rule('end date applies only to suspensions', 'action_end_date_not_suspension', 'End date not allowed', 'Only a suspension can have an end date.', 'Remove the end date, then confirm again.', false),
+  rule('cannot take action on their own account', 'action_self_target', 'Not allowed', "Admins can't take action on their own account or listings.", 'Ask another Admin to handle this.'),
+  rule('admin accounts cannot be targeted', 'action_admin_target', 'Not allowed', "Admin accounts and their listings can't be suspended, restored or removed from the app.", 'Ask the backend owner to handle Admin accounts.'),
+  rule('target unavailable', 'action_target_unavailable', 'Account or listing unavailable', 'That account or listing no longer exists or is not eligible.', 'Reload and check its current state.'),
+  rule('account is already restricted or suspended', 'action_account_not_active', 'Already restricted', 'This account is already suspended or restricted.', 'Reload the list. Restore the account first if you need to change it.'),
+  rule('account is not suspended or restricted', 'action_account_not_restricted', 'Nothing to restore', 'This account is not suspended or restricted.', 'Reload to see its current status.'),
+  rule('listing cannot be removed from its current status', 'action_listing_not_removable', "Can't remove this listing", 'Only an active or paused listing can be removed.', 'Reload to see its current status.'),
+  rule('listing cannot be removed while a tenancy is open', 'action_listing_tenancy_open', 'Tenancy is open', 'This property has a tenancy that is proposed, awaiting confirmation or active, so the listing cannot be removed.', 'Wait until the tenancy ends, then remove the listing.'),
+  rule('a report is required for this action', 'action_report_required', 'Report needed', 'Suspending an account or removing a listing needs an upheld report.', 'Open the upheld report and choose the action from there.', false),
+  rule('report unavailable', 'action_report_unavailable', 'Report unavailable', 'The report for this action could not be found.', 'Go back and reopen the report.'),
+  rule('report must be upheld first', 'action_report_not_upheld', 'Report not upheld', 'Actions from a report need the report to be upheld first.', 'Resolve the report as upheld, then take action.'),
+  rule('report does not match the target', 'action_report_target_mismatch', "Doesn't match the report", "That account or listing isn't the one this report is about.", 'Go back and reopen the report.'),
+  rule('conflicting retry', 'action_conflicting_retry', 'Action changed', 'This action was already started with different details.', 'Reload and take the action again.'),
+  rule('action was not applied', 'action_not_applied', 'Nothing was changed', "The action didn't take effect, so nothing was changed.", 'Try again. If it keeps failing, ask the backend owner to check the moderation setup.', false),
+  rule('audit entry was not written', 'audit_unavailable', 'Not recorded', "The action couldn't be recorded in the audit log, so nothing was changed.", 'Try again. If it keeps failing, ask the backend owner to check the audit log.', false),
+  rule('invalid audit filter', 'audit_filter_invalid', 'Filter not available', "That audit filter or page isn't available.", 'Go back to the first page of the list.', false),
+  rule('read committed required', 'transaction_mode', 'Try again', "The server couldn't run this action safely.", 'Try again. If it keeps failing, ask the backend owner to check the connection settings.', false),
 ];
 
 const timeoutPattern = /timed? ?out|timeout|aborted|aborterror/;

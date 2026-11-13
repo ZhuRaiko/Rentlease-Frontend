@@ -1,8 +1,13 @@
 import { StyleSheet, View } from 'react-native';
 
+import { colors } from '../../../shared/theme/colors';
+import { ui } from '../../../shared/theme/ui';
+
 import { AppButton } from '../../../shared/components/AppButton';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { spacing } from '../../../shared/theme/spacing';
+import { ActivityIndicator, Text } from 'react-native';
+import { AdminAuditTimeline } from '../components/AdminAuditTimeline';
 import { AdminAttentionCard, AdminEmptyState, AdminHeading, AdminSectionLabel } from '../components/AdminCards';
 import { AdminScaffold } from '../components/AdminScaffold';
 import { formatAdminDuration } from '../models/AdminQueuePresentation';
@@ -30,9 +35,19 @@ export function AdminDashboardView({ onExit, viewModel }: { onExit: () => void; 
       </View>
 
       <AdminSectionLabel>Recent decisions</AdminSectionLabel>
-      <AdminEmptyState body="Approvals, rejections and report decisions are saved, but they are not listed here until an audit source is connected." title="Decision history is not connected yet" />
+      {viewModel.recentDecisions.status === 'loading' && viewModel.recentDecisions.rows.length === 0 ? <ActivityIndicator accessibilityLabel="Loading recent decisions" color={colors.primaryAction} /> : null}
+      {viewModel.recentDecisions.status === 'error' ? <>
+        <FeedbackNotice tone="error" message={viewModel.recentDecisions.error} />
+        <AppButton label="Retry recent decisions" onPress={() => void viewModel.refreshRecentDecisions()} variant="secondary" />
+      </> : null}
+      {viewModel.recentDecisions.status === 'success' && viewModel.recentDecisions.rows.length === 0 ? <AdminEmptyState body="Approvals, rejections, report decisions and actions appear here once Admins make them." title="No decisions recorded yet" /> : null}
+      {viewModel.recentDecisions.rows.length > 0 ? <View style={styles.recent}>
+        <AdminAuditTimeline compact entries={viewModel.recentDecisions.rows} />
+        <Text style={ui.supporting}>Newest first.</Text>
+        <AppButton label="See full audit history" onPress={() => viewModel.openSection('auditHistory')} variant="secondary" />
+      </View> : null}
     </AdminScaffold>
   );
 }
 
-const styles = StyleSheet.create({ list: { gap: spacing.xs } });
+const styles = StyleSheet.create({ list: { gap: spacing.xs }, recent: { gap: spacing.sm } });

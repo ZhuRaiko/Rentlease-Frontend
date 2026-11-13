@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
-import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { KeyboardAwareScrollView } from '../../../shared/components/KeyboardAwareScrollView';
@@ -66,13 +66,13 @@ export function AdminAttentionCard({ title, body, count, lowerBound, tone, onPre
 }
 
 /** One review-queue row for any tab: title, type, status chip and age. */
-export function AdminQueueCard({ title, type, statusLabel, statusTone, age, onPress }: { title: string; type: string; statusLabel: string; statusTone: AdminChipTone; age: string; onPress: () => void }) {
+export function AdminQueueCard({ title, type, statusLabel, statusTone, age, flag, onPress }: { title: string; type: string; statusLabel: string; statusTone: AdminChipTone; age: string; flag?: string | undefined; onPress: () => void }) {
   return (
-    <Pressable accessibilityLabel={`${title}. ${type}. ${statusLabel}. ${age}`} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.queueCard, pressed && styles.pressed]}>
+    <Pressable accessibilityLabel={`${title}. ${type}. ${statusLabel}. ${age}${flag ? `. ${flag}` : ''}`} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.queueCard, pressed && styles.pressed]}>
       <View style={styles.cardCopy}>
         <Text style={styles.cardTitle}>{title}</Text>
         <Text style={ui.supporting}>{type}</Text>
-        <AdminChipRow><AdminChip label={statusLabel} tone={statusTone} /><AdminChip label={age} /></AdminChipRow>
+        <AdminChipRow><AdminChip label={statusLabel} tone={statusTone} /><AdminChip label={age} />{flag ? <AdminChip label={flag} tone="warning" /> : null}</AdminChipRow>
       </View>
       <Text accessible={false} style={styles.chevron}>{chevron}</Text>
     </Pressable>
@@ -114,22 +114,33 @@ export function AdminPills<T extends string>({ options, selected, onSelect, disa
   );
 }
 
+/** Filter chips on one horizontally scrolling row (48dp tall). The selected chip is scrolled into view; nothing wraps or is cut mid-label. */
+export function AdminScrollChips<T extends string>({ options, selected, onSelect, disabled = false }: { options: readonly { id: T; label: string }[]; selected: T; onSelect: (id: T) => void; disabled?: boolean }) {
+  const scroller = useRef<ScrollView>(null);
+  const offsets = useRef(new Map<string, number>());
+  const reveal = (id: string) => { const x = offsets.current.get(id); if (x !== undefined) scroller.current?.scrollTo({ x: Math.max(0, x - spacing.md), animated: true }); };
+  return (
+    <ScrollView accessibilityRole="tablist" contentContainerStyle={styles.scrollChips} horizontal ref={scroller} showsHorizontalScrollIndicator={false} style={styles.scrollChipsOuter}>
+      {options.map((option) => {
+        const on = option.id === selected;
+        return (
+          <Pressable
+            accessibilityRole="tab" accessibilityState={{ selected: on, disabled }} disabled={disabled} key={option.id}
+            onLayout={(event) => { offsets.current.set(option.id, event.nativeEvent.layout.x); if (on) reveal(option.id); }}
+            onPress={() => { onSelect(option.id); reveal(option.id); }} style={[styles.pill, on && styles.pillOn]}>
+            <Text style={[styles.pillLabel, on && styles.pillLabelOn]}>{option.label}</Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 export function AdminEmptyState({ title, body }: { title: string; body?: string }) {
   return (
     <View style={styles.empty}>
       <Text style={styles.emptyTitle}>{title}</Text>
       {body ? <Text style={styles.emptyBody}>{body}</Text> : null}
-    </View>
-  );
-}
-
-/** Honest placeholder for areas with no backend yet. No sample rows. */
-export function AdminNotConnected({ title, body }: { title: string; body: string }) {
-  return (
-    <View accessibilityRole="summary" style={styles.notConnected}>
-      <AdminChip label="Not connected yet" tone="info" />
-      <Text style={styles.cardTitle}>{title}</Text>
-      <Text style={ui.supporting}>{body}</Text>
     </View>
   );
 }
@@ -220,6 +231,8 @@ const chipSurface: Record<AdminChipTone, { backgroundColor: string }> = {
   info: { backgroundColor: colors.identitySurface }, neutral: { backgroundColor: colors.surface },
 };
 const chipInk: Record<AdminChipTone, string> = { success: colors.primaryAction, warning: colors.warning, danger: colors.restricted, info: colors.identityInk, neutral: colors.textSecondary };
+/** Tone colors for marks drawn outside AdminChip (for example the outcome icon on an audit row). */
+export const adminToneColors = { surface: chipSurface, ink: chipInk };
 const markSurface = { warning: chipSurface.warning, danger: chipSurface.danger, info: chipSurface.info, neutral: chipSurface.neutral };
 const markInk = { warning: colors.warning, danger: colors.restricted, info: colors.identityInk, neutral: colors.textSecondary };
 
@@ -249,14 +262,15 @@ const styles = StyleSheet.create({
   tabLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, fontWeight: '700', flexShrink: 1 },
   tabLabelOn: { color: colors.ink },
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm },
-  pill: { alignItems: 'center', backgroundColor: colors.background, borderColor: colors.controlBorder, borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center', minHeight: 48, paddingHorizontal: spacing.sm },
+  scrollChipsOuter: { flexGrow: 0, marginBottom: spacing.sm },
+  scrollChips: { gap: spacing.xs, paddingRight: spacing.md },
+  pill: { alignItems: 'center', backgroundColor: colors.background, borderColor: colors.controlBorder, borderRadius: radius.pill, borderWidth: 1, justifyContent: 'center', minHeight: 48, minWidth: 48, paddingHorizontal: spacing.xs },
   pillOn: { backgroundColor: colors.primaryAction, borderColor: colors.primaryAction },
-  pillLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, fontWeight: '600' },
+  pillLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, fontWeight: '600' },
   pillLabelOn: { color: colors.white },
   empty: { ...ui.panel, gap: spacing.xxs, padding: spacing.md },
   emptyTitle: { ...ui.body, fontWeight: '600' },
   emptyBody: { ...ui.supporting },
-  notConnected: { ...ui.panel, alignItems: 'flex-start', gap: spacing.xs, padding: spacing.md },
   card: { ...ui.panel, gap: spacing.xs, padding: spacing.sm },
   disclosure: { ...ui.panel, marginTop: spacing.xs, paddingHorizontal: spacing.sm },
   disclosureHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, justifyContent: 'space-between', minHeight: 48 },

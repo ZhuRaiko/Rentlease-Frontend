@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import type { ReportRecord } from '../src/shared/models/Reporting';
 import type { IdentityReviewContext, PropertyIdentitySnapshot } from '../src/shared/models/PropertyIdentity';
@@ -59,13 +59,13 @@ test('dashboard total needs every real count; oldest comes from the oldest avail
 
 test('Admin screens contain no preview tiles or sample data and the Views never reach backend clients', () => {
   const dir = 'src/features/admin-moderation/';
-  for (const file of ['views/AdminDashboardView.tsx', 'views/AdminQueueView.tsx', 'views/AdminNotConnectedView.tsx', 'views/ReportModerationView.tsx', 'views/ReviewModerationView.tsx', 'views/VerificationModerationView.tsx', 'components/AdminCards.tsx', 'models/AdminModeration.ts']) {
+  for (const file of ['views/AdminDashboardView.tsx', 'views/AdminQueueView.tsx', 'views/AdminActionsView.tsx', 'views/AdminAuditView.tsx', 'views/AdminAuditEntryView.tsx', 'components/AdminAuditRow.tsx', 'models/AuditPresentation.ts', 'views/RestrictionDetailView.tsx', 'views/ReportModerationView.tsx', 'views/ReviewModerationView.tsx', 'views/VerificationModerationView.tsx', 'components/AdminCards.tsx', 'components/AdminActionSheet.tsx', 'components/AdminAuditTimeline.tsx', 'models/AdminModeration.ts', 'models/AdminActions.ts']) {
     const text = readFileSync(dir + file, 'utf8');
     assert.doesNotMatch(text, /\(Preview\)|Admin Preview|LOCAL PREVIEW|previewModerationReports|previewAuditEntries|previewActiveRestrictions/, file);
     if (file.startsWith('views/')) assert.doesNotMatch(text, /getSupabaseClient|supabase\/client|\.rpc\(|\.from\(/, file);
   }
-  assert.match(readFileSync(dir + 'views/AdminNotConnectedView.tsx', 'utf8'), /Not connected yet|AdminNotConnected/);
-  assert.match(readFileSync(dir + 'components/AdminCards.tsx', 'utf8'), /Not connected yet/);
+  assert.equal(existsSync(dir + 'views/AdminNotConnectedView.tsx'), false, 'the not-connected placeholders are gone: Actions and Audit are real');
+  assert.doesNotMatch(readFileSync(dir + 'components/AdminCards.tsx', 'utf8') + readFileSync(dir + 'views/AdminDashboardView.tsx', 'utf8'), /Not connected yet|not connected yet/);
 });
 
 test('the Approve sheet gates only Tier 3 corrections on the same-property confirmation', () => {

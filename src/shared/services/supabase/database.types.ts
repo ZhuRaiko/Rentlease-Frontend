@@ -2258,6 +2258,10 @@ export type Database = {
       get_in_app_notification_target: {Args:{p_id:string};Returns:Json}
       // Prepared reporting contract; not evidence of hosted deployment.
       get_rental_report: { Args: { p_report_id:string; p_admin?:boolean }; Returns: Json }
+      // Admin actions and audit log: migration 20261113180000_admin_actions_audit.sql (prepared, not applied). Hand-written like the other recent RPCs; regenerate after it is applied.
+      apply_admin_moderation_action: { Args: { p_operation_id:string; p_action:string; p_target_user_id:string|null; p_target_listing_id:string|null; p_report_id:string|null; p_reason:string; p_ends_at:string|null }; Returns: Json }
+      get_admin_restrictions: { Args: Record<PropertyKey, never>; Returns: Json }
+      get_admin_audit_log: { Args: { p_kind?:string; p_offset?:number }; Returns: Json }
       get_rental_reports: { Args: { p_admin?:boolean; p_kind?:string; p_status?:string; p_offset?:number }; Returns: Json }
       submit_rental_report: { Args: { p_operation_id:string; p_kind:string; p_context_id:string; p_reason:string; p_details?:string }; Returns: Json }
       moderate_rental_report: { Args: { p_report_id:string; p_operation_id:string; p_revision:string; p_status:string; p_note:string; p_public_summary?:string }; Returns: Json }

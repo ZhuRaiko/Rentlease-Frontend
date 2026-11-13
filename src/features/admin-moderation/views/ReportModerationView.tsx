@@ -8,6 +8,7 @@ import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
 import { ui } from '../../../shared/theme/ui';
+import { AdminActionSheet } from '../components/AdminActionSheet';
 import { AdminCard, AdminChip, AdminChipRow, AdminDisclosure, AdminRadioOption, AdminSectionLabel, DetailRow } from '../components/AdminCards';
 import { AdminScaffold } from '../components/AdminScaffold';
 import { formatAdminAge, reportReasonLabel, reportStatusLabel, reportStatusTone, reportTypeLabel } from '../models/AdminQueuePresentation';
@@ -29,7 +30,9 @@ export function ReportModerationView({ viewModel }: { viewModel: AdminModeration
   const locked = viewModel.reportsLocked;
   const open = viewModel.decisionOptions.length > 0;
   const showSummary = viewModel.reportDecision === 'upheld' || viewModel.reportDecision === 'dismissed';
-  const footer = open ? <AppButton disabled={!viewModel.reportCanSave} label={viewModel.reportsSaving ? 'Saving decision...' : 'Save decision'} onPress={viewModel.saveReportDecision} /> : undefined;
+  const canAct = viewModel.reportActions.length > 0;
+  const footer = open ? <AppButton disabled={!viewModel.reportCanSave} label={viewModel.reportsSaving ? 'Saving decision...' : 'Save decision'} onPress={viewModel.saveReportDecision} />
+    : canAct ? <AppButton disabled={viewModel.actionSubmit.busy} label="Take action" onPress={viewModel.openReportAction} /> : undefined;
   return (
     <AdminScaffold footer={footer} onBack={viewModel.requestBack} title="Report review">
       <Text accessibilityRole="header" style={styles.name}>{reportReasonLabel(row)}</Text>
@@ -43,6 +46,8 @@ export function ReportModerationView({ viewModel }: { viewModel: AdminModeration
         {viewModel.reportsBusy ? <ActivityIndicator accessibilityLabel="Loading reports" color={colors.primaryAction} /> : null}
         <FeedbackNotice tone="error" message={viewModel.reportsError} />
         <FeedbackNotice tone="success" message={viewModel.reportsNotice} />
+        <FeedbackNotice tone="success" message={viewModel.actionSubmit.notice} />
+        <FeedbackNotice tone="error" message={viewModel.actionDraft ? null : viewModel.actionSubmit.error} />
         {viewModel.reportsPending ? <>
           <FeedbackNotice tone="warning" message="A report action needs reconciliation. Retry the same saved operation; do not clear app data." />
           <AppButton disabled={!viewModel.reportsReady || viewModel.reportsBusy || viewModel.reportsSaving} label="Retry pending report action" onPress={() => void viewModel.retryReports()} />
@@ -71,7 +76,8 @@ export function ReportModerationView({ viewModel }: { viewModel: AdminModeration
           <Text style={ui.supporting}>Shared only with the reporter. Do not copy confidential notes.</Text>
           <TextInput accessibilityLabel="Public-safe report resolution summary" editable={!locked} maxLength={500} multiline onChangeText={viewModel.setReportPublicSummary} style={styles.textArea} textAlignVertical="top" value={viewModel.reportPublicSummary} />
         </> : null}
-      </> : <Text style={ui.supporting}>This report has a final decision. No enforcement or reopening action is available.</Text>}
+      </> : canAct ? <Text style={ui.supporting}>{row.kind === 'user' ? 'This report is upheld. You can suspend the reported user.' : 'This report is upheld. You can remove the reported listing.'}</Text>
+      : <Text style={ui.supporting}>This report has a final decision. No further action is available for it.</Text>}
 
       <AdminSectionLabel>History</AdminSectionLabel>
       {row.history && row.history.length > 0 ? (
@@ -88,6 +94,10 @@ export function ReportModerationView({ viewModel }: { viewModel: AdminModeration
           ))}
         </View>
       ) : <Text style={ui.supporting}>No decisions recorded for this report yet.</Text>}
+
+      <AdminActionSheet
+        busy={viewModel.actionSubmit.busy} draft={viewModel.actionDraft} error={viewModel.actionSubmit.error}
+        onCancel={viewModel.cancelAction} onChange={viewModel.updateActionDraft} onConfirm={() => void viewModel.confirmAction()} />
 
       <AdminDisclosure title="IDs and technical details">
         <DetailRow label="Report ID" value={row.id} />
