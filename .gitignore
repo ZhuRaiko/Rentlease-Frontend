@@ -14,3 +14,13 @@ dist/
 pdf_reader/
 pypdf.zip
 pypdf-*.whl
+
+# Claude configuration - ignore all except rentlease-ui-ux-design
+.claude/*
+.claude/agents
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/rentlease-ui-ux-design/
+
+# VS Code personal settings
+.vscode/
