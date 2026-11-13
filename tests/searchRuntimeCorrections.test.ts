@@ -51,7 +51,7 @@ function presentation(path:string,name:string){const full=resolve(path),actual=c
  if(key==='react')return {useState:(v:any)=>[v,()=>{}]};
   if(key==='react/jsx-runtime')return{jsx:(type:any,props:any)=>({type,props}),jsxs:(type:any,props:any)=>({type,props})};
   if(key.endsWith('/KeyboardAwareScrollView'))return{KeyboardAwareScrollView:'ScrollView'};
-  if(key==='react-native')return{View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',StyleSheet:{create:(v:any)=>v}};
+  if(key==='react-native')return{View:'View',Text:'Text',Image:'Image',Pressable:'Pressable',ScrollView:'ScrollView',StyleSheet:{create:(v:any)=>v},FlatList:'FlatList',ActivityIndicator:'ActivityIndicator'};
   if(/\.png$/.test(key))return 1;
   if(key.endsWith('/DiscoveryControls'))return{DiscoveryButton:'DiscoveryButton',DiscoveryHeader:'DiscoveryHeader',DiscoverySearchBar:'DiscoverySearchBar'};
   if(key.endsWith('/SearchListingCard'))return{SearchListingCard:'SearchListingCard'};
@@ -69,8 +69,55 @@ test('successful empty Available Locations has explanatory copy, no retry or fix
 test('Available Locations retry binds a real request and is disabled while loading',()=>{
   const render=presentation('src/features/search-discovery/views/SearchLocationView.tsx','SearchLocationView');let requests=0;const tree=render({viewModel:{screen:'searchLocation',query:'area',suggestions:[],manualState:{locationsStatus:'error',locationsBusy:false,locationsError:'Please retry'},manual:{locations:()=>{requests++;}}}});nodes(tree).find(n=>n.props?.label==='Retry locations').props.onPress();assert.equal(requests,1);
 });
-test('For You is a community placeholder with search CTA and no GPS or fabricated content',()=>{
-  const render=presentation('src/features/search-discovery/views/TenantDiscoveryView.tsx','TenantDiscoveryView');const calls:string[]=[];const tree=render({viewModel:{screen:'home',homeTab:'forYou',navigate:(screen:string)=>calls.push(screen),openHome(){calls.push('discover');}},onClose(){},onOpenNotifications(){}});const text=JSON.stringify(tree);assert.match(text,/No community posts yet/);assert.match(text,/RentLease community/);assert.doesNotMatch(text,/Recommendations are not available yet|matchScore|reviewCount|previewDiscovery|gpsState|latitude|longitude/);assert.deepEqual(calls,[]);nodes(tree).find(n=>n.props?.label==='Discover rentals').props.onPress();assert.deepEqual(calls,['discover']);
+// For You renders the ranked recommendations (recommendationState.recommended) in a FlatList. These helpers read the list the view builds.
+const rankedRow=(id:string,reasons:string[])=>({candidate:{listing:{listingId:id}},reasons});
+const idleState={phase:'idle',recommended:[],scanned:0,limited:false,error:null};
+function forYou(overrides:Record<string,unknown>,calls:string[]=[]){
+  const render=presentation('src/features/search-discovery/views/TenantDiscoveryView.tsx','TenantDiscoveryView');
+  const spy=(name:string)=>()=>{calls.push(name);};
+  const viewModel={screen:'home',homeTab:'forYou',discoverState:{phase:'success',rows:[]},hasRecommendationPreferences:true,
+    navigate:(screen:string)=>calls.push('navigate:'+screen),openHome:spy('openHome'),openForYou:spy('openForYou'),openProperty:(id:string)=>calls.push('openProperty:'+id),
+    openMatchingPreferences:spy('openMatchingPreferences'),openRecommendedResults:spy('openRecommendedResults'),requestCurrentLocation:spy('requestCurrentLocation'),openSavedListings:spy('openSavedListings'),
+    recommendations:{load:spy('recommendations.load')},...overrides};
+  const tree=render({viewModel,onClose(){},onOpenNotifications(){}});
+  const list=nodes(tree).find(n=>n.type==='FlatList');
+  return {tree,list,header:nodes(list.props.ListHeaderComponent),empty:list.props.ListEmptyComponent?nodes(list.props.ListEmptyComponent):[],textOf:(parts:any[])=>JSON.stringify(parts)};
+}
+test('For You lists ranked recommendations in order with their reasons, and has no GPS or fabricated content',()=>{
+  const calls:string[]=[];
+  const recommended=[rankedRow('listing-b',['Within budget','Pet friendly']),rankedRow('listing-a',[])];
+  const {tree,list,header,textOf}=forYou({recommendationState:{phase:'success',recommended,scanned:2,limited:false,error:null}},calls);
+  // Ranked results: the list data is the ranking order, unchanged (the view does not re-sort or filter it).
+  assert.deepEqual(list.props.data.map((row:any)=>row.listingId),['listing-b','listing-a']);
+  assert.equal(list.props.keyExtractor(list.props.data[0]),'listing-b');
+  // Each row renders a listing card plus the reasons the ranking gave, or the fallback line when it gave none.
+  const first=nodes(list.props.renderItem({item:list.props.data[0]}));const second=nodes(list.props.renderItem({item:list.props.data[1]}));
+  assert.ok(first.some(n=>n.type==='SearchListingCard'&&n.props.listing.listingId==='listing-b'));
+  assert.ok(first.some(n=>n.props?.children==='Within budget | Pet friendly'));
+  assert.ok(second.some(n=>n.props?.children==='Selected property preferences'));
+  first.find(n=>n.type==='SearchListingCard').props.onPress();assert.deepEqual(calls,['openProperty:listing-b']);
+  // The For You header: personalized title, section title, edit-preferences action, ranked-results action and the coverage line.
+  const text=textOf(header);assert.match(text,/Rentals for you\./);assert.match(text,/Recommended rentals/);assert.match(text,/Ranking covers 2 loaded listings\./);assert.match(text,/Edit preferences/);
+  calls.length=0;header.find(n=>n.props?.label==='View ranked rentals').props.onPress();header.find(n=>n.props?.children==='Edit preferences'&&n.type==='Text');assert.deepEqual(calls,['openRecommendedResults']);
+  calls.length=0;header.find(n=>n.props?.accessibilityRole==='button'&&nodes(n).some(c=>c.props?.children==='Edit preferences')).props.onPress();assert.deepEqual(calls,['openMatchingPreferences']);
+  // No community placeholder, no fabricated scores or reviews, and nothing read from or sent to GPS.
+  assert.doesNotMatch(JSON.stringify(tree)+text,/No community posts yet|RentLease community|Recommendations are not available yet|matchScore|reviewCount|previewDiscovery|gpsState|latitude|longitude/);
+  assert.ok(!header.some(n=>n.props?.accessibilityLabel==='Nearby rentals'),'For You must not offer the GPS action');
+});
+test('For You uses GPS only on the Discover tab and only when the user taps Explore nearby rentals',()=>{
+  const calls:string[]=[];
+  const forYouView=forYou({recommendationState:idleState},calls);
+  assert.deepEqual(calls,[],'rendering For You must not use location');
+  const tabs=nodes(forYouView.tree).filter(n=>n.props?.accessibilityRole==='tab');
+  assert.deepEqual(tabs.map(n=>n.props.accessibilityState.selected),[false,true]);
+  // Search CTA: from For You the Discover tab is the way back to search.
+  tabs[0].props.onPress();assert.deepEqual(calls,['openHome']);
+  // On Discover the search bar opens the location search, and GPS runs only after the explicit nearby action.
+  calls.length=0;
+  const discover=forYou({homeTab:'discover',discoverState:{phase:'success',rows:[],hasMore:false}},calls);
+  assert.deepEqual(calls,[],'rendering Discover must not use location');
+  discover.header.find(n=>n.type==='DiscoverySearchBar').props.onFocus();assert.deepEqual(calls,['navigate:searchLocation']);
+  calls.length=0;discover.header.find(n=>n.props?.accessibilityLabel==='Nearby rentals').props.onPress();assert.deepEqual(calls,['requestCurrentLocation']);
 });
 test('diagnostics retain only code-owned stage, safe code and classification',()=>{
   const event=searchDiagnostic('gps_rpc',{code:'42501',message:'permission denied email secret@example.test latitude 14.4 token PRIVATE',details:'PRIVATE',hint:'PRIVATE'});
@@ -90,8 +137,28 @@ test('location retry control exposes disabled loading state',()=>{
   const render=presentation('src/features/search-discovery/views/SearchLocationView.tsx','SearchLocationView');const tree=render({viewModel:{screen:'searchLocation',query:'area',suggestions:[],manualState:{locationsStatus:'error',locationsBusy:true,locationsError:'Please retry'},manual:{}}});const button=nodes(tree).find(n=>n.props?.label==='Loading…');assert.equal(button.props.disabled,true);
 });
 
-test('For You empty state grows into available space with centered content and scrollable overflow',()=>{
- const render=presentation('src/features/search-discovery/views/TenantDiscoveryView.tsx','TenantDiscoveryView');const tree=render({viewModel:{screen:'home',homeTab:'forYou',navigate(){},openHome(){}},onClose(){},onOpenNotifications(){}});const scroll=nodes(tree).find(n=>n.type==='ScrollView');assert.equal(scroll.props.style.flex,1);const content=scroll.props.contentContainerStyle;assert.equal(content.flexGrow,1);assert.equal(content.justifyContent,'center');assert.equal(content.alignItems,'center');assert.equal(content.height,undefined);assert.equal(content.position,undefined);assert.ok(nodes(scroll).some(n=>n.props.label==='Discover rentals'));assert.ok(nodes(tree).some(n=>n.props.children==='For You'));
+test('For You empty states fill the screen as a scrollable list and tell the user what to do next',()=>{
+  // Layout: one FlatList that takes the remaining height (flex 1) and scrolls its own content; the content is a padded,
+  // width-capped column. It is not height-pinned or absolutely positioned, so long content scrolls instead of clipping.
+  const noPreferences=forYou({hasRecommendationPreferences:false,recommendationState:idleState});
+  assert.equal(noPreferences.list.props.style.flex,1);
+  const content=noPreferences.list.props.contentContainerStyle;assert.equal(content.maxWidth,600);assert.equal(content.width,'100%');assert.ok(content.padding>0);assert.equal(content.height,undefined);assert.equal(content.position,undefined);
+  assert.equal(nodes(noPreferences.tree).some(n=>n.type==='ScrollView'),false);
+  // Pull to refresh reloads the recommendations (not Discover) while For You is open.
+  const calls:string[]=[];forYou({recommendationState:idleState},calls).list.props.onRefresh();assert.deepEqual(calls,['recommendations.load']);
+  // No saved preferences: the header invites setting them and the list body is empty, with no "no matches" claim.
+  const prefsText=noPreferences.textOf(noPreferences.header);assert.match(prefsText,/Set matching preferences/);assert.match(prefsText,/Save matching preferences to find rentals based on what matters to you\./);
+  assert.equal(noPreferences.list.props.ListEmptyComponent,null);assert.doesNotMatch(prefsText,/No matching rentals yet|View ranked rentals/);
+  const setCalls:string[]=[];const setter=forYou({hasRecommendationPreferences:false,recommendationState:idleState},setCalls);
+  setter.header.find(n=>n.props?.accessibilityRole==='button'&&nodes(n).some(c=>c.props?.children==='Set matching preferences')).props.onPress();assert.deepEqual(setCalls,['openMatchingPreferences']);
+  // Preferences saved and a finished search with no results: the empty component explains and says how to change it.
+  const empty=forYou({recommendationState:{...idleState,phase:'success'}});
+  const emptyText=empty.textOf(empty.empty);assert.match(emptyText,/No matching rentals yet/);assert.match(emptyText,/Try changing your preferences or filters\./);
+  // While the ranking loads it says so and does not claim an empty result.
+  const loading=forYou({recommendationState:{...idleState,phase:'loading'}});
+  assert.match(loading.textOf(loading.header),/Finding matching rentals\.\.\./);assert.equal(loading.list.props.ListEmptyComponent,null);
+  // The screen keeps the For You title and tab.
+  assert.ok(nodes(empty.tree).some(n=>n.props?.children==='For You'));
 });
 
 test('Available Locations does not call an unknown error a verified network failure',()=>{

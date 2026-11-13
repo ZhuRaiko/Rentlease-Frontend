@@ -2,11 +2,6 @@
   "description": "Tests that already fail and are tolerated by `npm test` (scripts/run-tests.cjs) until they are fixed. A failing test that is NOT listed here fails the run. When a listed test passes, the run says so: delete its entry. Add an entry only on purpose, with a reason. Key = file + exact test name.",
   "failures": [
     {
-      "file": "tests/marketplaceWiring.test.ts",
-      "name": "navigation changes preserve backend boundaries and feature isolation",
-      "reason": "G7: usePropertyListingViewModel imports ../services/unfinishedPostDependencies, which is not on this test's service-import allow-list; held until it is decided that the module (which wires getSupabaseClient like the other allow-listed *Dependencies modules) may be added."
-    },
-    {
       "file": "tests/propertyExitGuard.test.ts",
       "name": "actual ViewModel saves valid listing details for the authoritative property and retains the real listing UUID",
       "reason": "G3: written for the screens before the posting wizard and run with an unconfigured propertyRoutine stub; not rewritten yet (see docs/implementation-reports/test-baseline-audit.md, G3)."
@@ -73,43 +68,8 @@
     },
     {
       "file": "tests/propertyWorkspacePresentation.test.ts",
-      "name": "composer renders before persistence with local media and physical/location controls",
-      "reason": "G1a: now loads; the fixture lacks mediaItems, amenityState and selectedAmenityIds that ListingComposerView reads (stale test fixture)."
-    },
-    {
-      "file": "tests/propertyWorkspacePresentation.test.ts",
       "name": "physical composer marks only actively required fields and locates first validation issue",
-      "reason": "G1a: now loads; expects a required \"Location\" FieldLabel (removed) and the label \"Address line 1\" (now \"Street address\")."
-    },
-    {
-      "file": "tests/propertyWorkspacePresentation.test.ts",
-      "name": "location hint is at the location controls and disappears after confirmed handoff",
-      "reason": "G1a: now loads; looks for a \"Location\" FieldLabel, which is now a header Text (the location CompletenessHint is still rendered)."
-    },
-    {
-      "file": "tests/propertyWorkspacePresentation.test.ts",
-      "name": "saved physical property is a read-only summary instead of disabled creation controls",
-      "reason": "G1a: now loads; expects the copy \"read-only\", the saved summary now says \"Details are saved. Use Edit Property to make changes.\""
-    },
-    {
-      "file": "tests/propertyWorkspacePresentation.test.ts",
-      "name": "Stage 1 ordinary Property presentation has no validation checklist or action inside the scroll body",
-      "reason": "G1a: now loads; the fixture lacks fields ListingComposerView now reads (mediaItems, photoState, amenityState) (stale test fixture, inferred)."
-    },
-    {
-      "file": "tests/propertyWorkspacePresentation.test.ts",
-      "name": "Stage 2 Property has no large inline completeness block and keeps contextual field hints",
-      "reason": "G1a: now loads; the fixture lacks photoState and other fields ListingComposerView now reads (stale test fixture, inferred)."
-    },
-    {
-      "file": "tests/searchRuntimeCorrections.test.ts",
-      "name": "For You is a community placeholder with search CTA and no GPS or fabricated content",
-      "reason": "G1b: now loads, but For You is no longer a community placeholder (it shows ranked recommendations), so the test describes a replaced screen."
-    },
-    {
-      "file": "tests/searchRuntimeCorrections.test.ts",
-      "name": "For You empty state grows into available space with centered content and scrollable overflow",
-      "reason": "G1b: now loads, but For You is no longer a community placeholder (it shows ranked recommendations), so the test describes a replaced screen."
+      "reason": "G1a: held on purpose (assertions not edited yet). Now loads; expects a required \"Location\" FieldLabel (removed; the rule is enforced by propertyValidationIssues and the footer Continue gate), and the label \"Address line 1\" (now \"Street address\")."
     }
   ]
 }
