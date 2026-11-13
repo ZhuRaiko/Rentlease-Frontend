@@ -1,4 +1,5 @@
 import { listingCompleteness, type CompletenessInput } from '../src/features/property-listing/models/ListingCompleteness';
+import { emptyDraftProperty, hasConfirmedPropertyLocation, propertyCityOptions, propertyLocationNotice, propertyValidationIssues } from '../src/features/property-listing/models/DraftProperty';
 /// <reference types="node" />
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -118,7 +119,75 @@ test('gallery swipe navigation reuses existing pinch/pan implementation and nume
 });
 
 function flatten(node:any):any[]{return node&&typeof node==='object'?[node,...[node.props?.children].flat(Infinity).flatMap(flatten)]:[];}
-test('physical composer marks only actively required fields and locates first validation issue',()=>{const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');const vm:any={workspacePropertyId:null,propertyState:{draft:{amenityIds:[],propertyType:null},loaded:true},propertyCreation:{},propertySummary:{},propertyValidationIssue:{field:'barangay',message:'Enter the property barangay.'}};const nodes=flatten(render({viewModel:vm}));const labels=nodes.filter(n=>n.type==='FieldLabel'&&n.props.required).map(n=>n.props.label);assert.deepEqual(labels,['Property type','City','Location']);const requiredInputs=nodes.filter(n=>n.type==='ListingField'&&n.props.required).map(n=>n.props.label);assert.deepEqual(requiredInputs,['Barangay','Address line 1']);assert.equal(nodes.find(n=>n.type==='ListingField'&&n.props.label==='Barangay').props.error,'Enter the property barangay.');assert.equal(nodes.some(n=>n.props.required&&String(n.props.label).includes('optional')),false);});
+// Read from the rendered output (not inferred). Bedrooms and Bathrooms are required inputs because propertyValidationIssues
+// returns a 'required' issue for an empty value (see the model test below). Location is NOT a required FieldLabel any more:
+// the model rule and the Continue gate enforce it, and the Location section explains it (see the Location tests below).
+test('physical composer marks only actively required fields and locates first validation issue',()=>{const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');const vm:any={workspacePropertyId:null,propertyState:{draft:{amenityIds:[],propertyType:null},loaded:true},propertyCreation:{},propertySummary:{},propertyValidationIssue:{field:'barangay',message:'Enter the property barangay.'}};const nodes=flatten(render({viewModel:vm}));const labels=nodes.filter(n=>n.type==='FieldLabel'&&n.props.required).map(n=>n.props.label);assert.deepEqual(labels,['Property type','City']);const requiredInputs=nodes.filter(n=>n.type==='ListingField'&&n.props.required).map(n=>n.props.label);assert.deepEqual(requiredInputs,['Bedrooms','Bathrooms','Barangay','Street address']);assert.equal(nodes.find(n=>n.type==='ListingField'&&n.props.label==='Barangay').props.error,'Enter the property barangay.');assert.equal(nodes.some(n=>n.props.required&&String(n.props.label).includes('optional')),false);
+  // The optional address fields and optional rental facts are never marked required.
+  assert.deepEqual(nodes.filter(n=>n.type==='ListingField'&&!n.props.required).map(n=>n.props.label),['Floor area (sqm, optional)','Maximum occupants (optional)','Building or subdivision (optional)','Postal code (optional)','Entrance instructions (private, optional)']);
+});
+test('the view marks exactly the fields the model requires: Bedrooms and Bathrooms are required by both',()=>{
+  const complete={...emptyDraftProperty(),propertyType:'apartment' as const,city:propertyCityOptions[0]!.value,barangay:'Anabu',addressLine1:'12 Main Street',bedrooms:'2',bathrooms:'1',exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.41,publicLongitude:120.91};
+  assert.deepEqual(propertyValidationIssues(complete),[]);
+  // Each required field, emptied alone, is a 'required' issue for that field (the model's required set).
+  const required=(['propertyType','city','barangay','addressLine1','bedrooms','bathrooms'] as const).filter(field=>propertyValidationIssues({...complete,[field]:field==='propertyType'||field==='city'?null:''}).some(issue=>issue.field===field&&issue.kind==='required'));
+  assert.deepEqual(required,['propertyType','city','barangay','addressLine1','bedrooms','bathrooms']);
+  // Optional fields, emptied, never produce an issue.
+  for(const field of ['floorAreaSqm','maxOccupants','addressLine2','postalCode','accessInstructions','floorNumber','totalFloors'] as const)assert.deepEqual(propertyValidationIssues({...complete,[field]:''}),[],field);
+  // The view's required marks, in the same terms (labels are FieldLabel/ListingField labels).
+  const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');
+  const nodes=flatten(render({viewModel:{workspacePropertyId:null,propertyState:{draft:emptyDraftProperty(),loaded:true},propertyCreation:{},propertySummary:{}}}));
+  const marked=[...nodes.filter(n=>n.type==='FieldLabel'&&n.props.required).map(n=>n.props.label),...nodes.filter(n=>n.type==='ListingField'&&n.props.required).map(n=>n.props.label)];
+  assert.deepEqual(marked,['Property type','City','Bedrooms','Bathrooms','Barangay','Street address']);
+});
+test('a missing confirmed location is a required property issue, so the property form is not ready',()=>{
+  const draft={...emptyDraftProperty(),propertyType:'apartment' as const,city:propertyCityOptions[0]!.value,barangay:'Anabu',addressLine1:'12 Main Street',bedrooms:'2',bathrooms:'1'};
+  assert.equal(hasConfirmedPropertyLocation(draft),false);
+  // Everything else is valid, so the location issue is the only one, and it is a 'required' issue in the location section.
+  const issues=propertyValidationIssues(draft);
+  assert.deepEqual(issues.map(issue=>[issue.field,issue.section,issue.kind,issue.message]),[['location','location','required',propertyLocationNotice]]);
+  // A confirmed location (exact and public coordinates) clears it.
+  const confirmed={...draft,exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.41,publicLongitude:120.91};
+  assert.equal(hasConfirmedPropertyLocation(confirmed),true);assert.deepEqual(propertyValidationIssues(confirmed),[]);
+  // Partial or out-of-range coordinates are not a confirmation.
+  assert.equal(hasConfirmedPropertyLocation({...confirmed,publicLongitude:null}),false);assert.equal(hasConfirmedPropertyLocation({...confirmed,exactLatitude:91}),false);
+  // propertyFormReady lives in the view model hook, which cannot render in this harness, so its two defining lines are pinned in
+  // source: the form is ready only with zero issues (the location requirement is on by default), and Continue is disabled otherwise.
+  const hook=readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts','utf8');
+  assert.match(hook,/const propertyIssues=workspace\.propertyId\?\[\]:propertyValidationIssues\(propertyState\.draft\);/);
+  assert.match(hook,/const propertyFormReady=!!workspace\.propertyId\|\|propertyIssues\.length===0;/);
+  assert.match(hook,/const propertyNextDisabled=[^\n]*\|\|!propertyFormReady;/);
+});
+test('Location section shows the map button, the confirm helper and the location error from the view model',()=>{
+  const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');
+  const address={city:propertyCityOptions[0]!.value,barangay:'Anabu',addressLine1:'12 Main Street'};
+  const confirmedPin={exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.41,publicLongitude:120.91};
+  const view=(draft:object,extra:object={})=>{const opened:string[]=[];const nodes=flatten(render({viewModel:{workspacePropertyId:null,propertyState:{draft:{...emptyDraftProperty(),...draft},loaded:true},propertyCreation:{},propertySummary:{},openPropertyLocation:()=>opened.push('open'),...extra}}));
+    return {opened,nodes,button:nodes.find(n=>n.type==='ListingButton'&&/location on map$/.test(String(n.props.label))),helper:nodes.find(n=>n.type==='Text'&&/^(Location confirmed|Confirm your address on the map to continue\.)$/.test(String(n.props.children)))};};
+  // No address yet: the button is present but disabled, and the helper tells the user what to do. The section is headed "Location".
+  const empty=view({});
+  assert.equal(empty.button.props.label,'Confirm location on map');assert.equal(empty.button.props.disabled,true);
+  assert.equal(empty.helper.props.children,'Confirm your address on the map to continue.');assert.equal(empty.helper.props.accessibilityLiveRegion,'polite');
+  assert.ok(empty.nodes.some(n=>n.type==='Text'&&n.props.accessibilityRole==='header'&&n.props.children==='Location'));
+  assert.ok(empty.nodes.some(n=>n.type==='Text'&&n.props.children==='Your exact pin stays private. Renters see an approximate location.'));
+  // Each address part is needed before the map can open.
+  for(const missing of ['city','barangay','addressLine1'] as const)assert.equal(view({...address,[missing]:missing==='city'?null:''}).button.props.disabled,true,missing);
+  // Complete address, not yet confirmed: the button is enabled and opens the map through the view model.
+  const ready=view(address);
+  assert.equal(ready.button.props.label,'Confirm location on map');assert.equal(ready.button.props.disabled,false);ready.button.props.onPress();assert.deepEqual(ready.opened,['open']);
+  assert.equal(ready.helper.props.children,'Confirm your address on the map to continue.');
+  // Confirmed: the helper says so and the button becomes a review action.
+  const confirmed=view({...address,...confirmedPin});
+  assert.equal(confirmed.button.props.label,'Review location on map');assert.equal(confirmed.helper.props.children,'Location confirmed');
+  // The location error comes from feedback('location'): visible-issues list first, then the single validation issue; absent otherwise.
+  const message='Confirm the property location before saving.';
+  const errorOf=(nodes:any[])=>nodes.find(n=>n.type==='Text'&&n.props.children===message);
+  const fromVisible=view(address,{propertyVisibleValidationIssues:[{field:'location',message}]}).nodes;
+  assert.equal(errorOf(fromVisible).props.accessibilityLiveRegion,'polite');
+  assert.ok(errorOf(view(address,{propertyValidationIssue:{field:'location',message}}).nodes));
+  assert.equal(errorOf(ready.nodes),undefined);
+  assert.equal(errorOf(view(address,{propertyVisibleValidationIssues:[{field:'barangay',message:'Enter the property barangay.'}]}).nodes),undefined);
+});
 test('listing details required title/rent/description preserve optional date and short-description hint',()=>{const render=presentation('src/features/property-listing/views/ListingDetailsView.tsx','ListingDetailsView');const tree=render({viewModel:{draft:{},propertySummary:{},mediaItems:[],propertyState:{draft:{}},photoState:{},listingDraftState:{},listingValidationIssue:{field:'title',message:'Enter a listing title.'}},onClose(){}});const nodes=flatten(tree);assert.deepEqual(nodes.filter(n=>n.type==='ListingField'&&n.props.required).map(n=>n.props.label),['Listing title','Monthly asking rent','Description']);assert.equal(nodes.find(n=>n.props.label==='Description').props.helper.props.factor,'description');assert.equal(nodes.find(n=>n.type==='AvailabilityDateField').props.required,undefined);assert.equal(nodes.find(n=>n.props.label==='House rules (optional)').props.required,undefined);});
 test('required label is accessible and asterisk is a separate semantic error color',()=>{const render=presentation('src/features/property-listing/components/FieldLabel.tsx','FieldLabel');const required=render({label:'City',required:true});assert.equal(required.props.accessibilityLabel,'City, required');assert.match(JSON.stringify(required),/\*/);assert.equal(render({label:'Bedrooms'}).props.accessibilityLabel,'Bedrooms');});
 test('completeness presentation distinguishes server score and local estimate without ranking claims',()=>{const render=presentation('src/features/property-listing/components/ListingCompletenessSummary.tsx','ListingCompletenessSummary');const local=JSON.stringify(render({value:{percent:75,meetsThreshold:false,source:'estimate',next:[]}}));assert.match(local,/Local estimate/);assert.match(local,/80%/);const server=JSON.stringify(render({value:{percent:80,meetsThreshold:true,source:'server',next:[]}}));assert.match(server,/Saved listing score/);assert.match(server,/other checks still apply/);assert.doesNotMatch(server,/boost|Match Score|ranking/);});
