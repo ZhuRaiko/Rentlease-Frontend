@@ -7,11 +7,15 @@ import { createNavigationConfirmation } from '../src/shared/viewModels/navigatio
 const read = (p: string) => readFileSync(p, 'utf8');
 test('bottom destination Back is distinct from explicit Profile entry', () => {
   const app = read('App.tsx');
-  for (const name of ['OwnedPropertiesWorkspace', 'MessagingViewingFlowView', 'MaintenanceRequestsFlowView']) {
+  for (const name of ['OwnedPropertiesWorkspace', 'MessagingViewingFlowView']) {
     const flow = app.split(`<${name}`)[1]?.split(name==='MessagingViewingFlowView'?'</View>':'/>')[0] ?? '';
-    if(name==='MessagingViewingFlowView'){assert.match(app,/onRootBack=\{openDiscovery\}/);assert.match(flow,/returnToListing/);assert.match(flow,/setInquiryConversation\(null\)/);}else if(name==='MaintenanceRequestsFlowView')assert.match(flow,/onRootBack=\{\(\)=>setWorkspace\(\{type:'tenancy'\}\)\}/);else assert.match(flow, /onRootBack=\{openDiscovery\}/);
+    if(name==='MessagingViewingFlowView'){assert.match(app,/onRootBack=\{openDiscovery\}/);assert.match(flow,/returnToListing/);assert.match(flow,/setInquiryConversation\(null\)/);}else assert.match(flow, /onRootBack=\{openDiscovery\}/);
     assert.match(flow, /onClose=\{openProfile\}/);
   }
+  // Maintenance is mounted as TenancyCareWorkspaceView: Back returns to the Tenancy workspace (it has no Profile close action).
+  const maintenance = app.split('<TenancyCareWorkspaceView')[1]?.split('/>')[0] ?? '';
+  assert.match(maintenance, /onBack=\{\(\)=>setWorkspace\(\{type:'tenancy'\}\)\}/);
+  assert.match(maintenance, /registerBackAction=\{registerWorkspaceBack\}/);
   assert.match(app,/TenancyWorkspaceView[^\n]*onBack=\{openDiscovery\}/);
   assert.match(app.split('<SearchDiscoveryFlowView')[1] ?? '', /onRootBack=\{requestMarketplaceExit\}/);
 });

@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 import ts from 'typescript';
 import type { GpsProximityDependencies } from '../src/features/search-discovery/viewModels/gpsProximityWorkflow';
 import type { SearchDiscoveryViewModel } from '../src/features/search-discovery/viewModels/useSearchDiscoveryViewModel';
+import { sharedStub } from './support/sharedStubs';
 
 // Real hook, workflow and navigation guard; native/device/backend ports and React scheduler only are replaced.
 function mount(dependencies: GpsProximityDependencies) {
@@ -24,7 +25,7 @@ function mount(dependencies: GpsProximityDependencies) {
   const load = (path: string): any => {
     const absolute = resolve(path); if (cache.has(absolute)) return cache.get(absolute);
     const actual = createRequire(absolute), module = { exports: {} as any };
-    const req = (name: string): any => name === 'react' ? hooks : name.endsWith('/usePublicIdentitiesViewModel') ? {usePublicIdentitiesViewModel:()=>({})} : name.endsWith('/recommendationDependencies') ? {recommendationService:{user:async()=>accountId,load:async()=>({candidates:[],limited:false,scanned:0})}} : name.endsWith('/manualSearchDependencies') ? { manualSearchService: manualService } : name.endsWith('/gpsProximityDependencies') ? { gpsProximityDependencies: dependencies } : name.startsWith('.') ? load(resolve(absolute, '..', name + '.ts')) : actual(name);
+    const req = (name: string): any => name === 'react' ? hooks : name.endsWith('/usePublicIdentitiesViewModel') ? {usePublicIdentitiesViewModel:()=>({})} : name.endsWith('/recommendationDependencies') ? {recommendationService:{user:async()=>accountId,load:async()=>({candidates:[],limited:false,scanned:0})}} : name.endsWith('/manualSearchDependencies') ? { manualSearchService: manualService } : name.endsWith('/gpsProximityDependencies') ? { gpsProximityDependencies: dependencies } : name.endsWith('/supabase/client') ? { getSupabaseClient: () => { throw Error('The Supabase client must not be reached from the Discovery hook in this test.'); } } : sharedStub(absolute, name) ?? (name.startsWith('.') ? load(resolve(absolute, '..', name.endsWith('.ts') ? name : name + '.ts')) : actual(name));
     const code = ts.transpileModule(readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
     new Function('require', 'module', 'exports', code)(req, module, module.exports); cache.set(absolute, module.exports); return module.exports;
   };
@@ -87,6 +88,7 @@ function presentation(path: string, name: string) {
     if (key.endsWith('/DiscoveryControls')) return { DiscoveryButton: 'DiscoveryButton', DiscoveryChip: 'DiscoveryChip', DiscoveryHeader: 'DiscoveryHeader' };
     if (key.endsWith('/DiscoveryIcon')) return { DiscoveryIcon: 'DiscoveryIcon' };
     if (key.endsWith('/NearbyListingCard')) return { NearbyListingCard: 'NearbyListingCard' };
+    const shared = sharedStub(absolute, key); if (shared) return shared;
     return actual(key);
   };
   const code = ts.transpileModule(readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;

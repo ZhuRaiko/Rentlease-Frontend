@@ -25,8 +25,9 @@ test('restart during email/phone/role onboarding retains a pending account marke
   controller = createMarketplaceIntroduction(h.service); h.account.user.email_confirmed_at = 'confirmed'; h.account.profile.tier1_verified_at = null;
   await controller.check(h.account); assert.equal(controller.getSnapshot().status, 'idle'); controller.dispose();
   controller = createMarketplaceIntroduction(h.service); h.account.profile.tier1_verified_at = 'confirmed'; h.account.roles = [];
-  await controller.check(h.account); assert.equal(controller.getSnapshot().status, 'idle');
-  h.account.roles = ['landlord']; await controller.check(h.account); assert.equal(controller.getSnapshot().status, 'required');
+  // Roles no longer gate the marketplace intro (unified tenant/landlord account): a verified user with no roles is offered it too.
+  await controller.check(h.account); assert.equal(controller.getSnapshot().status, 'required');
+  h.account.roles = ['landlord']; await controller.check(h.account, true); assert.equal(controller.getSnapshot().status, 'required');
   assert.equal(await h.service.read(h.account.user.id), 'pending');
 });
 test('opening is not completion; logout/restart reoffers pending while explicit Save/Skip survives future sign-ins', async () => {

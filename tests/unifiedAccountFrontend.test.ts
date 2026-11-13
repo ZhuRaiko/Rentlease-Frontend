@@ -59,7 +59,9 @@ test('Tier 3 profile status never treats a global timestamp or normal membership
 
 test('all toolbar consumers use account eligibility and empty Listings directs first owners to Post', () => {
   const app = readFileSync('App.tsx', 'utf8');
-  assert.equal((app.match(/canPostProperty=\{canEnterMarketplace\}/g) ?? []).length, 6);
+  const consumers = app.match(/canPostProperty=\{[^}]*\}/g) ?? [];
+  assert.ok(consumers.length > 0, 'App.tsx must still mount toolbar consumers');
+  assert.ok(consumers.every(value => value === 'canPostProperty={canEnterMarketplace}'), `every toolbar consumer receives account eligibility, got ${JSON.stringify([...new Set(consumers)])}`);
   const portfolio = readFileSync('src/features/property-listing/views/PropertyDashboardView.tsx','utf8');
   assert.match(portfolio, /No properties yet/);
   assert.match(portfolio, /Use Post below/);

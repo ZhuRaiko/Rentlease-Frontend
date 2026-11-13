@@ -58,7 +58,13 @@ test('curved Profile identity preserves editing, account content and scalable te
   const profile = read('src/features/authentication/views/ProfileView.tsx');
   assert.match(profile, /<ProfileAvatar initials=\{initials\}/);
   assert.doesNotMatch(profile, /styles.backdropLayer/);
-  assert.match(read('src/features/authentication/components/ProfileAvatar.tsx'), /backgroundColor: colors.primaryAction/);
+  // The Profile avatar is a thin wrapper around the shared PublicAvatar (consented public identity), which owns the circle styling.
+  const avatar = read('src/features/authentication/components/ProfileAvatar.tsx');
+  assert.match(avatar, /import \{ ?PublicAvatar ?\} from '..\/..\/..\/shared\/components\/PublicIdentityBadge'/);
+  assert.match(avatar, /<PublicAvatar size=\{diameter\}/);
+  const publicAvatar = read('src/shared/components/PublicIdentityBadge.tsx');
+  assert.match(publicAvatar, /avatar:\{backgroundColor:colors\.surfaceStrong/);
+  assert.doesNotMatch(publicAvatar, /backgroundColor:\s*'#|rgba?\(/, 'the avatar fill comes from a theme token');
   const summary = read('src/features/authentication/components/AccountVerificationSummary.tsx');
   assert.doesNotMatch(summary, /item.detail|rowBody:|styles.rowHeading/);
   assert.match(summary, /flexWrap: 'wrap'/);
@@ -109,7 +115,8 @@ test('calmer Profile places name with avatar, removes the extra eyebrow and keep
   const identity = profile.split('<View style={styles.identityTop}>')[1]?.split('profile.bio')[0] ?? '';
   assert.match(identity, /<ProfileAvatar/);
   assert.match(identity, /styles.membership/);
-  assert.match(identity, /styles.name.*viewModel.displayName/);
+  assert.match(identity, /styles.name.*publicIdentity\?\.nickname\?\?'RentLease member'/, 'the name beside the avatar is the public nickname');
+  assert.doesNotMatch(identity, /styles.name[^\n]*viewModel.displayName/, 'the private display name is not shown beside the avatar');
   assert.doesNotMatch(profile, /Make it yours|Your RentLease|styles.eyebrow|fontSize: 34/);
   assert.match(profile, /'Preferences'/);
   assert.match(profile, /minWidth: 0/);
@@ -119,11 +126,16 @@ test('calmer Profile places name with avatar, removes the extra eyebrow and keep
 test('avatar diameter preserves equal circular dimensions as accessibility fonts grow', () => {
   assert.equal(profileAvatarDiameter(1), 64);
   for (const scale of [1, 1.5, 2, 3]) assert.ok(profileAvatarDiameter(scale) >= 32 * scale + 24);
-  const source = read('src/features/authentication/components/ProfileAvatar.tsx');
-  assert.match(source, /width: diameter, height: diameter, borderRadius: diameter \/ 2/);
-  assert.match(source, /overflow: 'hidden'/);
+  // ProfileAvatar passes the scaled diameter to the shared PublicAvatar, which renders the equal-sided circle.
+  const wrapper = read('src/features/authentication/components/ProfileAvatar.tsx');
+  assert.match(wrapper, /profileAvatarDiameter\(fontScale\)/);
+  assert.match(wrapper, /<PublicAvatar size=\{diameter\}/);
+  const source = read('src/shared/components/PublicIdentityBadge.tsx');
+  assert.match(source, /width:size,height:size,borderRadius:size\/2/);
+  assert.match(source, /overflow:'hidden'/);
   assert.match(source, /resizeMode="cover"/);
-  assert.match(source, /initials \|\| '\?'/);
+  // Initials are no longer drawn (public identity is a photo or a neutral silhouette), so a private name never leaks into the avatar.
+  assert.doesNotMatch(wrapper, /initials \|\|/);
 });
 test('Profile and detailed verification share light status indicators without changing supplied labels', () => {
   for (const path of ['src/features/authentication/components/AccountVerificationSummary.tsx', 'src/features/user-verification/components/VerificationTierCard.tsx', 'src/features/user-verification/views/VerificationStatusView.tsx', 'src/features/user-verification/views/TierThreeVerificationView.tsx']) {

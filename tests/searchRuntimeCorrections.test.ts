@@ -57,6 +57,9 @@ function presentation(path:string,name:string){const full=resolve(path),actual=c
   if(key.endsWith('/SearchListingCard'))return{SearchListingCard:'SearchListingCard'};
   if(key.endsWith('/InterfaceIcon'))return{InterfaceIcon:'InterfaceIcon'};
   if(key.endsWith('/DiscoveryIcon'))return{DiscoveryIcon:'DiscoveryIcon'};
+  if(key.endsWith('/HeartIcon'))return{HeartIcon:'HeartIcon'};
+  if(key.endsWith('/SaveListingButton'))return{SaveListingButton:'SaveListingButton',SavedListingsFeedback:'SavedListingsFeedback'};
+  if(key.endsWith('/PublicIdentityBadge'))return{PublicAvatar:'PublicAvatar',PublicIdentityBadge:'PublicIdentityBadge'};
   return actual(key);
 };const code=ts.transpileModule(readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;new Function('require','module','exports',code)(req,mod,mod.exports);return mod.exports[name];}
 function nodes(tree:any):any[]{if(!tree||typeof tree!=='object')return[];return[tree,...[tree.props?.children].flat(Infinity).flatMap(nodes)];}

@@ -6,12 +6,19 @@ import { createNavigationConfirmation } from '../src/shared/viewModels/navigatio
 const read = (path: string) => readFileSync(path, 'utf8');
 
 for (const [feature, name] of [
-  ['messaging-viewing', 'MessagingViewing'], ['maintenance', 'MaintenanceRequests'],
+  ['messaging-viewing', 'MessagingViewing'],
   ['ratings-reports', 'RatingsReports'], ['notifications', 'Notifications'],
   ['rental-price-estimation', 'RentalPriceEstimation'], ['admin-moderation', 'AdminModeration'],
 ]) {
   test(`${name} registers feature-owned hardware Back and cleans it up`, () => {
     const flow = read(`src/features/${feature}/views/${name}FlowView.tsx`);
+    if(feature==='notifications'){
+      // Notifications now runs on the in-app notification workflow (the old permission-preview ViewModel is not mounted).
+      // The center registers Back to close only while no nested target is open; an open target owns its own Back via closeTarget.
+      assert.match(flow,/useEffect\(\(\)=>\{if\(active\)return;registerBackAction\?\.\(onClose\);return\(\)=>registerBackAction\?\.\(null\);\}\)/);
+      assert.match(flow,/renderTarget\(active,closeTarget\)/);
+      return;
+    }
     const vm = read(`src/features/${feature}/viewModels/use${name}ViewModel.ts`);
     if(feature==='messaging-viewing'){
       assert.match(flow,/registerBackAction\?\.\(back\)/);
@@ -21,10 +28,19 @@ for (const [feature, name] of [
     }else{
       assert.match(flow, /registerBackAction\?\.\(\(\) => viewModel.backFromWorkspace\(on(?:Close|RootBack)\)\)/);
       assert.match(flow, /return \(\) => registerBackAction\?\.\(null\)/);
-      assert.match(vm, /backFromWorkspace:.*onClose\(\); else goBack\(\)/);
+      // Same rule for every feature: a nested screen consumes Back first, and only an unconsumed Back closes the workspace.
+      if(feature==='rental-price-estimation')assert.match(vm, /backFromWorkspace:\(onClose:\(\)=>void\)=>\{if\(!workflow\.back\(\)\)onClose\(\);\}/);
+      else assert.match(vm, /backFromWorkspace:.*onClose\(\); else goBack\(\)/);
     }
   });
 }
+test('Maintenance Requests (the mounted TenancyCareWorkspaceView) registers hardware Back, closes a request before the workspace, and cleans up', () => {
+  const view = read('src/features/tenancy/views/TenancyCareWorkspaceView.tsx');
+  assert.match(view, /const back=\(\)=>\{if\(id\)setSelected\(null\);else onBack\(\);\}/);
+  assert.match(view, /useEffect\(\(\)=>\{registerBackAction\(back\);return\(\)=>registerBackAction\(null\);\}\)/);
+  assert.match(view, /<ScreenHeader title="Maintenance Requests" onBack=\{back\}\/>/);
+  assert.match(read('App.tsx'), /<TenancyCareWorkspaceView [\s\S]*?onBack=\{\(\)=>setWorkspace\(\{type:'tenancy'\}\)\} registerBackAction=\{registerWorkspaceBack\}\/>/);
+});
 test('Modal only dispatches current account/workspace Back, without bypassing feature guards', () => {
   const app = read('App.tsx');
   assert.match(app, /registered\?\.workspace === workspace && registered\?\.userId === auth.account\?\.user.id/);
