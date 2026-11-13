@@ -1,0 +1,48 @@
+import type { LandlordPortfolioItem } from './LandlordPortfolio';
+import { portfolioListingLabels, portfolioTierLabels } from './LandlordPortfolio';
+import { canReviewPortfolioPublication, propertyVerificationActionLabel } from './PropertyVerificationPresentation';
+
+/** Presentation decisions for one My Rentals card. Derived only from existing backend-derived fields; nothing is inferred. */
+export type PortfolioChipTone = 'neutral' | 'positive' | 'attention';
+export interface PortfolioChip { label: string; tone: PortfolioChipTone }
+
+export function portfolioStatusChip(item: LandlordPortfolioItem): PortfolioChip {
+  const status = item.currentListing?.status;
+  return { label: status ? portfolioListingLabels[status] : 'Not Listed', tone: status === 'active' ? 'positive' : 'neutral' };
+}
+
+export function portfolioVerificationChip(item: LandlordPortfolioItem): PortfolioChip {
+  const { tier3 } = item;
+  if (tier3.requiresRepair) return { label: 'Identity data repair required', tone: 'attention' };
+  switch (tier3.status) {
+    case 'approved': return tier3.identityBindingAvailable === false ? { label: 'Approval history (identity check pending)', tone: 'attention' } : { label: 'Property verified', tone: 'positive' };
+    case 'not_submitted': return { label: 'Ownership not verified', tone: 'attention' };
+    case 'pending': case 'under_review': return { label: portfolioTierLabels[tier3.status], tone: 'neutral' };
+    default: return { label: portfolioTierLabels[tier3.status], tone: 'attention' };
+  }
+}
+
+export type PortfolioActionKey = 'open' | 'editProperty' | 'editRental' | 'verification' | 'reviewPublication';
+export interface PortfolioAction { key: PortfolioActionKey; label: string }
+
+/**
+ * One primary action, at most one secondary beside it, the rest for the overflow menu. Labels and eligibility rules are the
+ * ones the card already used; only their grouping changed. Manage Requests is composed by the root, not here.
+ */
+export function portfolioCardActions(item: LandlordPortfolioItem): { primary: PortfolioAction; secondary: PortfolioAction | null; menu: PortfolioAction[] } {
+  const listing = item.currentListing, status = listing?.status, active = item.property.is_active;
+  const primary: PortfolioAction = { key: 'open', label: !listing || status === 'draft' ? 'Continue Editing' : status === 'active' || status === 'paused' ? 'Manage Status' : status === 'removed' ? 'View status' : 'View listing' };
+  const verificationLabel = item.tier3.requiresRepair ? null : propertyVerificationActionLabel(item.tier3.status);
+  const verification: PortfolioAction | null = verificationLabel ? { key: 'verification', label: verificationLabel } : null;
+  const editProperty: PortfolioAction | null = active && (!listing || !['draft', 'active', 'paused'].includes(status!)) ? { key: 'editProperty', label: 'Edit Property' } : null;
+  const editRental: PortfolioAction | null = listing && active && ['active', 'paused'].includes(status!) ? { key: 'editRental', label: 'Edit Rental' } : null;
+  const review: PortfolioAction | null = canReviewPortfolioPublication(item) ? { key: 'reviewPublication', label: 'Review Publication' } : null;
+  const order = !listing || status === 'draft' ? [review, verification, editProperty, editRental]
+    : status === 'active' || status === 'paused' ? [editRental, verification, editProperty, review]
+    : [editProperty, verification, editRental, review];
+  const available = order.filter((action): action is PortfolioAction => action !== null);
+  return { primary, secondary: available[0] ?? null, menu: available.slice(1) };
+}
+
+/** Request activity for one card, supplied by the root so this feature never imports messaging code. */
+export interface PortfolioRequestActivity { text: string | null; pending: boolean; error: string | null; onManage: () => void }

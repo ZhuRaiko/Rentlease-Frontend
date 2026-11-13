@@ -75,8 +75,9 @@ test('portfolio workflow ignores disposed or invalidated late responses', async 
 });
 test('dashboard contains only real property presentation and no mock metrics or clients', () => {
   const source = readFileSync('src/features/property-listing/views/PropertyDashboardView.tsx', 'utf8');
-  assert.doesNotMatch(source, /landlordListingPreviews|Figma|UC-06|OVERDUE|AVG RATING|TENANTED|inquiry|\.rpc\(|getSupabaseClient/);
-  assert.match(source, /portfolioItems\.map/); assert.match(source, /coverPhoto\.publicUrl/); assert.match(source, /portfolioStatistics/);
+  const card = readFileSync('src/features/property-listing/components/PortfolioRentalCard.tsx', 'utf8');
+  for (const text of [source, card]) assert.doesNotMatch(text, /landlordListingPreviews|Figma|UC-06|OVERDUE|AVG RATING|TENANTED|inquiry|\.rpc\(|getSupabaseClient/);
+  assert.match(source, /portfolioItems\.map/); assert.match(card, /coverPhoto\.publicUrl/); assert.match(source, /portfolioFilterCounts/);
   const flow = readFileSync('src/features/property-listing/views/PropertyListingFlowView.tsx', 'utf8'); assert.doesNotMatch(flow, /<FeedbackNotice|Check publication status|Check listing status|draft to reconcile/);
 });
 test('portfolio pagination retains properties beyond one page and chunks owner-confirmed cover queries', async () => {
@@ -99,7 +100,7 @@ test('portfolio refresh account invalidation clears previous owner rows and safe
 test('read-only portfolio loads two active listings and a draft without the undeployed edit schema or RPC',async()=>{
  const h=serviceHarness();h.rows.properties=[p,{...p,id:'20000000-0000-4000-8000-000000000002'},{...p,id:'20000000-0000-4000-8000-000000000003'}];
  h.rows.listings=[listing('active'),{...listing('active','40000000-0000-4000-8000-000000000002'),property_id:h.rows.properties[1]!.id},{...listing('draft','40000000-0000-4000-8000-000000000003'),property_id:h.rows.properties[2]!.id}];h.legacy();
- const flow=createLandlordPortfolioWorkflow(h.service);await flow.load();const state=flow.getSnapshot();assert.equal(state.error,null);assert.equal(state.loaded,true);assert.equal(state.items.length,3);assert.deepEqual(flow.stats(),{properties:3,published:2,drafts:1,rented:0});
+ const flow=createLandlordPortfolioWorkflow(h.service);await flow.load();const state=flow.getSnapshot();assert.equal(state.error,null);assert.equal(state.loaded,true);assert.equal(state.items.length,3);assert.deepEqual(flow.filterCounts(),{all:3,published:2,drafts:1,rented:0});
  assert.deepEqual(state.items.flatMap(i=>i.listings.map(l=>l.id)),h.rows.listings.map(l=>l.id));assert.equal(state.items[0]?.tier3.status,'pending');assert.ok(state.items[0]?.coverPhoto);assert.ok(h.calls.every(c=>!c.columns.split(',').includes('edit_version')));
  // The mock client has no RPC method: loading cannot depend on update_listing_draft.
 });

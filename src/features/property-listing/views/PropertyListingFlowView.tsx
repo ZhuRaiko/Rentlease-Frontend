@@ -5,6 +5,7 @@ import {UnfinishedPostDeletionAction} from '../components/UnfinishedPostDeletion
 import {RentalPriceGuidance} from '../../../shared/components/RentalPriceGuidance';
 import {InlineRentalEstimate} from '../../../shared/components/InlineRentalEstimate';
 import type {LandlordPortfolioItem} from '../models/LandlordPortfolio';
+import type {PortfolioRequestActivity} from '../models/PortfolioCardPresentation';
 import {PropertyIdentityEditView} from './PropertyIdentityEditView';
 import {PropertyRoutineEditView} from './PropertyRoutineEditView';
 import { ListingDraftSavedView } from './ListingDraftSavedView';
@@ -27,7 +28,7 @@ import { PropertyDashboardView } from './PropertyDashboardView';
 
 export interface PropertyListingFlowViewProps {
  accountId?:string|undefined;
- renderRequestControls?:((item:LandlordPortfolioItem)=>ReactNode)|undefined;
+ requestActivity?:((item:LandlordPortfolioItem)=>PortfolioRequestActivity|null)|undefined;
   renderPropertyVerification?: (propertyId:string,onClose:()=>void,registerBack:(action:(()=>void)|null)=>void)=>ReactNode;
   initialScreen?: 'dashboard' | 'postingType';
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
@@ -69,7 +70,7 @@ const managementScreens = new Set([
 export function PropertyListingFlowView({
   accountId,
   renderPropertyVerification,
-  renderRequestControls,
+  requestActivity,
   initialScreen = 'dashboard',
   registerBackAction,
   onClose,
@@ -95,7 +96,7 @@ export function PropertyListingFlowView({
   if(viewModel.screen!=='dashboard'&&viewModel.unfinishedPostState.status?.propertyId===viewModel.workspacePropertyId&&viewModel.unfinishedPostState.status?.state==='cleanup_pending'){
     content=<View style={{padding:24,gap:12}}><Text accessibilityRole="header">Finishing post deletion</Text><Text>The post was removed. Owned photos still need cleanup. Retry below, or return to My Rentals.</Text><ListingButton label="Back to My Rentals" tone="outline" disabled={viewModel.unfinishedPostState.busy} onPress={viewModel.goDashboard}/></View>;
   } else if (viewModel.screen === 'dashboard' || viewModel.screen === 'empty') {
-    content = <PropertyDashboardView viewModel={viewModel} renderRequestControls={renderRequestControls}/>;
+    content = <PropertyDashboardView viewModel={viewModel} requestActivity={requestActivity}/>;
   } else if (viewModel.screen === 'published' && viewModel.showRealPublication && viewModel.realListing) {
     content = <PublishedListingStatusView estimateSection={estimateSection} viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'identityEdit') {

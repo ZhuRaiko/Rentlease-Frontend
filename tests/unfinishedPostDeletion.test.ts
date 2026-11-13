@@ -67,7 +67,7 @@ test('unknown Edge outcome reconciles read-only instead of resending; confirmed 
 });
 test('UI uses restrained destructive action and explicit irreversible confirmation; wording distinguishes property/listing',()=>{
  const ui=readFileSync('src/features/property-listing/components/UnfinishedPostDeletionAction.tsx','utf8');assert.match(ui,/Delete Unfinished Post/);assert.match(ui,/Delete Permanently/);assert.match(ui,/This cannot be undone/);assert.match(ui,/state.status.eligible/);assert.match(ui,/state.pending.filter/);
- const dashboard=readFileSync('src/features/property-listing/views/PropertyDashboardView.tsx','utf8');for(const label of ['Post a Rental','Continue Posting','Edit Property','Edit Listing','Not Listed','My Rentals'])assert.ok(dashboard.includes(label));assert.ok(!dashboard.includes('Continue draft'));
+ const dashboard=readFileSync('src/features/property-listing/views/PropertyDashboardView.tsx','utf8')+readFileSync('src/features/property-listing/models/PortfolioCardPresentation.ts','utf8');for(const label of ['Continue Editing','Edit Property','Edit Rental','Not Listed','My Rentals'])assert.ok(dashboard.includes(label),label);assert.ok(!dashboard.includes('Post a Rental'),'posting stays in the navbar');assert.ok(!dashboard.includes('Continue draft'));
 });
 
 
