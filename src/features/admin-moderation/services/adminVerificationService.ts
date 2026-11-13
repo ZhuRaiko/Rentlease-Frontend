@@ -72,7 +72,7 @@ export function createAdminVerificationService(getClient: () => SupabaseClient<D
           if(result.error)throw result.error;
           const c=result.data as unknown as IdentityReviewContext;
           if(!c||typeof c.submission_version!=='string'||typeof c.property_version!=='string'||!c.current||!c.proposed||c.requires_repair)throw new Error('Identity review context unavailable.');
-          identity=c;
+          identity={...c,open_tenancy:c.open_tenancy===true};
         }
         return { item, documents: data ?? [], ...(identity?{identity}:{}) };
       } catch (error) { throw { ...normalizeError(error), message: specificOr(error, 'Could not load this verification submission. Refresh the queue and try again.') }; }

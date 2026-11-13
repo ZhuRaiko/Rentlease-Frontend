@@ -40,6 +40,8 @@ export function createAdminVerificationQueue(service: AdminVerificationService) 
     if (disposed || state.reviewBusy || state.reviewNeedsRefresh || state.detailStatus !== 'success' || !state.detail) return [];
     return state.detail.item.status === 'pending' ? ['under_review'] : state.detail.item.status === 'under_review' ? ['approved', 'rejected'] : [];
   };
+  // Server rule: a correction cannot be approved while a tenancy is open (promote() refuses). Show the reason instead of letting Approve fail.
+  const approveBlockedReason = (): string | null => state.detail?.identity?.open_tenancy === true ? 'Approval is unavailable while this property has an open tenancy: its identity cannot change until the tenancy ends. You can still reject this review.' : null;
   return {
     getSnapshot: () => state,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
@@ -47,8 +49,10 @@ export function createAdminVerificationQueue(service: AdminVerificationService) 
     canViewPrivateDocument,
     closePrivateDocument,
     reviewActions,
+    approveBlockedReason,
     requestReview(status: AdminReviewStatus) {
       if (!reviewActions().includes(status)) return;
+      if (status === 'approved' && approveBlockedReason()) return;
       closePrivateDocument(); update({ reviewDialog: status, rejectionReason: '', sameAssetConfirmed:false, reviewError: null, reviewNotice: null });
     },
     cancelReview() { if (!state.reviewBusy) update({ reviewDialog: null, rejectionReason: '' }); },
@@ -57,6 +61,7 @@ export function createAdminVerificationQueue(service: AdminVerificationService) 
     async confirmReview(): Promise<boolean> {
       const status = state.reviewDialog; const detail = state.detail;
       if (!status || !detail || !reviewActions().includes(status)) return false;
+      if (status === 'approved' && approveBlockedReason()) { update({ reviewError: approveBlockedReason() }); return false; }
       const reason = state.rejectionReason.trim();
       if (status === 'rejected' && !reason) { update({ reviewError: 'Enter a rejection reason.' }); return false; }
       if(status==='approved'&&detail.identity?.same_asset_required&&!state.sameAssetConfirmed){update({reviewError:'Confirm the evidence corrects the same physical property.'});return false;}

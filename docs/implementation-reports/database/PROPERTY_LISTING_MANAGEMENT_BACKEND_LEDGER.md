@@ -1913,3 +1913,53 @@ Presentation-only form grouping, mounted disclosure/focus handling, media layout
 ### T8-B frontend reuse - November 11, 2026
 
 No permanent live backend mutation or inspection was performed. Unified editor reuses existing property routine/versioned receipts, draft and published-content services, photos and correction contracts. No migration, RLS, Storage, Edge, model or deployment change. Property/photo/listing writes remain separate existing operations; local synthetic tests do not attest hosted caller authorization.
+
+
+## November 12, 2026 - identity/tenancy gate: live read-only inspection and prepared migration (NOT APPLIED)
+
+| Field | Entry |
+| --- | --- |
+| Date | Executed 2026-11-12 (about 16:35-17:10 UTC); recorded 2026-11-12 |
+| Feature/phase | Property identity verification and tenancy; entry IDENTITY-TENANCY-GATE-2026-11-12 |
+| Actor/tool | Claude Code with Supabase CLI 2.122.0 (`db query --linked`, read-only) |
+| Environment/project | Live project `cxfsbwbwmwmgtqfonqth`, linked session, no secrets recorded |
+| Classification | READ_ONLY_INSPECTION (live); local disposable-container tests only |
+| Target | Definitions of `manage_property_identity`, `begin_property_identity_verification`, `get_admin_property_identity_review`, `establish_tenancy`, `rentlease_property_identity.promote`, helpers `lock_owner`, `require_ready`, `submission_json`, `verified`, `snapshot`, `rentlease_tenancy_setup.context`, `request_rental_reservation`; counts of corrections by status and open tenancies; overlap of draft/submitted corrections with open tenancies |
+| Action | SELECT-only catalog queries (`pg_get_functiondef`, `md5(prosrc)`, owners, ACLs, config) and aggregate counts. Pins confirmed live: begin 79d82e94..., establish 975614f0..., get_admin review 2f59d557..., manage c11e5b96..., promote e4de0578.... The hosted bodies contain carriage returns; the pins are over those exact bytes |
+| Result | No overlap: 1 correction total (`applied`), 0 open tenancies. Migration `20261112164000_identity_tenancy_gate.sql`, rollback and 66-check disposable-container harness prepared |
+| Durable effect | None on the hosted project |
+| Rollback/cleanup | Not applicable (nothing applied). Disposable containers removed |
+| Security/RLS | Prepared change adds server-side gates only; owners, ACLs, security definer and search_path unchanged by design (verified in the container). Hosted behavior unverified |
+| Source-controlled backend file | `supabase/migrations/20261112164000_identity_tenancy_gate.sql`; rollback `supabase/test-support/identity_tenancy_gate_rollback.sql`; fixture `identity_tenancy_gate_baseline.sql`; harness `supabase/tests/run_identity_tenancy_gate.py`; notes `supabase/test-support/IDENTITY_TENANCY_GATE.md` |
+| Android/client runtime | RUNTIME-UNVERIFIED |
+
+No backup was taken for this migration yet; it must be retaken immediately before applying. No permanent live backend mutation was performed in this phase.
+
+
+## November 12, 2026 - HOSTED_MIGRATION 20261112164000_identity_tenancy_gate applied
+
+Supersedes the "prepared, NOT APPLIED" state in the entry above. Authorized by the user ("apply ONLY ... using the same direct method as the admin-access migration").
+
+| Field | Entry |
+| --- | --- |
+| Date | Executed 2026-11-12 at about 17:08 UTC (2026-11-13 01:08 local, UTC+8); recorded 2026-11-12 |
+| Feature/phase | Property identity verification and tenancy; entry HOSTED-IDENTITY-TENANCY-GATE-2026-11-12 |
+| Actor/tool | Claude Code, Supabase CLI 2.122.0, on explicit user authorization |
+| Environment/project | Live project `cxfsbwbwmwmgtqfonqth`, linked CLI session, no secrets recorded |
+| Classification | HOSTED_MIGRATION, FUNCTION_CHANGE |
+| Target | `public.manage_property_identity`, `public.begin_property_identity_verification`, `public.establish_tenancy`, `public.get_admin_property_identity_review` (patched); `rentlease_property_identity.promote` (pinned, untouched); one history row |
+| Pre-checks | 40 remote history rows, latest `20261112155016`; five live md5(prosrc) equal the pins; file SHA-256 `2bdd6872d2155794d33f2f6d69981f0af4a118a1d6be991c5571c5330eda7c68` (raw equals LF-normalized, no CR); backup `C:\RentLease-Backups\identity-gating-predeploy-20261112-170222` re-hashed 30 entries, 0 mismatches |
+| Commands | `supabase.cmd db query --linked -f supabase/migrations/20261112164000_identity_tenancy_gate.sql` (one `begin`/`commit` transaction with md5 pins, expected-text-exactly-once, reversibility and posture guards; exit 0, no error). Then `supabase.cmd migration repair --status applied 20261112164000 --linked` (`repairAll: false`, that version only). `db push` was NOT run; no other repair of any kind |
+| History | 40 rows to 41 rows; latest `20261112164000` named `identity_tenancy_gate`; hosted version equals the local filename |
+| md5(prosrc) before to after | begin `79d82e9403a5f04511b53b25ed8b695d` to `e85a7a614a434d6dd1ff0ca95f7cba3f`; establish_tenancy `975614f0e93a64eda006f25af4b1e7b3` to `c1087cdf8272d971cba9208bff4f56fd`; get_admin_property_identity_review `2f59d5579001d78cb2a8b8d40003d96a` to `61668a69861507660c208934ec3eaca6`; manage_property_identity `c11e5b963e27ffd7601fb161def042fe` to `16c510bb917d7d58a8d41fa5237da664`; promote `e4de0578032cae920f8f73b3a6f20b92` UNCHANGED |
+| Posture | Owner, ACL, security definer, `search_path=pg_catalog` and volatility of all five functions identical to both the fresh pre-apply snapshot and the backup catalog |
+| New text | `position()` of the exact inserted text taken from the migration file is greater than 0 in each of the four patched functions (manage 2550, begin 1468, establish 1994, get_admin review 620); the review function source contains `open_tenancy`; `promote` unchanged |
+| Row counts | tenancies 2 to 2, corrections 1 to 1, verification_submissions 14 to 14, listings 11 to 11 (counts unchanged). Content fingerprints unchanged for tenancies, corrections and verification_submissions. The `listings` fingerprint changed: an active listing's `updated_at` is 17:08:00 UTC, inside the apply minute. The migration contains no listing writes (it only replaces function bodies; the disposable-container check "migration changes no data" passed), so this is most likely live app activity, but attribution cannot be proven from this evidence |
+| Post-check method | Read-only catalog and count queries only. No test fixtures or rolled-back transactions were run on the production database |
+| Durable effect | Four replaced function bodies and one history row. No data change by the migration |
+| Rollback/cleanup | Not executed. `supabase/test-support/identity_tenancy_gate_rollback.sql` is available and was tested in a disposable container (restores byte-identical bodies); the pre-migration bodies are in the backup catalog |
+| Security/RLS | Server-side gates only; owners, ACLs, security definer and search_path unchanged. Behavior of the gates on the hosted project is covered by the 66 disposable-container checks and was not exercised on production |
+| Source-controlled backend file | `supabase/migrations/20261112164000_identity_tenancy_gate.sql` (its header comment "LOCAL ONLY. NOT APPLIED." is now historical; the applied file is not edited) |
+| Android/client runtime | RUNTIME-UNVERIFIED. Frontend still pending: the landlord tenancy-setup screen shows its generic "not permitted" message for "Resolve the pending identity review first." (proposed fix awaiting go-ahead) |
+
+Known migration-history drift (11 renamed local/remote pairs) remains as recorded in the November 13 admin-access entry in `REPORTING_MODERATION_BACKEND_LEDGER.md`; the same direct method was used. This entry records one permanent live backend mutation: the migration and the single history row above.

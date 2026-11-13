@@ -7,6 +7,8 @@ export interface PropertyIdentitySnapshot {
 export interface IdentityReviewContext {
  submission_version:string;property_version:string;current_revision_id:string;
  current:PropertyIdentitySnapshot;proposed:PropertyIdentitySnapshot;correction_id:string|null;correction_version:string|null;same_asset_required:boolean;requires_repair:boolean;
+ /** Additive (server migration 20261112164000): true while the property has a proposed, pending or active tenancy. Absent on older backends. */
+ open_tenancy?:boolean;
 }
 export const identityDisplayFields = [
  ['property_type','Property type'],['city','City'],['barangay','Barangay'],['address_line_1','Address line 1'],['address_line_2','Address line 2 / unit'],['postal_code','Postal code'],['floor_number','Rental floor'],
