@@ -69,7 +69,7 @@ test('Matching Preferences Save and Skip stay outside the scrolling form and ret
 
 test('Admin queue pulls authoritative data and retains contextual retry plus loading and review locks', () => {
   const queue = read(admin + 'views/AdminQueueView.tsx');
-  assert.match(queue, /onRefresh=\{\(\) => void viewModel.refreshVerification\(\)\}/);
+  assert.match(queue, /onRefresh=\{\(\) => void viewModel.refreshActiveQueue\(\)\}/);
   assert.match(queue, /refreshing=\{viewModel.queueRefreshing\}/);
   assert.match(queue, /refreshEnabled=\{!viewModel.verification.reviewBusy\}/);
   assert.doesNotMatch(queue, /label=.*Refresh queue/);
@@ -78,6 +78,7 @@ test('Admin queue pulls authoritative data and retains contextual retry plus loa
   const vm = read(admin + 'viewModels/useAdminModerationViewModel.ts');
   assert.match(vm, /current.status === 'loading' \|\| current.reviewBusy/);
   assert.match(vm, /return verificationQueue.refresh\(\)/);
+  assert.match(vm, /queueTab === 'verification' \? refreshVerification\(\)/);
 });
 
 test('displayed account statuses capitalize exact generated values without changing them', () => {

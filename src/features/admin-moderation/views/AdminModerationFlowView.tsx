@@ -1,8 +1,4 @@
-import {ReportingWorkspace} from '../../../shared/components/Reporting';
-import {ReviewModerationPanel} from '../../../shared/components/RentalReviews';
-import {KeyboardAwareScrollView} from '../../../shared/components/KeyboardAwareScrollView';
-import {ScreenHeader} from '../../../shared/components/ScreenHeader';
-import { useCallback,useEffect,useRef,useState } from 'react';
+import { useEffect } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { ScreenContainer } from '../../../shared/components/ScreenContainer';
@@ -11,67 +7,58 @@ import { AdminBottomNavigation } from '../components/AdminScaffold';
 import type { AdminNavigationSection } from '../models/AdminModeration';
 import { useAdminModerationViewModel } from '../viewModels/useAdminModerationViewModel';
 import { AdminDashboardView } from './AdminDashboardView';
+import { AdminNotConnectedView } from './AdminNotConnectedView';
 import { AdminQueueView } from './AdminQueueView';
-import { AuditView } from './AuditView';
-import { EnforcementView } from './EnforcementView';
 import { ReportModerationView } from './ReportModerationView';
+import { ReviewModerationView } from './ReviewModerationView';
 import { VerificationModerationView } from './VerificationModerationView';
 
 interface AdminModerationFlowViewProps {
-  accountId?:string|undefined;
+  accountId?: string | undefined;
   onClose: () => void;
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
 }
 
-const queueScreens = new Set(['reviewQueues', 'verificationQueue', 'reportsQueue']);
-const verificationScreens = new Set(['verificationDetails', 'verificationDocument', 'approveVerification', 'rejectVerification', 'requestVerificationInfo']);
-const reportScreens = new Set(['reportDetails', 'evidenceViewer', 'reportedUserDetails', 'reportedListingDetails', 'reportedMessageContext', 'requestReportInfo', 'dismissReport']);
-const enforcementScreens = new Set(['moderationAction', 'warnUser', 'restrictAccount', 'suspendAccount', 'removeListing', 'permanentRemoval', 'moderationConfirmation', 'activeRestrictions', 'restoreAccount']);
-const auditScreens = new Set(['auditHistory', 'caseHistory']);
+// Decision screens own the bottom edge (sticky action bar), so the section bar is hidden there.
+const detailScreens = new Set(['verificationDetails', 'reportDetails', 'reviewDetails']);
 
 export function AdminModerationFlowView({ onClose, registerBackAction, accountId }: AdminModerationFlowViewProps) {
-  const viewModel = useAdminModerationViewModel();
-  const [reviewOwner,setReviewOwner]=useState<string|null>(null),reviewOpen=!!accountId&&reviewOwner===accountId,reviewGuard=useRef<(()=>boolean)|null>(null),registerReviewGuard=useCallback((guard:(()=>boolean)|null)=>{reviewGuard.current=guard;},[]),closeReviews=()=>{if(!reviewGuard.current||reviewGuard.current())setReviewOwner(null);};
+  const viewModel = useAdminModerationViewModel(accountId);
   useEffect(() => {
-    if(viewModel.screen==='reportsQueue'||reportScreens.has(viewModel.screen))return;
-    registerBackAction?.(reviewOpen?closeReviews:() => viewModel.backFromWorkspace(onClose));
+    registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
     return () => registerBackAction?.(null);
   });
+
   let content;
-
-  if(reviewOpen){content=<View style={{flex:1}}><ScreenHeader title="Review moderation" onBack={closeReviews}/><KeyboardAwareScrollView contentContainerStyle={{padding:16,gap:12}}><ReviewModerationPanel key={accountId} accountId={accountId} registerExitGuard={registerReviewGuard}/></KeyboardAwareScrollView></View>;} else if (viewModel.screen === 'dashboard') {
-    content = <AdminDashboardView accountId={accountId} onExit={onClose} viewModel={viewModel} onReviewModeration={()=>{if(accountId)setReviewOwner(accountId);}}/>;
-  } else if(viewModel.screen==='reportsQueue'||reportScreens.has(viewModel.screen)){content=<ReportingWorkspace key={accountId} accountId={accountId} scope={{mode:'admin',kind:'all',status:'submitted'}} onBack={viewModel.goBack} registerBackAction={registerBackAction}/>;
-  } else if (queueScreens.has(viewModel.screen)) {
-    content = <AdminQueueView accountId={accountId} viewModel={viewModel} />;
-  } else if (verificationScreens.has(viewModel.screen)) {
+  if (viewModel.screen === 'dashboard') {
+    content = <AdminDashboardView onExit={onClose} viewModel={viewModel} />;
+  } else if (viewModel.screen === 'reviewQueues') {
+    content = <AdminQueueView viewModel={viewModel} />;
+  } else if (viewModel.screen === 'verificationDetails') {
     content = <VerificationModerationView viewModel={viewModel} />;
-
-  } else if (enforcementScreens.has(viewModel.screen)) {
-    content = <EnforcementView viewModel={viewModel} />;
+  } else if (viewModel.screen === 'reportDetails') {
+    content = <ReportModerationView viewModel={viewModel} />;
+  } else if (viewModel.screen === 'reviewDetails') {
+    content = <ReviewModerationView viewModel={viewModel} />;
+  } else if (viewModel.screen === 'activeRestrictions') {
+    content = <AdminNotConnectedView section="enforcement" />;
   } else {
-    content = <AuditView viewModel={viewModel} />;
+    content = <AdminNotConnectedView section="audit" />;
   }
 
-  const active: AdminNavigationSection = auditScreens.has(viewModel.screen)
-    ? 'audit'
-    : enforcementScreens.has(viewModel.screen)
-      ? 'enforcement'
-      : viewModel.screen === 'dashboard'
-        ? 'dashboard'
-        : 'queues';
+  const active: AdminNavigationSection = viewModel.screen === 'auditHistory' ? 'audit' : viewModel.screen === 'activeRestrictions' ? 'enforcement' : viewModel.screen === 'dashboard' ? 'dashboard' : 'queues';
 
   return (
     <ScreenContainer includeBottomInset={false} padded={false}>
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
-      {!reviewOpen&&viewModel.screen!=='reportsQueue'&&!reportScreens.has(viewModel.screen)?<AdminBottomNavigation
+      {!detailScreens.has(viewModel.screen) ? <AdminBottomNavigation
         active={active}
         onAudit={() => viewModel.openSection('auditHistory')}
         onDashboard={() => viewModel.openSection('dashboard')}
         onEnforcement={() => viewModel.openSection('activeRestrictions')}
         onQueues={() => viewModel.openSection('reviewQueues')}
-      />:null}
+      /> : null}
     </ScreenContainer>
   );
 }
