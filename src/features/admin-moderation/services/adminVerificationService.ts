@@ -2,9 +2,13 @@ import type {IdentityReviewContext} from '../../../shared/models/PropertyIdentit
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import { normalizeError } from '../../../shared/errors/AppError';
+import { adminErrorText, classifyAdminError, toAdminOperationError } from '../../../shared/models/AdminOperationError';
 import { mapAdminVerification, type AdminReviewInput, type AdminVerificationSubmissionDetail } from '../models/AdminVerification';
 
 export const VERIFICATION_DOCUMENT_VIEW_EXPIRY_SECONDS = 90;
+
+// Recognized backend reasons become plain language; transport and unknown failures keep the screen's own safe fallback.
+const specificOr = (error: unknown, fallback: string) => { const info = classifyAdminError(error); return ['unknown', 'network', 'timeout'].includes(info.code) ? fallback : adminErrorText(info); };
 
 export function createAdminVerificationService(getClient: () => SupabaseClient<Database>) {
   const fetchVerificationQueue = async () => {
@@ -12,7 +16,7 @@ export function createAdminVerificationService(getClient: () => SupabaseClient<D
       const { data, error } = await getClient().rpc('get_admin_verification_queue');
       if (error) throw error;
       return (data ?? []).map(mapAdminVerification);
-    } catch (error) { throw { ...normalizeError(error), message: 'Could not load the Admin verification queue. Check your connection and Admin access, then refresh.' }; }
+    } catch (error) { throw { ...normalizeError(error), message: specificOr(error, 'Could not load the Admin verification queue. Check your connection and Admin access, then refresh.') }; }
   };
   return {
     fetchVerificationQueue,
@@ -34,7 +38,8 @@ export function createAdminVerificationService(getClient: () => SupabaseClient<D
         const { error } = await getClient().rpc('review_verification_submission', args);
         if (error) throw error;
       } catch (error) {
-        throw { code: normalizeError(error).code, message: 'Could not confirm the review result. Check your connection and Admin access, then refresh before trying again. The submission may have changed or may not meet review requirements.' };
+        // Typed, plain-language and non-revealing: title, message and next step, never raw SQL or provider text.
+        throw toAdminOperationError(error, { decision: true });
       }
     },
     async createVerificationDocumentViewUrl(storagePath: string): Promise<string> {
@@ -70,7 +75,7 @@ export function createAdminVerificationService(getClient: () => SupabaseClient<D
           identity=c;
         }
         return { item, documents: data ?? [], ...(identity?{identity}:{}) };
-      } catch (error) { throw { ...normalizeError(error), message: 'Could not load this verification submission. Refresh the queue and try again.' }; }
+      } catch (error) { throw { ...normalizeError(error), message: specificOr(error, 'Could not load this verification submission. Refresh the queue and try again.') }; }
     },
   };
 }

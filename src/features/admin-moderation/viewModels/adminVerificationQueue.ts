@@ -1,4 +1,5 @@
 import type { AppError } from '../../../shared/errors/AppError';
+import { adminErrorText, classifyAdminError } from '../../../shared/models/AdminOperationError';
 import { isSupportedVerificationImage, type AdminReviewStatus, type AdminDocumentPreview, type AdminVerificationQueueItem, type AdminVerificationSubmissionDetail } from '../models/AdminVerification';
 import type { AdminVerificationService } from '../services/adminVerificationService';
 
@@ -64,8 +65,12 @@ export function createAdminVerificationQueue(service: AdminVerificationService) 
       update({ reviewBusy: true, reviewError: null, reviewNotice: null });
       try {
         await service.reviewSubmission({ submissionId: detail.item.submissionId, status, ...(detail.identity?{identity:detail.identity,sameAssetConfirmed:state.sameAssetConfirmed}:{}), ...(status === 'rejected' ? { rejectionReason: reason } : {}) });
-      } catch {
-        if (!disposed && request === reviewGeneration) update({ reviewBusy: false, reviewDialog: null, rejectionReason: '', reviewNeedsRefresh: true, reviewError: 'Could not confirm the review result. Refresh before trying again; check your connection, Admin access and submission requirements.' });
+      } catch (error) {
+        if (!disposed && request === reviewGeneration) {
+          const info = classifyAdminError(error, { decision: true }), reviewError = adminErrorText(info);
+          // Fixable inputs keep the dialog open; anything that may leave the screen stale asks for a reload.
+          update(info.reload ? { reviewBusy: false, reviewDialog: null, rejectionReason: '', reviewNeedsRefresh: true, reviewError } : { reviewBusy: false, reviewError });
+        }
         return false;
       }
       if (disposed || request !== reviewGeneration) return false;
