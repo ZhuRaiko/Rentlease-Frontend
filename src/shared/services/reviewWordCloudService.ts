@@ -23,7 +23,7 @@ export function createReviewCloudProcessor(client:()=>import('@supabase/supabase
  return{async process(actor,corpus,signal){await identity(actor,signal);
   const response=await client().functions.invoke<unknown>('review-wordcloud',{body:{propertyId:corpus.propertyId},signal});
   await identity(actor,signal);
-  if(response.error)throw new ReviewError(response.response?.status===404?'Review themes require the word-cloud backend deployment.':'Review themes are unavailable or changed. Refresh to retry.');
+  if(response.error)throw new ReviewError(response.response?.status===404?'This feature is not available right now. Try again later.':'Review themes are unavailable or changed. Refresh to retry.');
   if(response.data===null)throw new ReviewError('Review themes could not be verified.');return response.data;
  }};
 }

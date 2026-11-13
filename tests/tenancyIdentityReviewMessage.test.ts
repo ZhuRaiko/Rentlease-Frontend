@@ -36,7 +36,7 @@ test('every other landlord failure keeps its existing message', async () => {
     ['42501', 'Only actual owner can propose tenancy', GENERIC], ['23514', 'anything', GENERIC],
     ['40001', 'Property changed. Review again.', 'The rental or property changed. Reload tenancy setup before continuing.'],
     ['23505', 'duplicate', 'The rental or property changed. Reload tenancy setup before continuing.'],
-    ['PGRST202', 'missing function', 'Tenancy setup needs a backend update.'],
+    ['PGRST202', 'missing function', 'This feature is not available right now. Try again later.'],
     ['57014', 'statement timeout', 'Outcome not confirmed. Retry the same operation.'],
   ] as const) assert.equal((await propose({ code, message })).message, expected, `${code} ${message}`);
 });

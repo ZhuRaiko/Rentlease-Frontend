@@ -42,7 +42,7 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     {!vm.postingWizard?<><View style={styles.summary}>
       <Text accessibilityRole="header" style={styles.heading}>Property Details</Text>
       <Text style={styles.body}>{property.type}</Text>
-      <Text style={styles.copy}>{property.bedrooms} bedrooms ? {property.bathrooms} bathrooms</Text>
+      <Text style={styles.copy}>{property.bedrooms} bedrooms / {property.bathrooms} bathrooms</Text>
       <Text style={styles.copy}>{property.location || 'Location not entered'}</Text>
       {vm.propertyEditAvailable?<ListingButton label="Edit Property" tone="outline" disabled={!editable} onPress={vm.openPropertyDetails}/>:null}
       {!vm.workspacePropertyId?<ListingButton label="Edit property" tone="outline" onPress={vm.editComposerProperty}/>:null}

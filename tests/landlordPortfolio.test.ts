@@ -108,7 +108,7 @@ test('read-only portfolio loads two active listings and a draft without the unde
 
 test('portfolio diagnostics identify schema rejection at listings read without leaking raw messages',async()=>{
  const h=serviceHarness();h.failures.set('listings',{code:'42703',message:'column listings.edit_version does not exist; private address'});
- const flow=createLandlordPortfolioWorkflow(h.service);await flow.load();assert.equal(flow.getSnapshot().loaded,false);assert.match(flow.getSnapshot().error??'',/database contract/);assert.equal(h.diagnostics.length,1);
+ const flow=createLandlordPortfolioWorkflow(h.service);await flow.load();assert.equal(flow.getSnapshot().loaded,false);assert.match(flow.getSnapshot().error??'',/not available right now/);assert.equal(h.diagnostics.length,1);
  assert.deepEqual(h.diagnostics[0],{operation:'select.listings',stage:'listings',code:'42703',classification:'schema',message:'Requested listings.edit_version column is unavailable'});assert.doesNotMatch(JSON.stringify(h.diagnostics),/private address/);
 });
 test('portfolio failures retain prior records and distinguish authorization from network errors',async()=>{

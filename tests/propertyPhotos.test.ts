@@ -281,7 +281,7 @@ test('published management routes editing to the shared editor and photo manager
 
 test('undeployed media contract preserves read-only saved photos but prevents new writes',async()=>{
  const h=harness();h.setRows([row()]);h.unavailable();assert.equal((await h.service.list(context)).length,1);
- await assert.rejects(h.service.setCover(context,photoId),/awaiting/);assert.equal(callsOf(h,'manage_property_media').length,0);
+ await assert.rejects(h.service.setCover(context,photoId),/not available right now/);assert.equal(callsOf(h,'manage_property_media').length,0);
 });
 test('missing receipt after unknown command keeps journal and never retries mutation',async()=>{
  const h=harness();h.setRows([row()]);await h.ready();h.coverFail(true);await h.flow.setCover(photoId);h.unknownReceipt();const sent=callsOf(h,'manage_property_media').length;
@@ -303,5 +303,5 @@ test('grid reorder sends one complete atomic reorder_cover command, never separa
  const cmds=callsOf(h,'manage_property_media');assert.equal(cmds.length,1);assert.equal((cmds[0]?.value as any).p_action,'reorder_cover');assert.deepEqual((cmds[0]?.value as any).p_args.photo_ids,[other,photoId]);assert.equal(h.rows().find(p=>p.id===other)?.is_cover,true);
 });
 test('old deployed backend rejects new atomic action without falling back to two unsafe commands',async()=>{
- const h=harness();h.setRows([row()]);h.reorderUnavailable();await h.service.list(context);await assert.rejects(h.service.reorder(context,[photoId]),/backend update/);assert.equal(callsOf(h,'manage_property_media').length,1);assert.equal(h.journal.size,0);
+ const h=harness();h.setRows([row()]);h.reorderUnavailable();await h.service.list(context);await assert.rejects(h.service.reorder(context,[photoId]),/not available right now/);assert.equal(callsOf(h,'manage_property_media').length,1);assert.equal(h.journal.size,0);
 });

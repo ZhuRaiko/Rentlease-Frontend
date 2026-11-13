@@ -163,6 +163,7 @@ test('renderer forwards v11 tap and drag events in longitude-first order with vi
   const map = nodes.find(node => node.type === 'Map'), pin = nodes.find(node => node.type === 'ViewAnnotation'), camera = nodes.find(node => node.type === 'Camera');
   map.props.onPress({ nativeEvent: { lngLat: [121.2, 14.8] } }); pin.props.onDragEnd({ nativeEvent: { lngLat: [121.3, 14.9] } });
   assert.deepEqual(moves, [[121.2, 14.8], [121.3, 14.9]]); assert.deepEqual(pin.props.lngLat, [121, 15]); assert.deepEqual(camera.props.initialViewState.center, [120.9, 14.4]); assert.equal(map.props.attribution, true); assert.equal(pin.props.draggable, true);
+  assert.ok(nodes.some(node => node.type === 'Text' && node.props.children === '© MapTiler © OpenStreetMap contributors. Map attribution is available on the map.'), 'exact attribution text');
 });
 test('location boundaries exclude GPS, raw View HTTP, legacy pins, public-point fabrication and logging', () => {
   const setup = readFileSync('src/features/property-listing/views/PropertySetupView.tsx', 'utf8'), map = readFileSync('src/features/property-listing/views/PropertyLocationMapView.tsx', 'utf8');

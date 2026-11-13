@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import ts from 'typescript';
 import { accountStatusLabel } from '../src/features/authentication/models/accountPresentation';
@@ -102,4 +103,32 @@ test('shared navigation has wrapping titles and compact visuals with Android tou
   assert.doesNotMatch(header, /numberOfLines|allowFontScaling=\{false\}/);
   assert.match(header, /minHeight: 48, minWidth: 48/);
   for (const path of [auth + 'components/AuthScaffold.tsx', verification + 'components/VerificationScaffold.tsx', admin + 'components/AdminScaffold.tsx']) assert.match(read(path), /<ScreenHeader/);
+});
+
+test('Matching Preferences copy describes the real behavior: session-only, and used by Discover filters and For You', () => {
+  const screen = read('src/features/search-discovery/views/DiscoveryFilterView.tsx');
+  assert.doesNotMatch(screen, /sample listings|not connected/i);
+  assert.match(screen, /kept only while the app is open/);
+  assert.match(screen, /Discover filters and your For You recommendations/);
+});
+
+// Guards against a lost character in copy: a "?" inside a string, template text or JSX text that sits mid-word ("property?s"),
+// stands alone between spaces ("A ? B"), or a plain string that starts ("? Title") or ends ("Title ?") with one. Ternaries and optional chaining are code, not text, so they are never visited.
+// Real questions ("Pause listing?", also after an interpolation) and URL queries ("?key=") do not match. Dead and preview-era files are scanned too: none has a hit today.
+test('UI source has no "?" standing in for a lost character in copy', () => {
+  const files = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? files(join(dir, entry.name)) : /\.tsx?$/.test(entry.name) ? [join(dir, entry.name)] : []);
+  const lostCharacter = /\w\?\w|\s\?\s/, lostEdge = /^\?\s|\s\?$/, notCopy = /:\/\/|^\/|\\\?|\(\?[:=!<]|\?\w+=/;
+  const hits: string[] = [];
+  for (const file of files('src')) {
+    const source = ts.createSourceFile(file, read(file), ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+    const check = (node: ts.Node, text: string, whole = false) => { if (text.includes('?') && !notCopy.test(text) && (lostCharacter.test(text) || whole && lostEdge.test(text))) hits.push(`${file}:${source.getLineAndCharacterOfPosition(node.getStart()).line + 1} ${JSON.stringify(text.trim().slice(0, 80))}`); };
+    const visit = (node: ts.Node) => {
+      if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) check(node, node.text, true);
+      else if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) check(node, node.text);
+      else if (ts.isJsxText(node)) check(node, node.text);
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+  }
+  assert.deepEqual(hits, []);
 });

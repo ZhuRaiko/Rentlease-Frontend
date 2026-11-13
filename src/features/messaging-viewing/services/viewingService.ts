@@ -13,7 +13,7 @@ export function parseViewing(value:unknown,actor:string):PropertyViewing{
  return{id:text(r.id),conversationId:text(r.conversation_id),listingId:text(r.listing_id),listingTitle:nullable(r.listing_title),tenantId:text(r.tenant_id),landlordId:text(r.landlord_id),proposedBy:text(r.proposed_by),startsAt:text(r.starts_at),endsAt:text(r.ends_at),status,revision:Number(r.revision),requestNote:nullable(r.request_note),responseNote:nullable(r.response_note),history};
 }
 export function viewingFailure(error:unknown,write=false){const e=error&&typeof error==='object'?error as Record<string,unknown>:{};
- if(e.code==='PGRST202'||e.code==='42883')return new ViewingError('Viewing scheduling needs the prepared backend update before it can be used.');
+ if(e.code==='PGRST202'||e.code==='42883')return new ViewingError('This feature is not available right now. Try again later.');
  if(e.code==='42501'||e.code==='28000')return new ViewingError('This viewing is unavailable or your account is no longer eligible.',true);
  if(e.code==='40001')return new ViewingError('This appointment changed. Refresh and review its latest status.');
  if(e.code==='23P01')return new ViewingError('This time overlaps a confirmed appointment. Propose a different time.');

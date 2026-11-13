@@ -175,7 +175,7 @@ test('review moderation shows plain-language reasons while tenant and landlord r
   await assert.rejects(service.read(A, { mode: 'property', id: L }, 0, signal()), (error: any) => error.message === 'Reviews could not load. Retry.');
   await assert.rejects(service.write(A, reviewSubmit, signal()), (error: any) => error.message === 'Review already exists, changed, or this action is unavailable. Refresh.');
   const missing = createRentalReviewService(rpcClient({ code: 'PGRST202', message: 'Could not find the function' }));
-  await assert.rejects(missing.read(A, { mode: 'tenancy', id: L }, 0, signal()), /T7A backend/);
+  await assert.rejects(missing.read(A, { mode: 'tenancy', id: L }, 0, signal()), /not available right now/);
   const unknown = createRentalReviewService(rpcClient(postgrest('boom', '57014')));
   await assert.rejects(unknown.write(A, reviewModerate, signal()), (error: any) => error.message === 'Outcome not confirmed. Retry the exact review operation.' && error.uncertain === true);
 });

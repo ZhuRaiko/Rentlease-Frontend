@@ -26,7 +26,7 @@ export function createPublishedListingService(getClient:()=>SupabaseClient<Datab
     const {data,error}=await getClient().rpc('update_published_listing_content',{...content,p_listing_id:target.listingId,p_expected_edit_version:target.editVersion});
     if(error){
      if(/^(?:22|23|25|40|42|P0001|PGRST202)/.test(error.code??'')){known=true;await journal.removeItem(k);if(error.code==='40001')throw new ListingDraftError('This listing changed elsewhere. Your edits are kept. Load the latest saved version.','conflict',{cause:error});
-      throw new ListingDraftError(error.code==='PGRST202'?'Published editing needs the new backend migration before changes can be saved.':/80|completeness/i.test(error.message??'')?'These changes would put the published listing below 80% completeness. Keep the required details.':'The changes were rejected. Check your listing fields, ownership and current status.','rejected',{cause:error});}
+      throw new ListingDraftError(error.code==='PGRST202'?'This feature is not available right now. Try again later.':/80|completeness/i.test(error.message??'')?'These changes would put the published listing below 80% completeness. Keep the required details.':'The changes were rejected. Check your listing fields, ownership and current status.','rejected',{cause:error});}
      throw uncertain(error);
     }
     const receipt=Array.isArray(data)&&data.length===1?data[0]:null;

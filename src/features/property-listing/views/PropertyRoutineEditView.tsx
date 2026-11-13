@@ -29,7 +29,7 @@ export function PropertyRoutineEditView({viewModel:vm,onClose,estimateSection}:{
   {state.uncertain?<ListingButton label="Check saved property" onPress={()=>void flow.reconcile()} disabled={state.busy}/>:null}
   {state.conflict?<ListingButton label="Discard local edits and reload" tone="outline" onPress={vm.reloadPropertyDetails} disabled={state.busy}/>:null}
   {state.status==='ready'&&c&&d?<>
-   {c.model_attributes_version===2?<PropertyModelAttributeFields type={c.property_type} draft={d} error={error} disabled={disabled||c.open_tenancy} onChange={(field,value)=>flow.update(field,value)}/>:<Text style={ui.supporting}>Additional model-compatible property fields are awaiting the backend rollout. Existing details remain editable.</Text>}
+   {c.model_attributes_version===2?<PropertyModelAttributeFields type={c.property_type} draft={d} error={error} disabled={disabled||c.open_tenancy} onChange={(field,value)=>flow.update(field,value)}/>:<Text style={ui.supporting}>This feature is not available right now. Try again later. Existing details remain editable.</Text>}
    {estimateSection}
    <Text accessibilityRole="header" style={ui.sectionTitle}>Property identity</Text>
    <Text style={ui.body}>{propertyTypeOptions.find(o=>o.value===c.property_type)?.label} in {c.barangay}, {c.city}</Text>

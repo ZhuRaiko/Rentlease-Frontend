@@ -34,7 +34,7 @@ export function createListingDraftService(getClient: () => SupabaseClient<Databa
     if (selectedListingId) { if (!isPropertyUuid(selectedListingId)) throw new ListingDraftError('Invalid listing selection.'); query = query.eq('id', selectedListingId); }
     const { data, error } = await measureHydration('listing',()=>query.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle());
     await assertContext(c);
-    if(error && (error.code==='42703'||error.code==='PGRST204'))throw new ListingDraftError('Draft editing requires the prepared backend migration. Reopen after deployment.','rejected',{cause:error});
+    if(error && (error.code==='42703'||error.code==='PGRST204'))throw new ListingDraftError('This feature is not available right now. Try again later.','rejected',{cause:error});
     if (error) throw new ListingDraftError('Could not load the current listing draft. Check your connection.', 'rejected', {cause:error});
     if (selectedListingId && (!data || data.id !== selectedListingId)) throw new ListingDraftError('The selected draft is no longer available. Refresh My Rentals before continuing.');
     if (data && (!isPropertyUuid(data.id) || data.property_id !== c.propertyId || data.landlord_id !== c.userId || (!allowNonDraft && data.status !== 'draft'))) throw new ListingDraftError('The returned listing draft could not be verified.');
@@ -45,7 +45,7 @@ export function createListingDraftService(getClient: () => SupabaseClient<Databa
     hasPending: async (c: ListingDraftContext) => !!await journal.getItem(key(c)),
     async save(c: ListingDraftContext, form: ListingDraftFields, target?:DraftEditTarget): Promise<SavedListingDraft> {
       const payload = listingDraftPayload(c.propertyId, form), k = key(c);
-      if(target && (!isPropertyUuid(target.listingId)||!isPropertyUuid(target.editVersion)))throw new ListingDraftError('This draft needs the updated backend contract. Reopen it after deployment; no replacement draft was created.');
+      if(target && (!isPropertyUuid(target.listingId)||!isPropertyUuid(target.editVersion)))throw new ListingDraftError('This feature is not available right now. Try again later. No replacement draft was created.');
       if (saves.has(k)) throw uncertain(); saves.add(k);
       let sent = false, pendingWritten = false, knownRejection = false;
       let stage:DraftSaveDiagnostic['stage']='preflight';
@@ -63,7 +63,7 @@ export function createListingDraftService(getClient: () => SupabaseClient<Databa
         if (error) {
           backendError=error;
           if(target && error.code==='40001'){await journal.removeItem(k);knownRejection=true;throw new ListingDraftError('This draft changed or was published elsewhere. Your edits are kept. Load the latest saved version before saving again.','conflict',{cause:error});}
-          if(error.code==='PGRST202'){await journal.removeItem(k);knownRejection=true;throw new ListingDraftError('Draft editing requires the prepared backend migration. No replacement draft was created.','rejected',{cause:error});}
+          if(error.code==='PGRST202'){await journal.removeItem(k);knownRejection=true;throw new ListingDraftError('This feature is not available right now. Try again later. No replacement draft was created.','rejected',{cause:error});}
           if (/^(22|23|42|25|40)/.test(error.code ?? '')) { await journal.removeItem(k); knownRejection = true; throw new ListingDraftError('The draft was rejected. Check property access and listing fields.', 'rejected', {cause:error}); }
           throw uncertain();
         }
