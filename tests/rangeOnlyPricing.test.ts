@@ -288,9 +288,10 @@ test('the "How is this estimated?" explanation names the model type and the inpu
 });
 test('the Price step wires the slider to the asking-rent field without saving, and the Review line has no estimate figure', () => {
   const step = readFileSync('src/features/property-listing/views/PostingPriceStep.tsx', 'utf8');
-  assert.match(step, /onUseRent=\{vm\.applyRentFromRange\}/);
+  assert.match(step, /vm\.applyRentFromRange\(rent\)/);
+  assert.match(step, /onUseRent=\{useRent\}/);
   const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
-  assert.match(vm, /applyRentFromRange:\(rent:number\)=>\{[\s\S]*?updateDraft\('askingRent',String\(Math\.round\(rent\)\)\);/);
+  assert.match(vm, /applyRentFromRange:\(rent:number\):boolean=>\{[\s\S]*?updateDraft\('askingRent',String\(Math\.round\(rent\)\)\);/);
   const review = readFileSync('src/features/property-listing/views/PostingReviewView.tsx', 'utf8');
   assert.match(review, /reviewPriceDetail\(d\.askingRent,vm\.postingEstimate\?\.illustrativeRange\)/);
   assert.match(readFileSync('src/features/property-listing/views/PostingEstimateView.tsx', 'utf8'), /Or type your own price\. Any amount is allowed\./);

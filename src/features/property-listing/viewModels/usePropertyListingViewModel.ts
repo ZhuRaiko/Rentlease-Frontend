@@ -806,10 +806,11 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     composerSaveDisabled: !!(contentState.lastConfirmed&&(!listingDraftDirty&&!photoState.pendingSelections.length||listingValidationIssue)) || (editingPublished ? initialHydrationPending()||operationBusy()||publishedContentState.uncertain||publishedContentState.conflict||publicationReadOnly() : initialHydrationPending() || operationBusy() || propertyState.uncertain || listingDraftState.uncertain || listingDraftState.conflict || (!workspace.propertyId ? !propertyState.loaded : publicationReadOnly() || photoState.needsReconcile)),
     composerPreview: history.includes('listingComposer') || history.includes('listingDetails') || screen === 'listingComposer' || screen === 'listingDetails',
     /** The owner applied a rent from the range slider. Fills the asking rent field only; nothing is saved. */
-    applyRentFromRange:(rent:number)=>{
+    applyRentFromRange:(rent:number):boolean=>{
       const current=workspaceRef.current;
-      if(!active.current||!current.propertyId||!Number.isFinite(rent)||rent<=0||propertyRoutine.dirty()||propertyIdentity.dirty())return;
+      if(!active.current||!current.propertyId||!Number.isFinite(rent)||rent<=0||propertyRoutine.dirty()||propertyIdentity.dirty())return false;
       updateDraft('askingRent',String(Math.round(rent)));
+      return true;
     },
     estimationProperty:physical?{property_subtype:'property_subtype' in physical?physical.property_subtype:null,lot_area_sqm:'lot_area_sqm' in physical?physical.lot_area_sqm:null,parking_spaces:'parking_spaces' in physical?physical.parking_spaces:null,edit_version:'edit_version' in physical?physical.edit_version:null,property_type:physical.property_type,city:physical.city,furnishing_status:physical.furnishing_status,bedrooms:physical.bedrooms,bathrooms:physical.bathrooms,floor_area_sqm:physical.floor_area_sqm,floor_number:physical.floor_number,is_active:workspace.item?.property.is_active,landlord_id:'owner_id' in physical?physical.owner_id:'landlord_id' in physical?physical.landlord_id:undefined}:null,
     workspacePropertyId: workspace.propertyId, workspaceListingId: lifecycleState.listingId ?? listingDraftState.listingId ?? workspace.listingId, workspaceMode: workspace.mode,

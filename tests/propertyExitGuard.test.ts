@@ -752,8 +752,8 @@ test('saved optional model edits change estimator identity while unsaved edits k
 
 test('only explicit current-property price guidance adoption changes asking rent and never saves',async()=>{
  const f=savedHydrationHarness();await f.init();const h=f.mount();await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();await h.settle();h.vm().updateDraft('askingRent','5000');h.flush();
-  assert.equal(h.vm().draft.askingRent,'5000');for(const bad of [NaN,0,-500,Infinity])h.vm().applyRentFromRange(bad);h.flush();assert.equal(h.vm().draft.askingRent,'5000','an unusable rent from the range slider is ignored');
- h.vm().applyRentFromRange(18000);h.flush();assert.equal(h.vm().draft.askingRent,'18000');assert.equal(f.backend.calls(),0);assert.equal(h.writes(),0);
+  assert.equal(h.vm().draft.askingRent,'5000');for(const bad of [NaN,0,-500,Infinity])assert.equal(h.vm().applyRentFromRange(bad),false);h.flush();assert.equal(h.vm().draft.askingRent,'5000','an unusable rent from the range slider is ignored');
+ assert.equal(h.vm().applyRentFromRange(18000),true);h.flush();assert.equal(h.vm().draft.askingRent,'18000');assert.equal(f.backend.calls(),0);assert.equal(h.writes(),0);
  h.vm().updateDraft('askingRent','7000');h.flush();assert.equal(h.vm().draft.askingRent,'7000');h.unmount();
 });
 

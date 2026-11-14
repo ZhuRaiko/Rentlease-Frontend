@@ -5,7 +5,7 @@ import {radius} from '../theme/radius';
 import {spacing} from '../theme/spacing';
 import {ui} from '../theme/ui';
 import {formatPeso} from '../models/Currency';
-import {RANGE_DISCLAIMER,RELATION_HELP,ballValue,pickedAfterRentChange,RELATION_TEXT,fractionOfValue,listingRelationSentence,rangeRelation,type RentalRange} from '../models/RentalRange';
+import {RANGE_DISCLAIMER,RELATION_HELP,ballValue,pickedAfterRentChange,appliedButtonShows,RELATION_TEXT,fractionOfValue,listingRelationSentence,rangeRelation,type RentalRange} from '../models/RentalRange';
 import {RangeSlider} from './RangeSlider';
 
 /** What the estimate is, in plain words. The only place the model's name appears. */
@@ -47,7 +47,7 @@ export function RangeBar({range,rent}:{range:RentalRange;rent?:number|null|undef
  * The range card. With `onUseRent` the owner can slide along the range and apply a value; without it the bar is read-only (tenants, the
  * standalone flow). The relation line compares the rent only with the ends of the range. No point value exists to show.
  */
-export function RangeEstimateCard({range,rent,onUseRent,disabled=false,subject='asking',basisText}:{range:RentalRange;rent?:number|null|undefined;onUseRent?:((rent:number)=>void)|undefined;disabled?:boolean;subject?:'asking'|'listing';basisText?:string|undefined}){
+export function RangeEstimateCard({range,rent,onUseRent,disabled=false,subject='asking',basisText,appliedRent}:{range:RentalRange;rent?:number|null|undefined;onUseRent?:((rent:number)=>void)|undefined;disabled?:boolean;subject?:'asking'|'listing';basisText?:string|undefined;appliedRent?:number|null|undefined}){
   const [picked,setPicked]=useState<number|null>(null);
   // Typing a different rent hands the ball back to the field; sliding is only the owner's own trial value.
   useEffect(()=>{setPicked(p=>pickedAfterRentChange(p,rent));},[rent]);
@@ -55,7 +55,7 @@ export function RangeEstimateCard({range,rent,onUseRent,disabled=false,subject='
   const sentence=subject==='listing'?listingRelationSentence(rent,range):relation?RELATION_TEXT[relation]:null;
   return <View style={styles.card}>
     <Text accessibilityRole="header" style={ui.sectionTitle}>Typical rent for similar places</Text>
-    {onUseRent?<RangeSlider range={range} value={shown} disabled={disabled} tone={warn&&picked===null?'warning':'normal'} onChange={setPicked} onUse={r=>{onUseRent(r);}}/>:<RangeBar range={range} rent={rent}/>}
+    {onUseRent?<RangeSlider range={range} value={shown} disabled={disabled} tone={warn&&picked===null?'warning':'normal'} applied={appliedButtonShows(shown,rent,appliedRent)} onChange={setPicked} onUse={r=>{onUseRent(r);}}/>:<RangeBar range={range} rent={rent}/>}
     {sentence?<Text accessibilityLiveRegion="polite" style={[styles.relation,warn&&styles.relationWarn]}>{sentence}</Text>:null}
     {relation&&subject==='asking'&&RELATION_HELP[relation]?<Text style={ui.supporting}>{RELATION_HELP[relation]}</Text>:null}
     <Text style={ui.supporting}>{RANGE_DISCLAIMER}</Text>

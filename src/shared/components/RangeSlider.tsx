@@ -12,7 +12,7 @@ const TOUCH=56,THUMB=32,RAIL=12,SIDE=16;
  * so where it starts cannot hint at the middle. PanResponder only (no native dependency). The - and + buttons and the adjustable
  * accessibility actions do the same job for precision and for TalkBack.
  */
-export function RangeSlider({range,value,onChange,onUse,disabled=false,tone='normal'}:{range:RentalRange;value:number|null;onChange:(rent:number)=>void;onUse:(rent:number)=>void;disabled?:boolean;tone?:'normal'|'warning'}){
+export function RangeSlider({range,value,onChange,onUse,disabled=false,tone='normal',applied=false}:{range:RentalRange;value:number|null;onChange:(rent:number)=>void;onUse:(rent:number)=>void;disabled?:boolean;tone?:'normal'|'warning';applied?:boolean}){
   const [width,setWidth]=useState(0);
   const live=useRef({width:0,range,onChange,disabled});live.current={width,range,onChange,disabled};
   const startX=useRef(0);
@@ -42,7 +42,7 @@ export function RangeSlider({range,value,onChange,onUse,disabled=false,tone='nor
     </View>
     <View style={styles.buttons}>
       <Pressable accessibilityRole="button" accessibilityLabel="Lower the rent by 500 pesos" disabled={disabled} style={[styles.step,disabled&&styles.off]} onPress={()=>step(-1)}><Text style={styles.stepText}>{'−'}</Text></Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={unset?'Use this rent, choose a rent on the slider first':`Use ${formatPeso(value!)}`} accessibilityState={{disabled:disabled||unset}} disabled={disabled||unset} style={[styles.use,(disabled||unset)&&styles.useOff]} onPress={()=>{if(value!==null)onUse(value);}}><Text style={[styles.useText,(disabled||unset)&&styles.useTextOff]}>{unset?'Slide to pick a rent':`Use ${formatPeso(value!)}`}</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={unset?'Use this rent, choose a rent on the slider first':applied?`Applied. Asking rent set to ${formatPeso(value!)}`:`Use ${formatPeso(value!)}`} accessibilityState={{disabled:disabled||unset,selected:applied}} disabled={disabled||unset} style={[styles.use,(disabled||unset)&&styles.useOff,applied&&styles.useApplied]} onPress={()=>{if(value!==null)onUse(value);}}><Text style={[styles.useText,(disabled||unset)&&styles.useTextOff,applied&&styles.useTextApplied]}>{unset?'Slide to pick a rent':applied?'\u2713 Applied':`Use ${formatPeso(value!)}`}</Text></Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel="Raise the rent by 500 pesos" disabled={disabled} style={[styles.step,disabled&&styles.off]} onPress={()=>step(1)}><Text style={styles.stepText}>+</Text></Pressable>
     </View>
   </View>;
@@ -62,4 +62,5 @@ const styles=StyleSheet.create({
   stepText:{...ui.sectionTitle},
   use:{flex:1,minHeight:48,alignItems:'center',justifyContent:'center',borderRadius:14,backgroundColor:colors.primaryAction,paddingHorizontal:spacing.sm},useOff:{backgroundColor:colors.surfaceStrong},
   useText:{...ui.body,color:colors.white,fontWeight:'700'},useTextOff:{color:colors.textSecondary},
+  useApplied:{backgroundColor:colors.primaryPale,borderWidth:2,borderColor:colors.primaryAction},useTextApplied:{color:colors.primaryAction},
 });

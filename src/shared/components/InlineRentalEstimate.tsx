@@ -12,7 +12,7 @@ function EstimateBridge({result,onResult,autoPredict,ready,workflow}:{result:Pre
  useEffect(()=>{if(autoPredict&&ready)void workflow.predict();},[workflow,autoPredict]);
  return null;
 }
-export function InlineRentalEstimate({accountId,target,property,onReview,variant='details',onUseRent,disabled=false,askingRent,onResult,autoPredict=false}:{onResult?:((result:PredictionReceipt|null)=>void)|undefined;autoPredict?:boolean;askingRent?:number|undefined;variant?:'details'|'guidance'|'posting'|'spotlight';onUseRent?:((rent:number)=>void)|undefined;disabled?:boolean;accountId:string|undefined;target:PredictionTarget;property?:Record<string,unknown>|null;onReview?:(()=>void)|undefined}){
+export function InlineRentalEstimate({accountId,target,property,onReview,variant='details',onUseRent,disabled=false,askingRent,onResult,autoPredict=false,appliedRent}:{appliedRent?:number|null|undefined;onResult?:((result:PredictionReceipt|null)=>void)|undefined;autoPredict?:boolean;askingRent?:number|undefined;variant?:'details'|'guidance'|'posting'|'spotlight';onUseRent?:((rent:number)=>void)|undefined;disabled?:boolean;accountId:string|undefined;target:PredictionTarget;property?:Record<string,unknown>|null;onReview?:(()=>void)|undefined}){
  const vm=useInlineRentalEstimate(accountId,target,property),result=vm.eligibility?.eligible===false?null:vm.result;
  const range=result?.illustrativeRange??null;
  // The rent shown against the range: the one the caller passes (the owner's field), else the listing's own.
@@ -34,7 +34,7 @@ export function InlineRentalEstimate({accountId,target,property,onReview,variant
  {variant==='guidance'?<Text accessibilityRole="header" style={styles.guidanceHeading}>Rental price guidance</Text>:null}
  {vm.eligibility?.eligible===false?<Text style={ui.supporting}>{vm.eligibility.reason}</Text>:<>
  {(!result||vm.busy)&&(!vm.error||vm.retryable!==false)?<View style={styles.guidanceActions}><Pressable accessibilityRole="button" accessibilityLabel={vm.error?'Retry estimate':variant==='posting'?'Estimate Rental Price':'Get typical rent range'} accessibilityState={{disabled:disabled||vm.busy,busy:vm.busy}} disabled={disabled||vm.busy} onPress={()=>void vm.workflow.predict()} style={styles.smallAction}><Text style={styles.actionText}>{vm.busy?'Estimating…':vm.error?'Retry estimate':variant==='posting'?'Estimate Rental Price':'Get typical rent range'}</Text></Pressable>{vm.busy?<ActivityIndicator accessibilityLabel="Estimating rental price"/>:null}</View>:null}
- {range&&!vm.busy?<RangeEstimateCard range={range} rent={rent} onUseRent={onUseRent} disabled={disabled||vm.busy}/>:null}
+ {range&&!vm.busy?<RangeEstimateCard range={range} rent={rent} onUseRent={onUseRent} appliedRent={appliedRent} disabled={disabled||vm.busy}/>:null}
  {!vm.busy?noRange:null}
  </>}
  {vm.error?<Text accessibilityRole="alert" style={ui.supporting}>{vm.error}</Text>:null}

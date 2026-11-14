@@ -99,7 +99,7 @@ test('the standalone result shows the range card for the listing rent, never a p
  const result=parsePredictionReceipt({...receipt(),illustrativeRange:{minimum:15703.35,maximum:29163.36}},target);
  const vm:any={selected:estimateCandidate(stored,listing),result,workflow:{},backFromWorkspace(){}};
  const all=uiNodes(estimateView()({onClose(){},viewModel:vm})),text=all.filter(n=>n.type==='Text').map(n=>[n.props.children].flat().join('')).join(' ');
- const card=all.find(n=>n.type==='RangeCard');assert.deepEqual(card.props.range,{minimum:15500,maximum:29500});assert.equal(card.props.rent,22000);assert.equal(card.props.subject,'listing');
+ const card=all.find(n=>n.type==='RangeCard');assert.deepEqual(card.props.range,{minimum:15500,maximum:29500});assert.equal(card.props.rent,22000);assert.equal(card.props.subject,'listing');assert.equal(card.props.onUseRent,undefined,'the standalone flow has no apply action');
  assert.doesNotMatch(text,/22,433|22433|XGBoost|Predicted monthly rent|above the estimate|below the estimate/);
 });
 

@@ -25,7 +25,7 @@ interface ListingWizardScaffoldProps extends PropsWithChildren {
   progress?:ReactNode;
   /** Header overflow menu (posting editor): leave the editor, delete an unfinished post. */
   menu?:EditorMenuItem[]|undefined;
-  formFocus?:{scrollRef:RefObject<NativeScrollView|null>;contentRef:RefObject<View|null>};
+  formFocus?:{scrollRef:RefObject<NativeScrollView|null>;contentRef:RefObject<View|null>}|undefined;
 }
 
 export function ListingWizardScaffold({

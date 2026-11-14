@@ -34,6 +34,8 @@ export const listingRelationSentence = (rent: number | null | undefined, range: 
 // ---- Slider math (pure, so the gesture code stays thin)
 /** The ball shows the owner's trial value; with none, it follows the rent already typed, and with neither it stays hidden. */
 export const ballValue = (picked: number | null, rent: number | null | undefined): number | null => picked ?? (usable(rent) ? rent : null);
+/** The Use button reads "Applied" only while the ball, the field and the last applied rent are all the same value. */
+export const appliedButtonShows = (ball: number | null, rent: number | null | undefined, applied: number | null | undefined): boolean => applied != null && ball === applied && rent === applied;
 /** Typing a different rent hands the ball back to the field: a trial value only lasts while it is the one being tried. */
 export const pickedAfterRentChange = (picked: number | null, rent: number | null | undefined): number | null => (picked !== null && rent !== picked ? null : picked);
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));

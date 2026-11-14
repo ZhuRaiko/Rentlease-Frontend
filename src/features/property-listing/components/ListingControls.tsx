@@ -1,5 +1,6 @@
 import {ui} from '../../../shared/theme/ui';
 import { FieldLabel } from './FieldLabel';
+import { AppliedChip } from './AppliedChip';
 export { EstimateMarker } from './FieldLabel';
 import type { ReactNode, Ref } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -23,6 +24,8 @@ interface ListingFieldProps {
   usedInEstimate?: boolean;
   error?: string | null;
   invalid?:boolean;
+  /** A value was just applied to this field for the owner (for example from the range slider): primary border and an Applied chip. */
+  applied?:boolean;
   inputRef?:Ref<TextInput>|undefined;
 }
 
@@ -35,13 +38,13 @@ export function ListingField({
   keyboardType = 'default',
   prefix,
   helper,
-  editable = true, required = false, usedInEstimate = false, error, invalid=false, inputRef,
+  editable = true, required = false, usedInEstimate = false, error, invalid=false, applied=false, inputRef,
 }: ListingFieldProps) {
   return (
     <View style={styles.fieldGroup}>
-      <FieldLabel label={label} required={required} usedInEstimate={usedInEstimate} />
+      {applied?<View style={{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:spacing.xs}}><FieldLabel label={label} required={required} usedInEstimate={usedInEstimate} /><AppliedChip/></View>:<FieldLabel label={label} required={required} usedInEstimate={usedInEstimate} />}
       {typeof helper === 'string' ? <Text style={styles.helper}>{helper}</Text> : helper}
-      <View style={[styles.inputShell, multiline && styles.inputShellMultiline, (invalid||!!error)&&{borderColor:colors.restricted,borderWidth:1.2}]}>
+      <View style={[styles.inputShell, multiline && styles.inputShellMultiline, applied&&{borderColor:colors.primaryAction,borderWidth:2},(invalid||!!error)&&{borderColor:colors.restricted,borderWidth:1.2}]}>
         {prefix ? <Text style={styles.prefix}>{prefix}</Text> : null}
         <TextInput
           ref={inputRef}
