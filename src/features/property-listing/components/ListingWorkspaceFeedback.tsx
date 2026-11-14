@@ -1,7 +1,8 @@
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { ListingButton } from './ListingButton';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
-export function ListingWorkspaceFeedback({ viewModel: vm, scope }: { viewModel: PropertyListingViewModel; scope: 'draft' | 'publication' | 'management' }) {
+import { DRAFT_SAVED_NOTICE } from '../viewModels/listingDraftWorkflow';
+export function ListingWorkspaceFeedback({ viewModel: vm, scope, hideSavedNotice = false }: { viewModel: PropertyListingViewModel; scope: 'draft' | 'publication' | 'management'; hideSavedNotice?: boolean }) {
   const id = vm.workspacePropertyId;
   if (!id) return null;
   const draft = vm.listingDraftState, publication = vm.publicationState, lifecycle = vm.lifecycleState;
@@ -10,7 +11,7 @@ export function ListingWorkspaceFeedback({ viewModel: vm, scope }: { viewModel: 
   const ownLifecycle = lifecycle.propertyId === id && lifecycle.listingId === vm.workspaceListingId;
   return <>
     {scope !== 'management' && ownDraft ? <>
-      <FeedbackNotice message={draft.busy ? vm.publishedEditing?'Checking or saving your listing changes...':'Checking or saving your listing draft…' : draft.error ?? draft.notice} tone={draft.error ? 'error' : 'info'} />
+      <FeedbackNotice message={draft.busy ? vm.publishedEditing?'Checking or saving your listing changes...':'Checking or saving your listing draft…' : draft.error ?? (hideSavedNotice && draft.notice === DRAFT_SAVED_NOTICE ? null : draft.notice)} tone={draft.error ? 'error' : 'info'} />
       {!draft.busy && (draft.error || draft.uncertain || draft.conflict) && !publication.uncertain ? <ListingButton label={draft.conflict ? 'Load latest saved version' : draft.uncertain ? vm.publishedEditing?'Check saved changes':'Check draft save status' : draft.errorSource === 'save' && draft.loaded ? vm.publishedEditing?'Retry saving changes':'Retry saving draft' : 'Retry loading draft'} tone="outline" onPress={() => void ((draft.uncertain || draft.conflict) ? vm.listingDraftPersistence.reconcile() : draft.errorSource === 'save' && draft.loaded ? vm.saveComposerDraft() : vm.listingDraftPersistence.load(false, vm.workspaceListingId))} /> : null}
     </> : null}
     {ownPublication && (scope !== 'draft' || publication.uncertain || !!publication.error) ? <>

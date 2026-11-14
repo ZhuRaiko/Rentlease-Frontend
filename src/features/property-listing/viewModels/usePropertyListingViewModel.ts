@@ -37,6 +37,9 @@ import { publicationEligibility, publicationReviewSummary } from '../models/List
 import { createListingDraftWorkflow } from './listingDraftWorkflow';
 import { listingDraftService } from '../services/listingDraftDependencies';
 import { applySavedListing, listingFieldsEqual, hasListingMinimum, listingNumber, listingFieldIssue, listingDetailsIssue } from '../models/PersistedListingDraft';
+import { placeLabel } from '../models/PlaceLabel';
+import { currentEstimate } from '../models/PostingPrice';
+import { roundEstimate } from '../../../shared/models/Currency';
 import { estimateBasis, estimateDetailCount, floorAreaMissing, floorAreaRequired, rentComparison, type EstimateInputs } from '../models/PostingEstimate';
 import { createPropertyPhotoWorkflow } from './propertyPhotoWorkflow';
 import { propertyPhotoService, selectPropertyPhoto, selectPropertyPhotos } from '../services/propertyPhotoDependencies';
@@ -112,7 +115,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const postingWizardRef=useRef(postingWizard);postingWizardRef.current=postingWizard;
   const [postingOriginalPrice,setPostingOriginalPrice]=useState<string|null>(null);
   // The estimate the Price page already holds (never fetched here): drives the rent comparison and the Review badge.
-  const [postingEstimateResult,setPostingEstimateResult]=useState<PredictionReceipt|null>(null);
+  const [postingEstimateHeld,setPostingEstimateHeld]=useState<{result:PredictionReceipt;basis:string}|null>(null);
   const [priceAttempted,setPriceAttempted]=useState(false);
   // Set by a Review or Price "Edit" link: the edited step returns there instead of continuing the wizard.
   const [returnTo,setReturnTo]=useState<ListingScreen|null>(null);const returnToRef=useRef<ListingScreen|null>(null);returnToRef.current=returnTo;
@@ -691,6 +694,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const optionalNumber=(value:string|undefined)=>!value?.trim()?null:Number(value);
   const createdPhysical=createdDraft?{property_type:createdDraft.propertyType,city:createdDraft.city,barangay:createdDraft.barangay,total_floors:optionalNumber(createdDraft.totalFloors),max_occupants:optionalNumber(createdDraft.maxOccupants),furnishing_status:createdDraft.furnishingStatus,bedrooms:Number(createdDraft.bedrooms),bathrooms:Number(createdDraft.bathrooms),floor_area_sqm:optionalNumber(createdDraft.floorAreaSqm),floor_number:createdDraft.propertyType==='house'?null:optionalNumber(createdDraft.floorNumber),property_subtype:createdDraft.propertySubtype||null,lot_area_sqm:optionalNumber(createdDraft.lotAreaSqm),parking_spaces:optionalNumber(createdDraft.parkingSpaces)}:null;
   const physical = editedProperty?.property_id===workspace.propertyId?editedProperty:workspace.item?.property??createdPhysical;
+  // The estimate belongs to the property details it was made for: any change to them drops it, so Review never shows an old one.
+  const estimateBasisKey=JSON.stringify(physical??null),postingEstimateResult=currentEstimate(postingEstimateHeld,estimateBasisKey);
   const confirmedListing = contentState.lastConfirmed?.property_id === workspace.propertyId && (!workspace.listingId || contentState.lastConfirmed.id===workspace.listingId) ? contentState.lastConfirmed : null;
   const completeness = listingCompleteness({title:draft.title,description:draft.description,rent:listingNumber(draft.askingRent),availableDate:!!availabilityDateToLocal(draft.availableDate),
     floorArea:physical ? physical.floor_area_sqm!==null : !!propertyState.draft.floorAreaSqm.trim()&&Number.isFinite(Number(propertyState.draft.floorAreaSqm))&&Number(propertyState.draft.floorAreaSqm)>0,
@@ -739,7 +744,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     listingStepIssue:postingWizard&&!editingPublished?listingDetailsIssue(draft):listingValidationIssue,
     saveAndExitDisabled:operationBusy()||initialHydrationPending()||listingDraftState.uncertain||listingDraftState.conflict,
     postingEstimate:postingEstimateResult&&'propertyId' in postingEstimateResult.target&&postingEstimateResult.target.propertyId===workspace.propertyId?postingEstimateResult:null,
-    setPostingEstimate:setPostingEstimateResult,
+    setPostingEstimate:(r:PredictionReceipt|null)=>setPostingEstimateHeld(r?{result:r,basis:estimateBasisKey}:null),
     priceComparison:rentComparison(listingNumber(draft.askingRent),postingEstimateResult?.estimatedMonthlyRent,postingEstimateResult?.illustrativeRange),
     // "Within estimate range" only when the estimate is already in state and the rent is inside its illustrative range.
     postingWithinRange:(()=>{const e=postingEstimateResult,r=listingNumber(draft.askingRent);return !!e&&!!e.illustrativeRange&&Number.isFinite(r)&&r>=e.illustrativeRange.minimum&&r<=e.illustrativeRange.maximum;})(),
@@ -805,7 +810,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       const current=workspaceRef.current;
       const matches=result.target.propertyId===current.propertyId||!!current.listingId&&result.target.listingId===current.listingId;
       if(!active.current||!current.propertyId||!matches||result.currency!=='PHP'||!Number.isFinite(result.estimatedMonthlyRent)||result.estimatedMonthlyRent<=0||propertyRoutine.dirty()||propertyIdentity.dirty())return;
-      updateDraft('askingRent',String(Math.round(result.estimatedMonthlyRent*100)/100));
+      updateDraft('askingRent',String(roundEstimate(result.estimatedMonthlyRent)));
     },
     estimationProperty:physical?{property_subtype:'property_subtype' in physical?physical.property_subtype:null,lot_area_sqm:'lot_area_sqm' in physical?physical.lot_area_sqm:null,parking_spaces:'parking_spaces' in physical?physical.parking_spaces:null,edit_version:'edit_version' in physical?physical.edit_version:null,property_type:physical.property_type,city:physical.city,furnishing_status:physical.furnishing_status,bedrooms:physical.bedrooms,bathrooms:physical.bathrooms,floor_area_sqm:physical.floor_area_sqm,floor_number:physical.floor_number,is_active:workspace.item?.property.is_active,landlord_id:'owner_id' in physical?physical.owner_id:'landlord_id' in physical?physical.landlord_id:undefined}:null,
     workspacePropertyId: workspace.propertyId, workspaceListingId: lifecycleState.listingId ?? listingDraftState.listingId ?? workspace.listingId, workspaceMode: workspace.mode,
@@ -878,13 +883,13 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     propertySummary: physical ? {
       floorTotalLabel: physical.property_type==='house'?'stories':'floors in building',
       type: propertyTypeOptions.find(o => o.value === physical.property_type)?.label ?? 'Property',
-      location: [physical.barangay, propertyCityOptions.find(o => o.value === physical.city)?.label].filter(Boolean).join(', '),
+      location: placeLabel([physical.barangay, propertyCityOptions.find(o => o.value === physical.city)?.label]),
       bedrooms: String(physical.bedrooms), bathrooms: String(physical.bathrooms), floorAreaSqm: String(physical.floor_area_sqm ?? ''), floorNumber: physical.property_type==='house'?'':String(physical.floor_number ?? ''), totalFloors: String(physical.total_floors ?? ''), maxOccupants: String(physical.max_occupants ?? ''),
       furnishing: furnishingOptions.find(o => o.value === physical.furnishing_status)?.label ?? '', detailsAvailable: true,
     } : {
       floorTotalLabel: propertyState.draft.propertyType==='house'?'stories':'floors in building',
       type: propertyTypeOptions.find(o => o.value === propertyState.draft.propertyType)?.label ?? 'Saved property',
-      location: [propertyState.draft.barangay, propertyCityOptions.find(o => o.value === propertyState.draft.city)?.label].filter(Boolean).join(', '),
+      location: placeLabel([propertyState.draft.barangay, propertyCityOptions.find(o => o.value === propertyState.draft.city)?.label]),
       bedrooms: propertyState.draft.bedrooms, bathrooms: propertyState.draft.bathrooms, floorAreaSqm: propertyState.draft.floorAreaSqm, floorNumber: propertyState.draft.propertyType==='house'?'':propertyState.draft.floorNumber, totalFloors: propertyState.draft.totalFloors, maxOccupants: propertyState.draft.maxOccupants,
       furnishing: furnishingOptions.find(o => o.value === propertyState.draft.furnishingStatus)?.label ?? '', detailsAvailable: propertyState.draft.propertyType !== null,
     },

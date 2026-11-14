@@ -8,6 +8,7 @@ import {ListingButton} from '../components/ListingButton';
 import {FeedbackNotice} from '../../../shared/components/FeedbackNotice';
 import {ui} from '../../../shared/theme/ui';
 import {spacing} from '../../../shared/theme/spacing';
+import {placeLabel} from '../models/PlaceLabel';
 import {furnishingOptions,propertyFloorConfiguration,propertyTypeOptions,type PropertyValidationIssue} from '../models/DraftProperty';
 import {routineIssues,materialFields,type RoutineField} from '../models/PropertyRoutineEdit';
 import {usePropertyFormFocus} from '../components/usePropertyFormFocus';
@@ -32,7 +33,7 @@ export function PropertyRoutineEditView({viewModel:vm,onClose,estimateSection}:{
    {c.model_attributes_version===2?<PropertyModelAttributeFields type={c.property_type} draft={d} error={error} disabled={disabled||c.open_tenancy} onChange={(field,value)=>flow.update(field,value)}/>:<Text style={ui.supporting}>This feature is not available right now. Try again later. Existing details remain editable.</Text>}
    {estimateSection}
    <Text accessibilityRole="header" style={ui.sectionTitle}>Property identity</Text>
-   <Text style={ui.body}>{propertyTypeOptions.find(o=>o.value===c.property_type)?.label} in {c.barangay}, {c.city}</Text>
+   <Text style={ui.body}>{propertyTypeOptions.find(o=>o.value===c.property_type)?.label} in {placeLabel([c.barangay,c.city])}</Text>
    {c.floor_number!==null?<Text style={ui.supporting}>Rental floor: {c.floor_number}</Text>:null}
    <Text style={ui.supporting}>Property type, address, rental floor, and confirmed location are read-only. Identity corrections require a separate verification workflow.</Text>
    <ListingButton label="Request Identity Correction" tone="outline" disabled={disabled} onPress={vm.openIdentityCorrection}/>

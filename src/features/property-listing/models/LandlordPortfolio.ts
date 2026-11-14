@@ -1,5 +1,6 @@
 import type { Database, Enums } from '../../../shared/services/supabase/database.types';
 import { propertyCityOptions, propertyTypeOptions } from './DraftProperty';
+import { placeLabel } from './PlaceLabel';
 export type PortfolioProperty = Pick<Database['public']['Tables']['properties']['Row'], 'id' | 'landlord_id' | 'property_type' | 'city' | 'barangay' | 'bedrooms' | 'bathrooms' | 'floor_area_sqm' | 'floor_number' | 'total_floors' | 'max_occupants' | 'furnishing_status' | 'is_active' | 'created_at' | 'updated_at'>;
 // Portfolio reads intentionally exclude the draft-edit-only concurrency column.
 export type PortfolioListing = Omit<Database['public']['Tables']['listings']['Row'], 'edit_version'>;
@@ -12,7 +13,7 @@ export interface LandlordPortfolioItem {
 export const portfolioListingLabels: Record<Enums<'listing_status'>, string> = { draft: 'Draft', active: 'Published', paused: 'Paused', rented: 'Rented', archived: 'Archived', removed: 'Removed' };
 export const portfolioTierLabels: Record<LandlordPortfolioItem['tier3']['status'], string> = { not_submitted: 'Ownership verification not submitted', pending: 'Verification pending', under_review: 'Verification under review', approved: 'Ownership verified', rejected: 'Verification rejected', cancelled: 'Verification cancelled', revoked: 'Verification revoked' };
 export const portfolioType = (p: PortfolioProperty) => propertyTypeOptions.find(o => o.value === p.property_type)?.label ?? p.property_type;
-export const portfolioLocation = (p: PortfolioProperty) => `${p.barangay}, ${propertyCityOptions.find(o => o.value === p.city)?.label ?? p.city}`;
+export const portfolioLocation = (p: PortfolioProperty) => placeLabel([p.barangay, propertyCityOptions.find(o => o.value === p.city)?.label ?? p.city]);
 const recent = <T extends { id: string; updated_at: string; created_at: string }>(a: T, b: T) => Date.parse(b.updated_at) - Date.parse(a.updated_at) || Date.parse(b.created_at) - Date.parse(a.created_at) || b.id.localeCompare(a.id);
 export function currentPortfolioListing(rows: PortfolioListing[]) {
   const priority = (status: PortfolioListing['status']) => ['active', 'paused', 'rented'].includes(status) ? 0 : status === 'draft' ? 1 : 2;

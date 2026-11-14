@@ -5,6 +5,7 @@ import {colors} from '../theme/colors';
 import {ui} from '../theme/ui';
 import {formatMonthlyPhp,type PredictionTarget,type PredictionReceipt} from '../models/RentalPrediction';
 import {useInlineRentalEstimate} from '../viewModels/useInlineRentalEstimate';
+import {formatEstimatePeso,formatPeso} from '../models/Currency';
 /** Posting wizard only (rendered just when a caller passes onResult or autoPredict): reports the result upward and requests once for a freshly saved property. */
 function EstimateBridge({result,onResult,autoPredict,ready,workflow}:{result:PredictionReceipt|null;onResult?:((result:PredictionReceipt|null)=>void)|undefined;autoPredict:boolean;ready:boolean;workflow:{predict:()=>Promise<unknown>}}){
  useEffect(()=>{onResult?.(result);},[result]);
@@ -12,7 +13,7 @@ function EstimateBridge({result,onResult,autoPredict,ready,workflow}:{result:Pre
  return null;
 }
 const currency=new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP',minimumFractionDigits:2,maximumFractionDigits:2});
-const peso0=new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP',maximumFractionDigits:0});
+const peso0={format:formatEstimatePeso};
 export function InlineRentalEstimate({accountId,target,property,onReview,variant='details',onUseEstimate,disabled=false,askingRent,onResult,autoPredict=false}:{onResult?:((result:PredictionReceipt|null)=>void)|undefined;autoPredict?:boolean;askingRent?:number|undefined;variant?:'details'|'guidance'|'posting'|'spotlight';onUseEstimate?:((result:PredictionReceipt)=>void)|undefined;disabled?:boolean;accountId:string|undefined;target:PredictionTarget;property?:Record<string,unknown>|null;onReview?:(()=>void)|undefined}){
  const {height:screenHeight,width,fontScale}=useWindowDimensions();
  const [infoOpen,setInfoOpen]=useState(false);
@@ -52,15 +53,15 @@ export function InlineRentalEstimate({accountId,target,property,onReview,variant
  {vm.eligibility?.eligible===false?<Text style={ui.supporting}>{vm.eligibility.reason}</Text>:<>
  {(!result||vm.busy)&&(!vm.error||vm.retryable!==false)?<View style={styles.guidanceActions}><Pressable accessibilityRole="button" accessibilityLabel={vm.error?'Retry estimate':'Estimate Rental Price'} accessibilityState={{disabled:disabled||vm.busy,busy:vm.busy}} disabled={disabled||vm.busy} onPress={()=>void vm.workflow.predict()} style={styles.smallAction}><Text style={styles.actionText}>{vm.busy?'Estimating\u2026':vm.error?'Retry estimate':result?'Estimate again':'Estimate Rental Price'}</Text></Pressable>{vm.busy?<ActivityIndicator accessibilityLabel="Estimating rental price"/>:null}</View>:null}
  {result?<>
- <View><Text style={styles.postingAmount}>{peso0.format(result.estimatedMonthlyRent)}</Text><Text style={ui.supporting}>per month \u00b7 model estimate</Text></View>
+ <View><Text style={styles.postingAmount}>{peso0.format(result.estimatedMonthlyRent)}</Text><Text style={ui.supporting}>per month · model estimate</Text></View>
  {range&&marker!==null&&Number.isFinite(marker)?<View style={{gap:4}}>
- <View accessible accessibilityRole="image" accessibilityLabel={`Illustrative rental range from ${peso0.format(range.minimum)} to ${peso0.format(range.maximum)} per month. Model estimate ${peso0.format(result.estimatedMonthlyRent)}.${Number.isFinite(askingRent)?` Your asking rent ${peso0.format(askingRent!)}.`:''} This is not a confidence interval.`} style={styles.postingBar}>
+ <View accessible accessibilityRole="image" accessibilityLabel={`Illustrative rental range from ${peso0.format(range.minimum)} to ${peso0.format(range.maximum)} per month. Model estimate ${peso0.format(result.estimatedMonthlyRent)}.${Number.isFinite(askingRent)?` Your asking rent ${formatPeso(askingRent!)}.`:''} This is not a confidence interval.`} style={styles.postingBar}>
  <View style={styles.postingRail}/><View style={[styles.postingTick,{left:0}]}/><View style={[styles.postingTick,{right:0}]}/>
  {Number.isFinite(askingRent)&&askingRent!>0?<View testID="asking-rent-marker" style={[styles.askingMarker,{left:`${Math.min(100,Math.max(0,(askingRent!-range.minimum)/(range.maximum-range.minimum)*100))}%`}]}/>:null}
  <View testID="rental-range-marker" style={[styles.postingDot,{left:`${Math.min(100,Math.max(0,marker))}%`}]}/>
  </View>
- <View style={styles.postingBounds}><Text style={ui.supporting}>{peso0.format(range.minimum)}</Text><Text style={[ui.supporting,styles.boundsMid]}>illustrative range (\u00b130%)</Text><Text style={ui.supporting}>{peso0.format(range.maximum)}</Text></View>
- {Number.isFinite(askingRent)&&askingRent!>0?<Text style={ui.supporting}>Orange marker: your asking rent. Not a confidence interval.</Text>:<Text style={ui.supporting}>The \u00b130% range is illustrative, not a statistical confidence interval.</Text>}
+ <View style={styles.postingBounds}><Text style={ui.supporting}>{peso0.format(range.minimum)}</Text><Text style={[ui.supporting,styles.boundsMid]}>illustrative range (±30%)</Text><Text style={ui.supporting}>{peso0.format(range.maximum)}</Text></View>
+ {Number.isFinite(askingRent)&&askingRent!>0?<Text style={ui.supporting}>Orange marker: your asking rent. Not a confidence interval.</Text>:<Text style={ui.supporting}>The ±30% range is illustrative, not a statistical confidence interval.</Text>}
  </View>:<Text style={ui.supporting}>{'Your asking rent stays your choice. The \u00b130% range is illustrative, not a statistical confidence interval.'}</Text>}
  {onUseEstimate?<View style={styles.useRow}><Pressable accessibilityRole="button" accessibilityLabel="Use Estimated Price" accessibilityHint="Fills the asking rent field without saving" accessibilityState={{disabled:disabled||vm.busy}} disabled={disabled||vm.busy} onPress={()=>{if(!disabled&&!vm.busy)onUseEstimate(result);}} style={[styles.smallAction,{alignSelf:'flex-end'}]}><Text style={styles.actionText}>Use Estimated Price</Text></Pressable></View>:null}
  </>:null}

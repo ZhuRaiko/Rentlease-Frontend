@@ -21,6 +21,7 @@ function harness(file:string,name:string,estimate?:{workflow:ReturnType<typeof c
    return nested.exports;
   }
   if(estimate&&tail==='RentalPrediction')return actual(resolve('src/shared/models/RentalPrediction.ts'));
+  if(estimate&&tail==='Currency')return actual(resolve('src/shared/models/Currency.ts'));
   if(tail==='RentalReviews')return {PublishedRentalReviews:(props:any)=>({type:'Reviews',props:{...props,children:props.navigation}})};return mocks[tail]??actual(key);
  };
  new Function('require','module','exports',ts.transpileModule(readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText)(mock,m,m.exports);

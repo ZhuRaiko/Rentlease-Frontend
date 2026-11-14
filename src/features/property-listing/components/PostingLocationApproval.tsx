@@ -4,6 +4,7 @@ import {colors} from '../../../shared/theme/colors';
 import {spacing} from '../../../shared/theme/spacing';
 import {ui} from '../../../shared/theme/ui';
 import {ListingButton} from './ListingButton';
+import {useSheetBottomInset} from '../../../shared/components/useSheetBottomInset';
 import type {useRentalLocationApproval} from '../../../shared/viewModels/useRentalLocationApproval';
 
 /**
@@ -12,7 +13,7 @@ import type {useRentalLocationApproval} from '../../../shared/viewModels/useRent
  * useRentalLocationApproval; nothing sent to any service changes. Turning the switch ON only opens the sheet: approval needs the confirm button.
  */
 export function PostingLocationApproval({model,disabled}:{model:ReturnType<typeof useRentalLocationApproval>;disabled:boolean}){
-  const [open,setOpen]=useState(false),{height}=useWindowDimensions(),s=model.state;
+  const [open,setOpen]=useState(false),{height}=useWindowDimensions(),sheetPadBottom=useSheetBottomInset(),s=model.state;
   if(!s&&!model.error)return null;
   const blocked=disabled||model.busy||!model.ready,canChange=!!s&&model.ready&&(s.approved||s.eligible);
   const notice=s?<Text style={ui.supporting}>{s.approved?'Approved for the current location.':s.eligible?'Not approved. Estimates can use the other saved details.':'A confirmed public grid location is unavailable. Estimates can use the other saved details.'}</Text>:null;
@@ -27,7 +28,7 @@ export function PostingLocationApproval({model,disabled}:{model:ReturnType<typeo
     <Modal visible={open} transparent animationType="slide" onRequestClose={()=>setOpen(false)}>
       <View style={styles.backdrop}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close" style={styles.dismiss} onPress={()=>setOpen(false)}/>
-        <View accessibilityViewIsModal style={[styles.sheet,{maxHeight:height*.85}]}>
+        <View accessibilityViewIsModal style={[styles.sheet,{maxHeight:height*.85,paddingBottom:sheetPadBottom}]}>
           <View accessible={false} style={styles.handle}/>
           <View style={styles.row}><Text accessibilityRole="header" style={[ui.sectionTitle,styles.copy]}>What's shared with the estimator</Text><Pressable accessibilityRole="button" accessibilityLabel="Close" style={styles.close} onPress={()=>setOpen(false)}><Text style={ui.sectionTitle}>{'×'}</Text></Pressable></View>
           <ScrollView contentContainerStyle={styles.sheetBody}>

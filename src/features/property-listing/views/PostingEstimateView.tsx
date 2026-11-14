@@ -9,6 +9,8 @@ import {ListingField} from '../components/ListingControls';
 import {ComposerRecoveryFeedback} from '../components/ComposerRecoveryFeedback';
 import {ListingWorkspaceFeedback} from '../components/ListingWorkspaceFeedback';
 import {colors} from '../../../shared/theme/colors';
+import {formatEstimatePeso} from '../../../shared/models/Currency';
+import {askingRentLabel} from '../models/PostingPrice';
 import {spacing} from '../../../shared/theme/spacing';
 import {ui} from '../../../shared/theme/ui';
 import type {PropertyListingViewModel} from '../viewModels/usePropertyListingViewModel';
@@ -37,11 +39,11 @@ export function PostingEstimateView({viewModel:vm,onClose,estimateSection,locati
     {rentHere?<PostingCard title="Your monthly asking rent">
       <ListingField label="Monthly asking rent" required prefix={'₱'} keyboardType="numeric" placeholder="Enter amount" value={vm.draft.askingRent} error={rentMessage} editable={!vm.listingDraftReadOnly&&!saving} onChangeText={vm.typeAskingRent}/>
       {vm.postingEstimate||vm.priceKeepAvailable?<View style={styles.chips}>
-        {vm.postingEstimate?<Pressable accessibilityRole="button" accessibilityLabel={`Use estimate PHP ${vm.postingEstimate.estimatedMonthlyRent.toLocaleString('en-US',{maximumFractionDigits:2})}`} accessibilityHint="Fills the asking rent field without saving" disabled={saving||vm.listingDraftReadOnly} style={styles.chip} onPress={()=>vm.applyRentalEstimate(vm.postingEstimate!)}><Text style={styles.chipText}>Use estimate {'\u20b1'}{vm.postingEstimate.estimatedMonthlyRent.toLocaleString('en-US',{maximumFractionDigits:2})}</Text></Pressable>:null}
+        {vm.postingEstimate?<Pressable accessibilityRole="button" accessibilityLabel={`Use estimate ${formatEstimatePeso(vm.postingEstimate.estimatedMonthlyRent)}`} accessibilityHint="Fills the asking rent field without saving" disabled={saving||vm.listingDraftReadOnly} style={styles.chip} onPress={()=>vm.applyRentalEstimate(vm.postingEstimate!)}><Text style={styles.chipText}>Use estimate {formatEstimatePeso(vm.postingEstimate.estimatedMonthlyRent)}</Text></Pressable>:null}
         {vm.priceKeepAvailable?<Pressable accessibilityRole="button" accessibilityLabel="Keep My Price" accessibilityHint="Restores the rent you entered" disabled={saving} style={styles.chip} onPress={vm.keepPostingPrice}><Text style={styles.chipText}>Keep My Price</Text></Pressable>:null}
       </View>:null}
       {vm.priceComparison?<Text accessibilityLiveRegion="polite" style={ui.supporting}>{vm.priceComparison}</Text>:<Text style={ui.supporting}>You can set this now and compare after the estimate.</Text>}
-    </PostingCard>:<Text style={ui.body}>Your asking rent: PHP {vm.draft.askingRent||'Not entered'} / month. Edit it on the Listing step.</Text>}
+    </PostingCard>:<Text style={ui.body}>Your asking rent: {askingRentLabel(vm.draft.askingRent)} / month. Edit it on the Listing step.</Text>}
     {locationSection}
     <ComposerRecoveryFeedback viewModel={vm}/><ListingWorkspaceFeedback viewModel={vm} scope="draft"/>
     <PostingSection title="About this estimate" plain><Text style={ui.supporting}>An estimate is optional. Continue with your own price if it is unavailable. Using an estimate only fills your asking rent field. Your property details are already saved; continuing saves your listing draft and selected photos.</Text></PostingSection>

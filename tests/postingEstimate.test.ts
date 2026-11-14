@@ -43,23 +43,23 @@ test('the estimate-details count includes only fields the estimator reads, and n
 
 test('rent comparison words, percent rounding and range boundaries', () => {
   const range = { minimum: 17150, maximum: 31850 };
-  assert.equal(rentComparison(26000, 24500, range), 'PHP 1,500 (6%) above the estimate. Inside the range.');
-  assert.equal(rentComparison(23000, 24500, range), 'PHP 1,500 (6%) below the estimate. Inside the range.');
+  assert.equal(rentComparison(26000, 24500, range), '₱1,500 (6%) above the estimate. Inside the range.');
+  assert.equal(rentComparison(23000, 24500, range), '₱1,500 (6%) below the estimate. Inside the range.');
   assert.equal(rentComparison(24500, 24500, range), 'Matches the estimate. Inside the range.');
-  assert.equal(rentComparison(35000, 24500, range), 'PHP 10,500 (43%) above the estimate. Outside the range.');
-  assert.equal(rentComparison(10000, 24500, range), 'PHP 14,500 (59%) below the estimate. Outside the range.');
+  assert.equal(rentComparison(35000, 24500, range), '₱10,500 (43%) above the estimate. Outside the range.');
+  assert.equal(rentComparison(10000, 24500, range), '₱14,500 (59%) below the estimate. Outside the range.');
   // Boundaries are inclusive; one centavo outside is outside.
   assert.match(rentComparison(17150, 24500, range)!, /Inside the range\.$/);
   assert.match(rentComparison(31850, 24500, range)!, /Inside the range\.$/);
   assert.match(rentComparison(17149.99, 24500, range)!, /Outside the range\.$/);
   assert.match(rentComparison(31850.01, 24500, range)!, /Outside the range\.$/);
   // No range: the first sentence only, never an invented range.
-  assert.equal(rentComparison(26000, 24500), 'PHP 1,500 (6%) above the estimate.');
-  assert.equal(rentComparison(26000, 24500, null), 'PHP 1,500 (6%) above the estimate.');
+  assert.equal(rentComparison(26000, 24500), '₱1,500 (6%) above the estimate.');
+  assert.equal(rentComparison(26000, 24500, null), '₱1,500 (6%) above the estimate.');
   // Percent rounds half up: 0.5% rounds to 1%, 0.4% to 0%.
   assert.match(rentComparison(10050, 10000)!, /\(1%\) above/);
   assert.match(rentComparison(10040, 10000)!, /\(0%\) above/);
-  assert.equal(rentComparison(12345.5, 10000), 'PHP 2,345.5 (23%) above the estimate.');
+  assert.equal(rentComparison(12345.5, 10000), '₱2,345.50 (23%) above the estimate.');
 });
 
 test('rent comparison returns nothing without a usable rent or estimate', () => {
