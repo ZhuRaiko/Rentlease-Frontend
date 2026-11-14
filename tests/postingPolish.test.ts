@@ -3,17 +3,16 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
-import { formatEstimatePeso, formatPeso, roundEstimate } from '../src/shared/models/Currency';
-import { askingRentLabel, currentEstimate, matchesEstimate, reviewPriceDetail } from '../src/features/property-listing/models/PostingPrice';
+import { formatPeso } from '../src/shared/models/Currency';
+import { askingRentLabel, currentEstimate, reviewPriceDetail } from '../src/features/property-listing/models/PostingPrice';
 import { placeLabel, titleCasePlace } from '../src/features/property-listing/models/PlaceLabel';
-import { rentComparison } from '../src/features/property-listing/models/PostingEstimate';
 import { DRAFT_SAVED_NOTICE } from '../src/features/property-listing/viewModels/listingDraftWorkflow';
 import { sheetBottomPadding } from '../src/shared/components/sheetInset';
 
 // ---- Harness: real money, theme and feedback modules; every other import is a named stub.
 const realFiles: Record<string, string> = {
   Currency: 'src/shared/models/Currency.ts', PostingPrice: 'src/features/property-listing/models/PostingPrice.ts',
-  colors: 'src/shared/theme/colors.ts', spacing: 'src/shared/theme/spacing.ts', radius: 'src/shared/theme/radius.ts',
+  RentalRange: 'src/shared/models/RentalRange.ts', colors: 'src/shared/theme/colors.ts', spacing: 'src/shared/theme/spacing.ts', radius: 'src/shared/theme/radius.ts',
   ListingWorkspaceFeedback: 'src/features/property-listing/components/ListingWorkspaceFeedback.tsx',
 };
 const cache: Record<string, any> = {};
@@ -76,12 +75,6 @@ test('the escape scanner flags JSX text and attribute strings, and leaves expres
   assert.equal(findRawEscapes('const A=()=><Text>per month \u00b7 model estimate \u00b130%</Text>;').length, 0);
   assert.equal(findRawEscapes('// \\u00b7 in a comment\nconst A=()=><Text>ok</Text>;').length, 0);
 });
-test('the Price step estimate text carries real characters', () => {
-  const src = readFileSync('src/shared/components/InlineRentalEstimate.tsx', 'utf8');
-  assert.ok(src.includes('per month \u00b7 model estimate'));
-  assert.ok(src.includes('illustrative range (\u00b130%)'));
-  assert.ok(src.includes('The \u00b130% range is illustrative, not a statistical confidence interval.'));
-});
 
 // ---- 3. One money format
 test('formatPeso: peso sign, thousands separators, centavos only when present', () => {
@@ -95,41 +88,6 @@ test('formatPeso: peso sign, thousands separators, centavos only when present', 
   assert.equal(formatPeso(-1500), '-\u20b11,500');
   assert.equal(formatPeso(NaN), '');
 });
-test('estimates are shown in whole pesos everywhere: the headline and the Use estimate button agree', () => {
-  assert.equal(formatEstimatePeso(12226.51), '\u20b112,227');
-  assert.equal(formatEstimatePeso(12226.49), '\u20b112,226');
-  assert.equal(roundEstimate(12226.5), 12227);
-  const price = readFileSync('src/features/property-listing/views/PostingEstimateView.tsx', 'utf8');
-  const inline = readFileSync('src/shared/components/InlineRentalEstimate.tsx', 'utf8');
-  assert.match(inline, /const peso0=\{format:formatEstimatePeso\}/);
-  assert.match(price, /Use estimate \{formatEstimatePeso\(vm\.postingEstimate\.estimatedMonthlyRent\)\}/);
-  assert.match(price, /`Use estimate \$\{formatEstimatePeso\(vm\.postingEstimate\.estimatedMonthlyRent\)\}`/);
-  assert.match(readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8'), /updateDraft\('askingRent',String\(roundEstimate\(result\.estimatedMonthlyRent\)\)\)/);
-});
-test('matchesEstimate compares to the whole peso the estimate is shown in', () => {
-  assert.equal(matchesEstimate(12227, 12226.51), true);
-  assert.equal(matchesEstimate(12226.51, 12226.51), true);
-  assert.equal(matchesEstimate(12226, 12226.51), false);
-  assert.equal(matchesEstimate(12000, 12226.51), false);
-});
-test('Review price line: "Matches the estimate" when equal, otherwise "Estimate \u20b1X"; no estimate shows only the rent', () => {
-  assert.equal(reviewPriceDetail('12227', 12226.51), '\u20b112,227 \u00b7 Matches the estimate');
-  assert.equal(reviewPriceDetail('12226.51', 12226.51), '\u20b112,226.51 \u00b7 Matches the estimate');
-  assert.equal(reviewPriceDetail('11373.65', 12226.51), '\u20b111,373.65 \u00b7 Estimate \u20b112,227');
-  assert.equal(reviewPriceDetail('11,000', 12226.51), '\u20b111,000 \u00b7 Estimate \u20b112,227');
-  assert.equal(reviewPriceDetail('11000', null), '\u20b111,000');
-  assert.equal(reviewPriceDetail('11000', 0), '\u20b111,000');
-  assert.equal(reviewPriceDetail('11000', NaN), '\u20b111,000');
-  assert.equal(reviewPriceDetail('', 12226.51), 'Not entered');
-  assert.equal(reviewPriceDetail('abc', 12226.51), 'Not entered');
-  assert.equal(askingRentLabel('12000'), '\u20b112,000');
-  assert.ok(!/PHP/.test(reviewPriceDetail('12000', 11000)));
-});
-test('the Price step comparison uses the same format and the same "matches" rule', () => {
-  assert.equal(rentComparison(12227, 12226.51), 'Matches the estimate.');
-  assert.equal(rentComparison(13000, 12226.51), '\u20b1773.49 (6%) above the estimate.');
-  assert.equal(rentComparison(12000, 12226.51), '\u20b1226.51 (2%) below the estimate.');
-});
 const reviewVm = (over: any = {}) => ({
   publishedEditing: false, listingDraftState: { busy: false, propertyId: 'p1', listingId: 'l1', error: null, notice: null, uncertain: false, conflict: false },
   publicationState: { propertyId: null }, lifecycleState: { propertyId: null }, workspacePropertyId: 'p1', workspaceListingId: null,
@@ -137,26 +95,7 @@ const reviewVm = (over: any = {}) => ({
   propertySummary: { type: 'Apartment', location: 'Imus', bedrooms: '1', bathrooms: '1', floorAreaSqm: '35' },
   photoState: { photos: [{ publicUrl: 'https://example.invalid/c', is_cover: true }], pendingSelections: [] },
   postingChecklist: [{ key: 'photos', done: true, label: 'Photos (1)', detail: null }, { key: 'verification', done: false, label: 'Property verification (Tier 3)', detail: 'Required to publish' }],
-  postingDraftSaved: true, postingWithinRange: true, postingEstimate: { estimatedMonthlyRent: 12226.51 }, postingPublishReady: false, saveAndExitDisabled: false, goBack() {}, ...over,
-});
-test('Review shows peso text from the shared formatter and no PHP amounts', () => {
-  const t = text(render('PostingReviewView', reviewVm()));
-  assert.match(t, /\u20b112,227 \/ month/);
-  assert.match(t, /\u20b112,227 \u00b7 Matches the estimate/);
-  assert.ok(!/PHP/.test(t));
-  const other = text(render('PostingReviewView', reviewVm({ draft: { ...reviewVm().draft, askingRent: '11373.65' } })));
-  assert.match(other, /\u20b111,373\.65 \/ month/);
-  assert.match(other, /\u20b111,373\.65 \u00b7 Estimate \u20b112,227/);
-  assert.ok(!/estimate PHP|PHP 11373/.test(other));
-});
-test('the Price step shows the same whole-peso estimate on the button and its label', () => {
-  const view = (vm: any) => render('PostingEstimateView', vm, { estimateSection: null });
-  const vm = { publishedEditing: false, composerPhase: null, listingDraftState: { busy: false }, listingDraftReadOnly: false, draft: { askingRent: '12000' }, priceIssue: null, priceAttempted: false, postingEstimate: { estimatedMonthlyRent: 12226.51 }, priceComparison: null, priceKeepAvailable: false, goBack() {} };
-  const tree = view(vm);
-  assert.ok(text(tree).includes('Use estimate \u20b112,227'));
-  assert.equal(nodes(tree).find(n => /^Use estimate/.test(n.props?.accessibilityLabel ?? ''))?.props.accessibilityLabel, 'Use estimate \u20b112,227');
-  assert.ok(!/PHP/.test(text(view({ ...vm, publishedEditing: true }))), 'the read-only rent line uses the peso formatter too');
-  assert.match(text(view({ ...vm, publishedEditing: true })), /Your asking rent: \u20b112,000 \/ month/);
+  postingDraftSaved: true, postingWithinRange: true, postingEstimate: { illustrativeRange: { minimum: 8500, maximum: 16000 } }, postingPublishReady: false, saveAndExitDisabled: false, goBack() {}, ...over,
 });
 
 // ---- 2. One saved notice on Review
@@ -195,7 +134,7 @@ test('the ViewModel keeps each estimate with its property basis and reads it thr
   assert.match(vm, /useState<\{result:PredictionReceipt;basis:string\}\|null>\(null\)/);
   assert.match(vm, /postingEstimateResult=currentEstimate\(postingEstimateHeld,estimateBasisKey\)/);
   assert.match(vm, /setPostingEstimate:\(r:PredictionReceipt\|null\)=>setPostingEstimateHeld\(r\?\{result:r,basis:estimateBasisKey\}:null\)/);
-  assert.match(vm, /priceComparison:rentComparison\(listingNumber\(draft\.askingRent\),postingEstimateResult\?\.estimatedMonthlyRent/);
+  assert.match(vm, /postingRangeRelation:rangeRelation\(listingNumber\(draft\.askingRent\),postingEstimateResult\?\.illustrativeRange\)/);
 });
 
 // ---- 5. Tier 3 warning treatment
@@ -278,4 +217,25 @@ test('the card, the Review chips and the property summary all build the location
   const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
   assert.equal(vm.split('location: placeLabel(').length - 1, 2);
   assert.match(readFileSync('src/features/property-listing/views/PropertyRoutineEditView.tsx', 'utf8'), /placeLabel\(\[c\.barangay,c\.city\]\)/);
+});
+
+// ---- 3 (range-only): the Review price line and the peso text
+test('Review price line: rent per month with its relation to the typical range; no estimate figure', () => {
+  const range = { minimum: 8500, maximum: 16000 };
+  assert.equal(reviewPriceDetail('13000', range), '₱13,000 per month · Within the typical range');
+  assert.equal(reviewPriceDetail('19500', range), '₱19,500 per month · Above the typical range');
+  assert.equal(reviewPriceDetail('8000', range), '₱8,000 per month · Below the typical range');
+  assert.equal(reviewPriceDetail('13,000', range), '₱13,000 per month · Within the typical range');
+  assert.equal(reviewPriceDetail('13000.5', range), '₱13,000.50 per month · Within the typical range');
+  assert.equal(reviewPriceDetail('13000', null), '₱13,000 per month');
+  assert.equal(reviewPriceDetail('', range), 'Not entered');
+  assert.equal(reviewPriceDetail('abc', range), 'Not entered');
+  assert.equal(askingRentLabel('12000'), '₱12,000');
+});
+test('Review shows peso text from the shared formatter, the relation, and no PHP amount or estimate figure', () => {
+  const t = text(render('PostingReviewView', reviewVm({ draft: { ...reviewVm().draft, askingRent: '13000' } })));
+  assert.match(t, /₱13,000 \/ month/);
+  assert.match(t, /₱13,000 per month · Within the typical range/);
+  assert.ok(!/PHP|estimate PHP|Matches the estimate|Within estimate range/.test(t));
+  assert.match(text(render('PostingReviewView', reviewVm({ draft: { ...reviewVm().draft, askingRent: '19500' } }))), /₱19,500 per month · Above the typical range/);
 });

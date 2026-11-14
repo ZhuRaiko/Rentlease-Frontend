@@ -1,7 +1,5 @@
 import {rentalEstimateEligibility} from '../../../shared/models/RentalEstimateEligibility';
 import {propertyTypeOptions,propertyCityOptions,furnishingOptions} from './DraftProperty';
-import {formatPeso} from '../../../shared/models/Currency';
-import {matchesEstimate} from './PostingPrice';
 
 /** The posting wizard's view of the property: the same shape for a new draft and for the saved (routine) editor. */
 export interface EstimateInputs {
@@ -33,15 +31,6 @@ export function estimateDetailCount(i:EstimateInputs){
 }
 /** Names of the estimate details still missing, in form order, so the meter can say what to add. */
 export const missingEstimateDetails=(i:EstimateInputs):string[]=>estimateChecks(i).filter(([,ok])=>!ok).map(([name])=>name);
-
-const php=(amount:number)=>formatPeso(Math.abs(amount));
-/** "\u20b11,500 (6%) above the estimate. Inside the range." Null without a usable rent or estimate. */
-export function rentComparison(rent:number,estimate:number|null|undefined,range?:{minimum:number;maximum:number}|null):string|null {
-  if(!Number.isFinite(rent)||rent<=0||typeof estimate!=='number'||!Number.isFinite(estimate)||estimate<=0)return null;
-  const diff=Math.round((rent-estimate)*100)/100;
-  const head=matchesEstimate(rent,estimate)?'Matches the estimate.':`${php(diff)} (${Math.round(Math.abs(diff)/estimate*100)}%) ${diff>0?'above':'below'} the estimate.`;
-  return range?`${head} ${rent>=range.minimum&&rent<=range.maximum?'Inside':'Outside'} the range.`:head;
-}
 
 /** "House · 85 sqm · 3 bd · Imus · Semi-furnished" from saved values, skipping anything unknown. */
 export function estimateBasis(p:{property_type?:unknown;floor_area_sqm?:unknown;bedrooms?:unknown;city?:unknown;furnishing_status?:unknown}|null|undefined):string {

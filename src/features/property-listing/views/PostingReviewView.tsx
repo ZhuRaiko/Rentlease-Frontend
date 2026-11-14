@@ -30,7 +30,7 @@ export function PostingReviewView({viewModel:vm,onClose}:{viewModel:PropertyList
     {uri?<View><Image source={{uri}} accessibilityLabel={photo?'Saved property cover photo':'Selected property photo, not saved yet'} style={styles.cover}/>{!published?<View style={styles.overlay}><Edit label="Change photos" onPress={()=>vm.editPostingStep('property')}/></View>:null}</View>:<Text style={ui.supporting}>No property photos selected.</Text>}
     <View style={styles.gap}>
       <Text style={ui.sectionTitle}>{d.title||'Listing title not entered'}</Text>
-      <View style={styles.priceLine}><Text style={ui.pageTitle}>{askingRentLabel(d.askingRent)} / month</Text>{vm.postingWithinRange?<Text style={styles.badge}>Within estimate range</Text>:null}</View>
+      <View style={styles.priceLine}><Text style={ui.pageTitle}>{askingRentLabel(d.askingRent)} / month</Text></View>
       <View style={styles.chips}>{[p.type,`${p.bedrooms} bd`,`${p.bathrooms} ba`,p.floorAreaSqm?`${p.floorAreaSqm} sqm`:null,p.location].filter(Boolean).map(text=><Text key={String(text)} style={styles.chip}>{text}</Text>)}</View>
     </View>
     {published?<Text style={ui.supporting}>Publication status will be preserved. Save Changes updates this rental without pausing, reactivating or republishing it. Use Manage Status for lifecycle actions.</Text>
@@ -45,7 +45,7 @@ export function PostingReviewView({viewModel:vm,onClose}:{viewModel:PropertyList
     <ComposerRecoveryFeedback viewModel={vm}/><ListingWorkspaceFeedback viewModel={vm} scope="draft" hideSavedNotice/><ListingWorkspaceFeedback viewModel={vm} scope="publication" hideSavedNotice/>
     <PostingCard>
       <Row title="Property" detail={`${p.type} · ${p.bedrooms} bd · ${p.bathrooms} ba${p.floorAreaSqm?` · ${p.floorAreaSqm} sqm`:''}`} label="Edit property" onEdit={edit('property')}/>
-      <Row title="Price" detail={reviewPriceDetail(d.askingRent,vm.postingEstimate?.estimatedMonthlyRent)} label="Edit price" onEdit={edit('price')}/>
+      <Row title="Price" detail={reviewPriceDetail(d.askingRent,vm.postingEstimate?.illustrativeRange)} label="Edit price" onEdit={edit('price')}/>
       <Row title="Description" detail={d.description||'No description entered'} label="Edit description" onEdit={edit('listing')}/>
       <Row title="Terms" detail={`${rentalTermOptions.find(x=>x.value===d.rentalTerm)?.label??'Rental term not entered'} · Deposit ${d.securityDepositMonths||'not specified'} · Advance ${d.advanceRentMonths||'not specified'}${d.minimumStayMonths?` · Minimum stay ${d.minimumStayMonths}`:''} · Available ${d.availableDate||'not specified'}`} label="Edit terms" last={!d.houseRules} onEdit={edit('listing')}/>
       {d.houseRules?<Row title="House rules" detail={d.houseRules} label="Edit house rules" last onEdit={edit('listing')}/>:null}

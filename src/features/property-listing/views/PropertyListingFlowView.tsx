@@ -8,6 +8,7 @@ import type {LandlordPortfolioItem} from '../models/LandlordPortfolio';
 import type {PortfolioRequestActivity} from '../models/PortfolioCardPresentation';
 import {PropertyIdentityEditView} from './PropertyIdentityEditView';
 import {PropertyRoutineEditView} from './PropertyRoutineEditView';
+import {listingNumber} from '../models/PersistedListingDraft';
 import { ListingDraftSavedView } from './ListingDraftSavedView';
 import { PublishedListingStatusView } from './PublishedListingStatusView';
 import { useEffect, useRef, type ReactNode } from 'react';
@@ -90,7 +91,7 @@ export function PropertyListingFlowView({
   });
   const estimateTarget=viewModel.workspaceListingId?{listingId:viewModel.workspaceListingId}:viewModel.workspacePropertyId?{propertyId:viewModel.workspacePropertyId}:null;
   const estimateSection=estimateTarget?<InlineRentalEstimate key={`${accountId}:${JSON.stringify(estimateTarget)}:${viewModel.screen}`} accountId={accountId} target={estimateTarget} property={viewModel.estimationProperty} onReview={viewModel.estimationProperty?.landlord_id===accountId&&viewModel.propertyEditAvailable&&viewModel.screen!=='propertyEdit'?viewModel.openPropertyDetails:undefined}/>:null;
-  const priceGuidance=<RentalPriceGuidance key={`${accountId}:${viewModel.workspacePropertyId}:${viewModel.screen}`} accountId={accountId} target={viewModel.workspacePropertyId?{propertyId:viewModel.workspacePropertyId}:null} property={viewModel.estimationProperty} onUseEstimate={viewModel.applyRentalEstimate} disabled={viewModel.listingDraftReadOnly||!!viewModel.composerPhase||viewModel.listingDraftState.busy||viewModel.unfinishedPostState.busy}/>;
+  const priceGuidance=<RentalPriceGuidance key={`${accountId}:${viewModel.workspacePropertyId}:${viewModel.screen}`} accountId={accountId} target={viewModel.workspacePropertyId?{propertyId:viewModel.workspacePropertyId}:null} property={viewModel.estimationProperty} onUseRent={viewModel.applyRentFromRange} askingRent={listingNumber(viewModel.draft.askingRent)} disabled={viewModel.listingDraftReadOnly||!!viewModel.composerPhase||viewModel.listingDraftState.busy||viewModel.unfinishedPostState.busy}/>;
   let content;
 
   if(viewModel.screen!=='dashboard'&&viewModel.unfinishedPostState.status?.propertyId===viewModel.workspacePropertyId&&viewModel.unfinishedPostState.status?.state==='cleanup_pending'){

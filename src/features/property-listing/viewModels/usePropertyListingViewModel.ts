@@ -39,8 +39,8 @@ import { listingDraftService } from '../services/listingDraftDependencies';
 import { applySavedListing, listingFieldsEqual, hasListingMinimum, listingNumber, listingFieldIssue, listingDetailsIssue } from '../models/PersistedListingDraft';
 import { placeLabel } from '../models/PlaceLabel';
 import { currentEstimate } from '../models/PostingPrice';
-import { roundEstimate } from '../../../shared/models/Currency';
-import { estimateBasis, estimateDetailCount, floorAreaMissing, floorAreaRequired, rentComparison, type EstimateInputs } from '../models/PostingEstimate';
+import { rangeRelation } from '../../../shared/models/RentalRange';
+import { estimateBasis, estimateDetailCount, floorAreaMissing, floorAreaRequired, type EstimateInputs } from '../models/PostingEstimate';
 import { createPropertyPhotoWorkflow } from './propertyPhotoWorkflow';
 import { propertyPhotoService, selectPropertyPhoto, selectPropertyPhotos } from '../services/propertyPhotoDependencies';
 import { createPropertyCreationWorkflow } from './propertyCreationWorkflow';
@@ -745,9 +745,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     saveAndExitDisabled:operationBusy()||initialHydrationPending()||listingDraftState.uncertain||listingDraftState.conflict,
     postingEstimate:postingEstimateResult&&'propertyId' in postingEstimateResult.target&&postingEstimateResult.target.propertyId===workspace.propertyId?postingEstimateResult:null,
     setPostingEstimate:(r:PredictionReceipt|null)=>setPostingEstimateHeld(r?{result:r,basis:estimateBasisKey}:null),
-    priceComparison:rentComparison(listingNumber(draft.askingRent),postingEstimateResult?.estimatedMonthlyRent,postingEstimateResult?.illustrativeRange),
-    // "Within estimate range" only when the estimate is already in state and the rent is inside its illustrative range.
-    postingWithinRange:(()=>{const e=postingEstimateResult,r=listingNumber(draft.askingRent);return !!e&&!!e.illustrativeRange&&Number.isFinite(r)&&r>=e.illustrativeRange.minimum&&r<=e.illustrativeRange.maximum;})(),
+    // Where the asking rent sits against the ends of the typical range (the only comparison there is; no point value exists).
+    postingRangeRelation:rangeRelation(listingNumber(draft.askingRent),postingEstimateResult?.illustrativeRange),
     priceKeepAvailable:postingOriginalPrice!==null&&postingOriginalPrice!==draft.askingRent,
     estimateBasisText:estimateBasis(physical),
     estimateInputs,floorAreaRequired:wizardFloorAreaRequired,floorAreaMissing:wizardFloorAreaMissing,estimateDetails:estimateDetailCount(estimateInputs),
@@ -806,11 +805,11 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     retryDraftHydration:()=>{if(!initialHydrationPending())return;propertyPhotos.setProperty(null);propertyAmenities.setProperty(null);publishedContent.setProperty(null);listingDraftPersistence.setProperty(null);publication.setProperty(null);selectWorkspace({...workspaceRef.current});},
     composerSaveDisabled: !!(contentState.lastConfirmed&&(!listingDraftDirty&&!photoState.pendingSelections.length||listingValidationIssue)) || (editingPublished ? initialHydrationPending()||operationBusy()||publishedContentState.uncertain||publishedContentState.conflict||publicationReadOnly() : initialHydrationPending() || operationBusy() || propertyState.uncertain || listingDraftState.uncertain || listingDraftState.conflict || (!workspace.propertyId ? !propertyState.loaded : publicationReadOnly() || photoState.needsReconcile)),
     composerPreview: history.includes('listingComposer') || history.includes('listingDetails') || screen === 'listingComposer' || screen === 'listingDetails',
-    applyRentalEstimate:(result:PredictionReceipt)=>{
+    /** The owner applied a rent from the range slider. Fills the asking rent field only; nothing is saved. */
+    applyRentFromRange:(rent:number)=>{
       const current=workspaceRef.current;
-      const matches=result.target.propertyId===current.propertyId||!!current.listingId&&result.target.listingId===current.listingId;
-      if(!active.current||!current.propertyId||!matches||result.currency!=='PHP'||!Number.isFinite(result.estimatedMonthlyRent)||result.estimatedMonthlyRent<=0||propertyRoutine.dirty()||propertyIdentity.dirty())return;
-      updateDraft('askingRent',String(roundEstimate(result.estimatedMonthlyRent)));
+      if(!active.current||!current.propertyId||!Number.isFinite(rent)||rent<=0||propertyRoutine.dirty()||propertyIdentity.dirty())return;
+      updateDraft('askingRent',String(Math.round(rent)));
     },
     estimationProperty:physical?{property_subtype:'property_subtype' in physical?physical.property_subtype:null,lot_area_sqm:'lot_area_sqm' in physical?physical.lot_area_sqm:null,parking_spaces:'parking_spaces' in physical?physical.parking_spaces:null,edit_version:'edit_version' in physical?physical.edit_version:null,property_type:physical.property_type,city:physical.city,furnishing_status:physical.furnishing_status,bedrooms:physical.bedrooms,bathrooms:physical.bathrooms,floor_area_sqm:physical.floor_area_sqm,floor_number:physical.floor_number,is_active:workspace.item?.property.is_active,landlord_id:'owner_id' in physical?physical.owner_id:'landlord_id' in physical?physical.landlord_id:undefined}:null,
     workspacePropertyId: workspace.propertyId, workspaceListingId: lifecycleState.listingId ?? listingDraftState.listingId ?? workspace.listingId, workspaceMode: workspace.mode,

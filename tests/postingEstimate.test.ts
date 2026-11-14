@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { estimateBasis, estimateDetailCount, estimateNeedsFloorArea, missingEstimateDetails, floorAreaMissing, floorAreaRequired, rentComparison, validFloorArea, type EstimateInputs } from '../src/features/property-listing/models/PostingEstimate';
+import { estimateBasis, estimateDetailCount, estimateNeedsFloorArea, missingEstimateDetails, floorAreaMissing, floorAreaRequired, validFloorArea, type EstimateInputs } from '../src/features/property-listing/models/PostingEstimate';
 import { listingDetailsIssue, listingFieldIssue } from '../src/features/property-listing/models/PersistedListingDraft';
 import { emptyListingDraft } from '../src/features/property-listing/models/PropertyListing';
 
@@ -41,31 +41,7 @@ test('the estimate-details count includes only fields the estimator reads, and n
   assert.deepEqual(Object.keys(base).sort(), ['amenityCount', 'bathrooms', 'bedrooms', 'city', 'floorAreaSqm', 'floorNumber', 'furnishingStatus', 'lotAreaSqm', 'parkingSpaces', 'propertySubtype', 'propertyType']);
 });
 
-test('rent comparison words, percent rounding and range boundaries', () => {
-  const range = { minimum: 17150, maximum: 31850 };
-  assert.equal(rentComparison(26000, 24500, range), '₱1,500 (6%) above the estimate. Inside the range.');
-  assert.equal(rentComparison(23000, 24500, range), '₱1,500 (6%) below the estimate. Inside the range.');
-  assert.equal(rentComparison(24500, 24500, range), 'Matches the estimate. Inside the range.');
-  assert.equal(rentComparison(35000, 24500, range), '₱10,500 (43%) above the estimate. Outside the range.');
-  assert.equal(rentComparison(10000, 24500, range), '₱14,500 (59%) below the estimate. Outside the range.');
-  // Boundaries are inclusive; one centavo outside is outside.
-  assert.match(rentComparison(17150, 24500, range)!, /Inside the range\.$/);
-  assert.match(rentComparison(31850, 24500, range)!, /Inside the range\.$/);
-  assert.match(rentComparison(17149.99, 24500, range)!, /Outside the range\.$/);
-  assert.match(rentComparison(31850.01, 24500, range)!, /Outside the range\.$/);
-  // No range: the first sentence only, never an invented range.
-  assert.equal(rentComparison(26000, 24500), '₱1,500 (6%) above the estimate.');
-  assert.equal(rentComparison(26000, 24500, null), '₱1,500 (6%) above the estimate.');
-  // Percent rounds half up: 0.5% rounds to 1%, 0.4% to 0%.
-  assert.match(rentComparison(10050, 10000)!, /\(1%\) above/);
-  assert.match(rentComparison(10040, 10000)!, /\(0%\) above/);
-  assert.equal(rentComparison(12345.5, 10000), '₱2,345.50 (23%) above the estimate.');
-});
 
-test('rent comparison returns nothing without a usable rent or estimate', () => {
-  for (const rent of [NaN, 0, -1, Infinity]) assert.equal(rentComparison(rent, 24500), null, String(rent));
-  for (const estimate of [null, undefined, 0, -5, NaN, Infinity]) assert.equal(rentComparison(26000, estimate as number | null | undefined), null, String(estimate));
-});
 
 test('estimate basis lists saved values and skips unknown ones', () => {
   assert.equal(estimateBasis({ property_type: 'house', floor_area_sqm: 85, bedrooms: 3, city: 'imus', furnishing_status: 'semi_furnished' }), 'House · 85 sqm · 3 bd · Imus · Semi-furnished');

@@ -17,7 +17,7 @@ function harness(file:string,name:string,estimate?:{workflow:ReturnType<typeof c
   if(estimate&&tail==='useInlineRentalEstimate')return {useInlineRentalEstimate:(accountId:any,target:any)=>{estimate.bindings.push({accountId,target});return {...estimate.workflow.getSnapshot(),workflow:estimate.workflow};}};
   if(estimate&&tail==='InlineRentalEstimate'){
    const nested={exports:{} as any},source=resolve('src/shared/components/InlineRentalEstimate.tsx');
-   new Function('require','module','exports',ts.transpileModule(readFileSync(source,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText)((dependency:string)=>dependency==='./AppButton'?{AppButton:'Button'}:dependency==='../theme/colors'?actual(resolve('src/shared/theme/colors.ts')):dependency==='../theme/ui'?actual(resolve('src/shared/theme/ui.ts')):mock(dependency),nested,nested.exports);
+   new Function('require','module','exports',ts.transpileModule(readFileSync(source,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText)((dependency:string)=>dependency==='./AppButton'?{AppButton:'Button'}:dependency==='./RangeEstimateCard'?{RangeEstimateCard:'RangeCard'}:dependency==='../theme/colors'?actual(resolve('src/shared/theme/colors.ts')):dependency==='../theme/ui'?actual(resolve('src/shared/theme/ui.ts')):mock(dependency),nested,nested.exports);
    return nested.exports;
   }
   if(estimate&&tail==='RentalPrediction')return actual(resolve('src/shared/models/RentalPrediction.ts'));
@@ -70,21 +70,17 @@ test('public map centers only supplied public coordinates and has bounded indepe
 
 test('real Rental Details mounts real spotlight range after the existing prediction workflow succeeds',async()=>{
  let calls=0;const target={listingId:detail.listingId};
- const workflow=createInlineRentalEstimate({predict:async(actor,received)=>{calls++;assert.equal(actor,'tenant');assert.deepEqual(received,target);return {target,estimatedMonthlyRent:11747.67,currency:'PHP',modelVersion:'integration-test',askingRent:detail.rent,predictedAt:'2026-11-11T00:00:00Z',illustrativeRange:{minimum:8223.37,maximum:15271.97}};}},'tenant',target);
+ const workflow=createInlineRentalEstimate({predict:async(actor,received)=>{calls++;assert.equal(actor,'tenant');assert.deepEqual(received,target);return {target,currency:'PHP',modelVersion:'integration-test',askingRent:detail.rent,predictedAt:'2026-11-11T00:00:00Z',illustrativeRange:{minimum:8000,maximum:15500}};}},'tenant',target);
  const bindings:any[]=[];
  const render=harness('src/features/search-discovery/views/LiveSearchViews.tsx','LivePropertyDetailView',{workflow,bindings});
  const props={viewModel:vm(),accountId:'tenant'};
- let tree=render(props);assert.equal(calls,0);assert.ok(!nodes(tree).some(n=>n.props?.testID==='rental-range-bounds'));
+ let tree=render(props);assert.equal(calls,0);assert.ok(!nodes(tree).some(n=>n.type==='RangeCard'));
  const action=nodes(tree).find(n=>n.type==='Pressable'&&n.props.children?.props?.children==='Get Rental Price Estimate');assert.ok(action,'Actual detail screen must expose the spotlight action');
  action.props.onPress();await new Promise(resolve=>setImmediate(resolve));tree=render(props);bareCheck(tree);
  assert.equal(calls,1);assert.deepEqual(bindings[0],{accountId:'tenant',target});
  const all=nodes(tree),texts=all.filter(n=>n.type==='Text').map(n=>[n.props.children].flat().join(''));
  assert.equal(texts.filter(t=>t==='Is this rent fairly priced?').length,1);
- assert.equal(all.filter(n=>n.props?.testID==='rental-range-bounds').length,1);
- assert.ok(texts.includes('\u20b18,223.37'));assert.ok(texts.includes('\u20b115,271.97'));
- assert.ok(texts.indexOf('Illustrative rental range')<texts.indexOf("Landlord's asking rent"));
- assert.ok(texts.indexOf('Illustrative rental range')<texts.indexOf("Model's point estimate"));
- assert.ok(all.some(n=>n.props?.testID==='rental-range-marker'));assert.ok(texts.includes('Estimate again'));
- const rangeText=all.find(n=>n.props?.children==='\u20b18,223.37'),pointText=all.find(n=>n.props?.children==='\u20b111,747.67');assert.ok(rangeText.props.style.fontSize>pointText.props.style.fontSize);
+ const cards=all.filter(n=>n.type==='RangeCard');assert.equal(cards.length,1);assert.deepEqual(cards[0].props.range,{minimum:8000,maximum:15500});assert.equal(cards[0].props.subject,'listing');assert.equal(cards[0].props.rent,detail.rent);assert.equal(cards[0].props.onUseRent,undefined,'tenants get a read-only bar');
+ assert.ok(texts.includes('Estimate again'));assert.ok(!texts.some(x=>/11,747|point estimate|XGBoost/i.test(x)));
  workflow.dispose();
 });
