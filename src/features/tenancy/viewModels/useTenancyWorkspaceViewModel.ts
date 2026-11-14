@@ -3,6 +3,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {AppState} from 'react-native';
 import {readTenancyWorkspace} from '../services/tenancyWorkspaceService';
 import {tenancySections,type RentalRelationship} from '../models/TenancyWorkspace';
+import {cancelledRentals,cancelledSetupNotices} from '../models/CancelledRentals';
 import type {RentalReservation} from '../../messaging-viewing/models/RentalReservation';
 import {usePublicIdentitiesViewModel} from '../../../shared/viewModels/usePublicIdentitiesViewModel';
 export function useTenancyWorkspaceViewModel(actor:string|undefined){
@@ -16,5 +17,6 @@ export function useTenancyWorkspaceViewModel(actor:string|undefined){
  useEffect(()=>{const deadlines=safe.reservations.filter(r=>r.status==='approved').map(r=>Date.parse(r.expiresAt)).filter(d=>d>now);if(!deadlines.length)return;const timer=setTimeout(()=>setTick(Date.now()),Math.min(2147483647,Math.min(...deadlines)-now+50));return()=>clearTimeout(timer);},[safe.reservations,now]);
  const sections=tenancySections(actor??'',safe.tenancies,safe.reservations,now,safe.links);
  const identities=usePublicIdentitiesViewModel(actor,[...safe.tenancies.flatMap(t=>[t.tenant_id,t.landlord_id]),...safe.reservations.flatMap(r=>[r.tenantId,r.landlordId])].filter(id=>id!==actor));
- return {...safe,...sections,identities,refresh};
+ // Cancelled rentals and approved reservations whose setup was cancelled: decided in the model, rendered by the view.
+ return {...safe,...sections,cancelled:cancelledRentals(actor??'',safe.tenancies),cancelledSetups:cancelledSetupNotices(actor??'',safe.tenancies,safe.reservations,safe.links),identities,refresh};
 }

@@ -22,7 +22,7 @@ export function portfolioVerificationChip(item: LandlordPortfolioItem): Portfoli
   }
 }
 
-export type PortfolioActionKey = 'open' | 'editProperty' | 'editRental' | 'verification' | 'reviewPublication';
+export type PortfolioActionKey = 'open' | 'editProperty' | 'editRental' | 'verification' | 'reviewPublication' | 'createListing';
 export interface PortfolioAction { key: PortfolioActionKey; label: string }
 
 /**
@@ -31,7 +31,9 @@ export interface PortfolioAction { key: PortfolioActionKey; label: string }
  */
 export function portfolioCardActions(item: LandlordPortfolioItem): { primary: PortfolioAction; secondary: PortfolioAction | null; menu: PortfolioAction[] } {
   const listing = item.currentListing, status = listing?.status, active = item.property.is_active;
-  const primary: PortfolioAction = { key: 'open', label: !listing ? 'Create listing' : status === 'draft' ? 'Continue Editing' : status === 'active' || status === 'paused' ? 'Manage Status' : status === 'removed' ? 'View status' : 'View listing' };
+  // An ended (archived) listing cannot be reactivated, so the owner starts a new one for the same property. Only an active property can take it.
+  const relist = !!listing && status === 'archived' && active;
+  const primary: PortfolioAction = relist ? { key: 'createListing', label: 'Create a new listing' } : { key: 'open', label: !listing ? 'Create listing' : status === 'draft' ? 'Continue Editing' : status === 'active' || status === 'paused' ? 'Manage Status' : status === 'removed' ? 'View status' : 'View listing' };
   const verificationLabel = item.tier3.requiresRepair ? null : propertyVerificationActionLabel(item.tier3.status);
   const verification: PortfolioAction | null = verificationLabel ? { key: 'verification', label: verificationLabel } : null;
   const editProperty: PortfolioAction | null = active && (!listing || !['draft', 'active', 'paused'].includes(status!)) ? { key: 'editProperty', label: 'Edit Property' } : null;
@@ -41,7 +43,7 @@ export function portfolioCardActions(item: LandlordPortfolioItem): { primary: Po
     : status === 'active' || status === 'paused' ? [editRental, verification, editProperty, review]
     : [editProperty, verification, editRental, review];
   const available = order.filter((action): action is PortfolioAction => action !== null);
-  return { primary, secondary: available[0] ?? null, menu: available.slice(1) };
+  return { primary, secondary: available[0] ?? null, menu: [...(relist ? [{ key: 'open', label: 'View listing' } as PortfolioAction] : []), ...available.slice(1)] };
 }
 
 /** Request activity for one card, supplied by the root so this feature never imports messaging code. */
@@ -76,4 +78,17 @@ export function portfolioAvailability(item: LandlordPortfolioItem, now = Date.no
   const date = item.currentListing?.available_from;
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date <= philippineToday(now)) return null;
   return `Available from ${new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${date}T00:00:00Z`))}`;
+}
+
+export const ARCHIVED_LISTING_NOTE = 'This listing has ended. Create a new one to rent this place again.';
+/** The one-line explanation on an archived card, only where "Create a new listing" is actually offered. */
+export const portfolioArchivedNote = (item: LandlordPortfolioItem): string | null => portfolioCardActions(item).primary.key === 'createListing' ? ARCHIVED_LISTING_NOTE : null;
+
+/**
+ * Where "Create a new listing" opens: the SAME property, no listing id (so nothing tries to update the archived row), compose mode, at the
+ * Listing step with the Property step behind it. Null unless the current listing is archived on an active property.
+ */
+export function newListingTarget(item: LandlordPortfolioItem | null | undefined) {
+  if (!item || item.currentListing?.status !== 'archived' || !item.property.is_active) return null;
+  return { item: { ...item, currentListing: null }, listingId: null as string | null, mode: 'compose' as const, screen: 'listingDetails' as const, history: ['dashboard', 'listingComposer'] as string[] };
 }

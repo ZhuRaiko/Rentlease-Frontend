@@ -22,6 +22,7 @@ export function PropertyDashboardView({ viewModel: vm, requestActivity }: { view
     else if (key === 'editProperty') vm.openPortfolioProperty(propertyId);
     else if (key === 'editRental') vm.editPortfolioListing(propertyId);
     else if (key === 'verification') void vm.openPortfolioVerification(propertyId);
+    else if (key === 'createListing') vm.createListingForProperty(propertyId);
     else vm.reviewPortfolioPublication(propertyId);
   };
   const noMatch = state.loaded && state.items.length > 0 && !vm.portfolioItems.length;

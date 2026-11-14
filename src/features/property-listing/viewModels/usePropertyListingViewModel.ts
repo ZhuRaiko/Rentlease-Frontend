@@ -1,5 +1,6 @@
 import {createUnfinishedPostWorkflow} from './unfinishedPostWorkflow';
 import {postingEditorMenu} from '../models/UnfinishedPostMenu';
+import {newListingTarget} from '../models/PortfolioCardPresentation';
 import {unfinishedPostService} from '../services/unfinishedPostDependencies';
 import type {PredictionReceipt} from '../../../shared/models/RentalPrediction';
 import {propertyMeasurementWarnings} from '../../../shared/models/PropertyMeasurementQuality';
@@ -388,10 +389,12 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     detachWorkspace();setPostingWizard(true);setPostingOriginalPrice(null); setHistory([]); setScreen(nextScreen);
     void propertyCreation.startNew();
   };
-  const openPortfolioItem = (propertyId: string, publishedEdit=false,fromManagement=false) => {
+  const openPortfolioItem = (propertyId: string, publishedEdit=false,fromManagement=false,newListing=false) => {
     savedConfirmation.current = null;
     if (!active.current) return;
-    const selected=portfolio.select(propertyId);
+    const picked=portfolio.select(propertyId),fresh=newListing?newListingTarget(picked):null;
+    if(newListing&&!fresh)return;
+    const selected=fresh?fresh.item:picked;
     const managedRow=lifecycle.getSnapshot().row??publication.getSnapshot().lastConfirmed;
     const item=fromManagement&&workspaceRef.current.item&&managedRow?.property_id===propertyId?{...workspaceRef.current.item,currentListing:managedRow}:selected;if(!item)return;
     setPropertyValidationTarget(null);
@@ -401,10 +404,10 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     propertyPhotos.setProperty(null); publishedContent.setProperty(null); propertyAmenities.setProperty(null); listingDraftPersistence.setProperty(null); publication.setProperty(null); lifecycle.setListing(null);
     selectWorkspace({ propertyId, listingId: row?.id ?? null, mode: publishedEdit?'editPublished':row && row.status !== 'draft' ? 'manage' : 'compose', item });
     savedDraft.current = emptyListingDraft; setDraft(emptyListingDraft); setNotice(null);
-    setShowRealPublication(!!row && row.status !== 'draft'); setHistory(fromManagement?['dashboard','published']:['dashboard']);
+    setShowRealPublication(!!row && row.status !== 'draft'); setHistory(fromManagement?['dashboard','published']:fresh?fresh.history as typeof history:['dashboard']);
     if(publishedEdit){setPostingWizard(true);setScreen('listingComposer');void propertyRoutine.open(propertyId);}
     else if (row && row.status !== 'draft') { setPostingWizard(false); lifecycle.setListing(row); setScreen('published'); }
-    else {setPostingWizard(true);setScreen('listingComposer');void propertyRoutine.open(propertyId);}
+    else {setPostingWizard(true);setScreen(fresh?fresh.screen:'listingComposer');void propertyRoutine.open(propertyId);}
   };
 
   function returnToManagedListing() {
@@ -811,6 +814,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     editManagedListing:()=>{const id=workspaceRef.current.propertyId,row=lifecycle.getSnapshot().row??publication.getSnapshot().lastConfirmed;if(!id||!row||!['active','paused'].includes(row.status)||operationBusy())return;requestNavigation(()=>{const physical=editedProperty;openPortfolioItem(id,true,true);setEditedProperty(physical);});},
     openPortfolioProperty:(id:string)=>{if(operationBusy())return;requestNavigation(()=>{openPortfolioItem(id);if(workspaceRef.current.propertyId!==id)return;setHistory(['dashboard']);setScreen('propertyEdit');void propertyRoutine.open(id);},true);},
     editPortfolioListing:(id:string)=>requestNavigation(()=>openPortfolioItem(id,true),true),
+    // An archived listing cannot be reactivated: start a new listing for the same property (the backend allows it; only a removed listing blocks it).
+    createListingForProperty:(id:string)=>{if(operationBusy())return;requestNavigation(()=>openPortfolioItem(id,false,false,true),true);},
     openPortfolioItem: (id: string) => requestNavigation(() => openPortfolioItem(id), true),
     propertyLocation,
     locationState,
