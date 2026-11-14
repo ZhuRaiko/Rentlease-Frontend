@@ -74,7 +74,7 @@ export function useAdminModerationViewModel(accountId?: string) {
   useEffect(() => {
     const previous = previousScreen.current;
     previousScreen.current = screen;
-    if (screen === 'activeRestrictions') void actionsWorkflow.loadRestrictions();
+    if (screen === 'activeRestrictions') { void actionsWorkflow.loadRestrictions(); void actionsWorkflow.loadRemoved(); }
     else if (screen === 'auditHistory') { if (previous !== 'auditEntry' || actionsWorkflow.getSnapshot().audit.status !== 'success') void actionsWorkflow.loadAudit(); }
     else if (screen === 'dashboard') void actionsWorkflow.loadRecent();
   }, [screen, actionsWorkflow]);
@@ -208,6 +208,11 @@ export function useAdminModerationViewModel(accountId?: string) {
     if (!selectedRestriction || !selectedRestriction.restorable) return;
     actionsWorkflow.openAction({ action: 'restore_account', targetUserId: selectedRestriction.userId, targetListingId: null, reportId: null, targetLabel: selectedRestriction.name });
   };
+  /** Reinstating needs no report: the reason is the only input. The listing returns as paused. */
+  const openReinstate = (row: { listingId: string; title: string; reinstatable: boolean }) => {
+    if (!row.reinstatable) return;
+    actionsWorkflow.openAction({ action: 'reinstate_listing', targetUserId: null, targetListingId: row.listingId, reportId: null, targetLabel: row.title });
+  };
   const openReportAction = () => {
     const option = reportActions[0], row = selectedReport;
     if (!option || !row) return;
@@ -311,11 +316,11 @@ export function useAdminModerationViewModel(accountId?: string) {
     reportNote, setReportNote, reportPublicSummary, setReportPublicSummary,
     reportCanSave, saveReportDecision,
     // Actions, restrictions and the audit log (real data; migration 20261113180000)
-    restrictions: actions.restrictions, auditLog: actions.audit, recentDecisions: actions.recent,
+    restrictions: actions.restrictions, removedListings: actions.removed, openReinstate, viewerId: accountId ?? null, auditLog: actions.audit, recentDecisions: actions.recent,
     actionDraft: actions.draft, actionSubmit: actions.submit,
     selectedRestriction, openRestriction, openRestore, reportActions, openReportAction,
     updateActionDraft: actionsWorkflow.updateDraft, cancelAction: actionsWorkflow.cancelAction, confirmAction: actionsWorkflow.confirmAction, dismissActionNotice: actionsWorkflow.dismissNotice,
-    refreshRestrictions: () => actionsWorkflow.loadRestrictions(),
+    refreshRestrictions: () => Promise.all([actionsWorkflow.loadRestrictions(), actionsWorkflow.loadRemoved()]).then(() => undefined),
     loadAudit: (kind: AuditKind, offset = 0) => actionsWorkflow.loadAudit(kind, offset),
     loadMoreAudit: () => actionsWorkflow.loadMoreAudit(),
     selectedAuditEntry, openAuditEntry, auditRelatedAvailable, openAuditRelated,

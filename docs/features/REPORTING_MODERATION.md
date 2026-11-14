@@ -56,3 +56,12 @@ Manual Android acceptance after backend rollout: report an eligible listing and 
 **What it will do.** Close the gap noted above: `save_listing_draft` and `publish_listing` refuse a property that has a removed listing ("Property has a removed listing"). Admins gain `reinstate_listing` in `apply_admin_moderation_action` (removed listing becomes paused, no report, a 10 to 500 character reason, refused if another listing on the property is active, paused or rented, or if the Admin is conflicted on a report about the listing or about its owner); the owner then reactivates with the existing flow. `get_admin_removed_listings` lists removed listings (leaving out any the calling Admin is conflicted on, in count and rows alike), and `get_admin_audit_log` hides the reinstatement row from such an Admin, adds `actorId` and names the subject of verification and report entries.
 
 **Not done in the app.** No Reinstate screen, no message rules for the four new refusals, and the removal wording above is unchanged. Wire these together when the migration is applied. `tests/adminActionsErrorDrift.test.ts` now reads the new audit-log definition and fails if the app and SQL drift.
+
+## Reinstate removed listings in the app - November 14, 2026
+
+IMPLEMENTED / AUTOMATED-TESTED / ANDROID RUNTIME-UNVERIFIED AND NOT RUN AGAINST HOSTED DATA. Frontend only; the backend (migration 20261114120000) is already applied.
+
+- **Actions tab, "Removed listings".** From `get_admin_removed_listings` (title, owner, removed date, reason). Reinstate is disabled with one line when `reinstatable` is false (the server returns only yes or no, so the line names both causes: the owner is an admin, or the property already has a live listing).
+- **Reinstate dialog.** The shared Admin action sheet: names the listing, says it returns as paused and the owner must reactivate it, asks for a reason of 10 to 500 characters. `apply_admin_moderation_action` is called with `reinstate_listing`, a null report id, the same operation id and retry rules as the other actions.
+- **Audit.** "Listing reinstated" (Reinstated, success), subject names on verification and report entries, "You" when `actorId` is the signed-in admin.
+- **Errors.** Admin: Listing is not removed, This property already has a live listing, A report is not used for this action. Owner: "This property can't be listed again because an admin removed an earlier listing." (draft save and publish).

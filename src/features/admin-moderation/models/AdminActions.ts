@@ -3,7 +3,7 @@ import { reasons, type ReportRecord } from '../../../shared/models/Reporting';
 
 /** Admin actions (suspend, restore, remove) and the audit log. Backend: migration 20261113180000_admin_actions_audit.sql. */
 
-export type AdminActionKind = 'suspend_account' | 'restore_account' | 'remove_listing';
+export type AdminActionKind = 'suspend_account' | 'restore_account' | 'remove_listing' | 'reinstate_listing';
 export type RestrictionStatus = 'suspended' | 'restricted';
 export type AuditKind = 'all' | 'verification' | 'reports' | 'actions' | 'reviews';
 export const ADMIN_REASON_MIN = 10;
@@ -12,8 +12,11 @@ export const AUDIT_PAGE_SIZE = 25;
 
 export interface AdminRestriction { userId: string; name: string; status: RestrictionStatus; reason: string | null; endsAt: string | null; startedAt: string | null; ended: boolean; restorable: boolean }
 export interface AdminRestrictionPage { count: number; rows: AdminRestriction[] }
+/** One removed listing from get_admin_removed_listings. It already leaves out listings this Admin is conflicted on. */
+export interface AdminRemovedListing { listingId: string; title: string; ownerName: string; removedAt: string | null; reason: string | null; reinstatable: boolean }
+export interface AdminRemovedListingPage { count: number; rows: AdminRemovedListing[] }
 export interface AdminAuditEntry {
-  id: string; createdAt: string; action: string; entityType: string; entityId: string | null; actor: string; subject: string | null;
+  id: string; createdAt: string; action: string; entityType: string; entityId: string | null; actor: string; actorId?: string | null; subject: string | null;
   reportReason: string | null; reason: string | null; status: string | null; previousStatus: string | null; tier: string | null; kind: string | null; endsAt: string | null; reportId: string | null;
 }
 export interface AdminAuditPage { count: number; rows: AdminAuditEntry[] }
@@ -51,7 +54,7 @@ export function parseAuditPage(value: unknown): AdminAuditPage {
     const r = obj(raw);
     if (typeof r.id !== 'number' && typeof r.id !== 'string') throw new AdminActionsFormatError();
     return {
-      id: String(r.id), createdAt: stamp(r.createdAt), action: str(r.action, 80), entityType: str(r.entityType, 80), entityId: optUuid(r.entityId), actor: str(r.actor, 200),
+      id: String(r.id), createdAt: stamp(r.createdAt), action: str(r.action, 80), entityType: str(r.entityType, 80), entityId: optUuid(r.entityId), actor: str(r.actor, 200), actorId: typeof r.actorId === 'string' && isUuid(r.actorId) ? r.actorId : null,
       subject: optStr(r.subject, 300), reportReason: optStr(r.reportReason, 80), reason: optStr(r.reason, 1100), status: optStr(r.status, 80), previousStatus: optStr(r.previousStatus, 80),
       tier: optStr(r.tier, 40), kind: optStr(r.kind, 40), endsAt: optStr(r.endsAt, 60), reportId: optStr(r.reportId, 40),
     };
@@ -60,9 +63,19 @@ export function parseAuditPage(value: unknown): AdminAuditPage {
   return { count: count(page.count), rows };
 }
 
+export function parseRemovedListings(value: unknown): AdminRemovedListingPage {
+  const page = obj(value);
+  const rows = list(page.rows, 100).map((raw): AdminRemovedListing => {
+    const r = obj(raw);
+    return { listingId: uuid(r.listingId), title: str(r.title, 300), ownerName: str(r.ownerName, 200), removedAt: optStamp(r.removedAt), reason: optStr(r.reason), reinstatable: bool(r.reinstatable) };
+  });
+  if (new Set(rows.map((row) => row.listingId)).size !== rows.length) throw new AdminActionsFormatError();
+  return { count: count(page.count), rows };
+}
+
 export function parseActionResult(value: unknown): AdminActionResult {
   const r = obj(value), action = r.action;
-  if (action !== 'suspend_account' && action !== 'restore_account' && action !== 'remove_listing') throw new AdminActionsFormatError();
+  if (action !== 'suspend_account' && action !== 'restore_account' && action !== 'remove_listing' && action !== 'reinstate_listing') throw new AdminActionsFormatError();
   return { id: uuid(r.id), action, status: str(r.status, 40), targetUserId: optUuid(r.targetUserId), targetListingId: optUuid(r.targetListingId), reportId: optUuid(r.reportId), endsAt: optStr(r.endsAt, 60) };
 }
 
@@ -95,7 +108,7 @@ export const restrictionNeedsRestore = (r: Pick<AdminRestriction, 'ended'>) => r
 
 const actionTitles: Record<string, string> = {
   suspend_account: 'Account suspended', restore_account: 'Account restored', restrict_account: 'Account restricted', warning: 'Warning recorded',
-  pause_listing: 'Listing paused', remove_listing: 'Listing removed', dismiss_report: 'Report dismissed',
+  pause_listing: 'Listing paused', remove_listing: 'Listing removed', reinstate_listing: 'Listing reinstated', dismiss_report: 'Report dismissed',
 };
 const tierLabel = (tier: string | null) => tier === 'tier_3_property' ? 'Tier 3 property' : tier === 'tier_2_identity' ? 'Tier 2 identity' : 'Verification';
 const humanize = (value: string) => { const text = value.replace(/_/g, ' ').trim(); return text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Admin decision'; };
@@ -120,13 +133,13 @@ export function auditEntryTitle(e: Pick<AdminAuditEntry, 'action' | 'tier'>): st
 export const reasonLabel = (code: string | null) => code ? [...reasons.listing, ...reasons.user].find((item) => item.id === code)?.label ?? humanize(code) : null;
 /** The line under the headline: who or what it was about. */
 export function auditEntrySubject(e: Pick<AdminAuditEntry, 'entityType' | 'subject' | 'reportReason' | 'kind'>): string | null {
-  if (e.entityType === 'report') return [e.kind === 'listing' ? 'Listing report' : e.kind === 'user' ? 'User report' : null, reasonLabel(e.reportReason)].filter(Boolean).join(' · ') || null;
+  if (e.entityType === 'report') return [e.kind === 'listing' ? 'Listing report' : e.kind === 'user' ? 'User report' : null, reasonLabel(e.reportReason), e.subject?.trim() || null].filter(Boolean).join(' · ') || null;
   if (e.entityType === 'review') return e.kind === 'property' ? 'Property review' : e.kind === 'user' ? 'Participant review' : null;
   return e.subject;
 }
 
 // ---- Taking an action
-export type ReportActionKind = Exclude<AdminActionKind, 'restore_account'>;
+export type ReportActionKind = Exclude<AdminActionKind, 'restore_account' | 'reinstate_listing'>;
 export interface ReportActionOption { action: ReportActionKind; label: string; confirmLabel: string; targetUserId: string | null; targetListingId: string | null; danger: boolean }
 
 /** Actions offered from an upheld report: suspend the reported user, or remove the reported listing. Nothing else. Pausing is not offered: the owner can undo a pause, so it would not be enforceable. */
@@ -155,8 +168,17 @@ export function actionEffectText(action: AdminActionKind, endsAt: string | null)
   switch (action) {
     case 'suspend_account': return `The account is marked suspended, and the app shows the person a restricted-account screen instead of normal use. ${endsAt ? `The end date is a reminder only: the account stays suspended until an Admin restores it from the Actions tab.` : 'There is no end date. Restore the account from the Actions tab when appropriate.'}`;
     case 'restore_account': return 'The account becomes active again and the suspension details are cleared.';
+    case 'reinstate_listing': return "The listing comes back as paused, not live. The owner must reactivate it from their app before tenants can see it. Your reason is recorded in the audit log. This is refused if the property already has another live listing.";
     case 'remove_listing': return "This listing will be removed. The owner can't reopen it from the app. Your reason is recorded in the audit log. Removal is blocked while a tenancy is proposed, awaiting confirmation or active.";
   }
 }
-export const actionConfirmLabel = (action: AdminActionKind) => action === 'suspend_account' ? 'Suspend account' : action === 'restore_account' ? 'Restore account' : 'Remove listing';
-export const actionNotice = (action: AdminActionKind) => action === 'suspend_account' ? 'Account suspended. It now appears in Actions and the audit log.' : action === 'restore_account' ? 'Account restored.' : 'Listing removed.';
+export const actionConfirmLabel = (action: AdminActionKind) => action === 'suspend_account' ? 'Suspend account' : action === 'restore_account' ? 'Restore account' : action === 'reinstate_listing' ? 'Reinstate listing' : 'Remove listing';
+export const actionNotice = (action: AdminActionKind) => action === 'suspend_account' ? 'Account suspended. It now appears in Actions and the audit log.' : action === 'restore_account' ? 'Account restored.' : action === 'reinstate_listing' ? 'Listing reinstated as paused. The owner can now reactivate it.' : 'Listing removed.';
+
+// ---- Removed listings and reinstating
+export const REINSTATE_BLOCKED_REASON = "Can't be reinstated by you: the owner is an admin, or the property already has a live listing.";
+/** One plain line when Reinstate is disabled, otherwise null. The server only says yes or no, so the line names both possible causes. */
+export const reinstateBlockedReason = (row: Pick<AdminRemovedListing, 'reinstatable'>): string | null => row.reinstatable ? null : REINSTATE_BLOCKED_REASON;
+export const removedListingMeta = (row: Pick<AdminRemovedListing, 'ownerName' | 'removedAt'>): string => `Owner: ${row.ownerName.trim() || 'Unknown'} · ${row.removedAt ? `Removed ${formatAdminDay(row.removedAt)}` : 'Removal date unavailable'}`;
+export const removedListingReason = (row: Pick<AdminRemovedListing, 'reason'>): string => row.reason?.trim() ? `Reason: ${row.reason.trim()}` : 'No reason recorded';
+export const removedListingsHeading = (count: number): string => `${count} removed ${count === 1 ? 'listing' : 'listings'}`;

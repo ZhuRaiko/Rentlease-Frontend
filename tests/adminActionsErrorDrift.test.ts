@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { classifyAdminError } from '../src/shared/models/AdminOperationError';
+import { isRemovedPropertyMessage, publicationBackendError, REMOVED_PROPERTY_OWNER_MESSAGE } from '../src/features/property-listing/models/ListingPublication';
 import { ADMIN_REASON_MAX, ADMIN_REASON_MIN, AUDIT_PAGE_SIZE, auditFilters, type AdminActionKind } from '../src/features/admin-moderation/models/AdminActions';
 
 // Drift guard: the SQL of migration 20261113180000 and the frontend must keep agreeing. If the SQL text changes, these fail and force a review.
@@ -46,14 +47,17 @@ test('the audit log (new definition) hides rows of reports the calling Admin is 
   assert.match(f, /and not \(l\.action='reinstate_listing' and l\.entity_type='listing' and exists\(select 1 from public\.listings rl0 join public\.reports rx on \(rx\.reported_listing_id=rl0\.id or rx\.reported_user_id=rl0\.landlord_id\) where rl0\.id=l\.entity_id and rentlease_reporting\.conflicted\(rx\.id,a\)\)\)/, 'reinstate rows are hidden from an Admin conflicted on a report about the listing or its owner, inside f');
 });
 
-test('the new apply_admin_moderation_action accepts reinstate_listing; the app does not offer it yet and has no rule for the four new messages', () => {
+test('apply_admin_moderation_action accepts reinstate_listing, the app offers it, and every new message has a plain rule', () => {
   const sqlActions = [...actionBody.match(/p_action not in\(([^)]*)\)/)![1]!.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort();
-  const tsActions: AdminActionKind[] = ['suspend_account', 'restore_account', 'remove_listing'];
-  assert.deepEqual(sqlActions, [...tsActions, 'reinstate_listing'].sort(), 'when the app wires Reinstate, add it to AdminActionKind and update this test');
-  // Pinned on purpose: these map to "unknown" today. Wiring the Reinstate UI must add rules (and flip this list to empty) before it ships.
+  const tsActions: AdminActionKind[] = ['suspend_account', 'restore_account', 'remove_listing', 'reinstate_listing'];
+  assert.deepEqual(sqlActions, [...tsActions].sort(), 'the app wires exactly the actions the SQL accepts');
   const added = ['Listing is not removed', 'This property already has a live listing', 'A report is not used for this action', 'Property has a removed listing'];
   for (const m of added) assert.ok(actionBody.includes(m) || effective['save_listing_draft']!.source.includes(m), `${m} is raised by the new SQL`);
-  assert.deepEqual(added.filter((m) => classifyAdminError({ message: m }, { decision: true }).code === 'unknown'), added);
+  // The three Admin-path messages map to specific Admin rules; the owner-path message is mapped for owners, never by the Admin mapper.
+  assert.deepEqual(added.slice(0, 3).map((m) => classifyAdminError({ message: m }, { decision: true }).code), ['action_listing_not_removed', 'action_property_has_live_listing', 'action_report_not_used']);
+  assert.equal(classifyAdminError({ message: added[3] }, { decision: true }).code, 'unknown', 'an owner message is not an Admin rule');
+  assert.equal(isRemovedPropertyMessage(added[3]), true);
+  assert.equal(publicationBackendError({ code: '22023', message: added[3]! }).message, REMOVED_PROPERTY_OWNER_MESSAGE);
 });
 
 test('the SQL still defines all three functions and raises the messages this test knows about', () => {

@@ -34,6 +34,10 @@ export function auditActorLabel(actor: string): string {
   if (!trimmed) return 'Administrator';
   return FALLBACK_ACTOR.test(trimmed) ? 'Administrator' : trimmed;
 }
+/** "You" when the entry was made by the signed-in Admin (matched by id), otherwise the usual label. A missing id never counts as a match. */
+export function auditActorDisplay(entry: Pick<AdminAuditEntry, 'actor' | 'actorId'>, viewerId?: string | null): string {
+  return viewerId && entry.actorId && entry.actorId === viewerId ? 'You' : auditActorLabel(entry.actor);
+}
 export function auditActorReference(actor: string): string | null {
   return FALLBACK_ACTOR.exec(actor.trim())?.[1] ?? null;
 }
@@ -47,6 +51,7 @@ const outcomes: Record<string, AuditOutcome> = {
   warning: { label: 'Warning', tone: 'warning', icon: '!' },
   pause_listing: { label: 'Paused', tone: 'warning', icon: '!' },
   remove_listing: { label: 'Removed', tone: 'danger', icon: '✕' },
+  reinstate_listing: { label: 'Reinstated', tone: 'success', icon: '✓' },
   dismiss_report: { label: 'Dismissed', tone: 'neutral', icon: '–' },
 };
 const stepOutcomes: Record<string, AuditOutcome> = {
@@ -102,7 +107,7 @@ export function groupAuditByDay(entries: readonly AdminAuditEntry[], now: number
 const tierDetail = (tier: string | null) => tier === 'tier_3_property' ? '3 · Property' : tier === 'tier_2_identity' ? '2 · Identity' : tier ? humanize(tier) : null;
 const statusText = (status: string) => humanize(status);
 const reportKindLabel = (kind: string | null) => kind === 'listing' ? 'Listing' : kind === 'user' ? 'User' : null;
-const actionDecisionLabel: Record<string, string> = { suspend_account: 'Suspend account', restore_account: 'Restore account', remove_listing: 'Remove listing', pause_listing: 'Pause listing', restrict_account: 'Restrict account', warning: 'Warning', dismiss_report: 'Dismiss report' };
+const actionDecisionLabel: Record<string, string> = { suspend_account: 'Suspend account', restore_account: 'Restore account', remove_listing: 'Remove listing', reinstate_listing: 'Reinstate listing', pause_listing: 'Pause listing', restrict_account: 'Restrict account', warning: 'Warning', dismiss_report: 'Dismiss report' };
 
 /** The "Open report / submission / review" target, if this row has one. Whether it can really be opened is decided where the data lives. */
 export function auditRelatedTarget(entry: Pick<AdminAuditEntry, 'entityType' | 'entityId' | 'reportId'>): AuditRelated | null {
@@ -132,17 +137,17 @@ function detailRows(entry: AdminAuditEntry, outcome: AuditOutcome): AuditDetailR
 }
 
 /** Everything the Audit list row and the Audit entry screen show for one record. */
-export function presentAuditEntry(entry: AdminAuditEntry): AuditPresentation {
+export function presentAuditEntry(entry: AdminAuditEntry, viewerId?: string | null): AuditPresentation {
   const headline = auditEntryTitle(entry);
   const subject = auditEntrySubject(entry);
   const outcome = auditOutcome(entry);
   const reason = entry.reason && entry.reason.trim() ? entry.reason.trim() : null;
   const time = formatAuditTime(entry.createdAt);
-  const actor = auditActorLabel(entry.actor);
+  const actor = auditActorDisplay(entry, viewerId);
   return {
     headline, subject, reason, outcome, time,
     whenFull: formatAdminDateTime(entry.createdAt),
-    actor, actorReference: auditActorReference(entry.actor),
+    actor, actorReference: actor === 'You' ? null : auditActorReference(entry.actor),
     detailRows: detailRows(entry, outcome),
     related: auditRelatedTarget(entry),
     listLabel: [headline, subject, outcome.label, reason ? `Reason: ${reason}` : null, time ? `at ${time}` : null].filter((part): part is string => !!part).map((part) => part.replace(/[.\s]+$/, '')).join('. '),

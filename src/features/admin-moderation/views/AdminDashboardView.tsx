@@ -42,7 +42,7 @@ export function AdminDashboardView({ onExit, viewModel }: { onExit: () => void; 
       </> : null}
       {viewModel.recentDecisions.status === 'success' && viewModel.recentDecisions.rows.length === 0 ? <AdminEmptyState body="Approvals, rejections, report decisions and actions appear here once Admins make them." title="No decisions recorded yet" /> : null}
       {viewModel.recentDecisions.rows.length > 0 ? <View style={styles.recent}>
-        <AdminAuditTimeline compact entries={viewModel.recentDecisions.rows} />
+        <AdminAuditTimeline compact entries={viewModel.recentDecisions.rows} viewerId={viewModel.viewerId} />
         <Text style={ui.supporting}>Newest first.</Text>
         <AppButton label="See full audit history" onPress={() => viewModel.openSection('auditHistory')} variant="secondary" />
       </View> : null}

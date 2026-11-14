@@ -21,8 +21,12 @@ export function isPublishedListing(row: PublicationListing): boolean {
   return row.status === 'active' && isPropertyUuid(row.id) && Number.isFinite(row.completeness_score) && row.completeness_score >= 0.80 && typeof row.published_at === 'string' && Number.isFinite(Date.parse(row.published_at));
 }
 export const publicationStatusLabel = (status: PublicationListing['status'] | null) => status === 'active' ? 'Published' : status === 'draft' ? 'Draft' : status ?? 'Not confirmed';
+/** For owners: a property with a removed listing can't get a new draft or publication. Never reveals who removed it or why. */
+export const REMOVED_PROPERTY_OWNER_MESSAGE = "This property can't be listed again because an admin removed an earlier listing.";
+export const isRemovedPropertyMessage = (message: string | undefined | null): boolean => /property has a removed listing/i.test(message ?? '');
 export function publicationBackendError(error: { code?: string; message?: string }): PublicationError {
   const message = error.message ?? '';
+  if (isRemovedPropertyMessage(message)) return new PublicationError(REMOVED_PROPERTY_OWNER_MESSAGE);
   if (message === 'Authentication required') return new PublicationError('Sign in again before publishing.');
   if (message === 'Tier 1 verified active account required') return new PublicationError('Publication requires an active Tier 1-verified account.');
   if (message === 'Landlord role required') return new PublicationError('The Landlord role is required to publish a listing.');

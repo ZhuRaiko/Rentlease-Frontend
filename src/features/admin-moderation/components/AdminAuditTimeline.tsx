@@ -4,22 +4,22 @@ import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { ui } from '../../../shared/theme/ui';
-import { auditActorLabel } from '../models/AuditPresentation';
+import { auditActorDisplay } from '../models/AuditPresentation';
 import { auditEntrySubject, auditEntryTitle, formatAdminDateTime, formatAdminDay, type AdminAuditEntry } from '../models/AdminActions';
 
 /** Real audit rows as a timeline. Every line is text (never color alone); long reasons wrap. */
-export function AdminAuditTimeline({ entries, compact = false }: { entries: readonly AdminAuditEntry[]; compact?: boolean }) {
+export function AdminAuditTimeline({ entries, compact = false, viewerId = null }: { entries: readonly AdminAuditEntry[]; compact?: boolean; viewerId?: string | null }) {
   return (
     <View accessibilityRole="list" style={styles.timeline}>
       {entries.map((entry) => {
         const subject = auditEntrySubject(entry);
         return (
-          <View accessibilityLabel={`${auditEntryTitle(entry)}${subject ? `. ${subject}` : ''}. By ${auditActorLabel(entry.actor)}. ${formatAdminDay(entry.createdAt)}`} accessible key={entry.id} style={styles.event}>
+          <View accessibilityLabel={`${auditEntryTitle(entry)}${subject ? `. ${subject}` : ''}. By ${auditActorDisplay(entry, viewerId)}. ${formatAdminDay(entry.createdAt)}`} accessible key={entry.id} style={styles.event}>
             <View style={[styles.dot, dotTone(entry.action)]} />
             <View style={styles.copy}>
               <Text style={styles.title}>{auditEntryTitle(entry)}</Text>
               {subject ? <Text style={ui.supporting}>{subject}</Text> : null}
-              <Text style={ui.supporting}>{`By ${auditActorLabel(entry.actor)} · ${compact ? formatAdminDay(entry.createdAt) : formatAdminDateTime(entry.createdAt)}`}</Text>
+              <Text style={ui.supporting}>{`By ${auditActorDisplay(entry, viewerId)} · ${compact ? formatAdminDay(entry.createdAt) : formatAdminDateTime(entry.createdAt)}`}</Text>
               {!compact && entry.reason ? <Text style={ui.supporting}>{`Reason: ${entry.reason}`}</Text> : null}
               {!compact && entry.endsAt ? <Text style={ui.supporting}>{`End date: ${formatAdminDay(entry.endsAt)}`}</Text> : null}
             </View>

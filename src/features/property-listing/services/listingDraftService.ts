@@ -3,6 +3,7 @@ import { draftSaveDiagnostic, traceDraftSaveDiagnostic, type DraftSaveDiagnostic
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import { isPropertyUuid } from '../models/DraftProperty';
+import { isRemovedPropertyMessage, REMOVED_PROPERTY_OWNER_MESSAGE } from '../models/ListingPublication';
 import { ListingDraftError, listingDraftPayload, type DraftEditTarget, type ListingDraftFields, type SavedListingDraft } from '../models/PersistedListingDraft';
 interface Journal { getItem(key: string): Promise<string | null>; setItem(key: string, value: string): Promise<void>; removeItem(key: string): Promise<void> }
 export interface ListingDraftContext { userId: string; propertyId: string }
@@ -64,6 +65,7 @@ export function createListingDraftService(getClient: () => SupabaseClient<Databa
           backendError=error;
           if(target && error.code==='40001'){await journal.removeItem(k);knownRejection=true;throw new ListingDraftError('This draft changed or was published elsewhere. Your edits are kept. Load the latest saved version before saving again.','conflict',{cause:error});}
           if(error.code==='PGRST202'){await journal.removeItem(k);knownRejection=true;throw new ListingDraftError('This feature is not available right now. Try again later. No replacement draft was created.','rejected',{cause:error});}
+          if (isRemovedPropertyMessage(error.message)) { await journal.removeItem(k); knownRejection = true; throw new ListingDraftError(REMOVED_PROPERTY_OWNER_MESSAGE, 'rejected', {cause:error}); }
           if (/^(22|23|42|25|40)/.test(error.code ?? '')) { await journal.removeItem(k); knownRejection = true; throw new ListingDraftError('The draft was rejected. Check property access and listing fields.', 'rejected', {cause:error}); }
           throw uncertain();
         }

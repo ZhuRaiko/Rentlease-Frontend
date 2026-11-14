@@ -20,7 +20,7 @@ export function AdminAuditEntryView({ viewModel }: { viewModel: AdminModerationV
       <View style={styles.related}><AppButton label="Back to audit history" onPress={() => viewModel.openSection('auditHistory')} variant="secondary" /></View>
     </AdminScaffold>
   );
-  const view = presentAuditEntry(entry);
+  const view = presentAuditEntry(entry, viewModel.viewerId);
   const related = viewModel.auditRelatedAvailable(entry);
   return (
     <AdminScaffold onBack={viewModel.goBack} title="Audit entry">

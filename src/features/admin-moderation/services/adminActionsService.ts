@@ -2,12 +2,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import { AdminOperationError, toAdminOperationError } from '../../../shared/models/AdminOperationError';
 import {
-  AdminActionsFormatError, parseActionResult, parseAuditPage, parseRestrictions,
-  type AdminActionInput, type AdminActionResult, type AdminAuditPage, type AdminRestrictionPage, type AuditKind,
+  AdminActionsFormatError, parseActionResult, parseAuditPage, parseRemovedListings, parseRestrictions,
+  type AdminActionInput, type AdminActionResult, type AdminAuditPage, type AdminRemovedListingPage, type AdminRestrictionPage, type AuditKind,
 } from '../models/AdminActions';
 
 export interface AdminActionsService {
   fetchRestrictions(): Promise<AdminRestrictionPage>;
+  /** Optional so older fakes of this service still type-check; the real service always provides it. */
+  fetchRemovedListings?(): Promise<AdminRemovedListingPage>;
   fetchAuditLog(kind: AuditKind, offset: number): Promise<AdminAuditPage>;
   applyAction(input: AdminActionInput): Promise<AdminActionResult>;
 }
@@ -33,6 +35,11 @@ export function createAdminActionsService(getClient: () => SupabaseClient<Databa
       const { data, error } = await getClient().rpc('get_admin_restrictions');
       if (error) throw error;
       return parseRestrictions(data);
+    }, false),
+    fetchRemovedListings: () => guard(async () => {
+      const { data, error } = await getClient().rpc('get_admin_removed_listings');
+      if (error) throw error;
+      return parseRemovedListings(data);
     }, false),
     fetchAuditLog: (kind, offset) => guard(async () => {
       const { data, error } = await getClient().rpc('get_admin_audit_log', { p_kind: kind, p_offset: offset });

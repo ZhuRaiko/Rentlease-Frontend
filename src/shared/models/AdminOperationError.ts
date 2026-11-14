@@ -13,6 +13,8 @@ export type AdminErrorCode =
   | 'action_not_supported' | 'action_reason_length' | 'action_target_shape' | 'action_end_date_past' | 'action_end_date_not_suspension'
   | 'action_self_target' | 'action_admin_target' | 'action_target_unavailable' | 'action_account_not_active' | 'action_account_not_restricted'
   | 'action_listing_not_removable' | 'action_listing_tenancy_open'
+  // Reinstate (migration 20261114120000).
+  | 'action_listing_not_removed' | 'action_property_has_live_listing' | 'action_report_not_used'
   | 'action_report_required' | 'action_report_unavailable' | 'action_report_not_upheld' | 'action_report_target_mismatch' | 'action_conflicting_retry'
   | 'action_not_applied' | 'audit_unavailable' | 'audit_filter_invalid' | 'transaction_mode'
   | 'permission_denied' | 'conflict' | 'invalid_request' | 'backend_update_required'
@@ -63,6 +65,9 @@ const rules: Rule[] = [
   rule('account is not suspended or restricted', 'action_account_not_restricted', 'Nothing to restore', 'This account is not suspended or restricted.', 'Reload to see its current status.'),
   rule('listing cannot be removed from its current status', 'action_listing_not_removable', "Can't remove this listing", 'Only an active or paused listing can be removed.', 'Reload to see its current status.'),
   rule('listing cannot be removed while a tenancy is open', 'action_listing_tenancy_open', 'Tenancy is open', 'This property has a tenancy that is proposed, awaiting confirmation or active, so the listing cannot be removed.', 'Wait until the tenancy ends, then remove the listing.'),
+  rule('listing is not removed', 'action_listing_not_removed', 'Listing is not removed', 'Only a removed listing can be reinstated.', 'Reload to see its current status.'),
+  rule('this property already has a live listing', 'action_property_has_live_listing', 'Property already has a live listing', "This property has another live listing, so this one can't be reinstated.", 'Reload to see the current listings.'),
+  rule('a report is not used for this action', 'action_report_not_used', 'No report needed', 'Reinstating a listing is not linked to a report.', 'Reload and try again.', false),
   rule('a report is required for this action', 'action_report_required', 'Report needed', 'Suspending an account or removing a listing needs an upheld report.', 'Open the upheld report and choose the action from there.', false),
   rule('report unavailable', 'action_report_unavailable', 'Report unavailable', 'The report for this action could not be found.', 'Go back and reopen the report.'),
   rule('report must be upheld first', 'action_report_not_upheld', 'Report not upheld', 'Actions from a report need the report to be upheld first.', 'Resolve the report as upheld, then take action.'),
