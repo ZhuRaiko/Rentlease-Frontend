@@ -11,13 +11,15 @@ export function useEditProfileViewModel(account:AuthProfilesViewModel){
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  const busy=identity.busy||account.asyncState==='loading';
  const publicChanged=identity.changed||identity.uncertain;
- const publicReady=!!identity.baseline&&!identity.loading&&(identity.uncertain||(identity.valid&&(!identity.consent||identity.confirmed)));
+ const publicReady=!!identity.baseline&&!identity.loading&&(identity.uncertain||identity.valid);
  const canSave=!busy&&(publicChanged?publicReady:account.canSaveProfile)&&(publicChanged||account.canSaveProfile);
  const save=async()=>{
   if(!canSave||saving.current||!owner)return;
   saving.current=true;
   try{
    if(publicChanged){
+    // The visible note under Display Name replaces the checkbox: saving is the confirmation, sent as the same `confirmed: true` value.
+    if(identity.consent)identity.workflow.confirm(true);
     await identity.workflow.save();
     if(!alive.current||currentOwner.current!==owner)return;
     const state=identity.workflow.getSnapshot();

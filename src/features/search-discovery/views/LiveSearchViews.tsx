@@ -77,7 +77,7 @@ export function LivePropertyDetailView({viewModel:vm,accountId,onOpenPriceEstima
       <View style={styles.detailSection}>
         <Text style={styles.small}>Listed by</Text>
         <View style={styles.ownerRow}>
-          <PublicAvatar url={vm.listingOwnerIdentity?.avatarUrl}/>
+          <PublicAvatar url={vm.listingOwnerIdentity?.avatarUrl} name={vm.listingOwnerIdentity?.nickname}/>
           <Text style={styles.ownerName}>{vm.listingOwnerLabel}</Text>
         </View>
         {vm.isOwnListing?<Text style={styles.copy}>This is your listing.</Text>:null}

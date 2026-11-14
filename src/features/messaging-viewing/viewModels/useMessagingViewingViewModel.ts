@@ -1,12 +1,14 @@
 import {useConversationPropertyViewModel} from './useConversationPropertyViewModel';
 import {usePublicIdentitiesViewModel} from '../../../shared/viewModels/usePublicIdentitiesViewModel';
 import {AppState} from 'react-native';
+import {useKeyboardVisibility} from '../../../shared/viewModels/useKeyboardVisibility';
 import {createRealtimeSync} from './realtimeSync';
 import type {MessagingConnection} from '../services/messagingRealtimeService';
 import {useEffect,useMemo,useState,useSyncExternalStore} from 'react';
 import {messagingService,messagingRealtimeService,messageId} from '../services/messagingDependencies';
 import {createMessagingWorkflow} from './messagingWorkflow';
 export function useMessagingViewingViewModel(accountId?:string,conversationId?:string){
+  const keyboardOpen=useKeyboardVisibility();
  const workflow=useMemo(()=>createMessagingWorkflow(messagingService,messageId),[accountId]);
  const state=useSyncExternalStore(workflow.subscribe,workflow.getSnapshot,workflow.getSnapshot);
  const publicIdentities=usePublicIdentitiesViewModel(accountId,[...state.inbox,...(state.conversation?[state.conversation]:[])].map(c=>c.tenantId===accountId?c.landlordId:c.tenantId));
@@ -23,6 +25,6 @@ export function useMessagingViewingViewModel(accountId?:string,conversationId?:s
   const foreground=AppState.addEventListener('change',status=>{if(status==='active')connect();else{watchStop?.();watchStop=null;setConnection('connecting');}});
   return()=>{controller.abort();sync.stop();watchStop?.();foreground.remove();};
  },[workflow,state.owner,state.selectedId,realtimeAttempt]);
- return{...state,publicIdentities,propertyContexts:context.rows,propertyContextLoading:context.loading,propertyContextError:context.error,refreshPropertyContext:context.refresh,connection,workflow,refresh:()=>{context.refresh();if(connection==='unavailable')setRealtimeAttempt(value=>value+1);void workflow.synchronize();},screen:state.selectedId?'conversation' as const:'inbox' as const,openInbox:()=>{workflow.closeThread();void workflow.inbox();},openConversation:(id:string)=>void workflow.open(id),backFromWorkspace:(onClose:()=>void)=>{if(state.selectedId)workflow.closeThread();else onClose();}};
+ return{...state,keyboardOpen,publicIdentities,propertyContexts:context.rows,propertyContextLoading:context.loading,propertyContextError:context.error,refreshPropertyContext:context.refresh,connection,workflow,refresh:()=>{context.refresh();if(connection==='unavailable')setRealtimeAttempt(value=>value+1);void workflow.synchronize();},screen:state.selectedId?'conversation' as const:'inbox' as const,openInbox:()=>{workflow.closeThread();void workflow.inbox();},openConversation:(id:string)=>void workflow.open(id),backFromWorkspace:(onClose:()=>void)=>{if(state.selectedId)workflow.closeThread();else onClose();}};
 }
 export type MessagingViewingViewModel=ReturnType<typeof useMessagingViewingViewModel>;

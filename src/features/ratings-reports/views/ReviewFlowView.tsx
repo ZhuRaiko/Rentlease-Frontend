@@ -11,6 +11,7 @@ import {
   ReviewCard,
   StarRating,
 } from '../components/RatingsReportsCards';
+import { RatingScale } from '../../../shared/components/RatingScale';
 import { RatingsReportsScaffold } from '../components/RatingsReportsScaffold';
 import type { RatingsReportsViewModel } from '../viewModels/useRatingsReportsViewModel';
 
@@ -58,7 +59,6 @@ export function ReviewFlowView({ viewModel }: { viewModel: RatingsReportsViewMod
   }
 
   if (viewModel.screen === 'starRating') {
-    const ratingLabels = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent'];
     return (
       <RatingsReportsScaffold onBack={viewModel.goBack} title="Star rating">
         <View style={styles.centeredState}>
@@ -66,9 +66,7 @@ export function ReviewFlowView({ viewModel }: { viewModel: RatingsReportsViewMod
           <Text accessibilityRole="header" style={styles.centeredTitle}>Choose your overall rating</Text>
           <Text style={styles.centeredBody}>Consider communication, reliability, and respect throughout the tenancy.</Text>
           <View style={styles.largeRatingCard}>
-            <StarRating onChange={viewModel.setRating} value={viewModel.reviewDraft.rating} />
-            <Text style={styles.ratingLabel}>{ratingLabels[viewModel.reviewDraft.rating] || 'Tap a star to rate'}</Text>
-            <Text style={styles.ratingNumber}>{viewModel.reviewDraft.rating || '—'} / 5</Text>
+            <RatingScale onChange={viewModel.setRating} value={viewModel.reviewDraft.rating || null} />
           </View>
           <AppButton disabled={viewModel.reviewDraft.rating === 0} label="Write your review" onPress={() => viewModel.navigate('writtenReview')} />
         </View>

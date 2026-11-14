@@ -67,3 +67,13 @@ export function portfolioCardLayout(item: LandlordPortfolioItem): { primary: Por
   const short = rest[0] && rest[0].label.length <= SECONDARY_BUTTON_MAX_LABEL ? rest[0] : null;
   return { primary, secondary: short, menu: short ? rest.slice(1) : rest };
 }
+
+/** Today's date in Philippine time (UTC+8) as YYYY-MM-DD, the same rule the rest of the app uses. */
+export function philippineToday(now = Date.now()): string { return new Date(now + 8 * 3600000).toISOString().slice(0, 10); }
+
+/** "Available from <date>" only while the listing's available_from is strictly after today (Philippine time). Past, today and no date show nothing. */
+export function portfolioAvailability(item: LandlordPortfolioItem, now = Date.now()): string | null {
+  const date = item.currentListing?.available_from;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date <= philippineToday(now)) return null;
+  return `Available from ${new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${date}T00:00:00Z`))}`;
+}

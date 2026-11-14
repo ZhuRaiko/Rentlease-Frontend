@@ -559,7 +559,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       setComposerPhase('draft');
       const outcome = await listingDraftPersistence.save(submittedDraft);
       if (!live()) return;
-      if (outcome === 'saved') { savedOutcome.current=true; if(stayAfterSave.current){setComposerNotice(null);return;} if(postingWizard&&screen==='postingReview')setComposerNotice('Listing draft saved. Nothing has been published.');else showDraftSaved(); return; }
+      if (outcome === 'saved') { savedOutcome.current=true; if(stayAfterSave.current){setComposerNotice(null);return;} if(postingWizard&&screen==='postingReview')setComposerNotice(null);/* Review already says "Draft saved" once */else showDraftSaved(); return; }
       setComposerNotice('Property and confirmed photos are retained. Check the listing draft details or save status before continuing.');
     } finally { if (live()) { composerSaving.current = false; setComposerPhase(null); } }
   };

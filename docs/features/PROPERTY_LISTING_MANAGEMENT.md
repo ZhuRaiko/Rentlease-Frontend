@@ -1291,3 +1291,17 @@ IMPLEMENTED / AUTOMATED-TESTED / ANDROID RUNTIME-UNVERIFIED. Views, components a
 **Delete unfinished post.** The loose dashboard control is gone. Entry points: the card overflow menu (red, separated, last; offered when no listing is published, `offersUnfinishedDelete`) and a header menu in the posting editor (`postingEditorMenu`: Save and exit on Review, Close posting elsewhere, and "Delete this unfinished post"). Both end in the one confirmation, which names the post (`Delete "<title or Type in City>"?`) and lists what is removed; the photo count shows only when the editor already holds it. Eligibility and the reason come from the existing workflow; a card shows the reason after the check, the editor menu shows it under a disabled item. A pending photo cleanup shows as a banner with Retry on that property's card; a job with no card keeps the old retry link. Wiring changes: `requestPortfolioDeletion(id)` (opens the existing workflow for that card, then asks for the existing confirmation) and `postingEditorMenu` on the ViewModel.
 
 **Not verified:** any device or emulator run, TalkBack, 320dp at 150% font, and whether the verification row stays on one line at 411dp for the longest statuses (the existing pinned tests require the full action label in the row).
+
+## Tester notes batch 1A - November 14, 2026
+
+IMPLEMENTED / AUTOMATED-TESTED / ANDROID RUNTIME-UNVERIFIED. Frontend only; no backend change.
+
+- **Avatar (T01).** `PublicAvatar` (in `PublicIdentityBadge.tsx`) is the one avatar: photo, else initials of the PUBLIC name on primaryAction, else the neutral silhouette (a private name never feeds it). Sizes snap to 36, 48 or 96 (`shared/models/Avatar.ts`). Not replaced: the static `profile-avatar.png` header icons in scaffolds used only by unreachable preview screens, and the static landlord image on `ListingDetailView` (no public identity in its data).
+- **Profile photo (T02).** The checkbox is gone; the sentence stays under Display Name. `useEditProfileViewModel` calls `workflow.confirm(true)` when consent applies, so `service.save` still receives `confirmed: true` as before.
+- **Rating scale (T03).** `shared/components/RatingScale.tsx` with `shared/models/RatingScale.ts`; used by the live review form and the legacy `ReviewFlowView`.
+- **Chat (T05).** One collapsible property row, a more menu (View listing, Viewings, Reservations, Report participant), two same-size actions that hide while the keyboard is open, "Them" or the public name on bubbles. Existing action labels kept.
+- **Manage requests (T07).** The overlay in `OwnedPropertiesWorkspace` is now inset by the library `SafeAreaView` (it was drawn at y=0 outside any safe-area container). Compact property row, Viewings/Reservations segments with counts, pills with counts, avatar and name on cards, visible Approve and Decline for pending requests.
+- **Availability (T08).** My Rentals card row "Available from <date>" with Change (opens the existing rental editor) when `available_from` is after today in Philippine time.
+- **Duplicate saved indicator (T16).** Review no longer adds a second saved notice.
+
+Not verified: any device or emulator run, TalkBack, 320dp at 150% font.

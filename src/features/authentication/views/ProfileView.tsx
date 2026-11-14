@@ -42,7 +42,7 @@ export function ProfileView({ viewModel, marketplaceNavigation, onOpenAdminModer
       <View style={styles.folio}>
         <View style={styles.identityStage}>
           <View style={styles.identityTop}>
-            <ProfileAvatar initials={initials} {...(avatarUrl?{source:{uri:avatarUrl}}:{})} />
+            <ProfileAvatar initials={initials} name={publicIdentity?.nickname} {...(avatarUrl?{source:{uri:avatarUrl}}:{})} />
             <View style={styles.membership}>
               <Text accessibilityRole="header" style={styles.name}>{publicIdentity?.nickname??'RentLease member'}</Text>
               <Text style={styles.role}>{roles || 'RentLease member'}</Text>

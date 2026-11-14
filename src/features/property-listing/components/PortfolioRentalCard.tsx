@@ -8,7 +8,7 @@ import { typography } from '../../../shared/theme/typography';
 import { ui } from '../../../shared/theme/ui';
 import type { LandlordPortfolioItem } from '../models/LandlordPortfolio';
 import { portfolioLocation, portfolioType } from '../models/LandlordPortfolio';
-import { portfolioCardLayout, portfolioStatusPill, portfolioVerificationRow, type PortfolioActionKey, type PortfolioPillTone, type PortfolioRequestActivity } from '../models/PortfolioCardPresentation';
+import { portfolioAvailability, portfolioCardLayout, portfolioStatusPill, portfolioVerificationRow, type PortfolioActionKey, type PortfolioPillTone, type PortfolioRequestActivity } from '../models/PortfolioCardPresentation';
 import { deleteCardMenuLabel } from '../models/UnfinishedPostMenu';
 import { ListingButton } from './ListingButton';
 
@@ -36,7 +36,7 @@ export function PortfolioRentalCard({ item, disabled, onAction, request, verific
   const listing = item.currentListing, actions = portfolioCardLayout(item);
   const title = listing?.title || `${portfolioType(item.property)} in ${portfolioLocation(item.property).split(', ').at(-1)}`;
   const pill = portfolioStatusPill(item), verification = portfolioVerificationRow(item), tone = rowColors[verification.tone];
-  const activity = request ? (request.error ?? request.text) : null;
+  const availability = portfolioAvailability(item), activity = request ? (request.error ?? request.text) : null;
   const run = (action: () => void) => () => { setMenuOpen(false); action(); };
   const menuEntries = [...actions.menu.map(action => ({ key: action.key, label: action.label, press: run(() => onAction(action.key)) })), ...(request ? [{ key: 'requests', label: 'Manage Requests', press: run(request.onManage) }] : [])];
   const showMenu = menuEntries.length > 0 || !!deletion;
@@ -59,6 +59,7 @@ export function PortfolioRentalCard({ item, disabled, onAction, request, verific
           {status}<View style={styles.statusAction}><Text style={[styles.statusActionText, { color: tone.color }]}>{verification.actionLabel}</Text><Text style={[styles.statusActionText, { color: tone.color }]}>{' ›'}</Text></View>
         </Pressable>
         : <View style={[styles.statusRow, { backgroundColor: tone.backgroundColor }]}>{status}</View>}
+      {availability ? <Pressable accessibilityRole="button" accessibilityLabel={`${availability}. Change`} accessibilityState={{ disabled }} disabled={disabled} onPress={() => onAction('editRental')} style={[styles.statusRow, styles.availability]}><Text style={styles.availabilityText}>{availability}</Text><Text style={styles.availabilityText}>Change</Text></Pressable> : null}
       {!item.property.is_active ? <Text style={ui.supporting}>Property inactive. Listing changes may be unavailable.</Text> : null}
       {activity ? <View style={styles.note}>
         <View style={styles.noteText}>{request?.pending && !request.error ? <View accessible={false} style={styles.dot} /> : null}<Text style={[ui.supporting, styles.noteLabel, request?.pending && !request.error && styles.noteAttention]}>{activity}</Text></View>
@@ -104,6 +105,8 @@ const styles = StyleSheet.create({
   statusText: { fontFamily: typography.family, fontSize: 13, lineHeight: 18, fontWeight: '600', flexShrink: 1 },
   statusAction: { flexDirection: 'row', alignItems: 'center' },
   statusActionText: { fontFamily: typography.family, fontSize: 13, lineHeight: 18, fontWeight: '700' },
+  availability: { backgroundColor: colors.identitySurface },
+  availabilityText: { fontFamily: typography.family, fontSize: 13, lineHeight: 18, fontWeight: '700', color: colors.identityInk },
   note: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing.xs, borderTopColor: colors.outline, borderTopWidth: 1, paddingTop: spacing.xs },
   noteText: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 },
   noteLabel: { flexShrink: 1 },
