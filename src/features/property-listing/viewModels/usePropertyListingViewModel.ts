@@ -38,6 +38,9 @@ import { createListingDraftWorkflow } from './listingDraftWorkflow';
 import { listingDraftService } from '../services/listingDraftDependencies';
 import { applySavedListing, listingFieldsEqual, hasListingMinimum, listingNumber, listingFieldIssue, listingDetailsIssue } from '../models/PersistedListingDraft';
 import { placeLabel } from '../models/PlaceLabel';
+import { applyPendingLocationShare, pendingShareNotice } from '../models/LocationShare';
+import { reconcileWish, shareBindingKey, wishAfterPress, wishApplies, type ShareWish } from '../models/ShareWish';
+import { currentActorId, locationShareService } from '../services/locationShareDependencies';
 import { currentEstimate } from '../models/PostingPrice';
 import { rangeRelation } from '../../../shared/models/RentalRange';
 import { estimateBasis, estimateDetailCount, floorAreaMissing, floorAreaRequired, type EstimateInputs } from '../models/PostingEstimate';
@@ -114,6 +117,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const [postingWizard,setPostingWizard]=useState(initialScreen==='postingType');
   const postingWizardRef=useRef(postingWizard);postingWizardRef.current=postingWizard;
   const [postingOriginalPrice,setPostingOriginalPrice]=useState<string|null>(null);
+  // The owner pressed "Confirm location and share it" on a property that is not saved yet: a wish bound to the point on screen (see ShareWish).
+  const [shareWish,setShareWish]=useState<ShareWish>(null),[shareLocationNotice,setShareLocationNotice]=useState<string|null>(null);
   // The estimate the Price page already holds (never fetched here): drives the rent comparison and the Review badge.
   const [postingEstimateHeld,setPostingEstimateHeld]=useState<{result:PredictionReceipt;basis:string}|null>(null);
   const [priceAttempted,setPriceAttempted]=useState(false);
@@ -695,6 +700,10 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const createdPhysical=createdDraft?{property_type:createdDraft.propertyType,city:createdDraft.city,barangay:createdDraft.barangay,total_floors:optionalNumber(createdDraft.totalFloors),max_occupants:optionalNumber(createdDraft.maxOccupants),furnishing_status:createdDraft.furnishingStatus,bedrooms:Number(createdDraft.bedrooms),bathrooms:Number(createdDraft.bathrooms),floor_area_sqm:optionalNumber(createdDraft.floorAreaSqm),floor_number:createdDraft.propertyType==='house'?null:optionalNumber(createdDraft.floorNumber),property_subtype:createdDraft.propertySubtype||null,lot_area_sqm:optionalNumber(createdDraft.lotAreaSqm),parking_spaces:optionalNumber(createdDraft.parkingSpaces)}:null;
   const physical = editedProperty?.property_id===workspace.propertyId?editedProperty:workspace.item?.property??createdPhysical;
   // The estimate belongs to the property details it was made for: any change to them drops it, so Review never shows an old one.
+  // The wish follows the point: it binds when a point is on screen, is cleared (with a notice) if the point or an identity input changes, and
+  // is dropped when the owner leaves Step 1 or the property is saved.
+  const wishSnapshot={inStep1:screen==='listingComposer'&&!workspace.propertyId,confirmed:hasConfirmedPropertyLocation(propertyState.draft),key:shareBindingKey(propertyState.draft,propertyState.locationRevision)};
+  useEffect(()=>{const r=reconcileWish(shareWish,wishSnapshot);if(r.wish!==shareWish)setShareWish(r.wish);if(r.notice)setShareLocationNotice(r.notice);},[shareWish,wishSnapshot.inStep1,wishSnapshot.confirmed,wishSnapshot.key]);
   const estimateBasisKey=JSON.stringify(physical??null),postingEstimateResult=currentEstimate(postingEstimateHeld,estimateBasisKey);
   const confirmedListing = contentState.lastConfirmed?.property_id === workspace.propertyId && (!workspace.listingId || contentState.lastConfirmed.id===workspace.listingId) ? contentState.lastConfirmed : null;
   const completeness = listingCompleteness({title:draft.title,description:draft.description,rent:listingNumber(draft.askingRent),availableDate:!!availabilityDateToLocal(draft.availableDate),
@@ -746,6 +755,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     postingEstimate:postingEstimateResult&&'propertyId' in postingEstimateResult.target&&postingEstimateResult.target.propertyId===workspace.propertyId?postingEstimateResult:null,
     setPostingEstimate:(r:PredictionReceipt|null)=>setPostingEstimateHeld(r?{result:r,basis:estimateBasisKey}:null),
     // Where the asking rent sits against the ends of the typical range (the only comparison there is; no point value exists).
+    shareLocationWanted:shareWish!==null,shareLocationNotice,
+    /** true = the owner pressed the explicit button; false = skip or clear. Either way the old notice goes. */
+    setShareLocationWanted:(on:boolean)=>{setShareLocationNotice(null);setShareWish(on?wishAfterPress(wishSnapshot):null);},
     postingRangeRelation:rangeRelation(listingNumber(draft.askingRent),postingEstimateResult?.illustrativeRange),
     priceKeepAvailable:postingOriginalPrice!==null&&postingOriginalPrice!==draft.askingRent,
     estimateBasisText:estimateBasis(physical),
@@ -851,17 +863,25 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     nextListingDetails: async () => {
       if(initialHydrationPending()||operationBusy()||wizardFloorAreaMissing)return;
       let freshlySaved=false;
+      // Does the wish still belong to exactly the point and identity about to be saved? Read from the creation state itself, not from a render.
+      const creationNow=propertyCreation.getSnapshot();
+      const shareWanted=wishApplies(shareWish,{inStep1:true,confirmed:hasConfirmedPropertyLocation(creationNow.draft),key:shareBindingKey(creationNow.draft,creationNow.locationRevision)});
       if(!workspaceRef.current.propertyId){
         const current=propertyCreation.getSnapshot();
         if(!current.loaded||current.uncertain||!requestPropertyValidation())return;
         let token=workspaceGeneration.current;
         composerSaving.current=true;setComposerPhase('property');setComposerNotice(null);
+        setShareWish(null);setShareLocationNotice(null); // the wish is spent now: kept in shareWanted for this save only, so a failed save leaves none behind
         try {
           await propertyCreation.submit(true);
           if(!active.current||token!==workspaceGeneration.current)return;
           if(!adoptCreatedProperty())return;
           token=workspaceGeneration.current;
           setComposerNotice('Property saved');freshlySaved=true;
+          if(shareWanted){
+            const actor=await currentActorId(),savedId=workspaceRef.current.propertyId;
+            if(actor&&savedId&&active.current){const outcome=await applyPendingLocationShare(locationShareService,actor,savedId,new AbortController().signal);if(active.current)setComposerNotice(pendingShareNotice(outcome)??'Property saved');}
+          }
           // Open the saved-property editor now, while "Saving property..." is showing, so the next step never races its load.
           // A failed load does not undo the save or block the next steps: it is closed again, and the property step reopens it (with Retry) when the user returns.
           if(postingWizard){await propertyRoutine.open(workspaceRef.current.propertyId!);if(propertyRoutine.getSnapshot().status!=='ready')propertyRoutine.close();}

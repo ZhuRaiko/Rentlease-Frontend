@@ -11,7 +11,7 @@ import type { PropertyListingViewModel } from '../src/features/property-listing/
 // Executes the actual hook + actual property/photo workflows + shared navigation guard.
 // Only React's scheduling hooks and native/backend dependency composition are replaced.
 // Explicit flush models the interval before React commits an external-store update.
-function mountProperty(persistedProperty: string | null = null, draftService: any = {}, publicationService: any = { restore: async () => null }, lifecycleService?: any, locationService?: any, overrides: { deletion?:any; identity?:any; routine?:any; published?:any; verification?: any; renderPropertyVerification?: any; amenities?: any; creation?: any; photos?: any; pickImages?: any; portfolio?: any; initialScreen?: 'dashboard' | 'postingType'; replayUpdaters?: boolean } = {}) {
+function mountProperty(persistedProperty: string | null = null, draftService: any = {}, publicationService: any = { restore: async () => null }, lifecycleService?: any, locationService?: any, overrides: { deletion?:any; identity?:any; routine?:any; published?:any; verification?: any; renderPropertyVerification?: any; amenities?: any; locationShare?: any; creation?: any; photos?: any; pickImages?: any; portfolio?: any; initialScreen?: 'dashboard' | 'postingType'; replayUpdaters?: boolean } = {}) {
   let cursor = 0, current: PropertyListingViewModel, mounted = true;
   const slots: any[] = [], effects: (() => void)[] = [], cache = new Map<string, any>();
   let writes = 0, tree: any, realHook: any, backAction: (() => void) | null = null;
@@ -51,6 +51,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
       if(name.endsWith('/publishedListingDependencies'))return {publishedListingService:overrides.published??draftService};
       if (name.endsWith('/listingDraftDependencies')) return { listingDraftService: draftService };
       if (name.endsWith('/propertyLocationDependencies')) return { propertyLocationService: locationService ?? { searchAddress: async () => [], getMapStyleUrl: () => 'test-style' } };
+      if (name.endsWith('/locationShareDependencies')) return { locationShareService: overrides.locationShare ?? { load: async () => null, save: async () => { throw new Error('unexpected consent call'); } }, currentActorId: async () => 'test-owner' };
       if (name.endsWith('/propertyAmenityDependencies')) return { propertyAmenityService: overrides.amenities ?? { load: async () => ({userId:'test-owner',catalog:[],selectedIds:[],hasPrivateLocation:false}), assertUser:async()=>{} } };
       if (name.endsWith('/propertyCreationDependencies')) return { propertyCreationService: service };
       if (name.endsWith('/propertyPhotoDependencies')) return { propertyPhotoService: overrides.photos ?? {}, selectPropertyPhotos: overrides.pickImages, selectPropertyPhoto: async () => { writes++; throw Error('No picker during navigation'); } };
@@ -420,13 +421,13 @@ test('Post detaches an in-flight lifecycle operation without replaying it into t
 });
 
 
-function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number } = {}) {
+function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any } = {}) {
   const backend = backendDraftService(), events: string[] = [], rows: any[] = [];
   const files = Array.from({ length: 3 }, (_, i) => ({ uri: `file:///cache/composer-${i}.jpg`, fileName: `${i}.jpg`, mimeType: 'image/jpeg', size: 100 }));
   let uncertainPhoto = false, pickerCalls = 0;
   const candidate = { id: 'real-candidate', label: 'Chosen address', longitude: 120.9, latitude: 14.4 };
   const h = mountProperty(null, { ...backend.service, save: async (c: any, form: any) => { events.push('draft'); if (failure === 'draft') throw h.draftError('Check draft status.'); const saved = await backend.service.save(c, form); return opts.score === undefined ? saved : { ...saved, completeness_score: opts.score }; } }, undefined, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: async () => [candidate] }, {
-    initialScreen: 'postingType', pickImages: async () => { pickerCalls++; return files; },
+    initialScreen: 'postingType', locationShare: opts.locationShare, pickImages: async () => { pickerCalls++; return files; },
     // The saved-property editor reads back the property that was just created (as the real service does).
     routine: { load: async (id: string) => { if (opts.routineFails) throw Error('Routine read failed'); const d = h.vm().propertyState.draft, n = (v: string) => v.trim() === '' ? null : Number(v); return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: d.propertyType, city: d.city, barangay: d.barangay, floor_number: n(d.floorNumber), bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: opts.areaMissing ? null : n(d.floorAreaSqm), max_occupants: n(d.maxOccupants), total_floors: n(d.totalFloors), furnishing_status: d.furnishingStatus, access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false, property_subtype: d.propertySubtype || null, lot_area_sqm: n(d.lotAreaSqm ?? ''), parking_spaces: n(d.parkingSpaces ?? ''), model_attributes_version: 2 }; }, hasPending: async () => false, save: async (c: any, d: any) => ({ ...c, bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: d.floorAreaSqm.trim() ? Number(d.floorAreaSqm) : null, edit_version: '60000000-0000-4000-8000-000000000003' }), reconcile: async () => null },
     creation: { create: async () => { events.push('property'); if (failure === 'property' || failure === 'uncertain-property') throw Object.assign(Error('rejected or unknown'), { code: failure === 'property' ? 'property_creation_rejected' : 'property_creation_uncertain' }); return { propertyId: backend.propertyId, status: 'created' }; } },
@@ -880,4 +881,128 @@ for(const status of ['draft','active','paused'])test(`T8-B ${status} Review save
  const service={...f.backend.service,read:async()=>f.getRow(),save:async(_context:any,d:any,expected:any)=>{writes++;assert.equal(expected.listingId,f.backend.listingId);const row={...f.getRow(),title:d.title};f.setRow(row);return row;}};
  const h=f.mount({load:async()=>c,hasPending:async()=>false},undefined,service);await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();if(status!=='draft'){h.vm().editManagedListing();await h.settle();}await h.settle();await h.vm().nextListingDetails();await h.settle();h.vm().updateDraft('title','Updated rental title');h.flush();h.vm().continuePostingEstimate();h.flush();await h.vm().continuePostingReview();await h.settle();await h.vm().saveComposerDraft();await h.settle();
  assert.equal(h.vm().screen,'postingReview');assert.equal(h.vm().workspaceListingId,f.backend.listingId);assert.equal(h.vm().listingDraftState.lastConfirmed?.status,status);assert.equal(h.vm().draft.title,'Updated rental title');assert.equal(status==='draft'?f.backend.calls():writes,1);assert.equal(h.writes(),0);h.unmount();
+});
+
+// ---- Consent integrity: a sharing wish belongs to the point that was on screen when the owner pressed
+import { shareCardView } from '../src/features/property-listing/models/LocationShare';
+const CHANGED = 'Location changed. Confirm sharing again.';
+const shareService = () => {
+  const calls: any[] = [];
+  return { calls, service: {
+    load: async (actor: string, id: string) => { calls.push(['load', actor, id]); return { revision: '10000000-0000-4000-8000-000000000001', approved: false, eligible: true, policy: 'rental-public-location-v1', point: { latitude: 14.4, longitude: 120.9 } }; },
+    save: async (actor: string, id: string, s: any, approve: boolean) => { calls.push(['save', actor, id, s.revision, s.policy, approve]); return { ...s, approved: approve }; },
+  } };
+};
+const movePin = async (h: any, lng = 120.95, lat = 14.45) => {
+  h.vm().openPropertyLocation(); await h.settle();
+  const map = h.vm().propertyLocation; map.chooseCandidate('real-candidate'); map.mapLoaded(); map.movePoint([lng, lat]); assert.equal(map.confirmExact(), true);
+};
+const cardState = (h: any) => shareCardView({ saved: false, addressReady: true, confirmed: !!h.vm().propertyState.draft.publicLatitude, wanted: h.vm().shareLocationWanted, approval: null, approvalLoading: false, approvalError: false, busy: false });
+test('a wish pressed on a confirmed point is applied once, after the first save, with exactly the two approval calls', async () => {
+  const s = shareService(), { h, fields, confirmMap, backend } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  assert.equal(h.vm().shareLocationWanted, false);
+  h.vm().setShareLocationWanted(true); h.flush();
+  assert.equal(h.vm().shareLocationWanted, true); assert.equal(h.vm().shareLocationNotice, null);
+  assert.deepEqual(s.calls, [], 'the press itself calls no service');
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(s.calls, [['load', 'test-owner', backend.propertyId], ['save', 'test-owner', backend.propertyId, '10000000-0000-4000-8000-000000000001', 'rental-public-location-v1', true]]);
+  assert.equal(h.vm().shareLocationWanted, false, 'spent');
+  assert.equal(h.vm().screen, 'listingDetails'); h.unmount();
+});
+test('a press before the map is confirmed waits, binds to the point the owner then confirms, and is applied', async () => {
+  const s = shareService(), { h, fields, confirmMap } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields();
+  h.vm().setShareLocationWanted(true); h.flush();
+  assert.equal(h.vm().shareLocationWanted, true, 'waiting for the map');
+  await confirmMap(); h.flush();
+  assert.equal(h.vm().shareLocationWanted, true, 'bound to the confirmed point');
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(s.calls.map(c => c[0]), ['load', 'save']); h.unmount();
+});
+const triggers: [string, (h: any) => Promise<void> | void][] = [
+  ['the barangay is edited', h => h.vm().propertyCreation.updateField('barangay', 'Another barangay')],
+  ['the street is edited', h => h.vm().propertyCreation.updateField('addressLine1', 'Another street')],
+  ['the city changes', h => h.vm().propertyCreation.updateField('city', 'tagaytay')],
+  ['the building is edited', h => h.vm().propertyCreation.updateField('addressLine2', 'Tower B')],
+  ['the postal code is edited', h => h.vm().propertyCreation.updateField('postalCode', '4103')],
+  ['the property type changes', h => h.vm().propertyCreation.updateField('propertyType', 'condominium')],
+  ['the rental floor changes', h => h.vm().propertyCreation.updateField('floorNumber', '7')],
+  ['the map pin moves and is confirmed again', h => movePin(h)],
+];
+for (const [name, change] of triggers) test(`the wish is cleared with a notice when ${name} before the first save, and is never applied`, async () => {
+  const s = shareService(), { h, fields, confirmMap, events } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush(); assert.equal(h.vm().shareLocationWanted, true);
+  await change(h); h.flush(); await h.settle(); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false, 'cleared');
+  assert.equal(h.vm().shareLocationNotice, CHANGED);
+  assert.equal(cardState(h).button!.action, h.vm().propertyState.draft.publicLatitude ? 'recordWish' : 'openMapShare', 'the button is back to asking');
+  assert.equal(cardState(h).asking, true);
+  if (!h.vm().propertyState.draft.publicLatitude) await confirmMap();
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(events.slice(0, 1), ['property'], 'the property itself still saves');
+  assert.deepEqual(s.calls, [], 'no consent call for a point the owner did not press on'); h.unmount();
+});
+test('a change that lands between the last render and the save is still caught, because the save compares the live point', async () => {
+  const s = shareService(), { h, fields, confirmMap, events } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush(); assert.equal(h.vm().shareLocationWanted, true);
+  await movePin(h); // no flush: the wish in the last render is still bound to the old point
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(events.slice(0, 1), ['property']);
+  assert.deepEqual(s.calls, []); h.unmount();
+});
+test('pressing again clears the old "Location changed" notice, and binds to the point now on screen', async () => {
+  const s = shareService(), { h, fields, confirmMap } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush();
+  await movePin(h); h.flush(); await h.settle(); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false); assert.equal(h.vm().shareLocationNotice, CHANGED);
+  h.vm().setShareLocationWanted(true); h.flush();
+  assert.equal(h.vm().shareLocationNotice, null, 'the notice goes when the owner presses again');
+  assert.equal(h.vm().shareLocationWanted, true);
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(s.calls.map(c => c[0]), ['load', 'save'], 'the new press is bound to the new point and applies'); h.unmount();
+});
+test('typing in a field that does not touch the point or the identity keeps the wish', async () => {
+  const { h, fields, confirmMap } = unifiedHarness('none', { locationShare: shareService().service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush();
+  h.vm().propertyCreation.updateField('bedrooms', '3'); h.vm().propertyCreation.updateField('floorAreaSqm', '60'); h.vm().propertyCreation.updateField('maxOccupants', '4'); h.vm().propertyCreation.updateField('furnishingStatus', 'furnished'); h.flush();
+  assert.equal(h.vm().shareLocationWanted, true); assert.equal(h.vm().shareLocationNotice, null); h.unmount();
+});
+test('the wish is cleared when the property save fails, and nothing is shared', async () => {
+  const s = shareService(), { h, fields, confirmMap, events } = unifiedHarness('property', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush();
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.deepEqual(events, ['property']); assert.equal(h.vm().workspacePropertyId, null); assert.equal(h.vm().screen, 'listingComposer');
+  assert.equal(h.vm().shareLocationWanted, false, 'cleared by the failed save');
+  assert.deepEqual(s.calls, []);
+  assert.equal(cardState(h).button!.action, 'recordWish', 'the button asks again');
+  h.unmount();
+});
+test('the wish is cleared when the save outcome is unknown too', async () => {
+  const s = shareService(), { h, fields, confirmMap } = unifiedHarness('uncertain-property', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush();
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false); assert.deepEqual(s.calls, []); h.unmount();
+});
+test('the wish is cleared when the owner presses Skip after confirming, and the save shares nothing', async () => {
+  const s = shareService(), { h, fields, confirmMap, events } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush(); assert.equal(h.vm().shareLocationWanted, true);
+  h.vm().setShareLocationWanted(false); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false); assert.equal(h.vm().shareLocationNotice, null, 'a deliberate skip is not a change');
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(events.slice(0, 1), ['property']); assert.deepEqual(s.calls, []); h.unmount();
+});
+test('the wish is cleared when the owner leaves the wizard, and a later visit starts with none', async () => {
+  const s = shareService(), { h, fields, confirmMap } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush(); assert.equal(h.vm().shareLocationWanted, true);
+  h.vm().goBack(); h.flush(); if (h.vm().navigationConfirmation) { h.vm().confirmNavigation(); h.flush(); }
+  await h.settle(); h.flush();
+  assert.notEqual(h.vm().screen, 'listingComposer'); assert.equal(h.vm().shareLocationWanted, false);
+  h.vm().startCreate(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'listingComposer'); assert.equal(h.vm().shareLocationWanted, false, 'a new visit never inherits a wish'); assert.deepEqual(s.calls, []); h.unmount();
+});
+test('a wish pressed on a saved property is not a wish: the card calls the approval hook directly', async () => {
+  const { h, fields, confirmMap } = unifiedHarness('none', { locationShare: shareService().service }); await h.settle(); fields(); await confirmMap();
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.ok(h.vm().workspacePropertyId);
+  h.vm().setShareLocationWanted(true); h.flush(); await h.settle(); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false, 'once saved there is nothing to queue'); h.unmount();
 });

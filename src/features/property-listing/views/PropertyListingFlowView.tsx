@@ -111,7 +111,7 @@ export function PropertyListingFlowView({
   } else if(viewModel.screen==='postingReview'&&viewModel.postingWizard){
     content=<PostingReviewView viewModel={viewModel} onClose={close}/>;
   } else if (viewModel.screen === 'listingComposer') {
-    content = <ListingComposerView estimateSection={estimateSection} viewModel={viewModel} onClose={close} />;
+    content = <ListingComposerView accountId={accountId} estimateSection={estimateSection} viewModel={viewModel} onClose={close} />;
   } else if (viewModel.screen === 'listingDetails') {
     content = <ListingDetailsView priceGuidance={priceGuidance} viewModel={viewModel} onClose={close} />;
   } else if (createScreens.has(viewModel.screen)) {

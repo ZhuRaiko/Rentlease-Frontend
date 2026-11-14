@@ -177,13 +177,6 @@ test('every Modal with a bottom-aligned sheet reads the bottom inset', () => {
   const offenders = walk('src').filter(f => { const s = readFileSync(f, 'utf8'); return /<Modal\b/.test(s) && /justifyContent:\s*'flex-end'/.test(s) && !/useSheetBottomInset|useSafeAreaInsets/.test(s); });
   assert.deepEqual(offenders, []);
 });
-test('the estimator consent sheet applies the shared inset and keeps its text', () => {
-  const src = readFileSync('src/features/property-listing/components/PostingLocationApproval.tsx', 'utf8');
-  assert.match(src, /useSheetBottomInset\(\)/);
-  assert.match(src, /style=\{\[styles\.sheet,\{maxHeight:height\*\.85,paddingBottom:sheetPadBottom\}\]\}/);
-  assert.ok(src.includes("What's shared with the estimator"));
-  assert.ok(src.includes('RentLease sends only this property'));
-});
 test('the shared inset hook leaves the protected layout components alone', () => {
   const hook = readFileSync('src/shared/components/useSheetBottomInset.ts', 'utf8');
   assert.ok(!/FooterInsetContext|ScreenContainer|PinnedFooter|RentLeaseBottomNavigation/.test(hook.replace(/\/\*[\s\S]*?\*\//g, '')));

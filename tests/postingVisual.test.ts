@@ -89,7 +89,7 @@ test('a covered pinned footer drops to spacing.md and loses its gap strip; an un
   assert.equal(make(true).PinnedFooterGap({ style: { height: 12 } }), null);
   assert.deepEqual(make(false).PinnedFooterGap({ style: { height: 12 } }).props.style, { height: 12 });
 });
-test('property step: only fields the estimator reads are marked "Used in estimate"', () => {
+test('property step: only fields the range reads are marked "Used in the range"', () => {
   const d: any = { propertyType: 'apartment', furnishingStatus: 'unfurnished', city: 'imus', bedrooms: '2', bathrooms: '1', floorAreaSqm: '', maxOccupants: '', floorNumber: '', totalFloors: '', propertySubtype: '', lotAreaSqm: '', parkingSpaces: '', barangay: 'B', addressLine1: 'A', addressLine2: '', postalCode: '', accessInstructions: '' };
   const vm: any = { propertyState: { draft: d, loaded: true }, propertySummary: {}, propertyCreation: { updateField() {} }, propertyValidationIssues: [], propertyFloorIssues: {}, completeness: {}, floorAreaRequired: true, estimateDetails: { filled: 2, total: 8 }, estimateInputs: { propertyType: 'apartment', city: 'imus', furnishingStatus: 'unfurnished', propertySubtype: '', floorAreaSqm: '', floorNumber: '', lotAreaSqm: '', parkingSpaces: '', bedrooms: '2', bathrooms: '1', amenityCount: 0 } };
   const render = load('src/features/property-listing/components/ComposerPropertyFields.tsx').ComposerPropertyFields;
@@ -98,12 +98,12 @@ test('property step: only fields the estimator reads are marked "Used in estimat
   for (const label of ['Bedrooms', 'Bathrooms', 'Floor area (sqm)']) assert.equal(field(label)?.props.usedInEstimate, true, label);
   assert.ok(!field('Maximum occupants (optional)')?.props.usedInEstimate, 'maximum occupants is not a model input');
   const floors = all.filter(n => n.type === 'PropertyFloorFields');
-  assert.deepEqual(floors.map(n => [n.props.part, !!n.props.usedInEstimate]), [['floor', true], ['total', false]], 'rental floor counts, floors in building does not');
+  assert.deepEqual(floors.map(n => !!n.props.usedInEstimate), [true], 'one floors block under More details; only the rental floor field inside it is a model input');
   assert.equal(all.find(n => n.type === 'PropertyModelAttributeFields').props.marker, true, 'subtype, lot area and parking');
   assert.equal(all.find(n => n.type === 'FieldLabel' && n.props.label === 'Furnishing').props.usedInEstimate, true);
-  const more = all.find(n => n.type === 'PostingSection' && n.props.title === 'More');
-  assert.ok(more && nodes(more).some(n => n.props?.label === 'Maximum occupants (optional)'), 'occupants stay under More');
-  const order = all.filter(n => n.type === 'EstimateDetailsMeter' || n.props?.label === 'Floor area (sqm)' || n.type === 'PostingSection' && n.props.title === 'More').map(n => n.type === 'ListingField' ? 'area' : n.type === 'EstimateDetailsMeter' ? 'meter' : 'more');
+  const more = all.find(n => n.type === 'Group' && n.props.group === 'more');
+  assert.ok(more && nodes(more).some(n => n.props?.label === 'Maximum occupants (optional)'), 'occupants stay under More details');
+  const order = all.filter(n => n.type === 'EstimateDetailsMeter' || n.props?.label === 'Floor area (sqm)' || n.type === 'Group' && n.props.group === 'more').map(n => n.type === 'ListingField' ? 'area' : n.type === 'EstimateDetailsMeter' ? 'meter' : 'more');
   assert.deepEqual(order, ['area', 'meter', 'more'], 'floor area leads the card; the meter sits below the fields and above More');
   assert.deepEqual(all.find(n => n.type === 'EstimateDetailsMeter').props.missing, ['floor area', 'floor number or lot area', 'parking spaces', 'subtype', 'amenities']);
   const plain = render({ viewModel: vm, children: { type: 'Amenities' } });

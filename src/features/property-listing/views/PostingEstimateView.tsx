@@ -19,10 +19,10 @@ import type {PropertyListingViewModel} from '../viewModels/usePropertyListingVie
 export interface FloorAreaFix {value:string;onChange:(value:string)=>void;onSave:()=>void;saving:boolean;error:string|null}
 /** Set by the Price step so it can scroll the asking-rent card into view after "Use" and mark it as applied. */
 export interface RentFeedback {applied:boolean;cardRef:RefObject<NativeView|null>;scrollRef:RefObject<ScrollView|null>;contentRef:RefObject<NativeView|null>}
-interface Props {viewModel:PropertyListingViewModel;onClose:()=>void;estimateSection:ReactNode;locationSection?:ReactNode;floorAreaFix?:FloorAreaFix|null;rentFeedback?:RentFeedback|undefined}
+interface Props {viewModel:PropertyListingViewModel;onClose:()=>void;estimateSection:ReactNode;floorAreaFix?:FloorAreaFix|null;rentFeedback?:RentFeedback|undefined}
 
 // Step 3: estimate first, then the landlord's own asking rent. Published editing keeps its rent on the Listing step and shows it read-only here.
-export function PostingEstimateView({viewModel:vm,onClose,estimateSection,locationSection,floorAreaFix,rentFeedback}:Props){
+export function PostingEstimateView({viewModel:vm,onClose,estimateSection,floorAreaFix,rentFeedback}:Props){
   const rentHere=!vm.publishedEditing,saving=!!vm.composerPhase||vm.listingDraftState.busy;
   const rentMessage=vm.priceAttempted&&vm.priceIssue?.field==='askingRent'?vm.priceIssue.message:null;
   const blocked=rentHere&&!!vm.priceIssue;
@@ -45,7 +45,6 @@ export function PostingEstimateView({viewModel:vm,onClose,estimateSection,locati
       </View>:null}
       <Text style={ui.supporting}>Or type your own price. Any amount is allowed.</Text>
     </PostingCard></View>:<Text style={ui.body}>Your asking rent: {askingRentLabel(vm.draft.askingRent)} / month. Edit it on the Listing step.</Text>}
-    {locationSection}
     <ComposerRecoveryFeedback viewModel={vm}/><ListingWorkspaceFeedback viewModel={vm} scope="draft"/>
     <PostingSection title="About the range" plain><Text style={ui.supporting}>The range is optional. Continue with your own price if it is unavailable. Applying a rent from the slider only fills your asking rent field. Your property details are already saved; continuing saves your listing draft and selected photos.</Text></PostingSection>
   </ListingWizardScaffold>;

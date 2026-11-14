@@ -1,6 +1,9 @@
 export class ModelAttributeError extends Error {constructor(public readonly field:'propertySubtype'|'lotAreaSqm'|'parkingSpaces',message:string){super(message);}}
 export interface PropertyModelAttributeDraft {propertySubtype?:string;lotAreaSqm?:string;parkingSpaces?:string}
 export const modelSubtypeOptions=(type:string|null):readonly string[]=>type==='house'?['house','townhouse','beach_house','villa']:type==='apartment'||type==='condominium'?['apartment','room','condominium','studio','loft','penthouse','condotel']:[];
+/** The subtype chips offered for a type. Narrower than what validation accepts: a standalone room is not an apartment or a condominium. */
+export const offeredSubtypeOptions=(type:string|null):readonly string[]=>type==='house'?['house','townhouse','beach_house','villa']:type==='apartment'?['apartment','studio','loft','penthouse']:type==='condominium'?['condominium','studio','loft','penthouse','condotel']:[];
+export const subtypeLabel=(value:string)=>value.replace(/_/g,' ');
 export function propertyModelAttributes(type:string|null,d:PropertyModelAttributeDraft){
  const subtype=d.propertySubtype?.trim()||null;
  if(subtype&&!modelSubtypeOptions(type).includes(subtype))throw new ModelAttributeError('propertySubtype','Choose a subtype for this property category, or leave it unspecified.');

@@ -11,9 +11,9 @@ export function performPropertyFocus(request:PropertyFocusRequest,section:View|u
     (typeof input==='function'?input():input)?.focus();announce(request.message);
   },()=>{if(current())announce(request.message);});
 }
-export function usePropertyFormFocus(request:PropertyFocusRequest|null|undefined,sectionOverride?:'details') {
+export function usePropertyFormFocus(request:PropertyFocusRequest|null|undefined,sectionOverride?:'details'|'more') {
   const scrollRef=useRef<ScrollView|null>(null),contentRef=useRef<View|null>(null);
-  const sections=useRef<Partial<Record<PropertyValidationSection|'details',View>>>({});
+  const sections=useRef<Partial<Record<PropertyValidationSection|'details'|'more',View>>>({});
   const inputs=useRef<Partial<Record<PropertyValidationField,TextInput>>>({});
   useEffect(()=>{
     if(!request)return;
@@ -22,7 +22,7 @@ export function usePropertyFormFocus(request:PropertyFocusRequest|null|undefined
     return ()=>{active=false;cancelAnimationFrame(frame);};
   },[request?.requestId,request?.field,request?.message,sectionOverride]);
   return {scrollRef,contentRef,
-    section:(key:PropertyValidationSection|'details')=>(node:View|null)=>{if(node)sections.current[key]=node;else delete sections.current[key];},
+    section:(key:PropertyValidationSection|'details'|'more')=>(node:View|null)=>{if(node)sections.current[key]=node;else delete sections.current[key];},
     field:(key:PropertyValidationField)=>(node:TextInput|null)=>{if(node)inputs.current[key]=node;else delete inputs.current[key];},
   };
 }

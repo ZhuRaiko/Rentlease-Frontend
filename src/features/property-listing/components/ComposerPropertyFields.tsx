@@ -16,10 +16,12 @@ import {ui} from '../../../shared/theme/ui';
 import {propertyTypeOptions,propertyCityOptions,furnishingOptions,hasConfirmedPropertyLocation} from '../models/DraftProperty';
 import {ChoiceChip,ListingField} from './ListingControls';
 import {ListingButton} from './ListingButton';
+import {LocationShareCard} from './LocationShareCard';
+import {offeredSubtypeOptions} from '../models/PropertyModelAttributes';
 import type {PropertyListingViewModel} from '../viewModels/usePropertyListingViewModel';
 
-interface Props {viewModel:PropertyListingViewModel;children?:ReactNode;focus?:PropertyFormFocus;renderGroup?:((key:PostingGroup,body:ReactNode)=>ReactNode)|undefined;afterLocation?:ReactNode}
-export function ComposerPropertyFields({viewModel:vm,children,focus,renderGroup,afterLocation}:Props) {
+interface Props {accountId?:string|undefined;viewModel:PropertyListingViewModel;children?:ReactNode;focus?:PropertyFormFocus;renderGroup?:((key:PostingGroup,body:ReactNode)=>ReactNode)|undefined;afterLocation?:ReactNode}
+export function ComposerPropertyFields({accountId,viewModel:vm,children,focus,renderGroup,afterLocation}:Props) {
   const [allTypes,setAllTypes]=useState(false);
   const state=vm.propertyState,flow=vm.propertyCreation,d=state.draft,summary=vm.propertySummary;
   const saved=!!vm.workspacePropertyId,editable=!saved&&!state.busy&&!state.uncertain&&!vm.composerPhase,posting=!!renderGroup;
@@ -28,6 +30,8 @@ export function ComposerPropertyFields({viewModel:vm,children,focus,renderGroup,
   const group=(key:PostingGroup,body:ReactNode)=>renderGroup?renderGroup(key,body):body;
   const common=['apartment','house','condominium','boarding_house'];
   const expandedTypes=allTypes;
+  // A subtype that does not fit the new type is dropped with the change, so the chips never show a stale one.
+  const setType=(v:string)=>{flow.updateField('propertyType',v as typeof d.propertyType);if(d.propertySubtype&&!offeredSubtypeOptions(v).includes(d.propertySubtype))flow.updateField('propertySubtype','');};
   const types=posting?[...common.map(value=>propertyTypeOptions.find(o=>o.value===value)!),...propertyTypeOptions.filter(o=>!common.includes(o.value)&&(expandedTypes||o.value===d.propertyType))]:propertyTypeOptions;
   if(saved)return <>
     {group('about',<View style={styles.section}><Text style={ui.body}>{summary.type}</Text><Text style={ui.body}>{summary.bedrooms} bedrooms / {summary.bathrooms} bathrooms</Text><Text style={ui.supporting}>{summary.furnishing}</Text><Text style={ui.supporting}>Details are saved. Use Edit Property to make changes.</Text></View>)}
@@ -36,35 +40,39 @@ export function ComposerPropertyFields({viewModel:vm,children,focus,renderGroup,
     {group('details',<View style={styles.section}><Text style={ui.body}>Floor area: {summary.floorAreaSqm?`${summary.floorAreaSqm} sqm`:'Unknown'}</Text><Text style={ui.body}>Rental floor: {summary.floorNumber||'Not specified'}</Text><Text style={ui.body}>Building floors: {summary.totalFloors||'Not specified'}</Text><Text style={ui.body}>Maximum occupants: {summary.maxOccupants||'Not specified'}</Text></View>)}
     {group('amenities',children)}
   </>;
+  const rooms=<>
+    <View style={styles.columns}>{([['bedrooms','Bedrooms'],['bathrooms','Bathrooms']] as const).map(([field,label])=><View key={field} style={styles.cell}><ListingField inputRef={focus?.field(field)} label={label} required usedInEstimate={posting} error={feedback(field)} placeholder="Enter count" keyboardType="numeric" editable={editable} value={d[field]} onChangeText={v=>flow.updateField(field,v)}/></View>)}</View>
+    <FieldLabel label="Furnishing" usedInEstimate={posting}/>{feedback('furnishingStatus')?<Text style={styles.error}>{feedback('furnishingStatus')}</Text>:null}
+    {posting?<PostingChoices label="Furnishing" options={furnishingOptions} value={d.furnishingStatus} disabled={!editable} onChange={v=>flow.updateField('furnishingStatus',v)}/>:<View style={styles.chips}>{furnishingOptions.map(o=><ChoiceChip key={o.value} label={o.label} selected={d.furnishingStatus===o.value} disabled={!editable} onPress={()=>flow.updateField('furnishingStatus',o.value)}/>)}</View>}
+  </>;
   const about=<View style={styles.section}>
     <View collapsable={false} ref={focus?.section('property')}/>
     {!posting?<Text accessibilityRole="header" style={ui.sectionTitle}>Property</Text>:null}
     <FieldLabel label="Property type" required/>
     {feedback('propertyType')?<Text accessibilityLiveRegion="polite" style={styles.error}>{feedback('propertyType')}</Text>:null}
-    {posting?<><PostingChoices label="Property type" options={types} value={d.propertyType} disabled={!editable} onChange={v=>flow.updateField('propertyType',v)}/><Pressable accessibilityRole="button" accessibilityLabel={expandedTypes?'Show common property types':'Show all property types'} accessibilityState={{expanded:expandedTypes}} onPress={()=>setAllTypes(!expandedTypes)} style={styles.linkAction}><Text style={styles.link}>{expandedTypes?'Show common types':'More property types'}</Text></Pressable></>:<View style={styles.chips}>{types.map(o=><ChoiceChip key={o.value} label={o.label} selected={d.propertyType===o.value} disabled={!editable} onPress={()=>flow.updateField('propertyType',o.value)}/>)}</View>}
-    <View style={styles.columns}>{([['bedrooms','Bedrooms'],['bathrooms','Bathrooms']] as const).map(([field,label])=><View key={field} style={styles.cell}><ListingField inputRef={focus?.field(field)} label={label} required usedInEstimate={posting} error={feedback(field)} placeholder="Enter count" keyboardType="numeric" editable={editable} value={d[field]} onChangeText={v=>flow.updateField(field,v)}/></View>)}</View>
-    <FieldLabel label="Furnishing" usedInEstimate={posting}/>{feedback('furnishingStatus')?<Text style={styles.error}>{feedback('furnishingStatus')}</Text>:null}
-    {posting?<PostingChoices label="Furnishing" options={furnishingOptions} value={d.furnishingStatus} disabled={!editable} onChange={v=>flow.updateField('furnishingStatus',v)}/>:<View style={styles.chips}>{furnishingOptions.map(o=><ChoiceChip key={o.value} label={o.label} selected={d.furnishingStatus===o.value} disabled={!editable} onPress={()=>flow.updateField('furnishingStatus',o.value)}/>)}</View>}
+    {posting?<><PostingChoices label="Property type" options={types} value={d.propertyType} disabled={!editable} onChange={setType}/><Pressable accessibilityRole="button" accessibilityLabel={expandedTypes?'Show common property types':'Show all property types'} accessibilityState={{expanded:expandedTypes}} onPress={()=>setAllTypes(!expandedTypes)} style={styles.linkAction}><Text style={styles.link}>{expandedTypes?'Show common types':'More property types'}</Text></Pressable></>:<View style={styles.chips}>{types.map(o=><ChoiceChip key={o.value} label={o.label} selected={d.propertyType===o.value} disabled={!editable} onPress={()=>setType(o.value)}/>)}</View>}
+    {!posting?rooms:null}
   </View>;
   const plainDetails=<View collapsable={false} style={styles.section}>
     <View style={styles.columns}>{([['floorAreaSqm','Floor area (sqm, optional)','Unknown'],['maxOccupants','Maximum occupants (optional)','Unknown']] as const).map(([field,label,placeholder])=><View key={field} style={styles.cell}><ListingField inputRef={focus?.field(field)} label={label} helper={!posting?<CompletenessHint value={vm.completeness} factor={field==='floorAreaSqm'?'floorArea':'maxOccupants'}/>:null} error={feedback(field)} placeholder={placeholder} keyboardType="numeric" editable={editable} value={d[field]} onChangeText={v=>flow.updateField(field,v)}/></View>)}</View>
     <PropertyFloorFields propertyType={d.propertyType} focus={focus} floorNumber={d.floorNumber} totalFloors={d.totalFloors} editable={editable} errors={vm.propertyFloorIssues} onChange={(field,value)=>flow.updateField(field,value)}/>
     <PropertyModelAttributeFields type={d.propertyType} draft={d} focus={focus} compact={posting} error={feedback} disabled={!editable} onChange={(field,value)=>flow.updateField(field,value)}/>
   </View>;
-  // Posting wizard: the estimate inputs lead; occupants and floors in building (not model inputs) sit under More.
-  const wizardDetails=<View collapsable={false} ref={focus?.section('details')} style={styles.section}>
-    <ListingField inputRef={focus?.field('floorAreaSqm')} label="Floor area (sqm)" required={vm.floorAreaRequired} usedInEstimate helper={<Text style={ui.supporting}>{vm.floorAreaRequired?'Floor area, not lot area.':'Estimates are not available for this property, so floor area is optional.'}</Text>} error={feedback('floorAreaSqm')} placeholder="e.g. 85" keyboardType="numeric" editable={editable} value={d.floorAreaSqm} onChangeText={v=>flow.updateField('floorAreaSqm',v)}/>
-    <PropertyFloorFields part="floor" usedInEstimate propertyType={d.propertyType} focus={focus} floorNumber={d.floorNumber} totalFloors={d.totalFloors} editable={editable} errors={vm.propertyFloorIssues} onChange={(field,value)=>flow.updateField(field,value)}/>
-    <PropertyModelAttributeFields marker type={d.propertyType} draft={d} focus={focus} compact error={feedback} disabled={!editable} onChange={(field,value)=>flow.updateField(field,value)}/>
+  // Posting wizard: Size and rooms (what the range reads) leads; everything optional sits in the collapsed More details.
+  const wizardSize=<View collapsable={false} ref={focus?.section('details')} style={styles.section}>
+    <ListingField inputRef={focus?.field('floorAreaSqm')} label="Floor area (sqm)" required={vm.floorAreaRequired} usedInEstimate helper={<Text style={ui.supporting}>{vm.floorAreaRequired?'Floor area, not lot area.':'A range is not available for this property, so floor area is optional.'}</Text>} error={feedback('floorAreaSqm')} placeholder="e.g. 85" keyboardType="numeric" editable={editable} value={d.floorAreaSqm} onChangeText={v=>flow.updateField('floorAreaSqm',v)}/>
+    {rooms}
     <EstimateDetailsMeter {...vm.estimateDetails} missing={vm.estimateInputs?missingEstimateDetails(vm.estimateInputs):[]}/>
-    <PostingSection title="More" summary="Maximum occupants and floors in building" plain>
-      <ListingField inputRef={focus?.field('maxOccupants')} label="Maximum occupants (optional)" error={feedback('maxOccupants')} placeholder="Unknown" keyboardType="numeric" editable={editable} value={d.maxOccupants} onChangeText={v=>flow.updateField('maxOccupants',v)}/>
-      <PropertyFloorFields part="total" propertyType={d.propertyType} focus={focus} floorNumber={d.floorNumber} totalFloors={d.totalFloors} editable={editable} errors={vm.propertyFloorIssues} onChange={(field,value)=>flow.updateField(field,value)}/>
-    </PostingSection>
   </View>;
-  const details=posting?wizardDetails:plainDetails;
-  const extraFields=<>{([['addressLine2','Building or subdivision (optional)','Building or subdivision'],['postalCode','Postal code (optional)','Postal code'],['accessInstructions','Entrance instructions (private, optional)','How to find the entrance']] as const).map(([field,label,placeholder])=><ListingField inputRef={focus?.field(field)} key={field} label={label} error={feedback(field)} placeholder={placeholder} value={d[field]} editable={editable} multiline={field==='accessInstructions'} onChangeText={v=>flow.updateField(field,v)}/>)}</>;
-  const extraTarget=vm.propertyValidationTarget&&['addressLine2','postalCode','accessInstructions'].includes(vm.propertyValidationTarget.field)?vm.propertyValidationTarget.requestId:undefined;
+  const wizardMore=<View collapsable={false} ref={focus?.section('more')} style={styles.section}>
+    <PropertyModelAttributeFields marker type={d.propertyType} draft={d} focus={focus} compact error={feedback} disabled={!editable} onChange={(field,value)=>flow.updateField(field,value)}/>
+    <PropertyFloorFields usedInEstimate propertyType={d.propertyType} focus={focus} floorNumber={d.floorNumber} totalFloors={d.totalFloors} editable={editable} errors={vm.propertyFloorIssues} onChange={(field,value)=>flow.updateField(field,value)}/>
+    <ListingField inputRef={focus?.field('maxOccupants')} label="Maximum occupants (optional)" error={feedback('maxOccupants')} placeholder="Unknown" keyboardType="numeric" editable={editable} value={d.maxOccupants} onChangeText={v=>flow.updateField('maxOccupants',v)}/>
+    <ListingField inputRef={focus?.field('accessInstructions')} label="Entrance instructions (private, optional)" error={feedback('accessInstructions')} placeholder="How to find the entrance" multiline editable={editable} value={d.accessInstructions} onChangeText={v=>flow.updateField('accessInstructions',v)}/>
+  </View>;
+  const details=plainDetails;
+  const extraFields=<>{([['addressLine2','Building or subdivision (optional)','Building or subdivision'],['postalCode','Postal code (optional)','Postal code'],['accessInstructions','Entrance instructions (private, optional)','How to find the entrance']] as const).filter(([field])=>!posting||field!=='accessInstructions').map(([field,label,placeholder])=><ListingField inputRef={focus?.field(field)} key={field} label={label} error={feedback(field)} placeholder={placeholder} value={d[field]} editable={editable} multiline={field==='accessInstructions'} onChangeText={v=>flow.updateField(field,v)}/>)}</>;
+  const extraTarget=vm.propertyValidationTarget&&['addressLine2','postalCode',...(posting?[]:['accessInstructions'])].includes(vm.propertyValidationTarget.field)?vm.propertyValidationTarget.requestId:undefined;
   const location=<View style={styles.section}>
     <View collapsable={false} ref={focus?.section('address')}/>
     {!posting?<Text accessibilityRole="header" style={ui.sectionTitle}>Location</Text>:null}
@@ -72,14 +80,14 @@ export function ComposerPropertyFields({viewModel:vm,children,focus,renderGroup,
     {posting?<PostingChoices label="City" options={propertyCityOptions} value={d.city} disabled={!editable} onChange={v=>flow.updateField('city',v)}/>:<View style={styles.chips}>{propertyCityOptions.map(o=><ChoiceChip key={o.value} label={o.label} selected={d.city===o.value} disabled={!editable} onPress={()=>flow.updateField('city',o.value)}/>)}</View>}
     {([['barangay','Barangay','Enter barangay'],['addressLine1','Street address','House/unit number and street']] as const).map(([field,label,placeholder])=><ListingField inputRef={focus?.field(field)} key={field} label={label} required error={feedback(field)} placeholder={placeholder} value={d[field]} editable={editable} onChangeText={v=>flow.updateField(field,v)}/>)}
     {posting?<PostingSection title="More address details" summary="Optional" revealId={extraTarget} plain>{extraFields}</PostingSection>:extraFields}
-    <View collapsable={false} ref={focus?.section('location')} style={styles.section}>
+    {posting?<View collapsable={false} ref={focus?.section('location')} style={styles.section}><LocationShareCard viewModel={vm} accountId={accountId} editable={editable} error={feedback('location')}/></View>:    <View collapsable={false} ref={focus?.section('location')} style={styles.section}>
       <Text accessibilityLiveRegion="polite" style={ui.supporting}>{hasConfirmedPropertyLocation(d)?'Location confirmed':'Confirm your address on the map to continue.'}</Text>
       {feedback('location')?<Text accessibilityLiveRegion="polite" style={styles.error}>{feedback('location')}</Text>:null}
       {!posting?<CompletenessHint value={vm.completeness} factor="location"/>:null}
       <ListingButton label={hasConfirmedPropertyLocation(d)?'Review location on map':'Confirm location on map'} tone="outline" disabled={!editable||!state.loaded||!d.city||!d.barangay.trim()||!d.addressLine1.trim()} onPress={vm.openPropertyLocation}/>
       <Text style={ui.supporting}>Your exact pin stays private. Renters see an approximate location.</Text>
-    </View>
+    </View>}
   </View>;
-  return posting?<>{group('about',about)}{group('details',details)}{group('location',location)}{afterLocation}{group('amenities',children)}</>:<>{about}{details}{children}{location}</>;
+  return posting?<>{group('about',about)}{group('details',wizardSize)}{group('location',location)}{afterLocation}{group('amenities',children)}{group('more',wizardMore)}</>:<>{about}{details}{children}{location}</>;
 }
 const styles=StyleSheet.create({section:{gap:12},error:{...ui.supporting,color:colors.restricted},chips:{flexDirection:'row',flexWrap:'wrap',gap:spacing.xs},columns:{flexDirection:'row',flexWrap:'wrap',gap:12},cell:{flexBasis:130,flexGrow:1,minWidth:0},linkAction:{minHeight:48,justifyContent:'center',alignSelf:'flex-start'},link:{...ui.supporting,color:colors.primaryAction,fontWeight:'600'}});
