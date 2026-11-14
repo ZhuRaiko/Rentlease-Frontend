@@ -20,3 +20,60 @@ export function parsePublishedReviews(v:unknown,kind:ReviewKind,target:string):P
 export function parseModeration(v:unknown){return arr(v,20).map(v=>row(v));}
 export function reviewTargets(c:ReviewContext,actor:string):ReviewKind[]{if(!c.eligible||![c.tenantId,c.landlordId].includes(actor))return[];return (actor===c.tenantId?['property','user'] as ReviewKind[]:['user'] as ReviewKind[]).filter(k=>!c.own.some(r=>r.kind===k)&&!(k==='user'&&c.legacyUserReview));}
 export function validateReviewOperation(op:ReviewOperation){if(!['submit','moderate'].includes(op.action))throw new ReviewError('Invalid review action.');uuid(op.operationId);if(op.action==='submit'){uuid(op.tenancyId);if(!['property','user'].includes(op.kind)||!Number.isInteger(op.rating)||op.rating<1||op.rating>5||(op.text!==null&&typeof op.text!=='string')||(op.text?.length??0)>2000)throw new ReviewError('Choose 1-5 stars and write at most 2,000 characters.');}else{uuid(op.reviewId);uuid(op.revision);if(!['approved','rejected','hidden'].includes(op.status)||!op.note.trim()||op.note.trim().length>1000)throw new ReviewError('Enter a moderation note (1-1,000 characters).');}}
+
+// ---- Split reviews (decision D1): the tenant reviews the property, the landlord rates the tenant.
+export const REVIEW_SUBMITTED_NOTICE = 'Thanks. Your review will appear once it has been checked.';
+export const REVIEW_NOT_ELIGIBLE_FALLBACK = 'You can review once the tenancy has ended.';
+
+export interface ReviewScreen {
+  role: 'tenant' | 'landlord';
+  /** The ONE kind this person may submit here. The tenant is never offered a rating of the landlord. */
+  kind: ReviewKind;
+  title: string;
+  helper: string;
+  state: 'form' | 'reviewed' | 'not_eligible' | 'legacy';
+  /** The person's own review of that kind, shown read-only. */
+  own: ReviewRow | null;
+  /** Any other reviews they already sent in this tenancy (for example an earlier rating of the landlord), also read-only. */
+  earlier: ReviewRow[];
+}
+
+/** Who sees which screen, and in which state. Pure: everything comes from the already-loaded review context. */
+export function reviewScreenFor(c: ReviewContext, actor: string): ReviewScreen | null {
+  if (actor !== c.tenantId && actor !== c.landlordId) return null;
+  const tenant = actor === c.tenantId, kind: ReviewKind = tenant ? 'property' : 'user';
+  const own = c.own.find(r => r.kind === kind) ?? null;
+  const state: ReviewScreen['state'] = own ? 'reviewed' : !c.eligible ? 'not_eligible' : !tenant && c.legacyUserReview ? 'legacy' : 'form';
+  return {
+    role: tenant ? 'tenant' : 'landlord', kind, state, own, earlier: c.own.filter(r => r.kind !== kind),
+    title: tenant ? 'Review the property' : 'Rate your tenant',
+    helper: tenant ? "Appears on the property's reviews after it has been checked." : "Appears on this tenant's profile.",
+  };
+}
+
+const manilaToday = (now: number) => new Date(now + 8 * 3600000).toISOString().slice(0, 10);
+/** "You can review after <date>" when the tenancy's end date is still ahead (Manila time), otherwise the plain fallback. */
+export function reviewNotEligibleText(endDate: string | null | undefined, now: number = Date.now()): string {
+  if (!endDate || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < manilaToday(now)) return REVIEW_NOT_ELIGIBLE_FALLBACK;
+  return `You can review after ${new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${endDate}T00:00:00Z`))}.`;
+}
+
+/** What the person is told about a review they already sent. */
+export const reviewStatusLabel = (status: ReviewStatus): string => status === 'pending' ? 'Waiting to be checked' : status === 'approved' ? 'Published' : 'Not published';
+
+/** Plain text for a refused submit; anything else keeps the existing generic message. */
+export function reviewSubmitErrorText(error: { message?: string | null | undefined }): string {
+  const m = (error.message ?? '').toLowerCase();
+  if (m.includes('completed tenancy required')) return REVIEW_NOT_ELIGIBLE_FALLBACK;
+  if (m.includes('actual tenant required')) return 'Only the tenant can review the property.';
+  return 'Review already exists, changed, or this action is unavailable. Refresh.';
+}
+
+export const LANDLORD_EXPERIENCE_TITLE = "Landlord's experience with this user";
+export interface LandlordExperience { title: string; average: string; countLabel: string; rows: ReviewRow[] }
+/** The profile section. Null (hidden) when there is no published review. Rows carry no reviewer identity, so none is shown. */
+export function landlordExperienceView(d: PublishedReviews | null | undefined, limit = 3): LandlordExperience | null {
+  if (!d || d.kind !== 'user' || d.count <= 0 || d.average === null || d.rows.length === 0) return null;
+  const rows = [...d.rows].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, limit);
+  return { title: LANDLORD_EXPERIENCE_TITLE, average: `${d.average.toFixed(1)} / 5`, countLabel: `${d.count} ${d.count === 1 ? 'review' : 'reviews'}`, rows };
+}
