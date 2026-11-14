@@ -1,6 +1,9 @@
 import {isUuid} from '../../features/messaging-viewing/models/PersistentMessaging';
 export type ReviewKind='property'|'user';export type ReviewStatus='pending'|'approved'|'rejected'|'hidden';
-export interface ReviewRow {id:string;kind:ReviewKind;rating:number;text:string|null;revision:string;createdAt:string;status:ReviewStatus;propertyId:string|null;updatedAt:string|null;moderatedAt:string|null;history:{action:string;note:string|null;createdAt:string}[]}
+/** Who wrote a published review, from get_published_rental_reviews ('reviewerRole'). null = missing or unrecognized, treated as unknown. */
+export type ReviewerRole='landlord'|'tenant';
+export const parseReviewerRole=(v:unknown):ReviewerRole|null=>v==='landlord'||v==='tenant'?v:null;
+export interface ReviewRow {id:string;kind:ReviewKind;rating:number;text:string|null;revision:string;createdAt:string;status:ReviewStatus;propertyId:string|null;updatedAt:string|null;moderatedAt:string|null;history:{action:string;note:string|null;createdAt:string}[];reviewerRole?:ReviewerRole|null}
 export interface ReviewContext {tenancyId:string;propertyId:string;tenantId:string;landlordId:string;eligible:boolean;own:ReviewRow[];legacyUserReview:boolean}
 export interface PublishedReviews {kind:ReviewKind;targetId:string;count:number;average:number|null;rows:ReviewRow[]}
 export type ReviewScope={mode:'tenancy'|'property'|'user';id:string}|{mode:'moderation';status:ReviewStatus}|{mode:'tenancies'};
@@ -14,7 +17,7 @@ const string=(v:unknown,max=2000)=>{if(typeof v!=='string'||v.length>max)throw n
 const uuid=(v:unknown)=>{const s=string(v,36);if(!isUuid(s))throw new ReviewError('Review binding could not be verified.');return s;};
 const stamp=(v:unknown)=>{const s=string(v,50);if(!Number.isFinite(Date.parse(s)))throw new ReviewError('Review timestamp could not be verified.');return s;};
 const arr=(v:unknown,max:number)=>{if(!Array.isArray(v)||v.length>max)throw new ReviewError('Review page could not be verified.');return v;};
-function row(v:unknown,kind?:ReviewKind,state?:ReviewStatus):ReviewRow{const r=obj(v),k=kind??r.kind,s=state??r.status;if(!['property','user'].includes(String(k))||!reviewStatuses.includes(s as ReviewStatus)||typeof r.rating!=='number'||!Number.isInteger(r.rating)||r.rating<1||r.rating>5)throw new ReviewError('Review state/rating is invalid.');return{id:uuid(r.id),kind:k as ReviewKind,status:s as ReviewStatus,rating:r.rating,text:r.text===null?null:string(r.text),revision:uuid(r.revision),createdAt:stamp(r.createdAt),propertyId:r.propertyId==null?null:uuid(r.propertyId),updatedAt:r.updatedAt==null?null:stamp(r.updatedAt),moderatedAt:r.moderatedAt==null?null:stamp(r.moderatedAt),history:r.history===undefined?[]:arr(r.history,20).map(v=>{const h=obj(v);return{action:string(h.action,40),note:h.note===null?null:string(h.note,1000),createdAt:stamp(h.createdAt)};})};}
+function row(v:unknown,kind?:ReviewKind,state?:ReviewStatus):ReviewRow{const r=obj(v),k=kind??r.kind,s=state??r.status;if(!['property','user'].includes(String(k))||!reviewStatuses.includes(s as ReviewStatus)||typeof r.rating!=='number'||!Number.isInteger(r.rating)||r.rating<1||r.rating>5)throw new ReviewError('Review state/rating is invalid.');return{id:uuid(r.id),kind:k as ReviewKind,status:s as ReviewStatus,rating:r.rating,text:r.text===null?null:string(r.text),revision:uuid(r.revision),createdAt:stamp(r.createdAt),propertyId:r.propertyId==null?null:uuid(r.propertyId),updatedAt:r.updatedAt==null?null:stamp(r.updatedAt),moderatedAt:r.moderatedAt==null?null:stamp(r.moderatedAt),reviewerRole:parseReviewerRole(r.reviewerRole),history:r.history===undefined?[]:arr(r.history,20).map(v=>{const h=obj(v);return{action:string(h.action,40),note:h.note===null?null:string(h.note,1000),createdAt:stamp(h.createdAt)};})};}
 export function parseReviewContext(v:unknown,actor:string,id:string):ReviewContext{const r=obj(v);if(r.tenancyId!==id||!isUuid(actor)||![r.tenantId,r.landlordId].includes(actor)||r.tenantId===r.landlordId||typeof r.eligible!=='boolean'||typeof r.legacyUserReview!=='boolean')throw new ReviewError('Review eligibility could not be verified.');return{tenancyId:uuid(r.tenancyId),propertyId:uuid(r.propertyId),tenantId:uuid(r.tenantId),landlordId:uuid(r.landlordId),eligible:r.eligible,own:arr(r.own,2).map(v=>row(v)),legacyUserReview:r.legacyUserReview};}
 export function parsePublishedReviews(v:unknown,kind:ReviewKind,target:string):PublishedReviews{const r=obj(v);if(r.kind!==kind||r.targetId!==target||typeof r.count!=='number'||!Number.isSafeInteger(r.count)||r.count<0||(r.count===0?r.average!==null:typeof r.average!=='number'||!Number.isFinite(r.average)||r.average<1||r.average>5))throw new ReviewError('Published review summary is invalid.');const rows=arr(r.rows,20).map(v=>row(v,kind,'approved'));if(rows.some(r=>kind==='property'&&r.propertyId!==target))throw new ReviewError('Property review binding changed.');return{kind,targetId:uuid(r.targetId),count:r.count,average:r.average as number|null,rows};}
 export function parseModeration(v:unknown){return arr(v,20).map(v=>row(v));}
@@ -73,7 +76,12 @@ export const LANDLORD_EXPERIENCE_TITLE = "Landlord's experience with this user";
 export interface LandlordExperience { title: string; average: string; countLabel: string; rows: ReviewRow[] }
 /** The profile section. Null (hidden) when there is no published review. Rows carry no reviewer identity, so none is shown. */
 export function landlordExperienceView(d: PublishedReviews | null | undefined, limit = 3): LandlordExperience | null {
-  if (!d || d.kind !== 'user' || d.count <= 0 || d.average === null || d.rows.length === 0) return null;
-  const rows = [...d.rows].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, limit);
-  return { title: LANDLORD_EXPERIENCE_TITLE, average: `${d.average.toFixed(1)} / 5`, countLabel: `${d.count} ${d.count === 1 ? 'review' : 'reviews'}`, rows };
+  if (!d || d.kind !== 'user') return null;
+  // Only reviews the server says a LANDLORD wrote. A missing or unknown role is never shown here. Count and average come from those rows
+  // (the loaded page, at most 20 newest), not from the server's totals, which include tenants' reviews.
+  const mine = d.rows.filter(r => r.reviewerRole === 'landlord');
+  if (mine.length === 0) return null;
+  const average = mine.reduce((sum, r) => sum + r.rating, 0) / mine.length;
+  const rows = [...mine].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, limit);
+  return { title: LANDLORD_EXPERIENCE_TITLE, average: `${average.toFixed(1)} / 5`, countLabel: `${mine.length} ${mine.length === 1 ? 'review' : 'reviews'}`, rows };
 }

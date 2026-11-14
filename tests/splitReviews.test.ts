@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import ts from 'typescript';
 import {
   landlordExperienceView, LANDLORD_EXPERIENCE_TITLE, REVIEW_NOT_ELIGIBLE_FALLBACK, REVIEW_SUBMITTED_NOTICE, reviewNotEligibleText, reviewScreenFor, reviewStatusLabel, reviewSubmitErrorText,
-  type PublishedReviews, type ReviewContext, type ReviewRow,
+  parsePublishedReviews, parseReviewerRole, type PublishedReviews, type ReviewContext, type ReviewRow,
 } from '../src/shared/models/RentalReview';
 
 const U = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -92,22 +92,38 @@ test('submit errors: two refusals are plain; anything else keeps the generic mes
 });
 
 // ---- Profile section
-const published = (over: Partial<PublishedReviews> = {}): PublishedReviews => ({ kind: 'user', targetId: TENANT, count: 3, average: 4.333, rows: [row('user', { id: U(70), createdAt: '2026-11-01T00:00:00Z', status: 'approved' }), row('user', { id: U(71), createdAt: '2026-11-09T00:00:00Z', status: 'approved' }), row('user', { id: U(72), createdAt: '2026-11-05T00:00:00Z', status: 'approved' })], ...over });
-test('profile section: hidden at zero or without data; otherwise average, count and the latest rows, newest first', () => {
+const lr = (id: string, rating: number, createdAt: string, reviewerRole: ReviewRow['reviewerRole'] = 'landlord'): ReviewRow => row('user', { id, rating, createdAt, status: 'approved', reviewerRole });
+// The server's count/average (3 and 2.6) include the tenant's rating; only the three landlord rows may feed the section.
+const published = (over: Partial<PublishedReviews> = {}): PublishedReviews => ({ kind: 'user', targetId: TENANT, count: 5, average: 2.6, rows: [lr(U(70), 5, '2026-11-01T00:00:00Z'), lr(U(71), 4, '2026-11-09T00:00:00Z'), lr(U(72), 3, '2026-11-05T00:00:00Z'), lr(U(73), 1, '2026-11-10T00:00:00Z', 'tenant'), lr(U(74), 1, '2026-11-11T00:00:00Z', null)], ...over });
+test('profile section: hidden without landlord rows; otherwise count and average from the landlord rows only, newest first', () => {
   assert.equal(landlordExperienceView(null), null);
   assert.equal(landlordExperienceView(undefined), null);
   assert.equal(landlordExperienceView(published({ count: 0, average: null, rows: [] })), null);
-  assert.equal(landlordExperienceView(published({ rows: [] })), null);
-  assert.equal(landlordExperienceView(published({ count: 0 })), null, 'count zero hides it even if rows came back');
   assert.equal(landlordExperienceView(published({ kind: 'property' })), null, 'property reviews never feed this section');
-  assert.equal(landlordExperienceView(published({ average: null })), null);
   const v = landlordExperienceView(published())!;
-  assert.deepEqual([v.title, v.average, v.countLabel], [LANDLORD_EXPERIENCE_TITLE, '4.3 / 5', '3 reviews']);
-  assert.deepEqual(v.rows.map(r => r.id), [U(71), U(72), U(70)]);
-  assert.equal(landlordExperienceView(published({ count: 1, average: 5, rows: [published().rows[0]!] }))!.countLabel, '1 review');
-  const many = Array.from({ length: 6 }, (_, i) => row('user', { id: U(80 + i), createdAt: `2026-11-0${i + 1}T00:00:00Z`, status: 'approved' }));
-  assert.deepEqual(landlordExperienceView(published({ count: 6, rows: many }))!.rows.map(r => r.id), [U(85), U(84), U(83)], 'latest three');
+  assert.deepEqual([v.title, v.average, v.countLabel], [LANDLORD_EXPERIENCE_TITLE, '4.0 / 5', '3 reviews'], "the tenant's 1-star and the unknown-role row are not counted");
+  assert.deepEqual(v.rows.map(r => r.id), [U(71), U(72), U(70)], 'newest landlord review first, tenant and unknown rows absent');
+  assert.equal(landlordExperienceView(published({ rows: [lr(U(70), 5, '2026-11-01T00:00:00Z')] }))!.countLabel, '1 review');
+  assert.equal(landlordExperienceView(published({ rows: [lr(U(70), 5, '2026-11-01T00:00:00Z'), lr(U(71), 4, '2026-11-02T00:00:00Z')] }))!.average, '4.5 / 5');
+  const many = Array.from({ length: 6 }, (_, i) => lr(U(80 + i), 5, `2026-11-0${i + 1}T00:00:00Z`));
+  const mv = landlordExperienceView(published({ rows: many }))!;
+  assert.deepEqual(mv.rows.map(r => r.id), [U(85), U(84), U(83)], 'latest three shown');
+  assert.equal(mv.countLabel, '6 reviews', 'the count covers every landlord row loaded, not only the three shown');
   assert.equal(LANDLORD_EXPERIENCE_TITLE, "Landlord's experience with this user");
+});
+test('profile section: tenant-written, unknown-role and role-less rows alone leave it hidden', () => {
+  assert.equal(landlordExperienceView(published({ rows: [lr(U(73), 1, '2026-11-10T00:00:00Z', 'tenant')] })), null, "a landlord's own profile must not show a tenant's rating");
+  assert.equal(landlordExperienceView(published({ rows: [lr(U(74), 5, '2026-11-11T00:00:00Z', null)] })), null);
+  assert.equal(landlordExperienceView(published({ rows: [row('user', { id: U(75), status: 'approved' })] })), null, 'a row without the field is unknown');
+  assert.equal(landlordExperienceView(published({ rows: [row('user', { id: U(75), status: 'approved' })] })), null);
+  assert.equal(landlordExperienceView(published({ count: 9, average: 5, rows: [] })), null, 'server totals alone never show the section');
+});
+test('reviewerRole is parsed strictly: only "landlord" and "tenant"; anything else is unknown', () => {
+  assert.deepEqual(['landlord', 'tenant', 'Landlord', 'admin', '', null, undefined, 1, {}].map(parseReviewerRole), ['landlord', 'tenant', null, null, null, null, null, null, null]);
+  const r = (extra: object) => ({ id: U(90), propertyId: null, rating: 4, text: null, revision: U(91), createdAt: '2026-11-10T00:00:00Z', updatedAt: null, moderatedAt: null, ...extra });
+  const page = parsePublishedReviews({ kind: 'user', targetId: TENANT, count: 4, average: 4, rows: [r({ reviewerRole: 'landlord' }), { ...r({ reviewerRole: 'tenant' }), id: U(92) }, { ...r({}), id: U(93) }, { ...r({ reviewerRole: 'owner' }), id: U(94) }] }, 'user', TENANT);
+  assert.deepEqual(page.rows.map(x => x.reviewerRole), ['landlord', 'tenant', null, null]);
+  assert.equal('reviewerId' in page.rows[0]!, false, 'no reviewer identity is carried');
 });
 
 // ---- Rendering
@@ -177,7 +193,9 @@ test('profile section renders nothing at zero and the section with rows otherwis
   const render = (value: PublishedReviews) => harness({ data: { type: 'public', value } }).render('src/shared/components/LandlordExperienceSection.tsx', 'LandlordExperienceSection', { accountId: TENANT });
   assert.equal(render(published({ count: 0, average: null, rows: [] })), null);
   const t = text(render(published()));
-  for (const s of [LANDLORD_EXPERIENCE_TITLE, '4.3 / 5 · 3 reviews', '4 / 5', 'Nice place']) assert.ok(t.includes(s), s);
+  for (const s of [LANDLORD_EXPERIENCE_TITLE, '4.0 / 5 \u00b7 3 reviews', '4 / 5', 'Nice place']) assert.ok(t.includes(s), s);
+  assert.equal(render(published({ rows: [lr(U(73), 1, '2026-11-10T00:00:00Z', 'tenant')] })), null, "a tenant's review alone renders nothing");
+  assert.ok(!text(render(published())).includes('1 / 5'), "the tenant's 1-star review is not shown");
 });
 test('the profile uses the new section, and the tenancy screen passes its end date', () => {
   const profile = readFileSync('src/features/authentication/views/ProfileView.tsx', 'utf8');
