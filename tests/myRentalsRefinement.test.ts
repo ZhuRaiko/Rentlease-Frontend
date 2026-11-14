@@ -148,7 +148,7 @@ test('one primary action, one secondary, the rest in the menu, using only existi
   assert.deepEqual(actionLabels(makeItem('1', 'draft', 'not_submitted')), ['Continue Editing', 'Verify This Property', []]);
   assert.deepEqual(actionLabels(makeItem('2', 'active', 'approved')), ['Manage Status', 'Edit Rental', []]);
   assert.deepEqual(actionLabels(makeItem('3', 'paused', 'pending')), ['Manage Status', 'Edit Rental', ['View Verification Status']]);
-  assert.deepEqual(actionLabels(makeItem('4', null, 'not_submitted')), ['Continue Editing', 'Verify This Property', ['Edit Property']]);
+  assert.deepEqual(actionLabels(makeItem('4', null, 'not_submitted')), ['Create listing', 'Verify This Property', ['Edit Property']]);
   assert.deepEqual(actionLabels(makeItem('5', 'rented', 'rejected')), ['View listing', 'Edit Property', ['View Verification Feedback']]);
   assert.deepEqual(actionLabels(makeItem('6', 'draft', 'approved', { completeness: 0.9 })), ['Continue Editing', 'Review Publication', []]);
   assert.deepEqual(actionLabels(makeItem('7', 'draft', 'approved', { completeness: 0.5 })), ['Continue Editing', null, []]);

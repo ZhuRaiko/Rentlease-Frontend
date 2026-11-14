@@ -18,7 +18,7 @@ export function PortfolioFilterTabs({ active, counts, onSelect }: { active: Port
 }
 
 const styles = StyleSheet.create({
-  row: { gap: spacing.xs, paddingVertical: 2 },
+  row: { gap: spacing.xs, paddingVertical: 2, paddingRight: spacing.xl },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 40, paddingHorizontal: spacing.md, borderRadius: 20, borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.background },
   selected: { backgroundColor: colors.primaryAction, borderColor: colors.primaryAction },
   pressed: { opacity: 0.8 },

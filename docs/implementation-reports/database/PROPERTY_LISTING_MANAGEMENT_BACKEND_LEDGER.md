@@ -1963,3 +1963,23 @@ Supersedes the "prepared, NOT APPLIED" state in the entry above. Authorized by t
 | Android/client runtime | RUNTIME-UNVERIFIED. Frontend still pending: the landlord tenancy-setup screen shows its generic "not permitted" message for "Resolve the pending identity review first." (proposed fix awaiting go-ahead) |
 
 Known migration-history drift (11 renamed local/remote pairs) remains as recorded in the November 13 admin-access entry in `REPORTING_MODERATION_BACKEND_LEDGER.md`; the same direct method was used. This entry records one permanent live backend mutation: the migration and the single history row above.
+
+## November 14, 2026 - Posting wizard rework: no backend interaction (read-only local source inspection)
+
+| Field | Entry |
+| --- | --- |
+| Date | Executed and recorded 2026-11-14 |
+| Feature/phase | Property & Listing Management, posting wizard rework (entry POSTING-WIZARD-REWORK-2026-11-14) |
+| Actor/tool | Claude Code, local file reads only |
+| Environment/project | No Supabase project, hosted function or database was contacted |
+| Classification | None (no live interaction). Local source inspection only |
+| Target | `src/shared/models/RentalPrediction.ts`, `supabase/functions/rental-price-estimate/handler.ts` and `index.ts`, `docs/features/RENTAL_PRICE_ESTIMATION.md`, `docs/implementation-reports/database/RENTAL_PRICE_ESTIMATION_BACKEND_LEDGER.md` |
+| Action | Reading source and existing ledger text to answer whether the approved public location point affects the estimate |
+| Result | `mapPredictionInput` sets `latitude` and `longitude` to null in the shared mapper, but the deployed Edge handler (`approvedCoordinates:true` in `index.ts`) overlays the owner-approved generalized public point from `get_rental_prediction_coordinates` onto the model input when an approval for the current location revision exists (`{...input,...(coordinates??{})}`). The earlier ledger records migration `rental_location_approval` as applied (remote version 20261110053904) and Edge `rental-price-estimate` v5 as deployed on 2026-11-10. Whether the point changes an estimate has not been exercised on the hosted project (acceptance pending), and the model's use of coordinates is documented only as imputation when absent |
+| Durable effect | None |
+| Rollback/cleanup | Not applicable |
+| Security/RLS | Not tested. The wizard keeps the existing consent semantics unchanged |
+| Source-controlled backend file | None created or edited. The pending `20261114120000_admin_reinstate_relist_guard.sql` was not touched |
+| Android/client runtime | RUNTIME-UNVERIFIED |
+
+No permanent live backend mutation was performed in this phase.

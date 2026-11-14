@@ -3,6 +3,7 @@ import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { Pressable, RefreshControl,  StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PinnedFooter } from '../../../shared/components/PinnedFooter';
 
 import { colors } from '../../../shared/theme/colors';
 import { ui } from '../../../shared/theme/ui';
@@ -36,7 +37,6 @@ export function AdminScaffold({
   contentPadded = true,
   onRefresh, refreshing = false, refreshEnabled = true, footer,
 }: AdminScaffoldProps) {
-  const insets = useSafeAreaInsets();
   return (
     <View style={styles.screen}>
       <ScreenHeader title={title} onBack={onBack} action={actionLabel && onAction ?
@@ -51,7 +51,7 @@ export function AdminScaffold({
       >
         {children}
       </ScrollView>
-      {footer ? <View style={[styles.footer, { paddingBottom: Math.max(spacing.sm, insets.bottom) }]}>{footer}</View> : null}
+      {footer ? <PinnedFooter>{footer}</PinnedFooter> : null}
     </View>
   );
 }
@@ -103,7 +103,6 @@ const styles = StyleSheet.create({
   wrappedItem: { flexBasis: '45%', flexGrow: 1, flexShrink: 1 },
   headerControl: { justifyContent: 'center', minHeight: 48, minWidth: 48 },
   screen: { backgroundColor: colors.background, flex: 1 },
-  footer: { ...ui.panel, backgroundColor: colors.background, borderBottomWidth: 0, borderLeftWidth: 0, borderRadius: 0, borderRightWidth: 0, gap: spacing.xs, paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   subtitle: { ...ui.supporting, paddingHorizontal: spacing.lg, marginTop: spacing.xs },
   action: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '700' },
   content: { flexGrow: 1, paddingBottom: spacing.xl },

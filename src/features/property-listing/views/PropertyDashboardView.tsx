@@ -10,6 +10,7 @@ import { PortfolioFilterTabs } from '../components/PortfolioFilterTabs';
 import { PortfolioRentalCard } from '../components/PortfolioRentalCard';
 import { portfolioFilterEmptyText, type LandlordPortfolioItem } from '../models/LandlordPortfolio';
 import type { PortfolioActionKey, PortfolioRequestActivity } from '../models/PortfolioCardPresentation';
+import { deleteBlockedReason, offersUnfinishedDelete } from '../models/UnfinishedPostMenu';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
 export function PropertyDashboardView({ viewModel: vm, requestActivity }: { viewModel: PropertyListingViewModel; requestActivity?: ((item: LandlordPortfolioItem) => PortfolioRequestActivity | null) | undefined }) {
@@ -38,7 +39,9 @@ export function PropertyDashboardView({ viewModel: vm, requestActivity }: { view
     {state.error && !state.busy ? <ListingButton label="Retry loading properties" tone="outline" onPress={() => void vm.portfolio.load()} /> : null}
     {state.loaded && state.items.length > 0 ? <PortfolioFilterTabs active={state.filter} counts={vm.portfolioFilterCounts} onSelect={vm.setPortfolioFilter} /> : null}
     {state.loaded && !state.items.length ? <View style={styles.empty}><Text style={styles.heading}>No properties yet</Text><Text style={styles.body}>Use Post below to add your first rental property.</Text></View> : null}
-    {vm.portfolioItems.map(item => <PortfolioRentalCard key={item.propertyId} item={item} disabled={vm.portfolioActionsDisabled} onAction={key => act(item.propertyId, key)} request={requestActivity?.(item)} verificationError={vm.propertyVerificationState?.propertyId === item.propertyId ? vm.propertyVerificationState.error : null} />)}
+    {vm.portfolioItems.map(item => <PortfolioRentalCard key={item.propertyId} item={item} disabled={vm.portfolioActionsDisabled} onAction={key => act(item.propertyId, key)} request={requestActivity?.(item)} verificationError={vm.propertyVerificationState?.propertyId === item.propertyId ? vm.propertyVerificationState.error : null}
+      deletion={offersUnfinishedDelete(item) ? { onDelete: () => void vm.requestPortfolioDeletion(item.propertyId), reason: deleteBlockedReason(vm.unfinishedPostState, item.propertyId) } : null}
+      cleanup={vm.unfinishedPostState?.pending.some(job => job.propertyId === item.propertyId) ? { busy: vm.unfinishedPostState.busy, onRetry: () => vm.resumeUnfinishedPostCleanup(item.propertyId) } : null} />)}
     {noMatch ? <Text style={styles.body}>{state.query.trim() || state.filter === 'all' ? 'No matching properties or listings. Try a title, property type, barangay or city.' : portfolioFilterEmptyText[state.filter]}</Text> : null}
   </ScrollView>;
 }

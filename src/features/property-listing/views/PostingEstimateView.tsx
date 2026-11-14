@@ -1,9 +1,55 @@
 import {PostingSection} from '../components/PostingSection';
+import {PostingCard} from '../components/PostingCard';
 import type {ReactNode} from 'react';
-import {Text,View} from 'react-native';
+import {Pressable,StyleSheet,Text,View} from 'react-native';
 import {ListingWizardScaffold} from '../components/ListingWizardScaffold';
 import {PostingProgress} from '../components/PostingProgress';
 import {ListingButton} from '../components/ListingButton';
+import {ListingField} from '../components/ListingControls';
+import {ComposerRecoveryFeedback} from '../components/ComposerRecoveryFeedback';
+import {ListingWorkspaceFeedback} from '../components/ListingWorkspaceFeedback';
+import {colors} from '../../../shared/theme/colors';
+import {spacing} from '../../../shared/theme/spacing';
 import {ui} from '../../../shared/theme/ui';
 import type {PropertyListingViewModel} from '../viewModels/usePropertyListingViewModel';
-export function PostingEstimateView({viewModel:vm,onClose,estimateSection}:{viewModel:PropertyListingViewModel;onClose:()=>void;estimateSection:ReactNode}){return <ListingWizardScaffold title="Rental Price Estimate" description="Get guidance for your monthly rent using the saved property details." progress={<PostingProgress step={3}/>} onBack={vm.goBack} onClose={onClose} footer={<ListingButton tone="brand" label="Continue to Review" disabled={!!vm.composerPhase||vm.listingDraftState.busy} onPress={vm.continuePostingReview}/>}><View style={{gap:8}}>{estimateSection}</View><Text style={ui.body}>Your asking rent: PHP {vm.draft.askingRent || 'Not entered'} / month</Text><ListingButton label="Keep My Price" tone="outline" onPress={vm.keepPostingPrice}/>{vm.composerNotice?<Text accessibilityLiveRegion="polite" style={ui.supporting}>{vm.composerNotice}</Text>:null}<PostingSection title="About this estimate" plain><Text style={ui.supporting}>An estimate is optional. Continue with your own price if it is unavailable. Your property details are saved; your listing and selected photos are saved at Review. Using an estimate only updates your asking rent.</Text></PostingSection></ListingWizardScaffold>;}
+
+/** Inline fix for an estimate blocked only by a missing floor area. State lives in the caller; saving reuses the versioned property save. */
+export interface FloorAreaFix {value:string;onChange:(value:string)=>void;onSave:()=>void;saving:boolean;error:string|null}
+interface Props {viewModel:PropertyListingViewModel;onClose:()=>void;estimateSection:ReactNode;locationSection?:ReactNode;floorAreaFix?:FloorAreaFix|null}
+
+// Step 3: estimate first, then the landlord's own asking rent. Published editing keeps its rent on the Listing step and shows it read-only here.
+export function PostingEstimateView({viewModel:vm,onClose,estimateSection,locationSection,floorAreaFix}:Props){
+  const rentHere=!vm.publishedEditing,saving=!!vm.composerPhase||vm.listingDraftState.busy;
+  const rentMessage=vm.priceAttempted&&vm.priceIssue?.field==='askingRent'?vm.priceIssue.message:null;
+  const blocked=rentHere&&!!vm.priceIssue;
+  const hint=vm.composerPhase||vm.listingDraftState.busy?'Keep this screen open until saving finishes.':blocked?(vm.priceIssue?.field==='askingRent'?'Enter your asking rent to continue':vm.priceIssue!.message):rentHere?'Saves your draft, then opens Review':undefined;
+  const label=vm.composerPhase==='photos'?'Saving photos...':saving?'Saving listing draft...':'Continue to Review';
+  return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} title="Set Your Price" description="Start with an estimate, then choose your monthly asking rent." progress={<PostingProgress step={3}/>} onBack={vm.goBack} onClose={onClose}
+    footer={<View style={styles.footer}><ListingButton tone="brand" label={label} disabled={saving||blocked} onPress={()=>void vm.continuePostingReview()}/>{hint?<Text accessibilityLiveRegion="polite" style={styles.hint}>{hint}</Text>:null}</View>}>
+    <PostingCard highlight title="Rental price estimate" tag="XGBoost">
+      {floorAreaFix?<View style={styles.gap}>
+        <Text style={ui.body}>Add your floor area to see an estimate for this property.</Text>
+        <ListingField label="Floor area (sqm)" required placeholder="e.g. 85" keyboardType="numeric" value={floorAreaFix.value} error={floorAreaFix.error} editable={!floorAreaFix.saving} onChangeText={floorAreaFix.onChange}/>
+        <ListingButton tone="brand" label={floorAreaFix.saving?'Saving...':'Save and estimate'} disabled={floorAreaFix.saving||!floorAreaFix.value.trim()} onPress={floorAreaFix.onSave}/>
+      </View>:estimateSection}
+      {vm.estimateBasisText?<View style={styles.basis}><Text style={[ui.supporting,styles.flex]}>Based on: {vm.estimateBasisText}</Text>{vm.propertyEditAvailable?<Pressable accessibilityRole="button" accessibilityLabel="Edit property details" style={styles.link} onPress={()=>vm.editPostingStep('property')}><Text style={styles.linkText}>Edit details</Text></Pressable>:null}</View>:null}
+    </PostingCard>
+    {rentHere?<PostingCard title="Your monthly asking rent">
+      <ListingField label="Monthly asking rent" required prefix={'₱'} keyboardType="numeric" placeholder="Enter amount" value={vm.draft.askingRent} error={rentMessage} editable={!vm.listingDraftReadOnly&&!saving} onChangeText={vm.typeAskingRent}/>
+      {vm.postingEstimate||vm.priceKeepAvailable?<View style={styles.chips}>
+        {vm.postingEstimate?<Pressable accessibilityRole="button" accessibilityLabel={`Use estimate PHP ${vm.postingEstimate.estimatedMonthlyRent.toLocaleString('en-US',{maximumFractionDigits:2})}`} accessibilityHint="Fills the asking rent field without saving" disabled={saving||vm.listingDraftReadOnly} style={styles.chip} onPress={()=>vm.applyRentalEstimate(vm.postingEstimate!)}><Text style={styles.chipText}>Use estimate {'\u20b1'}{vm.postingEstimate.estimatedMonthlyRent.toLocaleString('en-US',{maximumFractionDigits:2})}</Text></Pressable>:null}
+        {vm.priceKeepAvailable?<Pressable accessibilityRole="button" accessibilityLabel="Keep My Price" accessibilityHint="Restores the rent you entered" disabled={saving} style={styles.chip} onPress={vm.keepPostingPrice}><Text style={styles.chipText}>Keep My Price</Text></Pressable>:null}
+      </View>:null}
+      {vm.priceComparison?<Text accessibilityLiveRegion="polite" style={ui.supporting}>{vm.priceComparison}</Text>:<Text style={ui.supporting}>You can set this now and compare after the estimate.</Text>}
+    </PostingCard>:<Text style={ui.body}>Your asking rent: PHP {vm.draft.askingRent||'Not entered'} / month. Edit it on the Listing step.</Text>}
+    {locationSection}
+    <ComposerRecoveryFeedback viewModel={vm}/><ListingWorkspaceFeedback viewModel={vm} scope="draft"/>
+    <PostingSection title="About this estimate" plain><Text style={ui.supporting}>An estimate is optional. Continue with your own price if it is unavailable. Using an estimate only fills your asking rent field. Your property details are already saved; continuing saves your listing draft and selected photos.</Text></PostingSection>
+  </ListingWizardScaffold>;
+}
+const styles=StyleSheet.create({
+  card:{borderWidth:1,borderColor:colors.outline,borderRadius:12,padding:spacing.md,gap:spacing.sm,backgroundColor:colors.background},gap:{gap:spacing.sm},flex:{flex:1},
+  basis:{flexDirection:'row',alignItems:'center',gap:spacing.sm},link:{minHeight:48,justifyContent:'center'},linkText:{...ui.supporting,color:colors.primaryAction,fontWeight:'600'},
+  chips:{flexDirection:'row',flexWrap:'wrap',gap:spacing.xs},chip:{minHeight:48,paddingHorizontal:spacing.md,justifyContent:'center',borderWidth:1,borderColor:colors.controlBorder,borderRadius:24},chipText:{...ui.supporting,color:colors.primaryAction,fontWeight:'600'},
+  footer:{gap:spacing.xs},hint:{...ui.supporting,textAlign:'center'},
+});

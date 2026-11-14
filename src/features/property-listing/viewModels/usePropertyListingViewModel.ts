@@ -1,4 +1,5 @@
 import {createUnfinishedPostWorkflow} from './unfinishedPostWorkflow';
+import {postingEditorMenu} from '../models/UnfinishedPostMenu';
 import {unfinishedPostService} from '../services/unfinishedPostDependencies';
 import type {PredictionReceipt} from '../../../shared/models/RentalPrediction';
 import {propertyMeasurementWarnings} from '../../../shared/models/PropertyMeasurementQuality';
@@ -34,7 +35,8 @@ import { listingPublicationService } from '../services/listingPublicationDepende
 import { publicationEligibility, publicationReviewSummary } from '../models/ListingPublication';
 import { createListingDraftWorkflow } from './listingDraftWorkflow';
 import { listingDraftService } from '../services/listingDraftDependencies';
-import { applySavedListing, listingFieldsEqual, hasListingMinimum, listingNumber, listingFieldIssue } from '../models/PersistedListingDraft';
+import { applySavedListing, listingFieldsEqual, hasListingMinimum, listingNumber, listingFieldIssue, listingDetailsIssue } from '../models/PersistedListingDraft';
+import { estimateBasis, estimateDetailCount, floorAreaMissing, floorAreaRequired, rentComparison, type EstimateInputs } from '../models/PostingEstimate';
 import { createPropertyPhotoWorkflow } from './propertyPhotoWorkflow';
 import { propertyPhotoService, selectPropertyPhoto, selectPropertyPhotos } from '../services/propertyPhotoDependencies';
 import { createPropertyCreationWorkflow } from './propertyCreationWorkflow';
@@ -108,6 +110,14 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const [postingWizard,setPostingWizard]=useState(initialScreen==='postingType');
   const postingWizardRef=useRef(postingWizard);postingWizardRef.current=postingWizard;
   const [postingOriginalPrice,setPostingOriginalPrice]=useState<string|null>(null);
+  // The estimate the Price page already holds (never fetched here): drives the rent comparison and the Review badge.
+  const [postingEstimateResult,setPostingEstimateResult]=useState<PredictionReceipt|null>(null);
+  const [priceAttempted,setPriceAttempted]=useState(false);
+  // Set by a Review or Price "Edit" link: the edited step returns there instead of continuing the wizard.
+  const [returnTo,setReturnTo]=useState<ListingScreen|null>(null);const returnToRef=useRef<ListingScreen|null>(null);returnToRef.current=returnTo;
+  const savedOutcome=useRef(false),stayAfterSave=useRef(false);
+  // A property saved in the posting wizard is edited through the versioned routine editor. The create form locks every field once a property id exists.
+  useEffect(()=>{if(postingWizard&&screen==='listingComposer'&&workspace.propertyId&&!workspace.item&&workspace.mode!=='editPublished'&&propertyRoutineState.status==='idle'&&!composerSaving.current)void propertyRoutine.open(workspace.propertyId);},[postingWizard,screen,workspace.propertyId,workspace.item,workspace.mode,propertyRoutineState.status]);
   useEffect(()=>{propertyVerification.setProperty(workspace.propertyId);if(['listingDetails','publishConfirmation'].includes(screen))void measureHydration('verification',()=>propertyVerification.refresh(),workspaceEpoch);},[propertyVerification,workspace.propertyId,screen]);
   const [history, setHistory] = useState<ListingScreen[]>([]);
   const [draft, setDraft] = useState<ListingDraft>(emptyListingDraft);
@@ -232,6 +242,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   }
   const publicationReadOnly = () => workspaceRef.current.mode==='editPublished'? !publishedContent.getSnapshot().loaded||publishedContent.getSnapshot().uncertain||!['active','paused'].includes(publishedContent.getSnapshot().lastConfirmed?.status??'') : !!workspaceRef.current.propertyId && (!canWriteListing() || !publication.getSnapshot().loaded || publication.getSnapshot().uncertain || (!!publication.getSnapshot().status && publication.getSnapshot().status !== 'draft'));
   const editingPublished=workspace.mode==='editPublished';
+  const savedWizardEditor=postingWizard&&!!workspace.propertyId&&(!!workspace.item||propertyRoutineState.propertyId===workspace.propertyId&&propertyRoutineState.status!=='idle');
+  useEffect(()=>{if(returnTo&&screen===returnTo)setReturnTo(null);},[screen,returnTo]);
   const contentState=editingPublished?publishedContentState:listingDraftState;
   const savedDraftEntry=editingPublished||workspace.mode==='compose'&&workspace.item?.currentListing?.status==='draft'&&!!workspace.listingId;
   const hydrationFailure=savedDraftEntry?(hydrationDeadline===workspaceEpoch?'Saved details are taking too long to load. Retry or return to My Rentals.':publicationState.error || (contentState.errorSource==='load'?contentState.error:null) || (!photoState.loaded?photoState.error:null) || amenityState.error):null;
@@ -508,11 +520,11 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     selectWorkspace({...workspaceRef.current,mode:'manage',item:item?{...item,currentListing:row,listings:item.listings.map(l=>l.id===row.id?row:l)}:null});
     lifecycle.setListing(row);setShowRealPublication(true);setHistory(['dashboard']);setScreen('published');setNotice('Listing changes saved. Publication status is unchanged.');
   };
-  const saveComposerDraft = async () => {
+  const saveComposerDraftCore = async () => {
     if(initialHydrationPending())return;
     if(workspaceRef.current.mode==='editPublished'){await savePublishedChanges();return;}
     if (operationBusy() || savedConfirmation.current || propertyCreation.getSnapshot().uncertain || (listingDraftPersistence.getSnapshot().uncertain || listingDraftPersistence.getSnapshot().conflict) || (workspaceRef.current.propertyId && publicationReadOnly())) return;
-    if(workspaceRef.current.propertyId&&listingDraftPersistence.getSnapshot().lastConfirmed&&(!listingDraftDirty&&!propertyPhotos.getSnapshot().pendingSelections.length||!!listingFieldIssue(draft)))return;
+    if(workspaceRef.current.propertyId&&listingDraftPersistence.getSnapshot().lastConfirmed&&(!listingDraftDirty&&!propertyPhotos.getSnapshot().pendingSelections.length||!!listingFieldIssue(draft))){savedOutcome.current=!listingDraftDirty&&!propertyPhotos.getSnapshot().pendingSelections.length;return;}
     if(!requestPropertyValidation())return;
     const submittedDraft = { ...draft };
     composerSaving.current = true; setComposerNotice(null); setComposerPhase(workspaceRef.current.propertyId ? 'draft' : 'property');
@@ -547,10 +559,14 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       setComposerPhase('draft');
       const outcome = await listingDraftPersistence.save(submittedDraft);
       if (!live()) return;
-      if (outcome === 'saved') { if(postingWizard&&screen==='postingReview')setComposerNotice('Listing draft saved. Nothing has been published.');else showDraftSaved(); return; }
+      if (outcome === 'saved') { savedOutcome.current=true; if(stayAfterSave.current){setComposerNotice(null);return;} if(postingWizard&&screen==='postingReview')setComposerNotice('Listing draft saved. Nothing has been published.');else showDraftSaved(); return; }
       setComposerNotice('Property and confirmed photos are retained. Check the listing draft details or save status before continuing.');
     } finally { if (live()) { composerSaving.current = false; setComposerPhase(null); } }
   };
+
+  /** True when the listing draft (and its photos) are confirmed saved; `stay` skips the "draft saved" screen so the caller can navigate. */
+  const saveComposerDraft = async (stay=false):Promise<boolean> => { savedOutcome.current=false; stayAfterSave.current=stay; await saveComposerDraftCore(); stayAfterSave.current=false; return savedOutcome.current; };
+  const saveDraftThen = async (target:ListingScreen) => { if(!await saveComposerDraft(true)||!active.current)return; setReturnTo(null); navigate(target); };
 
   const requestPublish = () => {
     if(workspaceRef.current.mode==='editPublished')return;
@@ -683,27 +699,68 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const propertyVisibleIssues=propertyIssues.filter(issue=>propertyState.validationAttempted||propertyState.touchedFields[issue.field]||(issue.section==='floors'&&(propertyState.touchedFields.floorNumber||propertyState.touchedFields.totalFloors)));
   const floorIssues=propertyVisibleIssues.some(issue=>issue.section==='floors')?propertyFloorIssues(propertyState.draft):{floorNumber:null,totalFloors:null};
   const propertyFormReady=!!workspace.propertyId||propertyIssues.length===0;
-  const propertyNextDisabled=operationBusy()||(postingWizard&&!!workspace.item&&(propertyRoutineState.status!=='ready'||propertyRoutineState.uncertain||propertyRoutineState.conflict))||(!workspace.propertyId&&(!propertyState.loaded||propertyState.uncertain))||!propertyFormReady;
+  // Floor area is required in the wizard only for a property the estimator can accept (shared eligibility rules).
+  const rc=propertyRoutineState.context,rd=propertyRoutineState.draft,pd=propertyState.draft;
+  const estimateInputs:EstimateInputs=savedWizardEditor&&rc&&rd?{propertyType:rc.property_type,city:rc.city,furnishingStatus:rd.furnishingStatus,propertySubtype:rd.propertySubtype??'',floorAreaSqm:rd.floorAreaSqm,floorNumber:rc.floor_number===null?'':String(rc.floor_number),lotAreaSqm:rd.lotAreaSqm??'',parkingSpaces:rd.parkingSpaces??'',bedrooms:rd.bedrooms,bathrooms:rd.bathrooms,amenityCount:rd.amenityIds.length}
+    :{propertyType:pd.propertyType,city:pd.city,furnishingStatus:pd.furnishingStatus,propertySubtype:pd.propertySubtype??'',floorAreaSqm:pd.floorAreaSqm,floorNumber:pd.floorNumber,lotAreaSqm:pd.lotAreaSqm??'',parkingSpaces:pd.parkingSpaces??'',bedrooms:pd.bedrooms,bathrooms:pd.bathrooms,amenityCount:selectedAmenityIds.length};
+  const wizardFloorAreaRequired=postingWizard&&floorAreaRequired(estimateInputs),wizardFloorAreaMissing=postingWizard&&floorAreaMissing(estimateInputs);
+  const propertyNextDisabled=operationBusy()||(savedWizardEditor&&(propertyRoutineState.status!=='ready'||propertyRoutineState.uncertain||propertyRoutineState.conflict))||(!workspace.propertyId&&(!propertyState.loaded||propertyState.uncertain))||!propertyFormReady||wizardFloorAreaMissing;
   const firstPropertyIssue=propertyIssues[0];
+  const postingChecklist=()=>{
+    const saved=listingDraftState.lastConfirmed,clean=!listingDraftDirty,photosSaved=photoState.loaded&&!photoState.error&&!photoState.needsReconcile&&!photoState.pendingSelections.length&&!propertyPhotos.dirty();
+    const verified=propertyVerificationState.propertyId===workspace.propertyId&&propertyVerificationState.loaded&&propertyVerificationState.status==='approved'&&!propertyVerificationState.error;
+    return [
+      {key:'photos' as const,done:photosSaved,label:`Photos (${photoState.photos.length})`,detail:photosSaved?(photoState.photos.length?null:'No photos added yet'):'Save your photos to continue'},
+      {key:'listing' as const,done:!!saved&&clean&&saved.completeness_score>=0.8,label:`Listing details (${completeness.percent}% complete)`,detail:!saved||!clean?'Save your listing details':saved.completeness_score>=0.8?null:'At least 80% is required to publish'},
+      {key:'price' as const,done:!!saved&&clean&&saved.asking_rent_monthly>0,label:'Price set',detail:null},
+      {key:'verification' as const,done:verified,label:'Property verification (Tier 3)',detail:verified?null:'Required to publish'},
+    ];
+  };
   const propertyNextStatus=!workspace.propertyId&&propertyState.uncertain?'Check property creation status before continuing.'
     :!workspace.propertyId&&!propertyState.loaded?'Checking property setup...'
     :operationBusy()?'Finish the current operation before continuing.'
     :firstPropertyIssue?(firstPropertyIssue.kind==='required'?firstPropertyIssue.message:`Check ${propertySectionLabels[firstPropertyIssue.section].toLowerCase()}.`)
+    :wizardFloorAreaMissing?'Add floor area to continue.'
     :workspace.propertyId?'Saved property selected. Continue to listing details.':'Property information is ready. Next saves the property before listing details.';
 
   return {
     postingWizard,
-    editorMode: (editingPublished?'published':workspace.item?'draft':'create') as 'create'|'draft'|'published',
+    editorMode: (editingPublished?'published':workspace.item||savedWizardEditor?'draft':'create') as 'create'|'draft'|'published',
     postingStep: screen==='listingComposer'?1 as const:screen==='listingDetails'?2 as const:screen==='postingEstimate'?3 as const:4 as const,
-    continuePostingEstimate:()=>{if(!postingWizard||screen!=='listingDetails'||initialHydrationPending()||operationBusy()||!workspaceRef.current.propertyId||publicationReadOnly())return;const issue=listingFieldIssue(draft);if(issue){setComposerNotice(issue.message);return;}setPostingOriginalPrice(draft.askingRent);setComposerNotice(null);navigate('postingEstimate');},
-    continuePostingReview:()=>{if(postingWizard&&screen==='postingEstimate'&&!operationBusy())navigate('postingReview');},
+    continuePostingEstimate:()=>{if(!postingWizard||screen!=='listingDetails'||initialHydrationPending()||operationBusy()||!workspaceRef.current.propertyId||publicationReadOnly())return;const issue=editingPublished?listingFieldIssue(draft):listingDetailsIssue(draft);if(issue){setComposerNotice(issue.message);return;}setPostingOriginalPrice(draft.askingRent);setComposerNotice(null);setPriceAttempted(false);const back=returnToRef.current;if(back==='postingReview'){void saveDraftThen('postingReview');return;}if(back){setReturnTo(null);navigate(back);return;}navigate('postingEstimate');},
+    // Leaving Price saves the listing draft first (photos included). A failure keeps the user on Price with the existing recovery messaging.
+    continuePostingReview:async()=>{if(!postingWizard||screen!=='postingEstimate'||operationBusy())return;if(editingPublished){navigate('postingReview');return;}const issue=listingFieldIssue(draft);if(issue){setPriceAttempted(true);setComposerNotice(issue.message);return;}await saveDraftThen('postingReview');},
+    typeAskingRent:(value:string)=>{updateDraft('askingRent',value);setPostingOriginalPrice(value);setPriceAttempted(false);},
+    priceIssue:postingWizard&&!editingPublished?listingValidationIssue:null,priceAttempted,
+    // The Listing step checks every listing rule except rent (rent is checked on Price); published editing keeps the full check.
+    listingStepIssue:postingWizard&&!editingPublished?listingDetailsIssue(draft):listingValidationIssue,
+    saveAndExitDisabled:operationBusy()||initialHydrationPending()||listingDraftState.uncertain||listingDraftState.conflict,
+    postingEstimate:postingEstimateResult&&'propertyId' in postingEstimateResult.target&&postingEstimateResult.target.propertyId===workspace.propertyId?postingEstimateResult:null,
+    setPostingEstimate:setPostingEstimateResult,
+    priceComparison:rentComparison(listingNumber(draft.askingRent),postingEstimateResult?.estimatedMonthlyRent,postingEstimateResult?.illustrativeRange),
+    // "Within estimate range" only when the estimate is already in state and the rent is inside its illustrative range.
+    postingWithinRange:(()=>{const e=postingEstimateResult,r=listingNumber(draft.askingRent);return !!e&&!!e.illustrativeRange&&Number.isFinite(r)&&r>=e.illustrativeRange.minimum&&r<=e.illustrativeRange.maximum;})(),
+    priceKeepAvailable:postingOriginalPrice!==null&&postingOriginalPrice!==draft.askingRent,
+    estimateBasisText:estimateBasis(physical),
+    estimateInputs,floorAreaRequired:wizardFloorAreaRequired,floorAreaMissing:wizardFloorAreaMissing,estimateDetails:estimateDetailCount(estimateInputs),
+    // Inline fix on the Price page: the existing versioned property save, then the caller requests the estimate. No new service.
+    savePostingFloorArea:async(value:string):Promise<boolean>=>{if(!postingWizard||screen!=='postingEstimate'||operationBusy())return false;const id=workspaceRef.current.propertyId;if(!id)return false;if(propertyRoutine.getSnapshot().status==='idle')await propertyRoutine.open(id);const r=propertyRoutine.getSnapshot();if(r.status!=='ready'||r.uncertain||r.conflict)return false;propertyRoutine.update('floorAreaSqm',value);return propertyRoutine.save();},
+    returnTo,
+    editPostingStep:(step:'property'|'listing'|'price')=>{if(!postingWizard||operationBusy()||initialHydrationPending()||screen!=='postingReview'&&screen!=='postingEstimate')return;setReturnTo(screen);navigate(step==='property'?'listingComposer':step==='listing'?'listingDetails':'postingEstimate');},
+    saveAndExit:async()=>{if(!postingWizard||screen!=='postingReview')return;if(editingPublished){await saveComposerDraft();return;}if(!await saveComposerDraft(true)||!active.current)return;goDashboard();},
+    postingChecklist:postingChecklist(),
+    postingDraftSaved:!!listingDraftState.lastConfirmed&&!listingDraftDirty&&!photoState.pendingSelections.length,
     keepPostingPrice:()=>{if(postingWizard&&screen==='postingEstimate'&&postingOriginalPrice!==null&&!operationBusy()){updateDraft('askingRent',postingOriginalPrice);setComposerNotice('Your chosen asking rent is retained. Nothing has been saved.');}},
     postingPublishReady: !!(postingWizard&&!operationBusy()&&!publicationReadOnly()&&!publicationEligibility(workspace.propertyId,listingDraftState.lastConfirmed,draft,listingDraftState.uncertain)&&listingDraftState.lastConfirmed&&listingDraftState.lastConfirmed.completeness_score>=0.8&&propertyVerificationState.propertyId===workspace.propertyId&&propertyVerificationState.loaded&&propertyVerificationState.status==='approved'&&!propertyVerificationState.error&&!propertyPhotos.dirty()),
     unfinishedPost,unfinishedPostState,
     resumeUnfinishedPostCleanup:(id:string)=>{if(!operationBusy()&&(screen==='dashboard'||workspaceRef.current.propertyId===id))void unfinishedPost.resume(id);},
     requestUnfinishedPostDeletion:()=>{if(!operationBusy()&&!deletionBlocked)unfinishedPost.requestConfirmation();},
+    // Card entry: inspect that card's post with the existing workflow, then ask the existing confirmation (the reason shows if it is not eligible).
+    requestPortfolioDeletion:async(id:string)=>{if(operationBusy()||deletionBlocked)return;await unfinishedPost.open(id);unfinishedPost.requestConfirmation();},
     confirmUnfinishedPostDeletion:()=>{if(!operationBusy()&&!deletionBlocked)void unfinishedPost.confirm();},
     unfinishedPostDeletionDisabled:operationBusy()||!!deletionBlocked,
+    // Header menu for the posting editor: the view passes its own close action and, on Review, Save and exit.
+    postingEditorMenu:(onClose:()=>void,exit?:{label:string;onPress:()=>void;disabled:boolean})=>postingEditorMenu({postingWizard,workspacePropertyId:workspace.propertyId,unfinishedPostState,unfinishedPostDeletionDisabled:operationBusy()||!!deletionBlocked,requestUnfinishedPostDeletion:()=>{if(!operationBusy()&&!deletionBlocked)unfinishedPost.requestConfirmation();}},onClose,exit),
     propertyIdentity,propertyIdentityState,identityLocationState,
     reloadIdentityCorrection:()=>{const id=propertyIdentity.getSnapshot().propertyId;if(id)requestPropertyNavigation(()=>{void propertyIdentity.open(id);});},
     openIdentityCorrection:()=>{const id=workspaceRef.current.propertyId;if(!id||operationBusy()||propertyIdentity.getSnapshot().status!=='idle')return;requestPropertyNavigation(()=>{navigate('identityEdit');void propertyIdentity.open(id);});},
@@ -782,7 +839,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     photoState,
     mediaItems: propertyMediaItems(photoState.photos, photoState.pendingSelections, photoState.uncertainSelection, photoState.busy && photoState.batch.status === 'running'),
     nextListingDetails: async () => {
-      if(initialHydrationPending()||operationBusy())return;
+      if(initialHydrationPending()||operationBusy()||wizardFloorAreaMissing)return;
+      let freshlySaved=false;
       if(!workspaceRef.current.propertyId){
         const current=propertyCreation.getSnapshot();
         if(!current.loaded||current.uncertain||!requestPropertyValidation())return;
@@ -793,16 +851,22 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
           if(!active.current||token!==workspaceGeneration.current)return;
           if(!adoptCreatedProperty())return;
           token=workspaceGeneration.current;
-          setComposerNotice('Property saved. Set your asking rent and save the listing draft when ready.');
+          setComposerNotice('Property saved');freshlySaved=true;
+          // Open the saved-property editor now, while "Saving property..." is showing, so the next step never races its load.
+          // A failed load does not undo the save or block the next steps: it is closed again, and the property step reopens it (with Retry) when the user returns.
+          if(postingWizard){await propertyRoutine.open(workspaceRef.current.propertyId!);if(propertyRoutine.getSnapshot().status!=='ready')propertyRoutine.close();}
         } finally {
           if(active.current&&token===workspaceGeneration.current){composerSaving.current=false;setComposerPhase(null);}
         }
       }
-      if(postingWizard&&workspaceRef.current.item){
+      if(postingWizard&&!freshlySaved&&(workspaceRef.current.item||propertyRoutine.getSnapshot().propertyId===workspaceRef.current.propertyId&&propertyRoutine.getSnapshot().status!=='idle')){
         if(propertyRoutine.getSnapshot().status!=='ready'||propertyRoutine.getSnapshot().uncertain||propertyRoutine.getSnapshot().conflict)return;
-        if(propertyRoutine.dirty()&&!await propertyRoutine.save())return;
+        if(propertyRoutine.dirty()){if(!await propertyRoutine.save())return;setComposerNotice('Property saved');}
         if(!active.current||propertyRoutine.getSnapshot().propertyId!==workspaceRef.current.propertyId)return;
       }
+      const back=postingWizard?returnToRef.current:null;
+      if(back==='postingReview'){await saveDraftThen('postingReview');return;}
+      if(back){setReturnTo(null);navigate(back);return;}
       navigate('listingDetails');
     },
     editComposerProperty: () => { if (screen === 'listingDetails') goBack(); else navigate('listingComposer'); },

@@ -31,7 +31,7 @@ export interface PortfolioAction { key: PortfolioActionKey; label: string }
  */
 export function portfolioCardActions(item: LandlordPortfolioItem): { primary: PortfolioAction; secondary: PortfolioAction | null; menu: PortfolioAction[] } {
   const listing = item.currentListing, status = listing?.status, active = item.property.is_active;
-  const primary: PortfolioAction = { key: 'open', label: !listing || status === 'draft' ? 'Continue Editing' : status === 'active' || status === 'paused' ? 'Manage Status' : status === 'removed' ? 'View status' : 'View listing' };
+  const primary: PortfolioAction = { key: 'open', label: !listing ? 'Create listing' : status === 'draft' ? 'Continue Editing' : status === 'active' || status === 'paused' ? 'Manage Status' : status === 'removed' ? 'View status' : 'View listing' };
   const verificationLabel = item.tier3.requiresRepair ? null : propertyVerificationActionLabel(item.tier3.status);
   const verification: PortfolioAction | null = verificationLabel ? { key: 'verification', label: verificationLabel } : null;
   const editProperty: PortfolioAction | null = active && (!listing || !['draft', 'active', 'paused'].includes(status!)) ? { key: 'editProperty', label: 'Edit Property' } : null;
@@ -46,3 +46,24 @@ export function portfolioCardActions(item: LandlordPortfolioItem): { primary: Po
 
 /** Request activity for one card, supplied by the root so this feature never imports messaging code. */
 export interface PortfolioRequestActivity { text: string | null; pending: boolean; error: string | null; onManage: () => void }
+
+/** Pill on the cover photo. Labels are the chip labels; tones add the wireframe colors (paused amber, rented blue, removed red). */
+export type PortfolioPillTone = 'neutral' | 'positive' | 'attention' | 'info' | 'danger';
+export function portfolioStatusPill(item: LandlordPortfolioItem): { label: string; tone: PortfolioPillTone } {
+  const status = item.currentListing?.status, { label } = portfolioStatusChip(item);
+  return { label, tone: status === 'active' ? 'positive' : status === 'paused' ? 'attention' : status === 'rented' ? 'info' : status === 'removed' ? 'danger' : 'neutral' };
+}
+
+/** Verification row: the status chip plus, when the owner can act, the existing action label (never a second button). */
+export function portfolioVerificationRow(item: LandlordPortfolioItem): PortfolioChip & { actionLabel: string | null } {
+  return { ...portfolioVerificationChip(item), actionLabel: item.tier3.requiresRepair ? null : propertyVerificationActionLabel(item.tier3.status) };
+}
+
+/** Which actions render as a button, which as the verification row, which in the overflow menu. */
+export const SECONDARY_BUTTON_MAX_LABEL = 18;
+export function portfolioCardLayout(item: LandlordPortfolioItem): { primary: PortfolioAction; secondary: PortfolioAction | null; menu: PortfolioAction[] } {
+  const { primary, secondary, menu } = portfolioCardActions(item);
+  const rest = [secondary, ...menu].filter((a): a is PortfolioAction => a !== null && a.key !== 'verification');
+  const short = rest[0] && rest[0].label.length <= SECONDARY_BUTTON_MAX_LABEL ? rest[0] : null;
+  return { primary, secondary: short, menu: short ? rest.slice(1) : rest };
+}

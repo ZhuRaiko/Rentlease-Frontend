@@ -2261,6 +2261,8 @@ export type Database = {
       // Admin actions and audit log: migration 20261113180000_admin_actions_audit.sql (prepared, not applied). Hand-written like the other recent RPCs; regenerate after it is applied.
       apply_admin_moderation_action: { Args: { p_operation_id:string; p_action:string; p_target_user_id:string|null; p_target_listing_id:string|null; p_report_id:string|null; p_reason:string; p_ends_at:string|null }; Returns: Json }
       get_admin_restrictions: { Args: Record<PropertyKey, never>; Returns: Json }
+      // Prepared, not applied: migration 20261114120000_admin_reinstate_relist_guard.sql (also adds the reinstate_listing action to apply_admin_moderation_action).
+      get_admin_removed_listings: { Args: Record<PropertyKey, never>; Returns: Json }
       get_admin_audit_log: { Args: { p_kind?:string; p_offset?:number }; Returns: Json }
       get_rental_reports: { Args: { p_admin?:boolean; p_kind?:string; p_status?:string; p_offset?:number }; Returns: Json }
       submit_rental_report: { Args: { p_operation_id:string; p_kind:string; p_context_id:string; p_reason:string; p_details?:string }; Returns: Json }

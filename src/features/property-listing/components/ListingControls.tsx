@@ -1,5 +1,6 @@
 import {ui} from '../../../shared/theme/ui';
 import { FieldLabel } from './FieldLabel';
+export { EstimateMarker } from './FieldLabel';
 import type { ReactNode, Ref } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -19,6 +20,7 @@ interface ListingFieldProps {
   helper?: ReactNode;
   editable?: boolean;
   required?: boolean;
+  usedInEstimate?: boolean;
   error?: string | null;
   invalid?:boolean;
   inputRef?:Ref<TextInput>|undefined;
@@ -33,11 +35,11 @@ export function ListingField({
   keyboardType = 'default',
   prefix,
   helper,
-  editable = true, required = false, error, invalid=false, inputRef,
+  editable = true, required = false, usedInEstimate = false, error, invalid=false, inputRef,
 }: ListingFieldProps) {
   return (
     <View style={styles.fieldGroup}>
-      <FieldLabel label={label} required={required} />
+      <FieldLabel label={label} required={required} usedInEstimate={usedInEstimate} />
       {typeof helper === 'string' ? <Text style={styles.helper}>{helper}</Text> : helper}
       <View style={[styles.inputShell, multiline && styles.inputShellMultiline, (invalid||!!error)&&{borderColor:colors.restricted,borderWidth:1.2}]}>
         {prefix ? <Text style={styles.prefix}>{prefix}</Text> : null}

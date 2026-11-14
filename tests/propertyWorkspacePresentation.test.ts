@@ -156,7 +156,8 @@ test('a missing confirmed location is a required property issue, so the property
   const hook=readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts','utf8');
   assert.match(hook,/const propertyIssues=workspace\.propertyId\?\[\]:propertyValidationIssues\(propertyState\.draft\);/);
   assert.match(hook,/const propertyFormReady=!!workspace\.propertyId\|\|propertyIssues\.length===0;/);
-  assert.match(hook,/const propertyNextDisabled=[^\n]*\|\|!propertyFormReady;/);
+  assert.match(hook,/const propertyNextDisabled=[^\n]*\|\|!propertyFormReady\|\|wizardFloorAreaMissing;/);
+  assert.doesNotMatch(hook.match(/const propertyNextDisabled=[^\n]*;/)![0],/completeness/);
 });
 test('Location section shows the map button, the confirm helper and the location error from the view model',()=>{
   const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');

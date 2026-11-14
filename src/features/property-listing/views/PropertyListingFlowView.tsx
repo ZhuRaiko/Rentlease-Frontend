@@ -1,4 +1,4 @@
-import {PostingEstimateView} from './PostingEstimateView';
+import {PostingPriceStep} from './PostingPriceStep';
 import {PostingReviewView} from './PostingReviewView';
 import {ListingButton} from '../components/ListingButton';
 import {UnfinishedPostDeletionAction} from '../components/UnfinishedPostDeletionAction';
@@ -12,7 +12,7 @@ import { ListingDraftSavedView } from './ListingDraftSavedView';
 import { PublishedListingStatusView } from './PublishedListingStatusView';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
-import { Alert, Modal, StatusBar, StyleSheet, View, Text } from 'react-native';
+import { Modal, StatusBar, StyleSheet, View, Text } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
 import { ScreenContainer } from '../../../shared/components/ScreenContainer';
@@ -106,8 +106,7 @@ export function PropertyListingFlowView({
   } else if (viewModel.screen === 'draftSaved') {
     content = <ListingDraftSavedView viewModel={viewModel} onClose={close} />;
   } else if(viewModel.screen==='postingEstimate'&&viewModel.postingWizard){
-    const estimate=viewModel.workspacePropertyId?<RentalPriceGuidance key={`${accountId}:${viewModel.workspacePropertyId}`} accountId={accountId} target={{propertyId:viewModel.workspacePropertyId}} property={viewModel.estimationProperty} variant="posting" disabled={viewModel.listingDraftReadOnly} onUseEstimate={result=>Alert.alert('Use estimated monthly rent?',`Replace your asking rent with PHP ${result.estimatedMonthlyRent.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} per month? This does not save the listing.`,[{text:'Cancel',style:'cancel'},{text:'Use Estimated Price',onPress:()=>viewModel.applyRentalEstimate(result)}])}/>:<Text>Save your property details before requesting an estimate.</Text>;
-    content=<PostingEstimateView viewModel={viewModel} onClose={close} estimateSection={estimate}/>;
+    content=<PostingPriceStep accountId={accountId} viewModel={viewModel} onClose={close}/>;
   } else if(viewModel.screen==='postingReview'&&viewModel.postingWizard){
     content=<PostingReviewView viewModel={viewModel} onClose={close}/>;
   } else if (viewModel.screen === 'listingComposer') {
@@ -137,16 +136,19 @@ export function PropertyListingFlowView({
   }
 
 
+  // The bottom navigation is hidden on the wizard steps; everywhere else it owns the bottom edge.
+  const showNavigation=!(viewModel.postingWizard&&['listingComposer','listingDetails','postingEstimate','postingReview','publishConfirmation'].includes(viewModel.screen));
+
   return (
-    <ScreenContainer includeBottomInset={false} padded={false}>
+    <ScreenContainer includeBottomInset={false} padded={false} bottomChrome={showNavigation}>
       {verificationPropertyId && renderPropertyVerification ? <Modal key={verificationPropertyId} visible presentationStyle="fullScreen" onRequestClose={()=>verificationBack.current?.()}>
         {renderPropertyVerification(verificationPropertyId,viewModel.closePropertyVerification,action=>{verificationBack.current=action;})}
       </Modal> : null}
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
-      {(!viewModel.postingWizard||viewModel.screen==='dashboard')&&['dashboard','listingComposer','listingDetails','propertyEdit'].includes(viewModel.screen)?<UnfinishedPostDeletionAction viewModel={viewModel}/>:null}
+      {['dashboard','listingComposer','listingDetails','propertyEdit','postingEstimate','postingReview'].includes(viewModel.screen)?<UnfinishedPostDeletionAction viewModel={viewModel}/>:null}
       <NavigationConfirmation title={viewModel.propertyReturnConfirmation?"Discard property edits?":"Leave Property & Listing Management?"} body={viewModel.propertyReturnConfirmation?"Your listing edits will be kept. Continue without saving these property changes?":"You have unsaved property, photo, or listing changes. Stay to continue editing, or leave without saving."} visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
-      {!(viewModel.postingWizard&&['listingComposer','listingDetails','postingEstimate','postingReview','publishConfirmation'].includes(viewModel.screen))?<RentLeaseBottomNavigation
+      {showNavigation?<RentLeaseBottomNavigation
         active={viewModel.activeTab}
         onChat={() => viewModel.requestNavigation(onOpenChat)}
         onDiscover={() => viewModel.requestNavigation(onOpenDiscover)}

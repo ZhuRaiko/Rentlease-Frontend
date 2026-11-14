@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { classifyAdminError } from '../src/shared/models/AdminOperationError';
@@ -10,6 +11,13 @@ const sqlFile = 'supabase/migrations/20261113180000_admin_actions_audit.sql';
 const sql = readFileSync(sqlFile, 'utf8').replace(/\r\n/g, '\n');
 const bodies = [...sql.matchAll(/create function public\.(apply_admin_moderation_action|get_admin_restrictions|get_admin_audit_log)[\s\S]*?\$fn\$;/g)];
 const raises = (text: string) => [...text.matchAll(/raise exception '((?:[^']|'')*)'/g)].map((m) => m[1]!.replace(/''/g, "'"));
+// The NEW definitions (migration 20261114120000, prepared, not applied). That migration patches the live functions in place, so the full effective source
+// is the harness snapshot; the harness asserts the snapshot equals the patched functions and the migration header pins their md5.
+const patchFile = 'supabase/migrations/20261114120000_admin_reinstate_relist_guard.sql';
+const patchSql = readFileSync(patchFile, 'utf8').replace(/\r\n/g, '\n');
+const effective = (JSON.parse(readFileSync('supabase/test-support/admin_reinstate_relist_guard_effective.json', 'utf8')) as { functions: Record<string, { md5: string; source: string }> }).functions;
+const auditBody = effective['get_admin_audit_log']!.source;
+const actionBody = effective['apply_admin_moderation_action']!.source;
 const runtimeMessages = [...new Set(bodies.flatMap((m) => raises(m[0])))];
 
 // The codes added for this migration. 'Access unavailable' is the pre-existing access_unavailable rule.
@@ -17,12 +25,35 @@ const NEW_CODES = ['action_not_supported', 'action_reason_length', 'action_targe
   'action_target_unavailable', 'action_account_not_active', 'action_account_not_restricted', 'action_listing_not_removable', 'action_listing_tenancy_open',
   'action_report_required', 'action_report_unavailable', 'action_report_not_upheld', 'action_report_target_mismatch', 'action_conflicting_retry', 'action_not_applied', 'audit_unavailable', 'audit_filter_invalid', 'transaction_mode'];
 
-test('the audit log hides rows of reports the calling Admin is conflicted on, inside the filter that feeds count and page', () => {
-  const body = bodies.find((m) => m[1] === 'get_admin_audit_log')![0];
+test('the effective get_admin_audit_log is the one the migration header pins (md5 of the snapshot)', () => {
+  for (const fn of ['save_listing_draft', 'publish_listing', 'apply_admin_moderation_action', 'get_admin_audit_log']) {
+    const pinned = patchSql.match(new RegExp(`--\\s+${fn}\\s+[0-9a-f]{32}\\s+->\\s+([0-9a-f]{32})`))![1];
+    assert.equal(createHash('md5').update(effective[fn]!.source).digest('hex'), pinned, `${fn}: snapshot md5 equals the pin in the migration header`);
+  }
+});
+
+test('the audit log (new definition) hides rows of reports the calling Admin is conflicted on, inside the filter that feeds count and page', () => {
+  const body = auditBody;
   const f = body.slice(body.indexOf('with f as('), body.indexOf('page as('));
   assert.match(f, /and not \(l\.entity_type='report' and rentlease_reporting\.conflicted\(l\.entity_id,a\)\)/);
   assert.match(f, /and not \(nullif\(l\.metadata->>'report_id',''\) is not null and rentlease_reporting\.conflicted\(\(l\.metadata->>'report_id'\)::uuid,a\)\)/);
   assert.ok(body.indexOf("'count',(select count(*) from f)") > body.indexOf('with f as('), 'count is taken from the same filtered set');
+  assert.match(body, /'actorId',g\.admin_id/, 'actorId is returned');
+  assert.match(body, /when 'verification_submission' then coalesce\(case when vp\.public_nickname_confirmed_at is not null then nullif\(btrim\(vp\.public_nickname\),''\) end,'User '\|\|left\(vs\.user_id::text,8\)\)/, 'applicant name: public nickname only');
+  assert.match(body, /when 'report' then case when sr\.reported_listing_id is not null then coalesce\(nullif\(btrim\(rl\.title\),''\),/, 'report subject: listing title');
+  assert.doesNotMatch(body, /display_name|submitted_note|review_note|rejection_reason|document/, 'no private name, note or document field is read');
+  assert.match(body, /'remove_listing','reinstate_listing','restrict_account','warning'\) end/, 'the Actions filter includes reinstate_listing');
+  assert.match(f, /and not \(l\.action='reinstate_listing' and l\.entity_type='listing' and exists\(select 1 from public\.listings rl0 join public\.reports rx on \(rx\.reported_listing_id=rl0\.id or rx\.reported_user_id=rl0\.landlord_id\) where rl0\.id=l\.entity_id and rentlease_reporting\.conflicted\(rx\.id,a\)\)\)/, 'reinstate rows are hidden from an Admin conflicted on a report about the listing or its owner, inside f');
+});
+
+test('the new apply_admin_moderation_action accepts reinstate_listing; the app does not offer it yet and has no rule for the four new messages', () => {
+  const sqlActions = [...actionBody.match(/p_action not in\(([^)]*)\)/)![1]!.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort();
+  const tsActions: AdminActionKind[] = ['suspend_account', 'restore_account', 'remove_listing'];
+  assert.deepEqual(sqlActions, [...tsActions, 'reinstate_listing'].sort(), 'when the app wires Reinstate, add it to AdminActionKind and update this test');
+  // Pinned on purpose: these map to "unknown" today. Wiring the Reinstate UI must add rules (and flip this list to empty) before it ships.
+  const added = ['Listing is not removed', 'This property already has a live listing', 'A report is not used for this action', 'Property has a removed listing'];
+  for (const m of added) assert.ok(actionBody.includes(m) || effective['save_listing_draft']!.source.includes(m), `${m} is raised by the new SQL`);
+  assert.deepEqual(added.filter((m) => classifyAdminError({ message: m }, { decision: true }).code === 'unknown'), added);
 });
 
 test('the SQL still defines all three functions and raises the messages this test knows about', () => {
@@ -72,7 +103,7 @@ test('allowed actions, bounds, page sizes and filters agree between the SQL and 
   assert.match(sql, new RegExp(`char_length\\(reason\\) not between ${ADMIN_REASON_MIN} and ${ADMIN_REASON_MAX}`));
   assert.match(sql, new RegExp(`limit ${AUDIT_PAGE_SIZE} offset p_offset`));
   assert.match(sql, /limit 100\) x\)/, 'restrictions page size matches the parser limit of 100');
-  const sqlKinds = [...sql.match(/p_kind not in\(([^)]*)\)/)![1]!.matchAll(/'([a-z]+)'/g)].map((m) => m[1]).sort();
+  const sqlKinds = [...auditBody.match(/p_kind not in\(([^)]*)\)/)![1]!.matchAll(/'([a-z]+)'/g)].map((m) => m[1]).sort();
   assert.deepEqual(sqlKinds, auditFilters.map((f) => f.id).sort());
 });
 

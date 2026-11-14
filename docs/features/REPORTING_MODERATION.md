@@ -48,3 +48,11 @@ Manual Android acceptance after backend rollout: report an eligible listing and 
 **Removal wording.** The removal confirmation says "This listing will be removed. The owner can't reopen it from the app." It deliberately does not claim the property can't be listed again (see the open gap above).
 
 **Audit tab redesign (2026-11-13).** The Audit tab is a day-grouped list of tappable cards with horizontally scrolling filter chips and "Load more" paging, and each record opens an Audit entry screen (all from `get_admin_audit_log` fields only). Headlines, outcome pills and the "Administrator" actor label come from `AuditPresentation.ts`. Open report/submission/review buttons appear only when that record is already loaded in the session. Details and evidence: [admin-audit-redesign.md](../implementation-reports/ui/admin-audit-redesign.md).
+
+## Reinstate listing and re-listing guard - November 14, 2026 (PREPARED, NOT APPLIED)
+
+**Status:** backend migration `supabase/migrations/20261114120000_admin_reinstate_relist_guard.sql` is prepared and tested locally only (136 container checks, 35 mutations caught). It has not been applied and the app does not use it yet. Ledger entry: ADMIN-REINSTATE-RELIST-GUARD-2026-11-14.
+
+**What it will do.** Close the gap noted above: `save_listing_draft` and `publish_listing` refuse a property that has a removed listing ("Property has a removed listing"). Admins gain `reinstate_listing` in `apply_admin_moderation_action` (removed listing becomes paused, no report, a 10 to 500 character reason, refused if another listing on the property is active, paused or rented, or if the Admin is conflicted on a report about the listing or about its owner); the owner then reactivates with the existing flow. `get_admin_removed_listings` lists removed listings (leaving out any the calling Admin is conflicted on, in count and rows alike), and `get_admin_audit_log` hides the reinstatement row from such an Admin, adds `actorId` and names the subject of verification and report entries.
+
+**Not done in the app.** No Reinstate screen, no message rules for the four new refusals, and the removal wording above is unchanged. Wire these together when the migration is applied. `tests/adminActionsErrorDrift.test.ts` now reads the new audit-log definition and fails if the app and SQL drift.
