@@ -18,9 +18,10 @@ export function PropertyDashboardView({ viewModel: vm, requestActivity }: { view
   const [searchOpen, setSearchOpen] = useState(state.query.trim().length > 0);
   const toggleSearch = () => { if (searchOpen) vm.setListingQuery(''); setSearchOpen(!searchOpen); };
   const act = (propertyId: string, key: PortfolioActionKey) => {
-    if (key === 'open') vm.openPortfolioItem(propertyId);
-    else if (key === 'editProperty') vm.openPortfolioProperty(propertyId);
-    else if (key === 'editRental') vm.editPortfolioListing(propertyId);
+    if (key === 'open' || key === 'continueEditing' || key === 'manageStatus') vm.openPortfolioItem(propertyId);
+    else if (key === 'continuePosting') vm.continuePortfolioPosting(propertyId);
+    else if (key === 'editListing') vm.editPortfolioListing(propertyId);
+    else if (key === 'editPropertyDetails') vm.editPortfolioPropertyDetails(propertyId);
     else if (key === 'verification') void vm.openPortfolioVerification(propertyId);
     else if (key === 'createListing') vm.createListingForProperty(propertyId);
     else vm.reviewPortfolioPublication(propertyId);

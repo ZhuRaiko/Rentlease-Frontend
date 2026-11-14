@@ -61,8 +61,8 @@ function viewModel(overrides: any = {}) {
     portfolioItems: filterPortfolio(filterPortfolioByStatus(all, filter), query), portfolioFilterCounts: portfolioFilterCounts(all),
     portfolio: { load() {} }, portfolioActionsDisabled: overrides.disabled ?? false, notice: null, propertyVerificationState: null,
     setPortfolioFilter: (f: string) => calls.push(`filter:${f}`), setListingQuery: (q: string) => calls.push(`query:${q}`),
-    openPortfolioItem: (id: string) => calls.push(`open:${id}`), openPortfolioProperty: (id: string) => calls.push(`editProperty:${id}`),
-    editPortfolioListing: (id: string) => calls.push(`editRental:${id}`), openPortfolioVerification: async (id: string) => { calls.push(`verify:${id}`); },
+    openPortfolioItem: (id: string) => calls.push(`open:${id}`), continuePortfolioPosting: (id: string) => calls.push(`continue:${id}`), editPortfolioPropertyDetails: (id: string) => calls.push(`editDetails:${id}`), createListingForProperty: (id: string) => calls.push(`create:${id}`),
+    editPortfolioListing: (id: string) => calls.push(`editListing:${id}`), openPortfolioVerification: async (id: string) => { calls.push(`verify:${id}`); },
     reviewPortfolioPublication: (id: string) => calls.push(`review:${id}`), openPostingType: () => calls.push('post'), startCreate: () => calls.push('post'),
   };
   return { vm, calls };
@@ -117,7 +117,7 @@ test('filter tabs show ViewModel counts, mark the active tab and report taps; th
   assert.deepEqual(tabs.map(t => t.props.accessibilityLabel), ['All, 5', 'Published, 2', 'Drafts, 1', 'Rented, 1']);
   assert.deepEqual(tabs.map(t => t.props.accessibilityState.selected), [false, false, true, false]);
   assert.ok(tabs.every(t => t.props.hitSlop.top + t.props.hitSlop.bottom + 40 >= 48), 'tab hit area is at least 48dp tall');
-  assert.equal(nodes(tree).filter(byText('Continue Editing')).length, 1, 'one card rendered for the single draft');
+  assert.equal(nodes(tree).filter(byText('Continue editing')).length, 1, 'one card rendered for the single draft');
   tabs[1].props.onPress(); assert.deepEqual(calls, ['filter:published']);
 });
 
@@ -143,50 +143,58 @@ test('search sits behind a header icon; opening reveals the input, closing clear
 });
 
 // ---- Card: actions
-const actionLabels = (item: LandlordPortfolioItem) => { const a = portfolioCardActions(item); return [a.primary.label, a.secondary?.label ?? null, a.menu.map(m => m.label)]; };
-test('one primary action, one secondary, the rest in the menu, using only existing actions', () => {
-  assert.deepEqual(actionLabels(makeItem('1', 'draft', 'not_submitted')), ['Continue Editing', 'Verify This Property', []]);
-  assert.deepEqual(actionLabels(makeItem('2', 'active', 'approved')), ['Manage Status', 'Edit Rental', []]);
-  assert.deepEqual(actionLabels(makeItem('3', 'paused', 'pending')), ['Manage Status', 'Edit Rental', ['View Verification Status']]);
-  assert.deepEqual(actionLabels(makeItem('4', null, 'not_submitted')), ['Create listing', 'Verify This Property', ['Edit Property']]);
-  assert.deepEqual(actionLabels(makeItem('5', 'rented', 'rejected')), ['View listing', 'Edit Property', ['View Verification Feedback']]);
-  assert.deepEqual(actionLabels(makeItem('6', 'draft', 'approved', { completeness: 0.9 })), ['Continue Editing', 'Review Publication', []]);
-  assert.deepEqual(actionLabels(makeItem('7', 'draft', 'approved', { completeness: 0.5 })), ['Continue Editing', null, []]);
-  assert.deepEqual(actionLabels(makeItem('8', 'active', 'approved', { active: false })), ['Manage Status', null, []]);
+const actionLabels = (item: LandlordPortfolioItem) => { const a = portfolioCardActions(item); return [a.primary.label, a.secondary, a.menu.map(m => m.label)]; };
+test('one button per card named for the state; every other action is in the menu, using only existing actions', () => {
+  assert.deepEqual(actionLabels(makeItem('1', 'draft', 'not_submitted')), ['Continue editing', null, ['Edit property details', 'Verify This Property']]);
+  assert.deepEqual(actionLabels(makeItem('2', 'active', 'approved')), ['Edit listing', null, ['Edit property details', 'Manage status']]);
+  assert.deepEqual(actionLabels(makeItem('3', 'paused', 'pending')), ['Edit listing', null, ['Edit property details', 'Manage status', 'View Verification Status']]);
+  assert.deepEqual(actionLabels(makeItem('4', null, 'not_submitted')), ['Continue posting', null, ['Edit property details', 'Verify This Property']]);
+  assert.deepEqual(actionLabels(makeItem('5', 'rented', 'rejected')), ['View listing', null, ['View Verification Feedback']]);
+  assert.deepEqual(actionLabels(makeItem('6', 'draft', 'approved', { completeness: 0.9 })), ['Continue editing', null, ['Edit property details', 'Review Publication']]);
+  assert.deepEqual(actionLabels(makeItem('7', 'draft', 'approved', { completeness: 0.5 })), ['Continue editing', null, ['Edit property details']]);
+  assert.deepEqual(actionLabels(makeItem('8', 'active', 'approved', { active: false })), ['Manage status', null, []]);
   for (const item of [...items, makeItem('9', 'removed'), makeItem('10', 'archived')]) {
-    const a = portfolioCardActions(item), all = [a.primary, a.secondary, ...a.menu].filter(Boolean).map(x => x!.label);
+    const a = portfolioCardActions(item), all = [a.primary, ...a.menu].filter(Boolean).map(x => x!.label);
+    assert.equal(a.secondary, null, 'no second button');
     assert.ok(!all.some(label => /delete|remove draft/i.test(label)), 'no new delete behavior');
     assert.equal(new Set(all).size, all.length, 'no duplicated action');
+    assert.ok(!all.includes('Edit Property') && !all.includes('Edit Rental'), 'the old second buttons are gone');
   }
 });
 
-test('card buttons reach the existing ViewModel handlers with the property id', () => {
-  const { vm, calls } = viewModel({ items: [makeItem('p1', 'draft', 'not_submitted')] }); const h = harness();
-  const render = () => h.render(dashboard, 'PropertyDashboardView', { viewModel: vm });
-  press(render(), byText('Continue Editing')); press(render(), byText('Verify This Property'));
-  assert.deepEqual(calls, ['open:p1', 'verify:p1']);
-  const { vm: vm2, calls: calls2 } = viewModel({ items: [makeItem('p2', 'active', 'approved')] });
-  const h2 = harness(); const render2 = () => h2.render(dashboard, 'PropertyDashboardView', { viewModel: vm2 });
-  press(render2(), byText('Manage Status')); press(render2(), byText('Edit Rental'));
-  assert.deepEqual(calls2, ['open:p2', 'editRental:p2']);
+test('card buttons and menu entries reach the ViewModel handlers with the property id', () => {
+  const run = (item: LandlordPortfolioItem, ...labels: string[]) => {
+    const { vm, calls } = viewModel({ items: [item] }); const h = harness(); const render = () => h.render(dashboard, 'PropertyDashboardView', { viewModel: vm });
+    for (const label of labels) {
+      if (nodes(render()).some(byText(label))) { press(render(), byText(label)); continue; }
+      press(render(), n => n.props?.accessibilityLabel?.startsWith('More actions for')); press(render(), byText(label));
+    }
+    return calls;
+  };
+  assert.deepEqual(run(makeItem('p1', 'draft', 'not_submitted'), 'Continue editing', 'Verify This Property'), ['open:p1', 'verify:p1']);
+  assert.deepEqual(run(makeItem('p2', 'active', 'approved'), 'Edit listing'), ['editListing:p2']);
+  assert.deepEqual(run(makeItem('p3', null, 'approved'), 'Continue posting'), ['continue:p3']);
+  assert.deepEqual(run(makeItem('p4', 'active', 'approved'), 'Edit property details'), ['editDetails:p4']);
+  assert.deepEqual(run(makeItem('p5', 'paused', 'approved'), 'Manage status'), ['open:p5']);
+  assert.deepEqual(run(makeItem('p6', 'archived', 'approved'), 'Create a new listing'), ['create:p6']);
 });
 
 test('portfolioActionsDisabled disables every card action and the menu button', () => {
   const { vm } = viewModel({ items: [makeItem('d1', 'draft', 'not_submitted')], disabled: true });
   const tree = harness().render(dashboard, 'PropertyDashboardView', { viewModel: vm });
-  const buttons = ['Continue Editing', 'Verify This Property'].map(label => nodes(tree).find(byText(label))); assert.ok(buttons.every(Boolean)); assert.ok(buttons.every(b => b!.props.disabled === true));
+  const buttons = ['Continue editing', 'Verify This Property'].map(label => nodes(tree).find(byText(label))); assert.ok(buttons.every(Boolean)); assert.ok(buttons.every(b => b!.props.disabled === true));
   const { vm: vm2 } = viewModel({ items: [makeItem('d2', 'paused', 'pending')], disabled: true });
   const menu = nodes(harness().render(dashboard, 'PropertyDashboardView', { viewModel: vm2, requestActivity: () => ({ text: null, pending: false, error: null, onManage() {} }) })).find(n => n.props?.accessibilityLabel?.startsWith('More actions for'));
   assert.equal(menu!.props.disabled, true);
 });
 
-for (const status of ['not_submitted', 'pending', 'under_review', 'rejected', 'approved'] as const) test(`My Rentals draft card exposes ${status} verification directly while keeping Continue Editing`, () => {
+for (const status of ['not_submitted', 'pending', 'under_review', 'rejected', 'approved'] as const) test(`My Rentals draft card exposes ${status} verification directly while keeping Continue editing`, () => {
   const item = makeItem('10000000-0000-4000-8000-000000000001', 'draft', status, { completeness: 1 }); const { vm, calls } = viewModel({ items: [item] }); const h = harness();
   const render = () => h.render(dashboard, 'PropertyDashboardView', { viewModel: vm });
-  press(render(), byText('Continue Editing'));
+  press(render(), byText('Continue editing'));
   const tree = render(), verification = ['Verify This Property', 'View Verification Status', 'View Verification Feedback'].find(label => nodes(tree).some(byText(label)));
   if (status === 'approved') {
-    assert.equal(verification, undefined); assert.match(text(tree), /Property verified/); press(tree, byText('Review Publication'));
+    assert.equal(verification, undefined); assert.match(text(tree), /Property verified/); press(tree, n => n.props?.accessibilityLabel?.startsWith('More actions for')); press(render(), byText('Review Publication'));
     assert.deepEqual(calls, ['open:10000000-0000-4000-8000-000000000001', 'review:10000000-0000-4000-8000-000000000001']);
   } else {
     assert.ok(verification); press(tree, byText(verification!)); assert.ok(!nodes(tree).some(byText('Review Publication')));

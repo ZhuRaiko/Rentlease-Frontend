@@ -76,6 +76,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
     async settle() { for (let i = 0; i < 3; i++) { await new Promise<void>(resolve => setImmediate(resolve)); flush(); } },
     draftConflict: (message:string)=>new (load('src/features/property-listing/models/PersistedListingDraft.ts').ListingDraftError)(message,'conflict'),
     draftError: (message: string) => new (load('src/features/property-listing/models/PersistedListingDraft.ts').ListingDraftError)(message, 'uncertain'),
+    propertyEditError: (message: string, kind: string) => new (load('src/features/property-listing/models/PropertyRoutineEdit.ts').PropertyEditError)(message, kind),
     contextModal:()=>componentProps('Modal'),
     composerView: () => componentProps('ListingComposerView'),
     statusView: () => load('src/features/property-listing/views/PublishedListingStatusView.tsx').PublishedListingStatusView({ viewModel: current, onClose: () => {} }), writes: () => writes, destinations,
@@ -696,11 +697,11 @@ for(const status of ['active','paused'])test(`shared photos for ${status} listin
  await h.settle();h.vm().openPortfolioItem(backend.propertyId);await h.settle();h.vm().navigate('photoManager');await h.settle();assert.equal(h.vm().screen,'photoManager');assert.equal(h.vm().workspacePropertyId,backend.propertyId);assert.equal(h.vm().workspaceListingId,backend.listingId);assert.equal(h.vm().photoState.loaded,true);
  await h.vm().propertyPhotos.setCover('30000000-0000-4000-8000-000000000001');await h.settle();assert.equal(cover,1);h.vm().goBack();await h.settle();assert.equal(h.vm().screen,'published');assert.equal(h.vm().realListing?.status,status);assert.equal(backend.calls(),0);assert.equal(h.vm().propertyVerificationState.entryPropertyId,null);assert.ok(loads>0);h.unmount();
 });
-for(const status of ['draft','active','paused'])test(`routine property editor preserves ${status} listing context and protects unsaved Back`,async()=>{
+for(const status of ['draft','active','paused'])test(`property details open in the wizard at Step 1 and preserve ${status} listing context and protect unsaved Back`,async()=>{
  const fixture=savedHydrationHarness();await fixture.init();fixture.setRow({...fixture.getRow(),status,completeness_score:1,published_at:status==='draft'?null:'2026-11-01T00:00:00Z'});
  let c:any={owner_id:'test-owner',property_id:fixture.backend.propertyId,edit_version:'60000000-0000-4000-8000-000000000001',property_type:'apartment',city:'imus',barangay:'Fixture',floor_number:2,total_floors:5,bedrooms:1,bathrooms:1,floor_area_sqm:30,max_occupants:2,furnishing_status:'unfurnished',access_instructions:null,amenity_ids:[],catalog:[],open_tenancy:false};let saves=0;
  const h=fixture.mount({load:async()=>c,hasPending:async()=>false,save:async(_c:any,d:any)=>{saves++;c={...c,bedrooms:Number(d.bedrooms),furnishing_status:d.furnishingStatus,edit_version:'60000000-0000-4000-8000-000000000002'};return c;}});
- await h.settle();h.vm().openPortfolioItem(fixture.backend.propertyId);await h.settle();await h.settle();h.vm().openPropertyDetails();await h.settle();assert.equal(h.vm().screen,status==='draft'?'listingComposer':'propertyEdit');assert.equal(h.vm().propertyRoutineState.status,'ready');
+ await h.settle();h.vm().openPortfolioItem(fixture.backend.propertyId);await h.settle();await h.settle();h.vm().openPropertyDetails();await h.settle();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().postingStep,1);assert.equal(h.vm().propertyRoutineState.status,'ready');
  h.vm().propertyRoutine.update('bedrooms','2');h.flush();h.hardwareBack();h.flush();assert.equal(h.vm().navigationConfirmation,true);h.vm().cancelNavigation();h.flush();assert.equal(h.vm().propertyRoutineState.draft?.bedrooms,'2');
  await h.vm().propertyRoutine.save();await h.settle();assert.equal(saves,1);assert.equal(h.vm().propertySummary.bedrooms,'2');assert.equal(h.vm().workspaceListingId,fixture.backend.listingId);assert.equal(fixture.backend.calls(),0);assert.equal(h.vm().propertyVerificationState.entryPropertyId,null);
  h.vm().goBack();await h.settle();assert.equal(h.vm().screen,status==='draft'?'dashboard':'published');h.unmount();
@@ -722,7 +723,7 @@ test('returning from dirty property subeditor discards only property edits and k
 });
 for(const status of ['active','paused'])test(`Back while opening Edit Listing returns to ${status} management and ignores stale hydration`,async()=>{const f=savedHydrationHarness();await f.init();f.setRow({...f.getRow(),status,published_at:'2026-11-01T00:00:00Z',completeness_score:1});const h=f.mount();await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();f.pause();h.vm().editManagedListing();await h.settle();assert.equal(h.vm().draftHydration.status,'loading');h.vm().goBack();h.flush();assert.equal(h.vm().screen,'published');f.release();await h.settle();await h.settle();assert.equal(h.vm().screen,'published');assert.equal(h.vm().realListing?.status,status);assert.equal(f.backend.calls(),0);h.unmount();});
 
-test('independent physical-property editing needs no listing or listing save',async()=>{const property='10000000-0000-4000-8000-000000000001';const c:any={owner_id:'test-owner',property_id:property,edit_version:'60000000-0000-4000-8000-000000000001',property_type:'house',city:'imus',barangay:'Fixture',floor_number:null,total_floors:2,bedrooms:1,bathrooms:1,floor_area_sqm:30,max_occupants:2,furnishing_status:'unfurnished',access_instructions:null,amenity_ids:[],catalog:[],open_tenancy:false};const item={propertyId:property,property:{id:property,is_active:true},currentListing:null,listings:[],tier3:{status:'not_submitted'}};const h=mountProperty(null,{}, {restore:async()=>null},undefined,undefined,{initialScreen:'dashboard',portfolio:{user:async()=>'test-owner',assertUser:async()=>{},load:async()=>[item]},routine:{load:async()=>c,hasPending:async()=>false}});await h.settle();h.vm().openPortfolioProperty(property);await h.settle();assert.equal(h.vm().screen,'propertyEdit');assert.equal(h.vm().workspacePropertyId,property);assert.equal(h.vm().workspaceListingId,null);assert.equal(h.vm().propertyRoutine.canSave(),false);h.vm().goBack();await h.settle();assert.equal(h.vm().screen,'dashboard');assert.equal(h.writes(),0);h.unmount();});
+test('property details with no listing open the wizard at Step 1 and need no listing or listing save',async()=>{const property='10000000-0000-4000-8000-000000000001';const c:any={owner_id:'test-owner',property_id:property,edit_version:'60000000-0000-4000-8000-000000000001',property_type:'house',city:'imus',barangay:'Fixture',floor_number:null,total_floors:2,bedrooms:1,bathrooms:1,floor_area_sqm:30,max_occupants:2,furnishing_status:'unfurnished',access_instructions:null,amenity_ids:[],catalog:[],open_tenancy:false};const item={propertyId:property,property:{id:property,is_active:true},currentListing:null,listings:[],tier3:{status:'not_submitted'}};const h=mountProperty(null,{}, {restore:async()=>null},undefined,undefined,{initialScreen:'dashboard',portfolio:{user:async()=>'test-owner',assertUser:async()=>{},load:async()=>[item]},routine:{load:async()=>c,hasPending:async()=>false}});await h.settle();h.vm().editPortfolioPropertyDetails(property);await h.settle();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().postingStep,1);assert.equal(h.vm().workspacePropertyId,property);assert.equal(h.vm().workspaceListingId,null);assert.equal(h.vm().propertyRoutine.canSave(),false);h.vm().goBack();await h.settle();assert.equal(h.vm().screen,'dashboard');assert.equal(h.writes(),0);h.unmount();});
 
 
 test('identity correction nested Back protects proposal and retains unsaved listing context',async()=>{
@@ -1005,4 +1006,228 @@ test('a wish pressed on a saved property is not a wish: the card calls the appro
   assert.ok(h.vm().workspacePropertyId);
   h.vm().setShareLocationWanted(true); h.flush(); await h.settle(); h.flush();
   assert.equal(h.vm().shareLocationWanted, false, 'once saved there is nothing to queue'); h.unmount();
+});
+
+// ---- Stage 3: one editor per state
+import { LISTING_CHANGED_MESSAGE, LISTING_NOT_EDITABLE_MESSAGE, TENANCY_BINDING_MESSAGE } from '../src/features/property-listing/models/RefusalMessages';
+const routineContext = (f: any) => ({ owner_id: 'test-owner', property_id: f.backend.propertyId, edit_version: '60000000-0000-4000-8000-000000000001', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: 1, bathrooms: 1, floor_area_sqm: 30, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false });
+/** A saved listing in the given state, opened the way the card opens it, with a recording published-update service. */
+async function editorFixture(status: 'draft' | 'active' | 'paused', over: { refuse?: string; routineRefuse?: string; routineSave?: (d: any) => Promise<any> } = {}) {
+  const f = savedHydrationHarness(); await f.init();
+  f.setRow({ ...f.getRow(), status, completeness_score: 1, published_at: status === 'draft' ? null : '2026-11-01T00:00:00Z', asking_rent_monthly: 15000 });
+  const saved: any[] = []; let routine = routineContext(f); let H: any;
+  const service = { ...f.backend.service, read: async () => f.getRow(), save: async (_c: any, d: any, expected: any) => { saved.push({ rent: d.askingRent, listingId: expected.listingId }); if (over.refuse) throw H.draftConflict(over.refuse); const row = { ...f.getRow(), title: d.title, asking_rent_monthly: Number(d.askingRent) }; f.setRow(row); return row; } };
+  const h = f.mount({ load: async () => routine, hasPending: async () => false, save: async (_c: any, d: any) => { if (over.routineRefuse) throw H.propertyEditError(over.routineRefuse, 'rejected'); if (over.routineSave) return over.routineSave(d); routine = { ...routine, bedrooms: Number(d.bedrooms), edit_version: '60000000-0000-4000-8000-000000000002' }; return routine; } }, undefined, service);
+  H = h; await h.settle();
+  return { f, h, saved, id: f.backend.propertyId };
+}
+const settle2 = async (h: any) => { await h.settle(); await h.settle(); h.flush(); };
+
+for (const status of ['draft', 'active', 'paused'] as const) test(`${status}: the card button and "Edit property details" both open the same wizard at Step 1, and nothing opens a property-only screen`, async () => {
+  const open = async (action: 'primary' | 'details') => {
+    const { h, id } = await editorFixture(status);
+    if (action === 'details') h.vm().editPortfolioPropertyDetails(id);
+    else if (status === 'draft') h.vm().openPortfolioItem(id);      // Continue editing
+    else h.vm().editPortfolioListing(id);                            // Edit listing
+    await settle2(h);
+    const seen = { screen: h.vm().screen, wizard: h.vm().postingWizard, mode: h.vm().editorMode, step: h.vm().postingStep, listing: h.vm().workspaceListingId };
+    h.unmount(); return seen;
+  };
+  const primary = await open('primary'), details = await open('details');
+  assert.deepEqual(primary, details, 'one editor');
+  assert.equal(primary.screen, 'listingComposer'); assert.equal(primary.wizard, true); assert.equal(primary.step, 1);
+  assert.equal(primary.mode, status === 'draft' ? 'draft' : 'published');
+  assert.ok(primary.listing, 'the original listing is the one being edited');
+});
+for (const status of ['active', 'paused'] as const) test(`${status}: "Manage status" opens the status screen, which is not an editor`, async () => {
+  const { h, id } = await editorFixture(status); h.vm().openPortfolioItem(id); await settle2(h);
+  assert.equal(h.vm().screen, 'published'); assert.equal(h.vm().postingWizard, false); h.unmount();
+});
+test('no listing: Continue posting resumes at the first incomplete step; Edit property details opens Step 1', async () => {
+  const mk = (floor: number | null) => ({ propertyId: 'p-1', property: { id: 'p-1', is_active: true, property_type: 'apartment', city: 'imus', furnishing_status: 'unfurnished', floor_area_sqm: floor }, currentListing: null, listings: [], tier3: { status: 'not_submitted' } });
+  const run = async (floor: number | null, action: 'continue' | 'details') => {
+    const c: any = { owner_id: 'test-owner', property_id: 'p-1', edit_version: '60000000-0000-4000-8000-000000000001', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: 1, bathrooms: 1, floor_area_sqm: floor, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false };
+    const h = mountProperty(null, {}, { restore: async () => null }, undefined, undefined, { initialScreen: 'dashboard', portfolio: { user: async () => 'test-owner', assertUser: async () => {}, load: async () => [mk(floor)] }, routine: { load: async () => c, hasPending: async () => false } });
+    await h.settle(); if (action === 'continue') h.vm().continuePortfolioPosting('p-1'); else h.vm().editPortfolioPropertyDetails('p-1'); await settle2(h);
+    const seen = [h.vm().screen, h.vm().postingWizard, h.vm().workspaceListingId]; h.unmount(); return seen;
+  };
+  assert.deepEqual(await run(30, 'continue'), ['listingDetails', true, null], 'Step 1 is complete, so resume at the Listing step');
+  assert.deepEqual(await run(null, 'continue'), ['listingComposer', true, null], 'a size the range needs is missing, so resume at Step 1');
+  assert.deepEqual(await run(30, 'details'), ['listingComposer', true, null]);
+});
+test('archived: Create a new listing opens the Listing step and Edit property details opens Step 1, both on the same property with no listing id', async () => {
+  const mk = () => ({ propertyId: 'p-2', property: { id: 'p-2', is_active: true, property_type: 'apartment', city: 'imus', furnishing_status: 'unfurnished', floor_area_sqm: 30 }, currentListing: { id: 'l-old', status: 'archived', property_id: 'p-2' }, listings: [], tier3: { status: 'not_submitted' } });
+  const c: any = { owner_id: 'test-owner', property_id: 'p-2', edit_version: '60000000-0000-4000-8000-000000000001', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: 1, bathrooms: 1, floor_area_sqm: 30, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false };
+  const run = async (action: 'create' | 'details') => {
+    const h = mountProperty(null, {}, { restore: async () => null }, undefined, undefined, { initialScreen: 'dashboard', portfolio: { user: async () => 'test-owner', assertUser: async () => {}, load: async () => [mk()] }, routine: { load: async () => c, hasPending: async () => false } });
+    await h.settle(); if (action === 'create') h.vm().createListingForProperty('p-2'); else h.vm().editPortfolioPropertyDetails('p-2'); await settle2(h);
+    const seen = [h.vm().screen, h.vm().postingWizard, h.vm().workspaceListingId, h.vm().workspacePropertyId]; h.unmount(); return seen;
+  };
+  assert.deepEqual(await run('create'), ['listingDetails', true, null, 'p-2']);
+  assert.deepEqual(await run('details'), ['listingComposer', true, null, 'p-2']);
+});
+
+for (const status of ['active', 'paused'] as const) test(`${status}: the rent is changed on the Price step (typed or from the range) and saved once on Review through the published update`, async () => {
+  for (const how of ['typed', 'slider'] as const) {
+    const { h, saved, id } = await editorFixture(status);
+    h.vm().editPortfolioListing(id); await settle2(h);
+    await h.vm().nextListingDetails(); await settle2(h); assert.equal(h.vm().screen, 'listingDetails');
+    h.vm().continuePostingEstimate(); h.flush(); assert.equal(h.vm().screen, 'postingEstimate');
+    if (how === 'typed') h.vm().typeAskingRent('18000'); else assert.equal(h.vm().applyRentFromRange(18500), true);
+    h.flush(); assert.equal(h.vm().draft.askingRent, how === 'typed' ? '18000' : '18500');
+    await h.vm().continuePostingReview(); await settle2(h); assert.equal(h.vm().screen, 'postingReview');
+    assert.equal(saved.length, 0, 'nothing is saved before Save changes');
+    await h.vm().saveComposerDraft(); await settle2(h);
+    assert.deepEqual(saved, [{ rent: how === 'typed' ? '18000' : '18500', listingId: h.vm().workspaceListingId }], 'one published update with the new rent');
+    assert.equal(h.vm().listingDraftState.lastConfirmed?.status, status, 'the status is preserved');
+    assert.equal(h.vm().listingDraftState.lastConfirmed?.asking_rent_monthly, how === 'typed' ? 18000 : 18500);
+    h.unmount();
+  }
+});
+test('in edit mode the Listing step no longer asks for rent; the Price step does, and refuses to continue without one', async () => {
+  const { h, saved, id } = await editorFixture('active'); h.vm().editPortfolioListing(id); await settle2(h);
+  await h.vm().nextListingDetails(); await settle2(h);
+  h.vm().updateDraft('askingRent', ''); h.flush();
+  h.vm().continuePostingEstimate(); h.flush();
+  assert.equal(h.vm().screen, 'postingEstimate', 'Step 2 does not need the rent');
+  assert.equal(h.vm().priceIssue?.field, 'askingRent');
+  await h.vm().continuePostingReview(); await settle2(h);
+  assert.equal(h.vm().screen, 'postingEstimate', 'Price blocks until the rent is usable'); assert.equal(h.vm().priceAttempted, true);
+  h.vm().typeAskingRent('16000'); h.flush(); await h.vm().continuePostingReview(); await settle2(h);
+  assert.equal(h.vm().screen, 'postingReview'); assert.deepEqual(saved, []); h.unmount();
+});
+test('a draft still saves through the draft path when leaving the Price step', async () => {
+  const { f, h, id } = await editorFixture('draft'); h.vm().openPortfolioItem(id); await settle2(h);
+  await h.vm().nextListingDetails(); await settle2(h); h.vm().continuePostingEstimate(); h.flush(); h.vm().typeAskingRent('17000'); h.flush();
+  const before = f.backend.calls(); await h.vm().continuePostingReview(); await settle2(h);
+  assert.equal(h.vm().screen, 'postingReview'); assert.equal(f.backend.calls() - before, 1, 'one draft save'); h.unmount();
+});
+
+const refusals: [string, string][] = [['changed elsewhere', LISTING_CHANGED_MESSAGE], ['no longer editable', LISTING_NOT_EDITABLE_MESSAGE]];
+for (const [name, message] of refusals) test(`a published save refused because the listing ${name} keeps the owner's edits, shows the plain message and offers a reload`, async () => {
+  const { h, id } = await editorFixture('active', { refuse: message });
+  h.vm().editPortfolioListing(id); await settle2(h); await h.vm().nextListingDetails(); await settle2(h);
+  h.vm().updateDraft('title', 'My new title'); h.flush(); h.vm().continuePostingEstimate(); h.flush(); h.vm().typeAskingRent('19000'); h.flush();
+  await h.vm().continuePostingReview(); await settle2(h);
+  await h.vm().saveComposerDraft(); await settle2(h);
+  assert.equal(h.vm().screen, 'postingReview', 'the owner stays where they are');
+  assert.equal(h.vm().draft.askingRent, '19000'); assert.equal(h.vm().draft.title, 'My new title', 'every edit is still on screen');
+  assert.equal(h.vm().listingDraftState.error, message);
+  assert.equal(h.vm().listingDraftState.conflict, true);
+  assert.equal(h.vm().listingDraftState.lastConfirmed?.asking_rent_monthly, 15000, 'the saved version is untouched');
+  h.unmount();
+});
+test('a property save refused by an active tenancy keeps the owner on Step 1 with the edits and the plain explanation', async () => {
+  const { h, id } = await editorFixture('active', { routineRefuse: TENANCY_BINDING_MESSAGE });
+  h.vm().editPortfolioListing(id); await settle2(h);
+  h.vm().propertyRoutine.update('bedrooms', '3'); h.flush();
+  await h.vm().nextListingDetails(); await settle2(h);
+  assert.equal(h.vm().screen, 'listingComposer', 'the refused save does not move on');
+  assert.equal(h.vm().propertyRoutineState.draft?.bedrooms, '3', 'the edit is still on screen');
+  assert.equal(h.vm().propertyRoutineState.error, TENANCY_BINDING_MESSAGE);
+  assert.match(TENANCY_BINDING_MESSAGE, /^Existing agreements remain binding/);
+  h.unmount();
+});
+
+test('the step header reaches every step from every step, in edit mode and for a draft', async () => {
+  for (const status of ['active', 'draft'] as const) {
+    const { h, id, saved } = await editorFixture(status);
+    if (status === 'draft') h.vm().openPortfolioItem(id); else h.vm().editPortfolioListing(id);
+    await settle2(h); assert.equal(h.vm().postingStep, 1);
+    let at = 1;
+    for (const next of [2, 3, 4, 1, 3, 2, 4, 2, 1, 4, 3, 1]) {
+      h.vm().goToPostingStep(next as 1 | 2 | 3 | 4); await settle2(h);
+      assert.equal(h.vm().postingStep, next, `${status}: ${at} -> ${next}`); at = next;
+    }
+    if (status === 'active') assert.deepEqual(saved, [], 'moving between steps never saves the listing: only Save changes does');
+    h.unmount();
+  }
+});
+test('leaving Step 1 by the header saves property changes first, then lands on the tapped step', async () => {
+  let saves = 0;
+  const { h, id } = await editorFixture('active', { routineSave: async (d: any) => { saves++; return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: Number(d.bedrooms), bathrooms: 1, floor_area_sqm: 30, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false }; } });
+  h.vm().editPortfolioListing(id); await settle2(h);
+  h.vm().propertyRoutine.update('bedrooms', '2'); h.flush();
+  h.vm().goToPostingStep(3); await settle2(h);
+  assert.equal(saves, 1, 'the property was saved before leaving Step 1'); assert.equal(h.vm().postingStep, 3); assert.equal(h.vm().propertySummary.bedrooms, '2'); h.unmount();
+});
+test('a refused property save on a header tap keeps the owner on Step 1, keeps the edits and drops the pending destination', async () => {
+  const { h, id } = await editorFixture('active', { routineRefuse: TENANCY_BINDING_MESSAGE });
+  h.vm().editPortfolioListing(id); await settle2(h);
+  h.vm().propertyRoutine.update('bedrooms', '4'); h.flush();
+  h.vm().goToPostingStep(3); await settle2(h);
+  assert.equal(h.vm().postingStep, 1); assert.equal(h.vm().propertyRoutineState.draft?.bedrooms, '4'); assert.equal(h.vm().returnTo ?? null, null, 'no stale "Save and return"');
+  h.vm().goToPostingStep(1); await settle2(h); assert.equal(h.vm().postingStep, 1); h.unmount();
+});
+test('the step header does nothing outside the wizard', async () => {
+  const h = mountProperty(null, {}, undefined, undefined, undefined, { initialScreen: 'dashboard' }); await h.settle(); h.vm().goToPostingStep(3); h.flush(); assert.equal(h.vm().screen, 'dashboard'); h.unmount();
+});
+
+// ---- Stage 3: the header's checks, its no-ops, and the cards that cannot be edited
+const atStep = async (h: any, id: string, step: 1 | 2 | 3 | 4, kind: 'published' | 'draft' = 'published') => {
+  if (kind === 'draft') h.vm().openPortfolioItem(id); else h.vm().editPortfolioListing(id);
+  await settle2(h);
+  for (let s = 1; s < step; s++) { h.vm().goToPostingStep((s + 1) as 1 | 2 | 3 | 4); await settle2(h); }
+  assert.equal(h.vm().postingStep, step);
+};
+test('tapping the step you are already on does nothing, on every step', async () => {
+  for (const step of [1, 2, 3, 4] as const) {
+    const { h, id, saved } = await editorFixture('active'); await atStep(h, id, step);
+    const before = [h.vm().screen, h.vm().workspaceListingId, saved.length];
+    h.vm().goToPostingStep(step); await settle2(h);
+    assert.equal(h.vm().postingStep, step, `step ${step} stays`); assert.deepEqual([h.vm().screen, h.vm().workspaceListingId, saved.length], before); h.unmount();
+  }
+});
+test('the header runs the Listing step checks before leaving it forward, and shows the reason', async () => {
+  const { h, id } = await editorFixture('active'); await atStep(h, id, 2);
+  h.vm().updateDraft('title', ''); h.flush();
+  h.vm().goToPostingStep(3); await settle2(h);
+  assert.equal(h.vm().postingStep, 2, 'blocked'); assert.ok(h.vm().composerNotice, 'with the reason');
+  h.vm().goToPostingStep(4); await settle2(h);
+  assert.equal(h.vm().postingStep, 2, 'blocked on the way to Review too'); h.unmount();
+});
+test('the header runs the Price checks before leaving it forward', async () => {
+  const { h, id } = await editorFixture('active'); await atStep(h, id, 3);
+  h.vm().typeAskingRent(''); h.flush();
+  h.vm().goToPostingStep(4); await settle2(h);
+  assert.equal(h.vm().postingStep, 3, 'no Review without a usable rent'); assert.equal(h.vm().priceAttempted, true); h.unmount();
+});
+test('the header cannot skip the rent: from the Listing step straight to Review needs a usable rent', async () => {
+  const { h, id } = await editorFixture('active'); await atStep(h, id, 2);
+  h.vm().updateDraft('askingRent', ''); h.flush();
+  h.vm().goToPostingStep(4); await settle2(h);
+  assert.equal(h.vm().postingStep, 2); assert.equal(h.vm().priceAttempted, true); assert.ok(h.vm().composerNotice);
+  h.vm().updateDraft('askingRent', '16500'); h.flush(); h.vm().goToPostingStep(4); await settle2(h);
+  assert.equal(h.vm().postingStep, 4, 'with a rent it goes through'); h.unmount();
+});
+test('the Listing step itself no longer reports a missing rent in edit mode', async () => {
+  const { h, id } = await editorFixture('paused'); await atStep(h, id, 2);
+  h.vm().updateDraft('askingRent', ''); h.flush();
+  assert.equal(h.vm().listingStepIssue, null, 'the rent is the Price step job'); h.unmount();
+});
+test('going back by the header drops a pending "save and return" destination', async () => {
+  const { h, id } = await editorFixture('draft'); await atStep(h, id, 4, 'draft');
+  h.vm().editPostingStep('price'); await settle2(h); assert.equal(h.vm().postingStep, 3); assert.equal(h.vm().returnTo, 'postingReview');
+  h.vm().goToPostingStep(2); await settle2(h);
+  assert.equal(h.vm().postingStep, 2); assert.equal(h.vm().returnTo ?? null, null, 'Continue would otherwise jump back to Review'); h.unmount();
+});
+test('a header tap is ignored while a property save is running, so nothing saves twice', async () => {
+  let release!: () => void, saves = 0;
+  const gate = new Promise<void>(r => { release = r; });
+  const { h, id } = await editorFixture('active', { routineSave: async (d: any) => { saves++; await gate; return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: Number(d.bedrooms), bathrooms: 1, floor_area_sqm: 30, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false }; } });
+  h.vm().editPortfolioListing(id); await settle2(h);
+  h.vm().propertyRoutine.update('bedrooms', '2'); h.flush();
+  const first = h.vm().nextListingDetails(); await h.settle(); h.flush();
+  h.vm().goToPostingStep(3); h.vm().goToPostingStep(4); h.flush();
+  release(); await first; await settle2(h);
+  assert.equal(saves, 1, 'one save'); h.unmount();
+});
+test('Edit property details does nothing for a card that cannot be edited', async () => {
+  const mk = (over: any) => ({ propertyId: 'p-9', property: { id: 'p-9', is_active: true, property_type: 'apartment', city: 'imus', furnishing_status: 'unfurnished', floor_area_sqm: 30, ...over.property }, currentListing: over.listing, listings: [], tier3: { status: 'not_submitted' } });
+  const c: any = { owner_id: 'test-owner', property_id: 'p-9', edit_version: '60000000-0000-4000-8000-000000000001', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: 1, bathrooms: 1, floor_area_sqm: 30, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false };
+  for (const over of [{ property: { is_active: false }, listing: null }, { property: {}, listing: { id: 'l', status: 'removed', property_id: 'p-9' } }, { property: {}, listing: { id: 'l', status: 'rented', property_id: 'p-9' } }]) {
+    const h = mountProperty(null, {}, { restore: async () => null }, undefined, undefined, { initialScreen: 'dashboard', portfolio: { user: async () => 'test-owner', assertUser: async () => {}, load: async () => [mk(over)] }, routine: { load: async () => c, hasPending: async () => false } });
+    await h.settle(); h.vm().editPortfolioPropertyDetails('p-9'); await settle2(h);
+    assert.equal(h.vm().screen, 'dashboard'); assert.equal(h.vm().workspacePropertyId, null); h.unmount();
+  }
 });

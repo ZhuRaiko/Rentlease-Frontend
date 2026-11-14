@@ -125,14 +125,14 @@ test('availability row: only a date after today in Philippine time; past, today,
   assert.equal(portfolioAvailability(itemWith('2026-11-15'), late), null);
   assert.equal(portfolioAvailability(itemWith('2026-11-16'), late), 'Available from Nov 16, 2026');
 });
-test('card shows the availability row with Change, which runs the existing rental edit action', () => {
+test('card shows the availability row with Change, which opens the listing editor', () => {
   const calls: string[] = [];
   const item: any = { propertyId: 'p', property: { id: 'p', property_type: 'house', city: 'imus', barangay: 'B', is_active: true }, listings: [], currentListing: { id: 'l', title: 'T', status: 'paused', asking_rent_monthly: 1, available_from: '2999-01-01', published_at: null }, coverPhoto: null, tier3: { status: 'approved' } };
   const render = (i: any) => harness().render('src/features/property-listing/components/PortfolioRentalCard.tsx', 'PortfolioRentalCard', { item: i, disabled: false, onAction: (k: string) => calls.push(k) });
   const tree = render(item);
   assert.match(text(tree), /Available from Jan 1, 2999/);
   nodes(tree).find(n => n.props?.accessibilityLabel?.endsWith('. Change'))!.props.onPress();
-  assert.deepEqual(calls, ['editRental']);
+  assert.deepEqual(calls, ['editListing']);
   assert.doesNotMatch(text(render({ ...item, currentListing: { ...item.currentListing, available_from: '2000-01-01' } })), /Available from/);
 });
 

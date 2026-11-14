@@ -44,7 +44,7 @@ export function PortfolioRentalCard({ item, disabled, onAction, request, verific
   return <View style={styles.card}>
     <View style={styles.coverBox}>
       {item.coverPhoto ? <Image accessibilityLabel={`Cover of ${title}`} source={{ uri: item.coverPhoto.publicUrl }} style={styles.cover} />
-        : <View style={[styles.cover, styles.placeholder]}><Pressable accessibilityRole="button" accessibilityLabel={`Add photos to ${title}`} accessibilityState={{ disabled }} disabled={disabled} onPress={() => onAction('open')} style={styles.addPhotos}><Text style={styles.addPhotosText}>Add photos</Text></Pressable></View>}
+        : <View style={[styles.cover, styles.placeholder]}><Pressable accessibilityRole="button" accessibilityLabel={`Add photos to ${title}`} accessibilityState={{ disabled }} disabled={disabled} onPress={() => onAction(actions.primary.key)} style={styles.addPhotos}><Text style={styles.addPhotosText}>Add photos</Text></Pressable></View>}
       <View style={[styles.pill, { backgroundColor: pillColors[pill.tone].backgroundColor }]}><Text style={[styles.pillText, { color: pillColors[pill.tone].color }]}>{pill.label}</Text></View>
       {showMenu ? <Pressable accessibilityRole="button" accessibilityLabel={`More actions for ${title}`} accessibilityState={{ expanded: menuOpen, disabled }} disabled={disabled} onPress={() => setMenuOpen(open => !open)} style={styles.more}><Text style={styles.moreGlyph}>{'⋯'}</Text></Pressable> : null}
     </View>
@@ -59,7 +59,7 @@ export function PortfolioRentalCard({ item, disabled, onAction, request, verific
           {status}<View style={styles.statusAction}><Text style={[styles.statusActionText, { color: tone.color }]}>{verification.actionLabel}</Text><Text style={[styles.statusActionText, { color: tone.color }]}>{' ›'}</Text></View>
         </Pressable>
         : <View style={[styles.statusRow, { backgroundColor: tone.backgroundColor }]}>{status}</View>}
-      {availability ? <Pressable accessibilityRole="button" accessibilityLabel={`${availability}. Change`} accessibilityState={{ disabled }} disabled={disabled} onPress={() => onAction('editRental')} style={[styles.statusRow, styles.availability]}><Text style={styles.availabilityText}>{availability}</Text><Text style={styles.availabilityText}>Change</Text></Pressable> : null}
+      {availability ? <Pressable accessibilityRole="button" accessibilityLabel={`${availability}. Change`} accessibilityState={{ disabled }} disabled={disabled} onPress={() => onAction('editListing')} style={[styles.statusRow, styles.availability]}><Text style={styles.availabilityText}>{availability}</Text><Text style={styles.availabilityText}>Change</Text></Pressable> : null}
       {archivedNote ? <Text style={ui.supporting}>{archivedNote}</Text> : null}
       {!item.property.is_active ? <Text style={ui.supporting}>Property inactive. Listing changes may be unavailable.</Text> : null}
       {activity ? <View style={styles.note}>
@@ -72,7 +72,6 @@ export function PortfolioRentalCard({ item, disabled, onAction, request, verific
       </View> : null}
       <View style={[styles.row, stacked && styles.rowStacked]}>
         <View style={styles.primary}><ListingButton label={actions.primary.label} tone="brand" disabled={disabled} onPress={() => onAction(actions.primary.key)} /></View>
-        {actions.secondary ? <View style={stacked ? styles.primary : styles.secondary}><ListingButton label={actions.secondary.label} tone="outline" disabled={disabled} onPress={() => onAction(actions.secondary!.key)} /></View> : null}
       </View>
       {menuOpen ? <View style={styles.menu}>
         {menuEntries.map(entry => <Pressable key={entry.key} accessibilityRole="button" disabled={disabled} onPress={entry.press} style={styles.menuItem}><Text style={ui.body}>{entry.label}</Text></Pressable>)}

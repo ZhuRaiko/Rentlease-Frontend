@@ -62,21 +62,23 @@ const ellipsis = '…';
 test('verification is never a second button or a menu entry: it is the status row', () => {
   for (const tier of ['not_submitted', 'pending', 'under_review', 'rejected']) for (const status of ['draft', 'active', 'paused', 'rented', null]) {
     const layout = portfolioCardLayout(makeItem('x', status, tier));
-    assert.ok(layout.secondary?.key !== 'verification' && !layout.menu.some(a => a.key === 'verification'), `${tier}/${status}`);
+    assert.ok(layout.secondary === null && !layout.menu.some(a => a.key === 'verification'), `${tier}/${status}`);
   }
 });
-test('a second button appears only when its label is short; otherwise the action moves to the menu', () => {
-  assert.equal(portfolioCardLayout(makeItem('1', 'draft', 'approved', { completeness: 0.9 })).secondary?.label, 'Review Publication');
-  assert.equal(portfolioCardLayout(makeItem('2', 'active', 'approved')).secondary?.label, 'Edit Rental');
-  assert.equal(portfolioCardLayout(makeItem('3', null, 'approved')).secondary?.label, 'Edit Property');
-  assert.equal(portfolioCardLayout(makeItem('4', 'draft', 'not_submitted')).secondary, null, 'only verification was available');
-  const paused = portfolioCardLayout(makeItem('5', 'paused', 'approved', { tier3: {} }));
-  assert.deepEqual([paused.primary.label, paused.secondary?.label], ['Manage Status', 'Edit Rental']);
+test('there is one button per card: no second button, every other action is in the menu', () => {
+  const l = (item: any) => portfolioCardLayout(item);
+  for (const item of [makeItem('1', 'draft', 'approved', { completeness: 0.9 }), makeItem('2', 'active', 'approved'), makeItem('3', null, 'approved'), makeItem('4', 'draft', 'not_submitted'), makeItem('5', 'paused', 'approved', { tier3: {} })]) assert.equal(l(item).secondary, null, 'never a second button');
+  assert.deepEqual(l(makeItem('1', 'draft', 'approved', { completeness: 0.9 })).menu.map(a => a.label), ['Edit property details', 'Review Publication']);
+  assert.deepEqual(l(makeItem('2', 'active', 'approved')).menu.map(a => a.label), ['Edit property details', 'Manage status']);
+  assert.deepEqual(l(makeItem('3', null, 'approved')).menu.map(a => a.label), ['Edit property details']);
+  assert.deepEqual(l(makeItem('4', 'draft', 'not_submitted')).menu.map(a => a.label), ['Edit property details'], 'verification stays on its own row, never in the menu');
+  const paused = l(makeItem('5', 'paused', 'approved', { tier3: {} }));
+  assert.deepEqual([paused.primary.label, paused.secondary], ['Edit listing', null]);
 });
-test('primary label is Create listing only when there is no listing', () => {
-  assert.equal(portfolioCardLayout(makeItem('1', null)).primary.label, 'Create listing');
-  assert.equal(portfolioCardLayout(makeItem('2', 'draft')).primary.label, 'Continue Editing');
-  assert.equal(portfolioCardLayout(makeItem('3', 'active')).primary.label, 'Manage Status');
+test('the primary label is named for the state: Continue posting only when there is no listing', () => {
+  assert.equal(portfolioCardLayout(makeItem('1', null)).primary.label, 'Continue posting');
+  assert.equal(portfolioCardLayout(makeItem('2', 'draft')).primary.label, 'Continue editing');
+  assert.equal(portfolioCardLayout(makeItem('3', 'active')).primary.label, 'Edit listing');
   assert.equal(portfolioCardLayout(makeItem('4', 'removed')).primary.label, 'View status');
 });
 test('status pill tone: draft neutral, active green, paused amber, rented blue, removed red; labels unchanged', () => {
@@ -113,14 +115,14 @@ test('card: no photo shows Add photos, which runs the same action as the primary
   const calls: string[] = [];
   const tree = render({ item: makeItem('c2', 'draft', 'approved'), onAction: (k: string) => calls.push(k) });
   assert.doesNotMatch(text(render({ item: makeItem('c3', 'draft', 'approved', { cover: true }) })), /Add photos/);
-  nodes(tree).find(byText('Add photos'))!.props.onPress(); nodes(tree).find(byText('Continue Editing'))!.props.onPress();
-  assert.deepEqual(calls, ['open', 'open']);
+  nodes(tree).find(byText('Add photos'))!.props.onPress(); nodes(tree).find(byText('Continue editing'))!.props.onPress();
+  assert.deepEqual(calls, ['continueEditing', 'continueEditing']);
 });
-test('card: price only with a listing; a short secondary action sits beside the primary one', () => {
+test('card: price only with a listing; one button, no secondary beside it', () => {
   assert.match(text(render({ item: makeItem('c4', 'active') })), /9,999/);
   assert.doesNotMatch(text(render({ item: makeItem('c5', null) })), /month/);
   const tree = render({ item: makeItem('c6', 'active') });
-  assert.deepEqual(['Manage Status', 'Edit Rental'].map(l => !!nodes(tree).find(byText(l))), [true, true]);
+  assert.deepEqual(['Edit listing', 'Manage Status', 'Edit Rental', 'Edit Property'].map(l => !!nodes(tree).find(byText(l))), [true, false, false, false]);
 });
 test('card: row stacks buttons at narrow widths and large text only', () => {
   const rowOf = (viewport: any) => nodes(render({ item: makeItem('c7', 'active') }, viewport)).find(n => Array.isArray(n.props?.style) && n.props.style.some((s: any) => s?.flexDirection === 'row' && s?.gap === 12))!;
@@ -250,7 +252,7 @@ test('dashboard: only never-published cards offer delete; it passes that card id
   };
   const h = harness(); const render = () => h.render(dashboard, 'PropertyDashboardView', { viewModel: vm });
   const more = (tree: any) => nodes(tree).filter(n => n.props?.accessibilityLabel?.startsWith('More actions for'));
-  assert.equal(more(render()).length, 1, 'the published card has no overflow button; the draft card does');
+  assert.equal(more(render()).length, 2, 'both cards have an overflow menu; only the never-published one offers delete');
   more(render())[0].props.onPress();
   const open = render(); nodes(open).find(byText(`Delete unfinished post${ellipsis}`))!.props.onPress();
   assert.deepEqual(calls, ['delete:draft1']);

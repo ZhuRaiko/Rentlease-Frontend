@@ -1,4 +1,5 @@
 import {hasModelAttributes,propertyModelAttributes} from '../models/PropertyModelAttributes';
+import {PROPERTY_CHANGED_MESSAGE,TENANCY_BINDING_MESSAGE} from '../models/RefusalMessages';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '../../../shared/services/supabase/database.types';
 import {isPropertyUuid,propertyTypeOptions,propertyCityOptions,furnishingOptions} from '../models/DraftProperty';
@@ -9,7 +10,7 @@ const unresolved=()=>new PropertyEditError('The property save could not be confi
 function errorFor(error:{code?:string;message?:string},stage:string){
  const code=error.code??'';
  if(typeof __DEV__!=='undefined'&&__DEV__)console.info('[PROPERTY-EDIT-DIAG]',{operation:stage==='read'?'get_owned_property_edit_context':stage==='receipt'?'get_property_details_operation':'update_property_details',stage,code:/^(?:[A-Z0-9]{5}|PGRST\d{3})$/.test(code)?code:'unknown'});
- return new PropertyEditError(code==='PGRST202'?'This feature is not available right now. Try again later. Saved property details are unchanged.':code==='40001'?'This property changed elsewhere. Your edits are kept. Reload the saved version before saving.':/80|completeness/i.test(error.message??'')?'Keep the details needed for published and paused listings to remain at least 80% complete.':/open tenancy/i.test(error.message??'')?'Material property details cannot change while a tenancy is open.':code==='42501'?'Your account cannot edit this property. Check ownership and account eligibility.':'Could not save property details. Review the fields and try again.',code==='40001'?'conflict':code==='42501'?'access':'rejected');
+ return new PropertyEditError(code==='PGRST202'?'This feature is not available right now. Try again later. Saved property details are unchanged.':code==='40001'?PROPERTY_CHANGED_MESSAGE:/80|completeness/i.test(error.message??'')?'Keep the details needed for published and paused listings to remain at least 80% complete.':/open tenancy/i.test(error.message??'')?TENANCY_BINDING_MESSAGE:code==='42501'?'Your account cannot edit this property. Check ownership and account eligibility.':'Could not save property details. Review the fields and try again.',code==='40001'?'conflict':code==='42501'?'access':'rejected');
 }
 export function parsePropertyEditContext(value:unknown,id:string,owner:string):PropertyEditContext{
  const bad=()=>{throw new PropertyEditError('Saved property details could not be verified. Retry loading.');};

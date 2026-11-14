@@ -3,6 +3,7 @@ import type {Database} from '../../../shared/services/supabase/database.types';
 import {isPropertyUuid} from '../models/DraftProperty';
 import {ListingDraftError,listingDraftPayload,type SavedListingDraft,type ListingDraftFields,type DraftEditTarget} from '../models/PersistedListingDraft';
 import {createListingDraftService,type ListingDraftContext} from './listingDraftService';
+import {LISTING_CHANGED_MESSAGE,LISTING_NOT_EDITABLE_MESSAGE} from '../models/RefusalMessages';
 interface Journal {getItem(key:string):Promise<string|null>;setItem(key:string,value:string):Promise<void>;removeItem(key:string):Promise<void>}
 const writing=new Set<string>();
 export const publishedEditable=(status:unknown)=>status==='active'||status==='paused';
@@ -20,12 +21,14 @@ export function createPublishedListingService(getClient:()=>SupabaseClient<Datab
    try{
     await access.assertContext(c);if(await journal.getItem(k))throw uncertain();
     const before=await read(c,target.listingId);
-    if(!before||!publishedEditable(before.status)||before.edit_version!==target.editVersion)throw new ListingDraftError('This listing changed elsewhere. Your edits are kept. Load the latest saved version.','conflict');
+    if(!before)throw new ListingDraftError(LISTING_CHANGED_MESSAGE,'conflict');
+    if(!publishedEditable(before.status))throw new ListingDraftError(LISTING_NOT_EDITABLE_MESSAGE,'conflict');
+    if(before.edit_version!==target.editVersion)throw new ListingDraftError(LISTING_CHANGED_MESSAGE,'conflict');
     const {p_property_id:_property,...content}=listingDraftPayload(c.propertyId,form);
     await journal.setItem(k,JSON.stringify({listingId:target.listingId}));wrote=true;await access.assertContext(c);sent=true;
     const {data,error}=await getClient().rpc('update_published_listing_content',{...content,p_listing_id:target.listingId,p_expected_edit_version:target.editVersion});
     if(error){
-     if(/^(?:22|23|25|40|42|P0001|PGRST202)/.test(error.code??'')){known=true;await journal.removeItem(k);if(error.code==='40001')throw new ListingDraftError('This listing changed elsewhere. Your edits are kept. Load the latest saved version.','conflict',{cause:error});
+     if(/^(?:22|23|25|40|42|P0001|PGRST202)/.test(error.code??'')){known=true;await journal.removeItem(k);if(error.code==='40001')throw new ListingDraftError(LISTING_CHANGED_MESSAGE,'conflict',{cause:error});
       throw new ListingDraftError(error.code==='PGRST202'?'This feature is not available right now. Try again later.':/80|completeness/i.test(error.message??'')?'These changes would put the published listing below 80% completeness. Keep the required details.':'The changes were rejected. Check your listing fields, ownership and current status.','rejected',{cause:error});}
      throw uncertain(error);
     }

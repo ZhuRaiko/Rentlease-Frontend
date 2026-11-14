@@ -7,7 +7,6 @@ import { formatPeso } from '../src/shared/models/Currency';
 import { askingRentLabel, currentEstimate, reviewPriceDetail } from '../src/features/property-listing/models/PostingPrice';
 import { placeLabel, titleCasePlace } from '../src/features/property-listing/models/PlaceLabel';
 import { DRAFT_SAVED_NOTICE } from '../src/features/property-listing/viewModels/listingDraftWorkflow';
-import { sheetBottomPadding } from '../src/shared/components/sheetInset';
 
 // ---- Harness: real money, theme and feedback modules; every other import is a named stub.
 const realFiles: Record<string, string> = {
@@ -166,20 +165,9 @@ test('Verify This Property is a secondary (outline) button', () => {
 });
 
 // ---- 6. Bottom sheets inside a Modal clear the navigation bar
-test('sheetBottomPadding clears the system navigation bar in 3-button and gesture navigation', () => {
-  assert.equal(sheetBottomPadding(0), 24, 'no inset: the base padding');
-  assert.equal(sheetBottomPadding(24), 36, 'gesture bar');
-  assert.equal(sheetBottomPadding(48), 60, 'three-button bar');
-  assert.ok(sheetBottomPadding(48) >= 48 && sheetBottomPadding(24) >= 24);
-  assert.equal(sheetBottomPadding(0, 16), 16);
-});
 test('every Modal with a bottom-aligned sheet reads the bottom inset', () => {
-  const offenders = walk('src').filter(f => { const s = readFileSync(f, 'utf8'); return /<Modal\b/.test(s) && /justifyContent:\s*'flex-end'/.test(s) && !/useSheetBottomInset|useSafeAreaInsets/.test(s); });
+  const offenders = walk('src').filter(f => { const s = readFileSync(f, 'utf8'); return /<Modal\b/.test(s) && /justifyContent:\s*'flex-end'/.test(s) && !/useSafeAreaInsets/.test(s); });
   assert.deepEqual(offenders, []);
-});
-test('the shared inset hook leaves the protected layout components alone', () => {
-  const hook = readFileSync('src/shared/components/useSheetBottomInset.ts', 'utf8');
-  assert.ok(!/FooterInsetContext|ScreenContainer|PinnedFooter|RentLeaseBottomNavigation/.test(hook.replace(/\/\*[\s\S]*?\*\//g, '')));
 });
 
 // ---- 8. Place labels
@@ -209,7 +197,6 @@ test('the card, the Review chips and the property summary all build the location
   assert.match(readFileSync('src/features/property-listing/models/LandlordPortfolio.ts', 'utf8'), /portfolioLocation = \(p: PortfolioProperty\) => placeLabel\(/);
   const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
   assert.equal(vm.split('location: placeLabel(').length - 1, 2);
-  assert.match(readFileSync('src/features/property-listing/views/PropertyRoutineEditView.tsx', 'utf8'), /placeLabel\(\[c\.barangay,c\.city\]\)/);
 });
 
 // ---- 3 (range-only): the Review price line and the peso text

@@ -16,13 +16,13 @@ function makeItem(id: string, status: string | null, active = true): LandlordPor
   const listing = status ? { id: `l-${id}`, property_id: id, title: `Rental ${id}`, status, asking_rent_monthly: 9999, completeness_score: 1, published_at: null, available_from: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' } : null;
   return { propertyId: id, property: { id, landlord_id: owner, property_type: 'house', city: 'imus', barangay: 'B', is_active: active }, listings: listing ? [listing] : [], currentListing: listing, coverPhoto: null, tier3: { status: 'approved', submissionId: null, updatedAt: null } } as any;
 }
-const labels = (item: LandlordPortfolioItem) => { const l = portfolioCardLayout(item); return [l.primary.label, l.secondary?.label ?? null, l.menu.map(a => a.label)]; };
+const labels = (item: LandlordPortfolioItem) => { const l = portfolioCardLayout(item); return [l.primary.label, l.secondary, l.menu.map(a => a.label)]; };
 
 // ---- A. Archived listing
 test('archived listing on an active property: the primary action is "Create a new listing" and View listing moves to the menu', () => {
   const a = portfolioCardActions(makeItem('p', 'archived'));
   assert.deepEqual([a.primary.key, a.primary.label], ['createListing', 'Create a new listing']);
-  assert.deepEqual(labels(makeItem('p', 'archived')), ['Create a new listing', 'Edit Property', ['View listing']]);
+  assert.deepEqual(labels(makeItem('p', 'archived')), ['Create a new listing', null, ['View listing', 'Edit property details']]);
 });
 test('archived: one-line explanation, only where the new-listing action is offered', () => {
   assert.equal(ARCHIVED_LISTING_NOTE, 'This listing has ended. Create a new one to rent this place again.');
@@ -33,11 +33,11 @@ test('archived: one-line explanation, only where the new-listing action is offer
 test('archived on an inactive property keeps the old primary action (nothing to create)', () => {
   assert.equal(portfolioCardActions(makeItem('p', 'archived', false)).primary.label, 'View listing');
 });
-test('nothing else changed: paused keeps Manage Status, draft Continue Editing, none Create listing, removed View status', () => {
-  assert.equal(portfolioCardActions(makeItem('p', 'paused')).primary.label, 'Manage Status');
-  assert.equal(portfolioCardActions(makeItem('p', 'active')).primary.label, 'Manage Status');
-  assert.equal(portfolioCardActions(makeItem('p', 'draft')).primary.label, 'Continue Editing');
-  assert.equal(portfolioCardActions(makeItem('p', null)).primary.label, 'Create listing');
+test('one button per state: paused and active Edit listing, draft Continue editing, none Continue posting, removed View status', () => {
+  assert.equal(portfolioCardActions(makeItem('p', 'paused')).primary.label, 'Edit listing');
+  assert.equal(portfolioCardActions(makeItem('p', 'active')).primary.label, 'Edit listing');
+  assert.equal(portfolioCardActions(makeItem('p', 'draft')).primary.label, 'Continue editing');
+  assert.equal(portfolioCardActions(makeItem('p', null)).primary.label, 'Continue posting');
   assert.equal(portfolioCardActions(makeItem('p', 'removed')).primary.label, 'View status');
   assert.equal(portfolioCardActions(makeItem('p', 'rented')).primary.label, 'View listing');
   for (const status of ['draft', 'active', 'paused', 'rented', 'removed', null]) assert.notEqual(portfolioCardActions(makeItem('p', status)).primary.key, 'createListing', String(status));
@@ -55,7 +55,10 @@ test('"Create a new listing" opens the SAME property at the Listing step with no
   assert.equal(t.item.propertyId, 'prop-1'); assert.equal(t.item.property.id, 'prop-1'); assert.equal(t.item.currentListing, null);
   assert.equal(t.item.listings.length, 1, 'the archived row stays in the list, it is just not the one being edited');
   assert.equal(item.currentListing!.status, 'archived', 'the original item is not mutated');
-  for (const status of ['draft', 'active', 'paused', 'rented', 'removed', null]) assert.equal(newListingTarget(makeItem('p', status)), null, String(status));
+  for (const status of ['draft', 'active', 'paused', 'rented', 'removed']) assert.equal(newListingTarget(makeItem('p', status)), null, String(status));
+  assert.equal(newListingTarget(makeItem('p', null))!.screen, 'listingDetails', 'a property with no listing can start one too (Continue posting)');
+  const atProperty = newListingTarget(item, 'property')!;
+  assert.deepEqual([atProperty.screen, atProperty.history, atProperty.listingId, atProperty.mode], ['listingComposer', ['dashboard'], null, 'compose'], 'Edit property details on an ended listing opens Step 1');
   assert.equal(newListingTarget(makeItem('p', 'archived', false)), null);
   assert.equal(newListingTarget(null), null); assert.equal(newListingTarget(undefined), null);
 });
@@ -63,8 +66,8 @@ test('the dashboard routes the new-listing action to the ViewModel with the card
   const dash = readFileSync('src/features/property-listing/views/PropertyDashboardView.tsx', 'utf8');
   assert.match(dash, /else if \(key === 'createListing'\) vm\.createListingForProperty\(propertyId\);/);
   const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
-  assert.match(vm, /createListingForProperty:\(id:string\)=>\{if\(operationBusy\(\)\)return;requestNavigation\(\(\)=>openPortfolioItem\(id,false,false,true\),true\);\}/);
-  assert.match(vm, /fresh=newListing\?newListingTarget\(picked\):null;\s*if\(newListing&&!fresh\)return;/);
+  assert.match(vm, /createListingForProperty:\(id:string\)=>\{if\(operationBusy\(\)\)return;requestNavigation\(\(\)=>openPortfolioItem\(id,false,false,'details'\),true\);\}/);
+  assert.match(vm, /fresh=newListing\?newListingTarget\(picked,newListing\):null;\s*if\(newListing&&!fresh\)return;/);
   assert.match(vm, /setScreen\(fresh\?fresh\.screen:'listingComposer'\)/);
 });
 

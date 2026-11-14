@@ -1,6 +1,6 @@
 import {createUnfinishedPostWorkflow} from './unfinishedPostWorkflow';
 import {postingEditorMenu} from '../models/UnfinishedPostMenu';
-import {newListingTarget} from '../models/PortfolioCardPresentation';
+import {editPropertyDetailsPlan,newListingTarget,type NewListingStart} from '../models/PortfolioCardPresentation';
 import {unfinishedPostService} from '../services/unfinishedPostDependencies';
 import type {PredictionReceipt} from '../../../shared/models/RentalPrediction';
 import {propertyMeasurementWarnings} from '../../../shared/models/PropertyMeasurementQuality';
@@ -345,8 +345,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if(leaveInitialHydration())return;
     if (propertyPhotos.getSnapshot().mediaViewerOpen) { propertyPhotos.closeMedia(); return; }
     if (operationBusy()) return;
-    if(screen==='identityEdit'){if(['searching','candidates','map'].includes(propertyIdentity.location.getSnapshot().stage)){propertyIdentity.location.cancel();return;}const id=workspaceRef.current.propertyId;requestPropertyNavigation(()=>{setHistory(current=>current.slice(0,-1));setScreen(postingWizard?'listingComposer':'propertyEdit');if(id)void propertyRoutine.open(id);});return;}
-    if(screen==='propertyEdit'){requestPropertyNavigation(()=>{setHistory(current=>{setScreen(current.at(-1)??'dashboard');return current.slice(0,-1);});});return;}
+    if(screen==='identityEdit'){if(['searching','candidates','map'].includes(propertyIdentity.location.getSnapshot().stage)){propertyIdentity.location.cancel();return;}const id=workspaceRef.current.propertyId;requestPropertyNavigation(()=>{setHistory(current=>current.slice(0,-1));setScreen('listingComposer');if(id)void propertyRoutine.open(id);});return;}
     if(screen==='listingDetails'&&workspaceRef.current.mode==='editPublished'&&!postingWizard){requestNavigation(history.at(-1)==='published'?returnToManagedListing:goDashboard);return;}
     if (screen === 'listingDetails') { setScreen('listingComposer'); setHistory(current => current.at(-1) === 'listingComposer' ? current.slice(0, -1) : current); return; }
     if (lifecycle.getSnapshot().confirmation) { lifecycle.cancel(); return; }
@@ -397,10 +396,10 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     detachWorkspace();setPostingWizard(true);setPostingOriginalPrice(null); setHistory([]); setScreen(nextScreen);
     void propertyCreation.startNew();
   };
-  const openPortfolioItem = (propertyId: string, publishedEdit=false,fromManagement=false,newListing=false) => {
+  const openPortfolioItem = (propertyId: string, publishedEdit=false,fromManagement=false,newListing:false|NewListingStart=false) => {
     savedConfirmation.current = null;
     if (!active.current) return;
-    const picked=portfolio.select(propertyId),fresh=newListing?newListingTarget(picked):null;
+    const picked=portfolio.select(propertyId),fresh=newListing?newListingTarget(picked,newListing):null;
     if(newListing&&!fresh)return;
     const selected=fresh?fresh.item:picked;
     const managedRow=lifecycle.getSnapshot().row??publication.getSnapshot().lastConfirmed;
@@ -740,17 +739,17 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     :wizardFloorAreaMissing?'Add floor area to continue.'
     :workspace.propertyId?'Saved property selected. Continue to listing details.':'Property information is ready. Next saves the property before listing details.';
 
-  return {
+  const api = {
     postingWizard,
     editorMode: (editingPublished?'published':workspace.item||savedWizardEditor?'draft':'create') as 'create'|'draft'|'published',
     postingStep: screen==='listingComposer'?1 as const:screen==='listingDetails'?2 as const:screen==='postingEstimate'?3 as const:4 as const,
-    continuePostingEstimate:()=>{if(!postingWizard||screen!=='listingDetails'||initialHydrationPending()||operationBusy()||!workspaceRef.current.propertyId||publicationReadOnly())return;const issue=editingPublished?listingFieldIssue(draft):listingDetailsIssue(draft);if(issue){setComposerNotice(issue.message);return;}setPostingOriginalPrice(draft.askingRent);setComposerNotice(null);setPriceAttempted(false);const back=returnToRef.current;if(back==='postingReview'){void saveDraftThen('postingReview');return;}if(back){setReturnTo(null);navigate(back);return;}navigate('postingEstimate');},
+    continuePostingEstimate:()=>{if(!postingWizard||screen!=='listingDetails'||initialHydrationPending()||operationBusy()||!workspaceRef.current.propertyId||publicationReadOnly())return;const issue=listingDetailsIssue(draft);if(issue){setComposerNotice(issue.message);return;}setPostingOriginalPrice(draft.askingRent);setComposerNotice(null);setPriceAttempted(false);const back=returnToRef.current;if(back==='postingReview'){void saveDraftThen('postingReview');return;}if(back){setReturnTo(null);navigate(back);return;}navigate('postingEstimate');},
     // Leaving Price saves the listing draft first (photos included). A failure keeps the user on Price with the existing recovery messaging.
-    continuePostingReview:async()=>{if(!postingWizard||screen!=='postingEstimate'||operationBusy())return;if(editingPublished){navigate('postingReview');return;}const issue=listingFieldIssue(draft);if(issue){setPriceAttempted(true);setComposerNotice(issue.message);return;}await saveDraftThen('postingReview');},
+    continuePostingReview:async()=>{if(!postingWizard||screen!=='postingEstimate'||operationBusy())return;const issue=listingFieldIssue(draft);if(issue){setPriceAttempted(true);setComposerNotice(issue.message);return;}if(editingPublished){navigate('postingReview');return;}await saveDraftThen('postingReview');},
     typeAskingRent:(value:string)=>{updateDraft('askingRent',value);setPostingOriginalPrice(value);setPriceAttempted(false);},
-    priceIssue:postingWizard&&!editingPublished?listingValidationIssue:null,priceAttempted,
+    priceIssue:postingWizard?listingValidationIssue:null,priceAttempted,
     // The Listing step checks every listing rule except rent (rent is checked on Price); published editing keeps the full check.
-    listingStepIssue:postingWizard&&!editingPublished?listingDetailsIssue(draft):listingValidationIssue,
+    listingStepIssue:postingWizard?listingDetailsIssue(draft):listingValidationIssue,
     saveAndExitDisabled:operationBusy()||initialHydrationPending()||listingDraftState.uncertain||listingDraftState.conflict,
     postingEstimate:postingEstimateResult&&'propertyId' in postingEstimateResult.target&&postingEstimateResult.target.propertyId===workspace.propertyId?postingEstimateResult:null,
     setPostingEstimate:(r:PredictionReceipt|null)=>setPostingEstimateHeld(r?{result:r,basis:estimateBasisKey}:null),
@@ -765,6 +764,33 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     // Inline fix on the Price page: the existing versioned property save, then the caller requests the estimate. No new service.
     savePostingFloorArea:async(value:string):Promise<boolean>=>{if(!postingWizard||screen!=='postingEstimate'||operationBusy())return false;const id=workspaceRef.current.propertyId;if(!id)return false;if(propertyRoutine.getSnapshot().status==='idle')await propertyRoutine.open(id);const r=propertyRoutine.getSnapshot();if(r.status!=='ready'||r.uncertain||r.conflict)return false;propertyRoutine.update('floorAreaSqm',value);return propertyRoutine.save();},
     returnTo,
+    /**
+     * The step header: any step can be reached. Leaving Step 1 forward goes through its own Continue, so property changes are saved first and the
+     * wizard lands on the step that was tapped. Leaving Step 2 or 3 forward runs that step's checks. Going back never discards anything.
+     */
+    goToPostingStep:(target:1|2|3|4):void=>{
+      if(!postingWizard||operationBusy()||initialHydrationPending())return;
+      const from=screen==='listingComposer'?1:screen==='listingDetails'?2:screen==='postingEstimate'?3:screen==='postingReview'?4:0;
+      if(!from||from===target)return;
+      const names={1:'listingComposer',2:'listingDetails',3:'postingEstimate',4:'postingReview'} as const;
+      if(target<from){setReturnTo(null);navigate(names[target]);return;}
+      // A refused property save leaves the owner on Step 1 with the edits, and the pending destination is dropped (a success has already used it).
+      // The ref is set now as well as the state: Continue reads it before the next render.
+      if(from===1){
+        // Reaching Review in edit mode must not save the listing (only Save changes does), so that one case navigates after the property save instead of using "save and return".
+        const viaReview=target===4&&editingPublished,dest=viaReview||target===2?null:names[target];
+        returnToRef.current=dest;setReturnTo(dest);
+        void api.nextListingDetails().then(()=>{returnToRef.current=null;setReturnTo(null);const r=propertyRoutine.getSnapshot();if(viaReview&&workspaceRef.current.propertyId&&!propertyRoutine.dirty()&&!r.error&&!r.conflict&&!r.uncertain)navigate('postingReview');});
+        return;
+      }
+      setReturnTo(null);
+      if(from===2&&target===3){api.continuePostingEstimate();return;}
+      if(from===3){void api.continuePostingReview();return;}
+      const issue=listingFieldIssue(draft);if(issue){setPriceAttempted(true);setComposerNotice(issue.message);return;}
+      setPostingOriginalPrice(draft.askingRent);setComposerNotice(null);setPriceAttempted(false);
+      if(editingPublished){navigate('postingReview');return;}
+      void saveDraftThen('postingReview');
+    },
     editPostingStep:(step:'property'|'listing'|'price')=>{if(!postingWizard||operationBusy()||initialHydrationPending()||screen!=='postingReview'&&screen!=='postingEstimate')return;setReturnTo(screen);navigate(step==='property'?'listingComposer':step==='listing'?'listingDetails':'postingEstimate');},
     saveAndExit:async()=>{if(!postingWizard||screen!=='postingReview')return;if(editingPublished){await saveComposerDraft();return;}if(!await saveComposerDraft(true)||!active.current)return;goDashboard();},
     postingChecklist:postingChecklist(),
@@ -786,7 +812,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     openIdentityVerification:()=>{if(!operationBusy()&&['draft','submitted','rejected'].includes(propertyIdentity.getSnapshot().context?.correction?.status??''))void propertyVerification.openCorrection();},
     propertyRoutine,propertyRoutineState,
     propertyEditAvailable:!!workspace.propertyId&&workspace.item?.property.is_active!==false&&(!initialHydrationPending()||draftHydration.status==='ready'),
-    openPropertyDetails:()=>{const id=workspaceRef.current.propertyId;if(operationBusy()||initialHydrationPending()||!id||propertyRoutine.getSnapshot().status!=='idle')return;if(postingWizard){navigate('listingComposer');return;}navigate('propertyEdit');void propertyRoutine.open(id);},
+    openPropertyDetails:()=>{const id=workspaceRef.current.propertyId;if(operationBusy()||initialHydrationPending()||!id)return;if(postingWizard){if(propertyRoutine.getSnapshot().status!=='idle')return;navigate('listingComposer');return;}const row=lifecycle.getSnapshot().row??publication.getSnapshot().lastConfirmed;requestNavigation(()=>{if(row&&['active','paused'].includes(row.status)){const physical=editedProperty;openPortfolioItem(id,true,true);setEditedProperty(physical);}else openPortfolioItem(id);},true);},
     reloadPropertyDetails:()=>{const id=propertyRoutine.getSnapshot().propertyId;if(id)requestPropertyNavigation(()=>void propertyRoutine.open(id));},
     propertyValidationIssues:propertyIssues,propertyVisibleValidationIssues:propertyVisibleIssues,
     propertyMeasurementWarnings:propertyMeasurementWarnings({floor_area_sqm:propertyState.draft.floorAreaSqm.trim()?Number(propertyState.draft.floorAreaSqm):null,bedrooms:propertyState.draft.bedrooms.trim()?Number(propertyState.draft.bedrooms):null,bathrooms:propertyState.draft.bathrooms.trim()?Number(propertyState.draft.bathrooms):null}),
@@ -829,10 +855,12 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     workspacePropertyActive: workspace.item?.property.is_active !== false,
     portfolio, portfolioState, portfolioItems: portfolio.filtered(), portfolioFilterCounts: portfolio.filterCounts(), setPortfolioFilter: portfolio.setFilter,
     editManagedListing:()=>{const id=workspaceRef.current.propertyId,row=lifecycle.getSnapshot().row??publication.getSnapshot().lastConfirmed;if(!id||!row||!['active','paused'].includes(row.status)||operationBusy())return;requestNavigation(()=>{const physical=editedProperty;openPortfolioItem(id,true,true);setEditedProperty(physical);});},
-    openPortfolioProperty:(id:string)=>{if(operationBusy())return;requestNavigation(()=>{openPortfolioItem(id);if(workspaceRef.current.propertyId!==id)return;setHistory(['dashboard']);setScreen('propertyEdit');void propertyRoutine.open(id);},true);},
+    // Card actions. Every editable state opens the same wizard; only where it starts differs.
+    continuePortfolioPosting:(id:string)=>{if(operationBusy())return;requestNavigation(()=>openPortfolioItem(id,false,false,'resume'),true);},
+    editPortfolioPropertyDetails:(id:string)=>{if(operationBusy())return;const plan=editPropertyDetailsPlan(portfolioState.items.find(i=>i.propertyId===id));if(!plan)return;requestNavigation(()=>plan==='published'?openPortfolioItem(id,true):plan==='fresh'?openPortfolioItem(id,false,false,'property'):openPortfolioItem(id),true);},
     editPortfolioListing:(id:string)=>requestNavigation(()=>openPortfolioItem(id,true),true),
     // An archived listing cannot be reactivated: start a new listing for the same property (the backend allows it; only a removed listing blocks it).
-    createListingForProperty:(id:string)=>{if(operationBusy())return;requestNavigation(()=>openPortfolioItem(id,false,false,true),true);},
+    createListingForProperty:(id:string)=>{if(operationBusy())return;requestNavigation(()=>openPortfolioItem(id,false,false,'details'),true);},
     openPortfolioItem: (id: string) => requestNavigation(() => openPortfolioItem(id), true),
     propertyLocation,
     locationState,
@@ -993,6 +1021,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     setListingStatus,
     setNotice,
   };
+  return api;
 }
 
 export type PropertyListingViewModel = ReturnType<typeof usePropertyListingViewModel>;

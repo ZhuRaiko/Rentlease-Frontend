@@ -38,7 +38,7 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     {vm.composerPhase && !vm.listingDraftState.busy ? <FeedbackNotice message="Saving your progress. Keep this screen open until saving finishes." /> : null}
     {!vm.composerPhase && !vm.listingDraftState.error && issueNow ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{issueNow.message}</Text> : null}
   </>} />;
-  return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} progress={vm.postingWizard?<PostingProgress step={2}/>:undefined} title={vm.postingWizard?"Rental Listing":vm.listingDraftState.lastConfirmed?"Edit Listing":"Listing Details"} onBack={vm.goBack} onClose={onClose} footer={footer}>
+  return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} progress={vm.postingWizard?<PostingProgress step={2} onSelect={vm.goToPostingStep}/>:undefined} title={vm.postingWizard?"Rental Listing":vm.listingDraftState.lastConfirmed?"Edit Listing":"Listing Details"} onBack={vm.goBack} onClose={onClose} footer={footer}>
     {vm.publishedEditing?<Text accessibilityLiveRegion="polite" style={styles.copy}>Editing {vm.listingDraftState.lastConfirmed?.status==='paused'?'Paused':'Published'} listing. Saving changes preserves this status.</Text>:null}
     <Text style={styles.copy}>{vm.publishedEditing?'* Required to save changes':'* Required to save a listing draft'}</Text>
     {!vm.postingWizard?<><View style={styles.summary}>
@@ -46,7 +46,6 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
       <Text style={styles.body}>{property.type}</Text>
       <Text style={styles.copy}>{property.bedrooms} bedrooms / {property.bathrooms} bathrooms</Text>
       <Text style={styles.copy}>{property.location || 'Location not entered'}</Text>
-      {vm.propertyEditAvailable?<ListingButton label="Edit Property" tone="outline" disabled={!editable} onPress={vm.openPropertyDetails}/>:null}
       {!vm.workspacePropertyId?<ListingButton label="Edit property" tone="outline" onPress={vm.editComposerProperty}/>:null}
     </View>
     {vm.workspacePropertyId?<View style={styles.section}>
@@ -60,7 +59,7 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     {!vm.postingWizard&&!vm.publishedEditing?<PropertyVerificationAction viewModel={vm} />:null}
     <ComposerRecoveryFeedback viewModel={vm} />
     <View style={styles.section}><ListingField editable={editable} required error={issueNow?.field==='title'?issueNow.message:null} helper={<CompletenessHint value={vm.completeness} factor="title" hidden={vm.postingWizard} />} label="Listing title" placeholder="e.g. Bright 1-bedroom apartment in Imus" value={draft.title} onChangeText={v => vm.updateDraft('title', v)} />
-    {!vm.postingWizard||vm.publishedEditing?<ListingField editable={editable} required error={issueNow?.field==='askingRent'?issueNow.message:null} helper={<CompletenessHint value={vm.completeness} factor="rent" hidden={vm.postingWizard} />} label="Monthly asking rent" prefix="₱" keyboardType="numeric" placeholder="Enter monthly rent" value={draft.askingRent} onChangeText={v => vm.updateDraft('askingRent', v)} />:null}
+    {!vm.postingWizard?<ListingField editable={editable} required error={issueNow?.field==='askingRent'?issueNow.message:null} helper={<CompletenessHint value={vm.completeness} factor="rent" hidden={vm.postingWizard} />} label="Monthly asking rent" prefix="₱" keyboardType="numeric" placeholder="Enter monthly rent" value={draft.askingRent} onChangeText={v => vm.updateDraft('askingRent', v)} />:null}
     {!vm.postingWizard?priceGuidance:null}
     <ListingField editable={editable} required helper={<CompletenessHint value={vm.completeness} factor="description" hidden={vm.postingWizard} />} error={issueNow?.field==='description'?issueNow.message:null} label="Description" multiline placeholder="Describe the space and what tenants should know." value={draft.description} onChangeText={v => vm.updateDraft('description', v)} />
     </View>

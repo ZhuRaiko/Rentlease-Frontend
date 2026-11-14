@@ -1,3 +1,4 @@
+import { estimateNeedsFloorArea } from './PostingEstimate';
 import type { LandlordPortfolioItem } from './LandlordPortfolio';
 import { portfolioListingLabels, portfolioTierLabels } from './LandlordPortfolio';
 import { canReviewPortfolioPublication, propertyVerificationActionLabel } from './PropertyVerificationPresentation';
@@ -22,28 +23,42 @@ export function portfolioVerificationChip(item: LandlordPortfolioItem): Portfoli
   }
 }
 
-export type PortfolioActionKey = 'open' | 'editProperty' | 'editRental' | 'verification' | 'reviewPublication' | 'createListing';
+export type PortfolioActionKey = 'continuePosting' | 'continueEditing' | 'editListing' | 'createListing' | 'open' | 'editPropertyDetails' | 'manageStatus' | 'verification' | 'reviewPublication';
 export interface PortfolioAction { key: PortfolioActionKey; label: string }
 
 /**
- * One primary action, at most one secondary beside it, the rest for the overflow menu. Labels and eligibility rules are the
- * ones the card already used; only their grouping changed. Manage Requests is composed by the root, not here.
+ * One button per card, named for the state; everything else is in the overflow menu. Every state that can be edited opens the same four-step
+ * wizard (the button decides where it starts); there is no separate property-only editor.
+ *   no listing -> Continue posting (resumes at the first incomplete step)    draft -> Continue editing
+ *   active or paused -> Edit listing                                           archived -> Create a new listing
+ * Menu: Edit property details (the wizard at Step 1), Manage status (pause, reactivate, archive), verification, review publication.
+ * Manage Requests is composed by the root, not here.
  */
-export function portfolioCardActions(item: LandlordPortfolioItem): { primary: PortfolioAction; secondary: PortfolioAction | null; menu: PortfolioAction[] } {
+export function portfolioCardActions(item: LandlordPortfolioItem): { primary: PortfolioAction; secondary: null; menu: PortfolioAction[] } {
   const listing = item.currentListing, status = listing?.status, active = item.property.is_active;
   // An ended (archived) listing cannot be reactivated, so the owner starts a new one for the same property. Only an active property can take it.
   const relist = !!listing && status === 'archived' && active;
-  const primary: PortfolioAction = relist ? { key: 'createListing', label: 'Create a new listing' } : { key: 'open', label: !listing ? 'Create listing' : status === 'draft' ? 'Continue Editing' : status === 'active' || status === 'paused' ? 'Manage Status' : status === 'removed' ? 'View status' : 'View listing' };
+  const live = status === 'active' || status === 'paused';
+  const primary: PortfolioAction = relist ? { key: 'createListing', label: 'Create a new listing' }
+    : !listing ? { key: 'continuePosting', label: 'Continue posting' }
+    : status === 'draft' ? { key: 'continueEditing', label: 'Continue editing' }
+    : live && active ? { key: 'editListing', label: 'Edit listing' }
+    : { key: 'open', label: status === 'removed' ? 'View status' : live ? 'Manage status' : 'View listing' };
   const verificationLabel = item.tier3.requiresRepair ? null : propertyVerificationActionLabel(item.tier3.status);
   const verification: PortfolioAction | null = verificationLabel ? { key: 'verification', label: verificationLabel } : null;
-  const editProperty: PortfolioAction | null = active && (!listing || !['draft', 'active', 'paused'].includes(status!)) ? { key: 'editProperty', label: 'Edit Property' } : null;
-  const editRental: PortfolioAction | null = listing && active && ['active', 'paused'].includes(status!) ? { key: 'editRental', label: 'Edit Rental' } : null;
+  const editDetails: PortfolioAction | null = editPropertyDetailsPlan(item) ? { key: 'editPropertyDetails', label: 'Edit property details' } : null;
+  const manage: PortfolioAction | null = live && primary.key !== 'open' ? { key: 'manageStatus', label: 'Manage status' } : null;
   const review: PortfolioAction | null = canReviewPortfolioPublication(item) ? { key: 'reviewPublication', label: 'Review Publication' } : null;
-  const order = !listing || status === 'draft' ? [review, verification, editProperty, editRental]
-    : status === 'active' || status === 'paused' ? [editRental, verification, editProperty, review]
-    : [editProperty, verification, editRental, review];
-  const available = order.filter((action): action is PortfolioAction => action !== null);
-  return { primary, secondary: available[0] ?? null, menu: [...(relist ? [{ key: 'open', label: 'View listing' } as PortfolioAction] : []), ...available.slice(1)] };
+  const menu = [...(relist ? [{ key: 'open', label: 'View listing' } as PortfolioAction] : []), editDetails, manage, verification, review].filter((a): a is PortfolioAction => a !== null);
+  return { primary, secondary: null, menu };
+}
+
+/** How "Edit property details" opens the wizard at Step 1, or null when the property cannot be edited from its card (inactive, or the listing was removed). */
+export type EditDetailsPlan = 'compose' | 'published' | 'fresh';
+export function editPropertyDetailsPlan(item: LandlordPortfolioItem | null | undefined): EditDetailsPlan | null {
+  if (!item || !item.property.is_active) return null;
+  const status = item.currentListing?.status;
+  return !item.currentListing || status === 'draft' ? 'compose' : status === 'active' || status === 'paused' ? 'published' : status === 'archived' ? 'fresh' : null;
 }
 
 /** Request activity for one card, supplied by the root so this feature never imports messaging code. */
@@ -61,13 +76,10 @@ export function portfolioVerificationRow(item: LandlordPortfolioItem): Portfolio
   return { ...portfolioVerificationChip(item), actionLabel: item.tier3.requiresRepair ? null : propertyVerificationActionLabel(item.tier3.status) };
 }
 
-/** Which actions render as a button, which as the verification row, which in the overflow menu. */
-export const SECONDARY_BUTTON_MAX_LABEL = 18;
-export function portfolioCardLayout(item: LandlordPortfolioItem): { primary: PortfolioAction; secondary: PortfolioAction | null; menu: PortfolioAction[] } {
-  const { primary, secondary, menu } = portfolioCardActions(item);
-  const rest = [secondary, ...menu].filter((a): a is PortfolioAction => a !== null && a.key !== 'verification');
-  const short = rest[0] && rest[0].label.length <= SECONDARY_BUTTON_MAX_LABEL ? rest[0] : null;
-  return { primary, secondary: short, menu: short ? rest.slice(1) : rest };
+/** The card shows its one button; every other action (except the verification row) is in the overflow menu. */
+export function portfolioCardLayout(item: LandlordPortfolioItem): { primary: PortfolioAction; secondary: null; menu: PortfolioAction[] } {
+  const { primary, menu } = portfolioCardActions(item);
+  return { primary, secondary: null, menu: menu.filter(a => a.key !== 'verification') };
 }
 
 /** Today's date in Philippine time (UTC+8) as YYYY-MM-DD, the same rule the rest of the app uses. */
@@ -84,11 +96,20 @@ export const ARCHIVED_LISTING_NOTE = 'This listing has ended. Create a new one t
 /** The one-line explanation on an archived card, only where "Create a new listing" is actually offered. */
 export const portfolioArchivedNote = (item: LandlordPortfolioItem): string | null => portfolioCardActions(item).primary.key === 'createListing' ? ARCHIVED_LISTING_NOTE : null;
 
+/** The first wizard step that still needs the owner: the Property step while a size the range needs is missing, otherwise the Listing step. */
+export function firstIncompleteStep(item: LandlordPortfolioItem): 'property' | 'listing' {
+  const p = item.property;
+  const needsArea = estimateNeedsFloorArea({ propertyType: p.property_type, city: p.city, furnishingStatus: p.furnishing_status, propertySubtype: '' });
+  return needsArea && !(typeof p.floor_area_sqm === 'number' && p.floor_area_sqm > 0) ? 'property' : 'listing';
+}
+export type NewListingStart = 'details' | 'property' | 'resume';
 /**
- * Where "Create a new listing" opens: the SAME property, no listing id (so nothing tries to update the archived row), compose mode, at the
- * Listing step with the Property step behind it. Null unless the current listing is archived on an active property.
+ * Where a listing started from a card opens: the SAME property, no listing id (so nothing tries to update an archived row), compose mode.
+ * 'details' = the Listing step with the Property step behind it (Create a new listing), 'property' = Step 1, 'resume' = the first incomplete
+ * step (Continue posting). Null unless the property is active and has no listing or an archived one.
  */
-export function newListingTarget(item: LandlordPortfolioItem | null | undefined) {
-  if (!item || item.currentListing?.status !== 'archived' || !item.property.is_active) return null;
-  return { item: { ...item, currentListing: null }, listingId: null as string | null, mode: 'compose' as const, screen: 'listingDetails' as const, history: ['dashboard', 'listingComposer'] as string[] };
+export function newListingTarget(item: LandlordPortfolioItem | null | undefined, start: NewListingStart = 'details') {
+  if (!item || !item.property.is_active || (item.currentListing && item.currentListing.status !== 'archived')) return null;
+  const at = start === 'resume' ? (firstIncompleteStep(item) === 'property' ? 'property' : 'details') : start;
+  return { item: { ...item, currentListing: null }, listingId: null as string | null, mode: 'compose' as const, screen: at === 'property' ? 'listingComposer' as const : 'listingDetails' as const, history: (at === 'property' ? ['dashboard'] : ['dashboard', 'listingComposer']) as string[] };
 }
