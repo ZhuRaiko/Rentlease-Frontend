@@ -10,3 +10,18 @@ export function listingCheckLine(state: ListingCheckState, stalled: boolean): Li
   if (state === 'ok') return null;
   return state === 'failed' || stalled ? { kind: 'failed', text: CHECK_FAILED_MESSAGE, retry: true } : { kind: 'checking', text: CHECKING_MESSAGE, retry: false };
 }
+
+/** The slim "Property saved" line on the Listing step: shown for the plain saved status, not for a warning from a failed save. */
+export const savedLineText = (notice: string | null): string | null =>
+  notice === 'Property saved' ? 'Property saved ✓' : notice && /^Property saved\. Sharing /.test(notice) ? notice : null;
+
+/** While the check has not succeeded, only the actions that write wait. The button says so, and one hint line says typing is fine. */
+export const WAITING_SUFFIX = ' · waiting for check';
+export const TYPING_HINT = 'You can keep typing. Only saving waits.';
+export const RETRY_HINT = 'Retry the check above to continue. You can keep typing.';
+export function waitingView(reason: string | null, label: string): { label: string; hint: string | null } {
+  if (!reason) return { label, hint: null };
+  if (reason === CHECKING_MESSAGE) return { label: label + WAITING_SUFFIX, hint: TYPING_HINT };
+  if (reason === CHECK_FAILED_MESSAGE) return { label: label + WAITING_SUFFIX, hint: RETRY_HINT };
+  return { label, hint: `${reason} ${TYPING_HINT}` };   // an unresolved status or access problem keeps its own reason
+}

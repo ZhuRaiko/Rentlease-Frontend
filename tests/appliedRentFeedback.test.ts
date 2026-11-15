@@ -62,7 +62,7 @@ test('the scroll target brings the rent card into view, and does nothing when it
 
 // ---- Rendering: real components, named stubs for the rest
 const realFiles: Record<string, string> = {
-  Currency: 'src/shared/models/Currency.ts', RentalRange: 'src/shared/models/RentalRange.ts', PostingPrice: 'src/features/property-listing/models/PostingPrice.ts',
+  ListingCheck: 'src/features/property-listing/models/ListingCheck.ts', Currency: 'src/shared/models/Currency.ts', RentalRange: 'src/shared/models/RentalRange.ts', PostingPrice: 'src/features/property-listing/models/PostingPrice.ts',
   colors: 'src/shared/theme/colors.ts', spacing: 'src/shared/theme/spacing.ts', radius: 'src/shared/theme/radius.ts', AppliedChip: 'src/features/property-listing/components/AppliedChip.tsx',
 };
 const cache: Record<string, any> = {};

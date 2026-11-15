@@ -18,6 +18,8 @@ import { ListingButton } from '../components/ListingButton';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
 import { rentalTermOptions } from '../models/PersistedListingDraft';
 import { ListingCheckLine } from '../components/ListingCheckLine';
+import { ListingSavedLine } from '../components/ListingSavedLine';
+import { savedLineText, waitingView } from '../models/ListingCheck';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
 // Page 2: rental offering only; persistence is coordinated by the ViewModel.
@@ -33,16 +35,19 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
   const issueNow = vm.listingStepIssue;
   const editable = !vm.listingDraftReadOnly && !vm.composerPhase && !(vm.publishedEditing && vm.listingDraftState.busy);
   const waiting = vm.listingWriteBlockedReason;
+  const savedLine = vm.postingWizard ? savedLineText(vm.composerNotice) : null;
   const saveLabel = vm.publishedEditing&&vm.listingDraftState.busy?'Saving changes...':vm.composerPhase ? (vm.composerPhase === 'property' ? 'Saving property...' : vm.composerPhase === 'photos' ? 'Saving photos...' : 'Saving listing draft...') : vm.publishedEditing?'Save Changes':'Save Draft';
-  const footer = <PropertyProgressFooter compact={vm.postingWizard} viewModel={vm} action={vm.postingWizard?{label:vm.returnTo?'Save and return':'Continue to Price',disabled:!editable||!!waiting,onPress:vm.continuePostingEstimate}:{label:saveLabel,disabled:vm.composerSaveDisabled,onPress:()=>void vm.saveComposerDraft()}} guidance={<>
+  const wait = waitingView(waiting, vm.returnTo ? 'Save and return' : 'Continue to Price');
+  const footer = <PropertyProgressFooter compact={vm.postingWizard} viewModel={vm} action={vm.postingWizard?{label:wait.label,disabled:!editable||!!waiting,onPress:vm.continuePostingEstimate}:{label:saveLabel,disabled:vm.composerSaveDisabled,onPress:()=>void vm.saveComposerDraft()}} guidance={<>
     {vm.propertyValidationIssues?.length ? <PropertyReadinessNotice viewModel={vm}/> : null}
     <ListingWorkspaceFeedback viewModel={vm} scope="draft" />
     {vm.composerPhase && !vm.listingDraftState.busy ? <FeedbackNotice message="Saving your progress. Keep this screen open until saving finishes." /> : null}
-    {waiting ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{waiting} You can keep typing. Only saving waits.</Text> : null}
+    {wait.hint ? <Text accessibilityLiveRegion="polite" style={styles.hint}>{wait.hint}</Text> : null}
     {!vm.composerPhase && !vm.listingDraftState.error && issueNow ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{issueNow.message}</Text> : null}
   </>} />;
   return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} progress={vm.postingWizard?<PostingProgress step={2} onSelect={vm.goToPostingStep}/>:undefined} title={vm.postingWizard?"Rental Listing":vm.listingDraftState.lastConfirmed?"Edit Listing":"Listing Details"} onBack={vm.goBack} onClose={onClose} footer={footer}>
     <ListingCheckLine state={vm.listingCheck.state} onRetry={() => void vm.retryListingCheck()} />
+    {vm.listingCheck.state === 'ok' && savedLine ? <ListingSavedLine text={savedLine} /> : null}
     {vm.publishedEditing?<Text accessibilityLiveRegion="polite" style={styles.copy}>Editing {vm.listingDraftState.lastConfirmed?.status==='paused'?'Paused':'Published'} listing. Saving changes preserves this status.</Text>:null}
     <Text style={styles.copy}>{vm.publishedEditing?'* Required to save changes':'* Required to save a listing draft'}</Text>
     {!vm.postingWizard?<><View style={styles.summary}>
@@ -61,11 +66,11 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     {!vm.postingWizard?<Text accessibilityRole="header" style={styles.heading}>Listing Details</Text>:null}
     {vm.listingEditExplanation ? <FeedbackNotice message={vm.listingEditExplanation} /> : null}
     {!vm.postingWizard&&!vm.publishedEditing?<PropertyVerificationAction viewModel={vm} />:null}
-    <ComposerRecoveryFeedback viewModel={vm} />
+    <ComposerRecoveryFeedback viewModel={vm} slimSaved />
     <View style={styles.section}><ListingField editable={editable} required error={issueNow?.field==='title'?issueNow.message:null} helper={<CompletenessHint value={vm.completeness} factor="title" hidden={vm.postingWizard} />} label="Listing title" placeholder="e.g. Bright 1-bedroom apartment in Imus" value={draft.title} onChangeText={v => vm.updateDraft('title', v)} />
     {!vm.postingWizard?<ListingField editable={editable} required error={issueNow?.field==='askingRent'?issueNow.message:null} helper={<CompletenessHint value={vm.completeness} factor="rent" hidden={vm.postingWizard} />} label="Monthly asking rent" prefix="₱" keyboardType="numeric" placeholder="Enter monthly rent" value={draft.askingRent} onChangeText={v => vm.updateDraft('askingRent', v)} />:null}
     {!vm.postingWizard?priceGuidance:null}
-    <ListingField editable={editable} required helper={<CompletenessHint value={vm.completeness} factor="description" hidden={vm.postingWizard} />} error={issueNow?.field==='description'?issueNow.message:null} label="Description" multiline placeholder="Describe the space and what tenants should know." value={draft.description} onChangeText={v => vm.updateDraft('description', v)} />
+    <ListingField editable={editable} required helper={<CompletenessHint value={vm.completeness} factor="description" hidden={vm.postingWizard} />} error={issueNow?.field==='description'?issueNow.message:null} label="Description" multiline placeholder="Describe the place, the neighborhood and what is included." value={draft.description} onChangeText={v => vm.updateDraft('description', v)} />
     </View>
     <View style={[styles.section,vm.postingWizard&&styles.terms]}><Text accessibilityRole="header" style={styles.heading}>Rental terms</Text>
       <FeedbackNotice message={issueNow?.field==='rentalTerm'?issueNow.message:null} tone="error" />
@@ -86,4 +91,4 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     {!vm.postingWizard&&!vm.publishedEditing?<ListingButton label="Preview listing" tone="outline" disabled={vm.photoState.busy || !!vm.composerPhase} onPress={vm.openComposerPreview} />:null}
   </ListingWizardScaffold>;
 }
-const styles = StyleSheet.create({ terms:{borderTopWidth:1,borderTopColor:colors.outline,paddingTop:16}, heading: { ...ui.sectionTitle }, body: { ...ui.body }, copy: { ...ui.supporting }, section: { gap: spacing.sm }, summary: { gap: spacing.xs, paddingVertical: spacing.sm }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs } });
+const styles = StyleSheet.create({ terms:{borderTopWidth:1,borderTopColor:colors.outline,paddingTop:16}, heading: { ...ui.sectionTitle }, body: { ...ui.body }, copy: { ...ui.supporting }, hint: { ...ui.supporting, textAlign: 'center' }, section: { gap: spacing.sm }, summary: { gap: spacing.xs, paddingVertical: spacing.sm }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs } });

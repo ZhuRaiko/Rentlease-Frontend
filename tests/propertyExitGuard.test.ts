@@ -38,7 +38,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
       if (name === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
       if (name === 'react-native') return { Alert:{alert:(title:string,_body:string,buttons:any[])=>alerts.push({title,buttons})}, StyleSheet: { create: (styles: any) => styles }, View: 'View', Text: 'Text', Modal: 'Modal', StatusBar: 'StatusBar' };
       if (name.endsWith('/usePropertyListingViewModel')) return { usePropertyListingViewModel: (...args: any[]) => { current = realHook(...args); return current; } };
-      const presentation = ['PostingEstimateView','PostingPriceStep','PostingReviewView','UnfinishedPostDeletionAction','RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold', 'PostingSection', 'PostingChoices', 'PostingProgress', 'PropertyVerificationAction', 'PropertyProgressFooter', 'CompletenessHint', 'AvailabilityDateField', 'ComposerRecoveryFeedback', 'ListingControls', 'ListingCheckLine'];
+      const presentation = ['PostingEstimateView','PostingPriceStep','PostingReviewView','UnfinishedPostDeletionAction','RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold', 'PostingSection', 'PostingChoices', 'PostingProgress', 'PropertyVerificationAction', 'PropertyProgressFooter', 'CompletenessHint', 'AvailabilityDateField', 'ComposerRecoveryFeedback', 'ListingControls', 'ListingCheckLine','ListingSavedLine'];
       const component = presentation.find(value => name.endsWith('/' + value));
       if (component) return { [component]: component };
       if(name.endsWith('/unfinishedPostDependencies'))return {unfinishedPostService:overrides.deletion??{inspect:async(id:string)=>({propertyId:id,state:'live',eligible:false,reason:null}),pending:async()=>[],remove:async()=>{throw Error('Not configured');}}};
@@ -1278,7 +1278,7 @@ test('typing never waits on the check: a check that never finishes leaves every 
   assert.equal(h.vm().draft.title, 'Typed while checking', 'the text is kept');
   assert.equal(h.vm().listingCheck.state, 'checking');
   assert.equal(h.vm().listingWriteBlockedReason, 'Checking this listing…');
-  assert.equal(footerAction(h).label, 'Continue to Price'); assert.equal(footerAction(h).disabled, true, 'a write waits');
+  assert.equal(footerAction(h).label, 'Continue to Price · waiting for check'); assert.equal(footerAction(h).disabled, true, 'a write waits');
   h.vm().continuePostingEstimate(); h.flush(); assert.equal(h.vm().screen, 'listingDetails', 'and does nothing while it waits');
   h.vm().goBack(); h.flush(); assert.notEqual(h.vm().screen, 'listingDetails', 'Back always works'); h.unmount();
 });
@@ -1440,4 +1440,50 @@ test('the consent gate is written for a new property only', () => {
   const next = vm.match(/nextListingDetails: async \(\) => \{[\s\S]*?\n    \},/)![0];
   assert.ok(next.indexOf('if(postingWizard&&!locationDecided)return;') > next.indexOf('if(!workspaceRef.current.propertyId){'), 'inside the new-property branch');
   assert.ok(next.indexOf('if(postingWizard&&!locationDecided)return;') < next.indexOf('propertyCreation.submit(true)'), 'before anything is saved');
+});
+
+// ---- Stage 2: the Listing step layout (wireframe pages 2a to 2c)
+const topLines = (h: any) => {
+  const tree = h.detailsView();
+  return { check: findAll(tree, n => n.type === 'ListingCheckLine')[0], saved: findAll(tree, n => n.type === 'ListingSavedLine')[0], tree };
+};
+test('2a after the first save: one slim "Property saved ✓" line, not a card, and the button reads Continue to Price', async () => {
+  const { h } = await arriveAtListing();
+  assert.equal(h.vm().composerNotice, 'Property saved');
+  const { check, saved, tree } = topLines(h);
+  assert.ok(saved, 'the slim line is there'); assert.equal(saved.props.text, 'Property saved ✓');
+  assert.equal(check.props.state, 'ok', 'and the check line stays out of the way');
+  assert.equal(findAll(tree, n => n.type === 'FeedbackNotice' && n.props.message === 'Property saved').length, 0, 'not repeated as a card');
+  assert.equal(findAll(tree, n => n.type === 'ComposerRecoveryFeedback')[0].props.slimSaved, true);
+  assert.equal(footerAction(h).label, 'Continue to Price'); assert.equal(footerAction(h).disabled, false);
+  assert.equal(findAll(tree, n => n.props?.accessibilityLiveRegion === 'polite' && n.type === 'Text' && /keep typing/.test(String(n.props.children))).length, 0, 'no waiting hint when nothing waits'); h.unmount();
+});
+test('2c while the check runs: the quiet checking line replaces the saved line, the button says it waits, and one hint says typing is fine', async () => {
+  const { h } = await arriveAtListing({ publication: { restore: () => new Promise(() => {}) } });
+  const { check, saved, tree } = topLines(h);
+  assert.equal(check.props.state, 'checking'); assert.equal(saved, undefined, 'one line at a time');
+  assert.equal(footerAction(h).label, 'Continue to Price · waiting for check'); assert.equal(footerAction(h).disabled, true);
+  const hints = findAll(tree, n => n.type === 'Text' && /keep typing/.test(String(n.props.children)));
+  assert.deepEqual(hints.map(n => n.props.children), ['You can keep typing. Only saving waits.']); h.unmount();
+});
+test('2b after a failed check: the amber line with Retry, a waiting button, and a hint that points at Retry', async () => {
+  let fail = true;
+  const { h } = await arriveAtListing({ publication: { restore: async () => { if (fail) throw new Error('offline'); return null; } } });
+  const { check, saved, tree } = topLines(h);
+  assert.equal(check.props.state, 'failed'); assert.equal(saved, undefined);
+  assert.equal(footerAction(h).label, 'Continue to Price · waiting for check'); assert.equal(footerAction(h).disabled, true);
+  assert.deepEqual(findAll(tree, n => n.type === 'Text' && /Retry the check/.test(String(n.props.children))).map(n => n.props.children), ['Retry the check above to continue. You can keep typing.']);
+  assert.equal(titleField(h).props.editable, true, 'typing keeps working');
+  fail = false; check.props.onRetry(); await h.settle(); h.flush(); await h.settle(); h.flush();
+  assert.equal(topLines(h).check.props.state, 'ok'); assert.equal(footerAction(h).label, 'Continue to Price'); assert.equal(footerAction(h).disabled, false); h.unmount();
+});
+
+test('the description placeholder is the wireframe sentence, and the title has no invented counter (there is no enforced maximum)', async () => {
+  const { h } = await arriveAtListing();
+  assert.equal(findAll(h.detailsView(), n => n.props?.label === 'Description')[0].props.placeholder, 'Describe the place, the neighborhood and what is included.');
+  const title = titleField(h);
+  assert.equal(title.props.maxLength, undefined, 'the title field enforces no maximum, so none is shown');
+  const view = readFileSync('src/features/property-listing/views/ListingDetailsView.tsx', 'utf8');
+  assert.ok(!/ of 80|of \$\{|maxLength/.test(view), 'no counter and no limit in the view');
+  h.unmount();
 });

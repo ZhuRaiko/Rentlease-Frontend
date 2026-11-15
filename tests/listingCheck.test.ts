@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-import { CHECKING_MESSAGE, CHECK_FAILED_MESSAGE, CHECK_STALL_MS, listingCheckLine } from '../src/features/property-listing/models/ListingCheck';
+import { CHECKING_MESSAGE, CHECK_FAILED_MESSAGE, CHECK_STALL_MS, RETRY_HINT, TYPING_HINT, WAITING_SUFFIX, listingCheckLine, savedLineText, waitingView } from '../src/features/property-listing/models/ListingCheck';
 import { createListingPublicationWorkflow } from '../src/features/property-listing/viewModels/listingPublicationWorkflow';
 
 const property = '10000000-0000-4000-8000-000000000001';
@@ -128,7 +128,49 @@ test('typing is gated only by what is known; writes keep the check; navigation i
   const view = readFileSync('src/features/property-listing/views/ListingDetailsView.tsx', 'utf8');
   assert.match(view, /<ListingCheckLine state=\{vm\.listingCheck\.state\} onRetry=\{\(\) => void vm\.retryListingCheck\(\)\} \/>/);
   assert.match(view, /disabled:!editable\|\|!!waiting/);
-  assert.match(view, /You can keep typing\. Only saving waits\./);
+  assert.match(view, /waitingView\(waiting, vm\.returnTo \? 'Save and return' : 'Continue to Price'\)/);
   const price = readFileSync('src/features/property-listing/views/PostingEstimateView.tsx', 'utf8');
   assert.match(price, /disabled=\{saving\|\|blocked\|\|!!waiting\}/);
+});
+
+// ---- Stage 2: the saved line and the waiting button
+test('the saved line shows the plain saved status and nothing else', () => {
+  assert.equal(savedLineText('Property saved'), 'Property saved ✓');
+  assert.equal(savedLineText('Property saved. Sharing recorded.'), 'Property saved. Sharing recorded.');
+  assert.match(savedLineText('Property saved. Sharing could not be recorded. You can share it from the Property step.')!, /^Property saved\. Sharing could not/);
+  for (const warning of ['Property saved. Listing details are not saved yet.', 'Property saved. Check photo status before continuing.', 'Listing draft saved. Nothing has been published.', '', null])
+    assert.equal(savedLineText(warning), null, String(warning));
+});
+test('the waiting button: waits with a reason, the right hint for each reason, and nothing when nothing waits', () => {
+  assert.deepEqual(waitingView(null, 'Continue to Price'), { label: 'Continue to Price', hint: null });
+  assert.deepEqual(waitingView(CHECKING_MESSAGE, 'Continue to Price'), { label: 'Continue to Price · waiting for check', hint: 'You can keep typing. Only saving waits.' });
+  assert.deepEqual(waitingView(CHECK_FAILED_MESSAGE, 'Save and return'), { label: 'Save and return · waiting for check', hint: 'Retry the check above to continue. You can keep typing.' });
+  assert.deepEqual(waitingView('Check the unresolved listing status before making further changes.', 'Continue to Price'), { label: 'Continue to Price', hint: 'Check the unresolved listing status before making further changes. You can keep typing. Only saving waits.' }, 'another reason keeps its own words');
+  assert.equal(WAITING_SUFFIX, ' · waiting for check'); assert.equal(TYPING_HINT, 'You can keep typing. Only saving waits.'); assert.equal(RETRY_HINT, 'Retry the check above to continue. You can keep typing.');
+});
+test('the saved line component is one slim quiet line, never a card', () => {
+  const real = { setTimeout: globalThis.setTimeout };
+  const req = (key: string): any => {
+    if (key === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
+    if (key === 'react-native') return { StyleSheet: { create: (s: any) => s }, Text: 'Text', View: 'View' };
+    const n = key.split('/').at(-1)!;
+    if (n === 'colors') return { colors: { surface: '#F5F5F5', textSecondary: '#606A63' } };
+    return { [n]: {}, ui: {}, radius: { panel: 12 }, spacing: { sm: 12 } };
+  };
+  const m = { exports: {} as any };
+  new Function('require', 'module', 'exports', ts.transpileModule(readFileSync('src/features/property-listing/components/ListingSavedLine.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText)(req, m, m.exports);
+  const tree = m.exports.ListingSavedLine({ text: 'Property saved ✓' });
+  const style = Object.assign({}, ...[tree.props.style].flat());
+  assert.equal(style.backgroundColor, '#F5F5F5'); assert.equal(style.borderWidth, undefined, 'no border: not a card'); assert.ok(style.minHeight <= 40, 'slim');
+  assert.equal(tree.props.accessibilityLiveRegion, 'polite');
+  assert.equal(nodes(tree).filter(n => n.type === 'Text').map(n => n.props.children).join(''), 'Property saved ✓');
+  assert.equal(real.setTimeout, globalThis.setTimeout);
+});
+test('the Price step button waits the same way, and the recovery feedback hides only the plain saved notice', () => {
+  const price = readFileSync('src/features/property-listing/views/PostingEstimateView.tsx', 'utf8');
+  assert.match(price, /const wait=waitingView\(waiting,label\);/);
+  assert.match(price, /label=\{wait\.label\} disabled=\{saving\|\|blocked\|\|!!waiting\}/);
+  assert.match(price, /wait\.hint\?wait\.hint:blocked\?/);
+  const feedback = readFileSync('src/features/property-listing/components/ComposerRecoveryFeedback.tsx', 'utf8');
+  assert.match(feedback, /message=\{slimSaved && savedLineText\(vm\.composerNotice\) \? null : vm\.composerNotice\}/, 'a warning notice still shows as a card');
 });
