@@ -45,8 +45,9 @@ function serviceHarness() {
     auth: { getUser: async () => ({ data: { user: userId ? { id: userId } : null }, error: null }) },
     from(table: string) {
       reads.push(table);
-      const data = table === 'profiles' ? { account_status: active ? 'active' : 'restricted', tier1_verified_at: tierOne ? 'date' : null } : table === 'user_roles' ? [{ role: landlord ? 'landlord' : 'tenant' }] : { id: propertyId, landlord_id: userId, property_type: 'studio', city: 'imus', barangay: 'Example barangay', created_at: '2026-10-23T00:00:00Z' };
-      const query = { select: (_: string) => query, eq: (_: string, __: unknown) => query, order: (_: string, __: unknown) => query, limit: (_: number) => query, maybeSingle: async () => ({ data, error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data: table === 'properties' ? [data] : data, error: null })) };
+      const data = table === 'profiles' ? { account_status: active ? 'active' : 'restricted', tier1_verified_at: tierOne ? 'date' : null } : table === 'user_roles' ? [{ role: landlord ? 'landlord' : 'tenant' }] : { id: propertyId, landlord_id: userId, property_type: 'studio', city: 'imus', barangay: 'Example barangay', created_at: new Date().toISOString() };
+      let since: string | null = null;
+      const query = { select: (_: string) => query, eq: (_: string, __: unknown) => query, gte: (_: string, value: string) => { since = value; return query; }, order: (_: string, __: unknown) => query, limit: (_: number) => query, maybeSingle: async () => ({ data, error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data: table === 'properties' ? [data].filter((row: any) => !since || row.created_at >= since) : data, error: null })) };
       return query;
     },
     async rpc(name: string, args: unknown) { assert.equal(name, 'create_property_setup'); rpcCalls++; payload = args; if (wait) await wait; return { data: result, error: rpcError }; },
@@ -63,7 +64,7 @@ function workflowHarness() {
     assertIdentity: async (id: string) => { if (id !== userId) throw Object.assign(new Error('Changed'), { code: 'property_identity_changed' }); },
     restore: async () => null,
     create: async (_: string, __: unknown) => { calls++; if (wait) await wait; if (error) throw error; return { propertyId, status: 'created' as const }; },
-    recentOwned: async () => [], confirmOwned: async () => ({ propertyId, status: 'created' as const }), beginNew: async () => {},
+    recentOwned: async () => [], confirmOwned: async () => ({ propertyId, status: 'created' as const }), beginNew: async () => {}, discardMarker: async () => {}, markerIsYoung: () => false,
   } satisfies PropertyCreationService;
   const flow = createPropertyCreationWorkflow(service);
   const ready = async () => {
@@ -187,12 +188,14 @@ test('explicit uncertain-outcome reconciliation confirms ownership and never sen
   assert.equal(receipt.propertyId, propertyId); assert.equal(h.calls(), 1);
   assert.equal((await h.service.restore('owner'))?.propertyId, propertyId);
 });
-test('an in-flight service request cannot be duplicated by another workflow in the same app process', async () => {
+test('a duplicate request from another workflow in the same app process shares the running save: one call, one result, never an unknown outcome', async () => {
   const h = serviceHarness(); let release!: () => void;
   h.delay(new Promise<void>(resolve => { release = resolve; }));
   const pending = h.service.create('owner', validDraft());
-  await assert.rejects(h.service.create('owner', validDraft()), { code: 'property_creation_uncertain' });
-  release(); await pending; assert.equal(h.calls(), 1);
+  const duplicate = h.service.create('owner', validDraft());
+  release(); const [first, second] = await Promise.all([pending, duplicate]);
+  assert.deepEqual(second, first); assert.equal(h.calls(), 1);
+  assert.ok(!h.diagnostics.some((d: any) => d.outcome === 'uncertain'), 'the duplicate made nothing uncertain');
 });
 
 test('property creation persistence stays separate from dedicated location integration', () => {

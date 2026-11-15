@@ -13,6 +13,7 @@ import { typography } from '../../../shared/theme/typography';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
 import { ListingField, ChoiceChip } from '../components/ListingControls';
 import { ListingButton } from '../components/ListingButton';
+import { PropertyRecoveryCard } from '../components/PropertyRecoveryCard';
 import { hasConfirmedPropertyLocation, furnishingOptions, propertyCityOptions, propertyTypeOptions } from '../models/DraftProperty';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
@@ -27,7 +28,7 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
   if (state.step === 'address' && ['searching', 'candidates', 'map'].includes(location.stage)) return <PropertyLocationToolView viewModel={vm} onClose={onClose} />;
   const title = state.step === 'details' ? 'Your physical property' : state.step === 'address' ? 'Where is the property?' : state.step === 'created' ? 'Property confirmed' : 'Review property setup';
   return <ListingWizardScaffold formFocus={focus} title={title} onBack={vm.goBack} onClose={onClose} description="Property setup is separate from a rental listing. Tier 3 approval is not needed to add a property.">
-    <FeedbackNotice message={vm.propertyValidationIssues?.some(issue=>issue.message===state.error)?null:state.error} tone="error" />
+    <FeedbackNotice message={state.uncertain || vm.propertyValidationIssues?.some(issue=>issue.message===state.error)?null:state.error} tone="error" />
     {state.busy ? <Text accessibilityLiveRegion="polite" style={styles.copy}>Please wait. Checking your property setup...</Text> : null}
     {!state.loaded && !state.uncertain && !state.busy ? <ListingButton label="Retry setup check" onPress={() => void flow.initialize()} /> : null}
     {state.step === 'details' ? <View collapsable={false} ref={focus.section('property')}>
@@ -81,11 +82,7 @@ export function PropertySetupView({ viewModel: vm, onClose }: { viewModel: Prope
         {feedback('location')?<Text accessibilityLiveRegion="polite" style={styles.error}>{feedback('location')}</Text>:null}
         {vm.propertyValidationIssues?.length?<PropertyReadinessNotice viewModel={vm}/>:null}
         <ListingButton disabled={state.busy || !state.loaded} label="Confirm and save property" onPress={() => void vm.submitProperty()} />
-      </> : <>
-        <FeedbackNotice tone="warning" message="Do not submit again while the outcome is unknown. Check your most recent owned properties and select one only if you recognize this setup. If none matches, contact support/backend administration before retrying." />
-        <ListingButton disabled={state.busy} label="Check recent owned properties" onPress={() => void flow.checkRecent()} />
-        {state.recent.map(property => <ListingButton key={property.id} disabled={state.busy} label={`Use existing ${property.property_type} / ${property.barangay}, ${property.city} / ${formatVerificationDate(property.created_at)} / ${property.id}`} tone="outline" onPress={() => void flow.confirmExisting(property.id)} />)}
-      </>}
+      </> : <PropertyRecoveryCard state={state} onCheck={() => void flow.checkRecent()} onUse={id => void flow.confirmExisting(id)} onStartFresh={() => void flow.startFresh()} />}
     </> : null}
     {state.step === 'created' ? <>
       <FeedbackNotice tone="success" message="The physical property is confirmed in Supabase. No listing was created or published." />
