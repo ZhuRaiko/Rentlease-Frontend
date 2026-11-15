@@ -294,7 +294,7 @@ test('floor relationship errors are immediate and independent of other incomplet
 
 test('invalid floor pair is blocked before journal and RPC, retains values, and corrected retry creates only once',async()=>{
   const backend=serviceHarness(),flow=createPropertyCreationWorkflow(backend.service);await flow.initialize();
-  for(const key of ['propertyType','city','barangay','addressLine1','floorNumber','totalFloors','bedrooms','bathrooms'] as const)flow.updateField(key,({...validDraft(),floorNumber:'6',totalFloors:'5'})[key]);
+  for(const key of ['propertyType','city','barangay','addressLine1','floorNumber','totalFloors','bedrooms','bathrooms'] as const)flow.updateField(key,({...validDraft(),propertyType:'apartment' as const,floorNumber:'6',totalFloors:'5'})[key]);
   flow.provideConfirmedLocation(location,flow.getSnapshot().locationRevision);await flow.submit(true);
   assert.match(flow.getSnapshot().error??'',/cannot be higher/);assert.equal(flow.getSnapshot().draft.floorNumber,'6');assert.equal(flow.getSnapshot().draft.totalFloors,'5');assert.equal(flow.getSnapshot().draft.addressLine1,validDraft().addressLine1);assert.equal(backend.calls(),0);assert.equal(backend.values.size,0);
   await assert.rejects(backend.service.create('owner',{...validDraft(),floorNumber:'6',totalFloors:'5'}),/cannot be higher/);assert.equal(backend.calls(),0);
@@ -329,3 +329,22 @@ test('one validation metadata set exposes missing required sections separately f
 });
 
 test('eligible role-free or legacy tenant account can create without reading normal memberships',async()=>{const h=serviceHarness();h.access(true,true,false);assert.equal(await h.service.getEligibleUserId(),'owner');assert.equal(h.reads.includes('user_roles'),false);await h.service.create('owner',validDraft());assert.equal(h.calls(),1);});
+
+// ---- Part C: a type without a typical-rent range hides the details only the range reads; they are kept in the form but left out of the save.
+test('Part C: range-only details are saved for a type with a range and left out for one without; hidden values never block the save', async () => {
+  const run = async (propertyType: any, over: Record<string, string>) => {
+    const backend = serviceHarness(), flow = createPropertyCreationWorkflow(backend.service); await flow.initialize();
+    const draft: any = { ...validDraft(), propertyType, floorNumber: '2', totalFloors: '3', ...over };
+    for (const key of ['propertyType', 'city', 'barangay', 'addressLine1', 'floorNumber', 'totalFloors', 'bedrooms', 'bathrooms', 'floorAreaSqm', 'propertySubtype', 'lotAreaSqm', 'parkingSpaces'] as const) flow.updateField(key, draft[key]);
+    flow.provideConfirmedLocation(location, flow.getSnapshot().locationRevision); await flow.submit(true);
+    return { backend, flow };
+  };
+  const withRange = await run('apartment', {});
+  assert.equal(withRange.flow.getSnapshot().propertyId, propertyId); assert.equal((withRange.backend.payload() as any).p_floor_number, 2, 'an apartment keeps its unit floor');
+  const noRange = await run('boarding_house', { propertySubtype: 'studio', lotAreaSqm: '77', parkingSpaces: '3' });
+  assert.equal(noRange.flow.getSnapshot().propertyId, propertyId, 'a lot area that would not fit the type does not block a type that never shows it');
+  const sent = noRange.backend.payload() as any;
+  assert.equal(sent.p_floor_number, undefined, 'no unit floor is saved'); assert.equal(sent.p_total_floors, 3, 'floors in building is a shared detail and stays');
+  assert.ok(!/studio|77/.test(JSON.stringify(sent)), 'no subtype or lot area is saved');
+  assert.equal(noRange.flow.getSnapshot().draft.floorNumber, '2', 'the form still holds the hidden value until the save');
+});

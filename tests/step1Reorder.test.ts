@@ -323,24 +323,27 @@ test('changing the property type drops a subtype that does not fit the new one, 
   const run = (from: string, subtype: string, to: string) => {
     const changes: any[][] = [];
     const vm: any = { propertyState: { draft: { propertyType: from, propertySubtype: subtype, furnishingStatus: 'unfurnished', city: 'imus', barangay: 'B', addressLine1: 'A', bedrooms: '', bathrooms: '' }, loaded: true }, propertySummary: {}, propertyCreation: { updateField: (...a: any[]) => changes.push(a) }, propertyValidationIssues: [], propertyFloorIssues: {}, completeness: {}, estimateDetails: { filled: 0, total: 8 }, shareLocationWanted: false, setShareLocationWanted() {}, openPropertyLocation() {} };
-    const tree = expand(load('src/features/property-listing/components/ComposerPropertyFields.tsx', { ...LC, RangeCard: { rangeCardView: () => ({}) }, DraftProperty: { propertyTypeOptions: [{ value: 'apartment', label: 'Apartment' }, { value: 'house', label: 'House' }, { value: 'condominium', label: 'Condominium' }, { value: 'boarding_house', label: 'Boarding house' }], propertyCityOptions: [], furnishingOptions: [], hasConfirmedPropertyLocation: () => false } }).ComposerPropertyFields({ viewModel: vm, renderGroup: (group: string, children: any) => ({ type: 'Group', props: { group, children } }), afterLocation: null, children: null }));
-    nodes(tree).find(n => n.type === 'PostingChoices' && n.props.label === 'Property type').props.onChange(to);
+    const tree = expand(load('src/features/property-listing/components/ComposerPropertyFields.tsx', { ...LC, RentalEstimateEligibility: { RANGE_PROPERTY_TYPES: ['apartment', 'house', 'condominium'] }, PostingEstimate: { rangeInfoLine: () => null }, RangeCard: { rangeCardView: () => ({}) }, DraftProperty: { propertyTypeOptions: [{ value: 'apartment', label: 'Apartment' }, { value: 'house', label: 'House' }, { value: 'condominium', label: 'Condominium' }, { value: 'boarding_house', label: 'Boarding house' }], propertyCityOptions: [], furnishingOptions: [], hasConfirmedPropertyLocation: () => false } }).ComposerPropertyFields({ viewModel: vm, renderGroup: (group: string, children: any) => ({ type: 'Group', props: { group, children } }), children: null }));
+    nodes(tree).find(n => n.type === 'PropertyTypeGroups').props.onChange(to);
     return changes;
   };
   assert.deepEqual(run('condominium', 'condotel', 'apartment'), [['propertyType', 'apartment'], ['propertySubtype', '']]);
   assert.deepEqual(run('apartment', 'studio', 'condominium'), [['propertyType', 'condominium']]);
   assert.deepEqual(run('house', 'villa', 'apartment'), [['propertyType', 'apartment'], ['propertySubtype', '']]);
   assert.deepEqual(run('apartment', '', 'house'), [['propertyType', 'house']]);
+  // A type without a range hides the range-only values; it never throws them away, so switching back loses nothing.
+  assert.deepEqual(run('apartment', 'studio', 'boarding_house'), [['propertyType', 'boarding_house']]);
+  assert.deepEqual(run('house', 'villa', 'boarding_house'), [['propertyType', 'boarding_house']]);
 });
 // ---- Order and the collapsed More details
 test('More details is collapsed ("Optional · doesn\'t change your range", Add / Hide) and opens only when a field inside it needs attention; every other card is always open', () => {
   const src = readFileSync('src/features/property-listing/views/ListingComposerView.tsx', 'utf8');
   assert.match(src, /more:\{title:'More details',summary:MORE_DETAILS_SUMMARY\}/, 'no open flag: collapsed by default');
-  assert.match(src, /if\(key==='photos'\|\|key==='more'\)return <PostingSection key=\{key\}[^>]*initiallyOpen=\{item\.open\?\?false\} revealId=\{targetGroup===key\?target\?\.requestId:hasError\?-1:undefined\} toggleWords=\{key==='more'\?\['Add','Hide'\]:undefined\}>/);
+  assert.match(src, /if\(key==='more'\)return <PostingSection key=\{key\}[^>]*initiallyOpen=\{item\.open\?\?false\} revealId=\{targetGroup===key\?target\?\.requestId:hasError\?-1:undefined\} toggleWords=\{key==='more'\?\['Add','Hide'\]:undefined\}>/);
   assert.match(src, /about:\{title:'Property type'/);
   assert.match(src, /location:\{title:'Where is it\?'/);
   assert.match(src, /details:\{title:'Details that set your range'/);
-  assert.match(src, /tag=\{key==='location'\?LOCATION_TAG:undefined\} message=\{nonField\?'Needs attention':null\}/, 'a card never repeats a field error in red; the location card carries its tag');
+  assert.match(src, /tag=\{key==='location'\?LOCATION_TAG:undefined\} message=\{null\}/, 'a card never repeats a field error in red; the location card carries its tag');
   assert.match(src, /if\(key==='details'\)return <View key=\{key\}>\{body\}<\/View>;/, 'the range card is its own frame, not wrapped in a second card');
   assert.ok(!/message=\{fieldError\?\.message/.test(src) && !/summary=\{fieldError\?\.message/.test(src), 'no group-level copy of a field message');
   assert.match(src, /usePropertyFormFocus\(target,vm\.postingWizard&&!String\(target\?\.section\)\.startsWith\('detail:'\)&&\(targetGroup==='details'\|\|targetGroup==='more'\)\?targetGroup:undefined\)/);
@@ -350,9 +353,10 @@ test('More details is collapsed ("Optional · doesn\'t change your range", Add /
 });
 test('the saved-property editor uses the same order and keeps amenities on the existing routine update', () => {
   const src = readFileSync('src/features/property-listing/components/SavedPropertyFields.tsx', 'utf8');
-  const order = ['group(\'about\'', 'group(\'location\'', 'group(\'details\'', '{photos}', 'group(\'more\''].map(s => src.indexOf(s));
-  assert.ok(order.every(i => i > 0) && order.every((v, i) => i === 0 || v > order[i - 1]!), 'type, where, the range card, photos, more details');
+  const order = ['group(\'about\'', 'group(\'location\'', 'group(\'details\'', 'group(\'more\''].map(s => src.indexOf(s));
+  assert.ok(order.every(i => i > 0) && order.every((v, i) => i === 0 || v > order[i - 1]!), 'type, where, the details card, more details');
   assert.ok(!src.includes('group(\'amenities\''), 'amenities live inside the range card');
+  assert.ok(!/photos|PropertyMediaSection/.test(src), 'photos are on the Listing step now, not in the Step 1 saved-property editor');
   assert.match(src, /<LocationShareCard viewModel=\{vm\} accountId=\{accountId\} editable=\{!disabled\}\/>/);
   assert.match(src, /onToggle=\{id=>flow\.update\('amenityIds',/);
   assert.match(src, /label="Entrance instructions \(private\)"/);

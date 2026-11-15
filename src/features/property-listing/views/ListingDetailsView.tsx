@@ -17,6 +17,7 @@ import { ChoiceChip, ListingField } from '../components/ListingControls';
 import { ListingButton } from '../components/ListingButton';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
 import { rentalTermOptions } from '../models/PersistedListingDraft';
+import { ListingPhotosCard } from '../components/ListingPhotosCard';
 import { ListingCheckLine } from '../components/ListingCheckLine';
 import { ListingSavedLine } from '../components/ListingSavedLine';
 import { savedLineText, waitingView } from '../models/ListingCheck';
@@ -64,10 +65,11 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     </View>:null}
     </>:null}
     {!vm.postingWizard?<Text accessibilityRole="header" style={styles.heading}>Listing Details</Text>:null}
+    {vm.postingWizard?<ListingPhotosCard viewModel={vm}/>:null}
     {vm.listingEditExplanation ? <FeedbackNotice message={vm.listingEditExplanation} /> : null}
     {!vm.postingWizard&&!vm.publishedEditing?<PropertyVerificationAction viewModel={vm} />:null}
     <ComposerRecoveryFeedback viewModel={vm} slimSaved />
-    <View style={styles.section}><ListingField editable={editable} required error={issueNow?.field==='title'?issueNow.message:null} helper={<CompletenessHint value={vm.completeness} factor="title" hidden={vm.postingWizard} />} label="Listing title" placeholder="e.g. Bright 1-bedroom apartment in Imus" value={draft.title} onChangeText={v => vm.updateDraft('title', v)} />
+    <View style={styles.section}>{vm.postingWizard?<Text accessibilityRole="header" style={styles.heading}>Listing details</Text>:null}<ListingField editable={editable} required error={issueNow?.field==='title'?issueNow.message:null} helper={<CompletenessHint value={vm.completeness} factor="title" hidden={vm.postingWizard} />} label="Listing title" placeholder="e.g. Bright 1-bedroom apartment in Imus" value={draft.title} onChangeText={v => vm.updateDraft('title', v)} />
     {!vm.postingWizard?<ListingField editable={editable} required error={issueNow?.field==='askingRent'?issueNow.message:null} helper={<CompletenessHint value={vm.completeness} factor="rent" hidden={vm.postingWizard} />} label="Monthly asking rent" prefix="₱" keyboardType="numeric" placeholder="Enter monthly rent" value={draft.askingRent} onChangeText={v => vm.updateDraft('askingRent', v)} />:null}
     {!vm.postingWizard?priceGuidance:null}
     <ListingField editable={editable} required helper={<CompletenessHint value={vm.completeness} factor="description" hidden={vm.postingWizard} />} error={issueNow?.field==='description'?issueNow.message:null} label="Description" multiline placeholder="Describe the place, the neighborhood and what is included." value={draft.description} onChangeText={v => vm.updateDraft('description', v)} />

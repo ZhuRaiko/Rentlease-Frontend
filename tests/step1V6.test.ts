@@ -234,7 +234,9 @@ test('the range card: title, subtitle, "N of 8", eight pips, the missing chips, 
   assert.deepEqual(groups, ['Size', 'The unit', 'Comfort'], 'only three short labels');
   assert.ok(nodes(tree).some(n => n.type === 'SizeFields') && nodes(tree).some(n => n.type === 'UnitFields') && nodes(tree).some(n => n.type === 'ComfortFields'));
   const card = nodes(tree)[0]; const s = flatStyle(card.props.style);
-  assert.equal(s.backgroundColor, 'primaryPale' in {} ? '' : s.backgroundColor); assert.ok(s.borderColor && s.borderColor === flatStyle(nodes(tree).find((n: any) => flatStyle(n.props?.style).width === 6)?.props.style).backgroundColor, 'a green border and a left rail of the same green');
+  // A normal pale-green card with a regular green border: same radius and padding as the other cards, and no dominant left rail.
+  assert.equal(s.backgroundColor, '#EDF8EE'); assert.equal(s.borderColor, '#32743C'); assert.equal(s.borderWidth, 1); assert.equal(s.borderRadius, 12); assert.equal(s.padding, 16);
+  assert.ok(!nodes(tree).some((n: any) => flatStyle(n.props?.style).width === 6), 'no rail'); assert.ok(!Object.keys(s).some(k => /^border(Left|Start)/.test(k)), 'no thicker left edge'); assert.ok(!/rail/.test(readFileSync('src/features/property-listing/components/RangeDetailsCard.tsx', 'utf8')), 'no rail style in the component');
 });
 test('a missing-detail chip is a 48dp button that scrolls to and focuses its field; only missing details appear', () => {
   const calls: string[][] = [], view = rangeCardView(inputs({ floorAreaSqm: '40', bedrooms: '1', bathrooms: '1', floorNumber: '5', propertySubtype: 'studio' }));
@@ -306,11 +308,11 @@ function composer(over: any = {}, children: any = { type: 'AmenitiesStub', props
   const vm: any = { propertyState: { draft: { ...fullDraft(), propertyType: 'apartment', furnishingStatus: 'unfurnished', city: 'imus', barangay: 'B', addressLine1: 'A', bedrooms: '1', bathrooms: '1', floorAreaSqm: '' }, loaded: true }, propertySummary: {}, propertyCreation: { updateField() {} }, propertyValidationIssues: [], propertyFloorIssues: {}, completeness: {},
     floorAreaRequired: true, estimateInputs: inputs({ bedrooms: '1', bathrooms: '1' }), locationDecided: false, focusRangeDetail() {}, markPropertyFieldTouched() {}, ...over };
   const mod = load('src/features/property-listing/components/ComposerPropertyFields.tsx', RANGE_PARTS);
-  const tree = expand(mod.ComposerPropertyFields({ viewModel: vm, renderGroup: (group: string, body: any) => ({ type: 'Group', props: { group, children: body } }), afterLocation: { type: 'Group', props: { group: 'photos', children: null } }, children }));
+  const tree = expand(mod.ComposerPropertyFields({ viewModel: vm, renderGroup: (group: string, body: any) => ({ type: 'Group', props: { group, children: body } }), children }));
   return { tree, groups: nodes(tree).filter(n => n.type === 'Group') };
 }
-test('page order for a new property: Property type, Where is it?, the range card, Photos, More details', () => {
-  const { groups } = composer(); assert.deepEqual(groups.map(g => g.props.group), ['about', 'location', 'details', 'photos', 'more']);
+test('page order for a new property: Property type, Where is it?, the range card, More details (photos are on the Listing step)', () => {
+  const { groups } = composer(); assert.deepEqual(groups.map(g => g.props.group), ['about', 'location', 'details', 'more']);
 });
 test('the range card holds all eight details: floor area, bedrooms, bathrooms, unit floor, parking, subtype, furnishing, amenities', () => {
   const { groups } = composer(), details = groups.find(g => g.props.group === 'details')!;
@@ -367,13 +369,13 @@ function saved(over: any = {}, contextOver: Partial<PropertyEditContext> = {}) {
   const vm: any = { propertyRoutineState: { status: 'ready', context, draft, busy: false, uncertain: false, conflict: false, notice: null, error: null, attempted: false }, propertyRoutine: { update: (...a: any[]) => update.push(a.map(String)), reload() {}, reconcile() {} }, propertySummary: { type: 'Apartment', location: 'Imus' }, floorAreaRequired: true, estimateInputs: inputs({ floorAreaSqm: '40', bedrooms: '1', bathrooms: '1', floorNumber: '5' }), focusRangeDetail() {}, reloadPropertyDetails() {}, openIdentityCorrection() {}, ...over };
   const focus = { field: () => () => {}, section: () => () => {} };
   const mod = load('src/features/property-listing/components/SavedPropertyFields.tsx', ['RangeDetailsCard', 'FieldLabel']);
-  const tree = expand(mod.SavedPropertyFields({ viewModel: vm, focus, accountId: 'a', photos: { type: 'PhotosMarker', props: {} }, group: (key: string, body: any) => { groups.push(key); return { type: 'Group', props: { group: key, children: body } }; } }));
+  const tree = expand(mod.SavedPropertyFields({ viewModel: vm, focus, accountId: 'a', group: (key: string, body: any) => { groups.push(key); return { type: 'Group', props: { group: key, children: body } }; } }));
   const top = (tree.props.children as any[]).flat(Infinity).filter((n: any) => n && typeof n === 'object').map((n: any) => n.type === 'Group' ? n.props.group : n.type);
   return { tree, groups, top, update, vm };
 }
 test('saved-property editor parity: the same cards in the same order, with the range card and no card of its own for amenities', () => {
   const { top, tree } = saved(); const ordered = top.filter((k: string) => ['about', 'location', 'details', 'PhotosMarker', 'more'].includes(k));
-  assert.deepEqual(ordered, ['about', 'location', 'details', 'PhotosMarker', 'more']); assert.ok(!top.includes('amenities'));
+  assert.deepEqual(ordered, ['about', 'location', 'details', 'more']); assert.ok(!top.includes('amenities'));
   const details = nodes(tree).find(n => n.type === 'Group' && n.props.group === 'details')!;
   assert.ok(nodes(details).some(n => n.type === 'Text' && deepText(n) === 'Details that set your range')); assert.ok(nodes(details).some(n => n.type === 'Text' && deepText(n) === '4 of 8' || /^\d of 8$/.test(deepText(n))));
   const labels = nodes(details).filter(n => n.type === 'ListingField').map(n => n.props.label); assert.deepEqual(labels.slice(0, 3), ['Floor area (sqm)', 'Bedrooms', 'Bathrooms']);
@@ -463,4 +465,82 @@ test('no "Confirm and share approximate area" label remains anywhere in the app'
   const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(join(dir, e.name)) : /\.(ts|tsx)$/.test(e.name) ? [join(dir, e.name)] : []);
   const hits = walk('src').filter(f => /Confirm and share approximate area|CONFIRM_SHARE_LABEL/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(hits, []);
+});
+
+// ---- Part C: the details card follows the property type, and photos are the first card on the Listing step
+const noRangeComposer = (rangeSupport: string, type: string, over: any = {}) => composer({ rangeSupport, propertyState: { draft: { ...fullDraft(), propertyType: type, furnishingStatus: 'unfurnished', city: 'imus', barangay: 'B', addressLine1: 'A', bedrooms: '1', bathrooms: '1', floorAreaSqm: '' }, loaded: true }, estimateInputs: inputs({ propertyType: type }), floorAreaRequired: false, ...over });
+test('a type without a range gets a plain Details card: the info line, then floor area (optional), bedrooms, bathrooms, furnishing, amenities', () => {
+  const { groups } = noRangeComposer('type', 'boarding_house'), details = groups.find(g => g.props.group === 'details')!;
+  assert.ok(!nodes(details).some(n => n.type === 'Text' && deepText(n) === 'Details that set your range'), 'no range card');
+  const card = nodes(details).find(n => n.type === 'PostingCard'); assert.equal(card.props.title, 'Details');
+  assert.ok(nodes(details).some(n => n.type === 'Text' && deepText(n) === 'A typical-rent range is available for apartments, houses and condominiums. For a boarding house you set your own price.'));
+  assert.deepEqual(nodes(details).filter(n => n.type === 'ListingField').map(n => n.props.label), ['Floor area (sqm, optional)', 'Bedrooms', 'Bathrooms']);
+  assert.ok(nodes(details).some(n => n.type === 'PostingChoices' && n.props.label === 'Furnishing')); assert.ok(nodes(details).some(n => n.type === 'AmenitiesStub'));
+  assert.ok(!nodes(details).some(n => n.type === 'ListingField' && /Unit floor|Parking|Lot area/.test(n.props.label)), 'range-only fields are hidden');
+  assert.ok(!nodes(details).some(n => n.type === 'ChoiceChip'), 'no subtype chips');
+  assert.ok(!nodes(details).some(n => n.type === 'ListingField' && n.props.required && /Floor area/.test(n.props.label)), 'floor area is not required without a range');
+});
+test('the range card shows only for a type with a range; no type yet shows no details card; a city without a range shows the plain card with the city line', () => {
+  const kinds = (g: any) => nodes(g).some(n => n.type === 'Text' && deepText(n) === 'Details that set your range') ? 'range' : nodes(g).some(n => n.type === 'PostingCard') ? 'plain' : 'none';
+  const pick = (support: string, type: string) => kinds(noRangeComposer(support, type).groups.find(g => g.props.group === 'details')!);
+  assert.equal(pick('range', 'apartment'), 'range'); assert.equal(pick('range', 'house'), 'range'); assert.equal(pick('range', 'condominium'), 'range');
+  assert.equal(pick('type', 'dormitory'), 'plain'); assert.equal(pick('none', ''), 'none');
+  const city = noRangeComposer('city', 'apartment', { propertyState: { draft: { ...fullDraft(), propertyType: 'apartment', city: 'bacoor', furnishingStatus: 'unfurnished', barangay: 'B', addressLine1: 'A', bedrooms: '1', bathrooms: '1', floorAreaSqm: '' }, loaded: true } });
+  const details = city.groups.find(g => g.props.group === 'details')!; assert.equal(kinds(details), 'plain');
+  assert.ok(nodes(details).some(n => n.type === 'Text' && /is not covered by typical-rent ranges yet\. You set your own price\.$/.test(deepText(n))));
+});
+test('the saved-property editor follows the same rule: plain Details card for a type without a range', () => {
+  const { tree } = saved({ rangeSupport: 'type', estimateInputs: inputs({ propertyType: 'room' }), floorAreaRequired: false }, { property_type: 'room', floor_number: null });
+  const details = nodes(tree).find(n => n.type === 'Group' && n.props.group === 'details')!;
+  assert.equal(nodes(details).find(n => n.type === 'PostingCard').props.title, 'Details');
+  assert.deepEqual(nodes(details).filter(n => n.type === 'ListingField').map(n => n.props.label), ['Floor area (sqm, optional)', 'Bedrooms', 'Bathrooms']);
+  assert.ok(nodes(details).some(n => n.type === 'PostingChoices' && n.props.label === 'Furnishing')); assert.ok(nodes(details).some(n => n.type === 'AmenityChoices'));
+  assert.ok(!nodes(details).some(n => n.type === 'Text' && /^Unit floor/.test(deepText(n))), 'no unit floor');
+  assert.ok(!nodes(details).some(n => n.type === 'RangeDetailsCard'));
+});
+const photoVm = (over: any = {}, items: any[] = []) => {
+  const log: string[] = [];
+  const vm: any = { workspacePropertyId: 'p', composerPhase: null, navigate: (s: string) => log.push(`go:${s}`), mediaItems: items, photoState: { busy: false, loaded: true, needsReconcile: false, pendingSelections: [], error: null, notice: null, removeId: null, batch: { status: 'idle', completed: 0, total: 0 } },
+    propertyPhotos: { addPhotos: () => log.push('add'), openMedia: (i: number) => log.push(`open:${i}`), resumeQueue: () => log.push('resume'), checkStatus: () => log.push('check'), confirmRemove() {}, cancelRemove() {} }, ...over };
+  const tree = expand(load('src/features/property-listing/components/ListingPhotosCard.tsx').ListingPhotosCard({ viewModel: vm }));
+  const texts = nodes(tree).filter(n => n.type === 'Text').map(n => deepText(n));
+  return { tree, log, texts, buttons: nodes(tree).filter(n => n.type === 'ListingButton') };
+};
+const item = (key: string, status: string, over: any = {}) => ({ key, uri: `file:///${key}.jpg`, label: key, status, cover: false, photoId: status === 'Saved' ? key : undefined, ...over });
+const photoState = (over: any) => ({ photoState: { busy: false, loaded: true, needsReconcile: false, pendingSelections: [], error: null, notice: null, removeId: null, batch: { status: 'idle', completed: 0, total: 0 }, ...over } });
+test('photos card, empty: one large dashed Add photos target with the cover sentence, and 0 of 10', () => {
+  const { tree, texts, log } = photoVm();
+  assert.ok(texts.includes('Photos and 360°') && texts.includes('0 of 10') && texts.includes('Add photos') && texts.includes('The first photo is your cover. You can add up to 10.'));
+  const target = nodes(tree).find(n => n.type === 'Pressable' && /Add photos/.test(n.props.accessibilityLabel ?? ''))!, s = flatStyle(target.props.style);
+  assert.equal(s.borderStyle, 'dashed'); assert.equal(s.borderRadius, 24); assert.ok(s.minHeight >= 160); target.props.onPress(); assert.deepEqual(log, ['add']);
+  assert.ok(!nodes(tree).some(n => n.type === 'Image'), 'no picture yet');
+});
+test('photos card, filled: a 24dp cover with the Cover badge and its count, 18dp thumbnails, Manage photos, Add more and a disabled 360° tour', () => {
+  const { tree, texts, buttons, log } = photoVm({}, [item('a', 'Saved', { cover: true }), item('b', 'Saved'), item('c', 'Saved')]);
+  assert.ok(texts.includes('3 of 10') && texts.includes('Cover') && texts.includes('1 of 3'));
+  const hero = nodes(tree).find(n => n.type === 'Pressable' && /Cover photo/.test(n.props.accessibilityLabel ?? ''))!; assert.equal(flatStyle(hero.props.style).borderRadius, 24);
+  const thumbs = nodes(tree).filter(n => n.type === 'Pressable' && /View photo \d/.test(n.props.accessibilityLabel ?? '')); assert.equal(thumbs.length, 3);
+  assert.ok(thumbs.every(t => flatStyle(t.props.style).borderRadius === 18 && flatStyle(t.props.style).width >= 48));
+  assert.deepEqual(buttons.map(b => b.props.label), ['Manage photos', 'Add more', 'Add a 360° tour']);
+  assert.equal(buttons[2]!.props.disabled, true, 'the 360° tour stays as built today');
+  buttons[0]!.props.onPress(); buttons[1]!.props.onPress(); thumbs[1]!.props.onPress(); assert.deepEqual(log, ['go:photoManager', 'add', 'open:1']);
+});
+test('photos card: an uploading thumbnail has a light veil, a failed one an amber veil with Retry that resumes the queue', () => {
+  const items = [item('a', 'Saved', { cover: true }), item('b', 'Uploading', { pendingIndex: 0 }), item('c', 'Selected', { pendingIndex: 1 })];
+  const up = photoVm(photoState({ busy: true, pendingSelections: [1, 2], batch: { status: 'running', completed: 0, total: 2 } }), items);
+  assert.equal(up.texts.filter(t => t === 'Uploading…').length, 2, 'the running photo and the one queued behind it'); assert.ok(up.texts.includes('Uploading 1 of 2…'));
+  assert.ok(!up.texts.some(t => /Retry|Couldn’t/.test(t)), 'a normal wait shows no failure wording');
+  const queued = [item('a', 'Saved', { cover: true }), item('b', 'Selected', { pendingIndex: 0 }), item('c', 'Selected', { pendingIndex: 1 })]; // nothing is running: the queue stopped
+  const stopped = photoVm(photoState({ pendingSelections: [1, 2], batch: { status: 'idle', completed: 1, total: 2 } }), queued);
+  assert.equal(stopped.texts.filter(t => t === 'Couldn’t upload').length, 2); assert.ok(stopped.texts.includes('Retry') && stopped.texts.includes('Some photos didn’t upload.'));
+  const retry = nodes(stopped.tree).find(n => n.type === 'Pressable' && /Retry upload of photo 2/.test(n.props.accessibilityLabel ?? ''))!; retry.props.onPress();
+  stopped.buttons.find(b => b.props.label === 'Retry failed')!.props.onPress(); assert.deepEqual(stopped.log, ['resume', 'resume']);
+  assert.ok(nodes(stopped.tree).some(n => flatStyle(n.props?.style).backgroundColor === 'rgba(255,247,232,0.94)'), 'the failed veil is amber');
+});
+test('photos card: the existing photo recovery stays: Check saved photos after an unknown outcome, Retry loading photos when the list did not load', () => {
+  const unknown = photoVm(photoState({ needsReconcile: true }), [item('a', 'Saved', { cover: true })]);
+  unknown.buttons.find(b => b.props.label === 'Check saved photos')!.props.onPress(); assert.deepEqual(unknown.log, ['check']);
+  assert.ok(unknown.buttons.find(b => b.props.label === 'Add more')!.props.disabled, 'no new pick while the outcome is unknown');
+  const notLoaded = photoVm(photoState({ loaded: false }), []); assert.ok(notLoaded.buttons.some(b => b.props.label === 'Retry loading photos'));
+  assert.equal(nodes(notLoaded.tree).find(n => n.type === 'Pressable' && /Add photos/.test(n.props.accessibilityLabel ?? ''))!.props.disabled, true);
 });

@@ -118,7 +118,7 @@ test('the component schedules the stall timer only while checking, for exactly t
 // ---- Wiring
 test('typing is gated only by what is known; writes keep the check; navigation is not held by a check', () => {
   const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
-  assert.equal((vm.match(/if \(initialHydrationPending\(\) \|\| operationBusy\(\) \|\| listingFieldsLocked\(\)\) return;/g) ?? []).length, 3, 'updateDraft, toggleAmenity and toggleRule');
+  assert.equal((vm.match(/if \(initialHydrationPending\(\) \|\| operationBusy\(true\) \|\| listingFieldsLocked\(\)\) return;/g) ?? []).length, 3, 'updateDraft, toggleAmenity and toggleRule');
   assert.match(vm, /\(publication\.getSnapshot\(\)\.busy && !publication\.getSnapshot\(\)\.checking\)/);
   assert.match(vm, /if \(operationBusy\(\) \|\| savedConfirmation\.current \|\| publicationReadOnly\(\)\) return;/, 'a write still waits for the check');
   assert.match(vm, /continuePostingEstimate:\(\)=>\{[^}]*publicationReadOnly\(\)/, 'Continue waits for the check');

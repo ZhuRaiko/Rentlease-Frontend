@@ -8,7 +8,8 @@ const issue = (field: string, kind: 'required' | 'invalid' = 'required', message
 // ---- The one footer line
 test('the footer line names every missing required field once, in page order', () => {
   assert.equal(missingLine([issue('addressLine1'), issue('barangay'), issue('city'), issue('location')], true, true), 'Add floor area, city, barangay and street');
-  assert.equal(missingLine([issue('propertyType'), issue('bedrooms'), issue('bathrooms')], false, true), 'Add property type, bedrooms and bathrooms');
+  assert.equal(missingLine([issue('propertyType'), issue('bedrooms'), issue('bathrooms')], false, true), 'Choose a property type', 'with no type chosen the footer asks for the type before anything else');
+  assert.equal(missingLine([issue('bedrooms'), issue('bathrooms')], false, true), 'Add bedrooms and bathrooms');
   assert.equal(missingLine([issue('barangay')], false, true), 'Add barangay');
   assert.equal(missingLine([], true, false), 'Add floor area', 'a missing floor area the estimator needs counts even without an issue');
 });

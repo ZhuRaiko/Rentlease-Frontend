@@ -38,7 +38,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
       if (name === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
       if (name === 'react-native') return { Alert:{alert:(title:string,_body:string,buttons:any[])=>alerts.push({title,buttons})}, StyleSheet: { create: (styles: any) => styles }, View: 'View', Text: 'Text', Modal: 'Modal', StatusBar: 'StatusBar' };
       if (name.endsWith('/usePropertyListingViewModel')) return { usePropertyListingViewModel: (...args: any[]) => { current = realHook(...args); return current; } };
-      const presentation = ['PostingEstimateView','PostingPriceStep','PostingReviewView','UnfinishedPostDeletionAction','RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold', 'PostingSection', 'PostingChoices', 'PostingProgress', 'PropertyVerificationAction', 'PropertyProgressFooter', 'CompletenessHint', 'AvailabilityDateField', 'ComposerRecoveryFeedback', 'ListingControls', 'ListingCheckLine','ListingSavedLine'];
+      const presentation = ['PostingEstimateView','PostingPriceStep','PostingReviewView','UnfinishedPostDeletionAction','RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingPhotosCard', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold', 'PostingSection', 'PostingChoices', 'PostingProgress', 'PropertyVerificationAction', 'PropertyProgressFooter', 'CompletenessHint', 'AvailabilityDateField', 'ComposerRecoveryFeedback', 'ListingControls', 'ListingCheckLine','ListingSavedLine'];
       const component = presentation.find(value => name.endsWith('/' + value));
       if (component) return { [component]: component };
       if(name.endsWith('/unfinishedPostDependencies'))return {unfinishedPostService:overrides.deletion??{inspect:async(id:string)=>({propertyId:id,state:'live',eligible:false,reason:null}),pending:async()=>[],remove:async()=>{throw Error('Not configured');}}};
@@ -423,7 +423,7 @@ test('Post detaches an in-flight lifecycle operation without replaying it into t
 });
 
 
-function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any; routineGate?: Promise<void>; publication?: any; searchAddress?: (query: string, signal: AbortSignal) => Promise<any[]>; draftRead?: (...a: any[]) => Promise<any>; draftPending?: () => Promise<boolean> } = {}) {
+function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any; routineGate?: Promise<void>; publication?: any; searchAddress?: (query: string, signal: AbortSignal) => Promise<any[]>; draftRead?: (...a: any[]) => Promise<any>; draftPending?: () => Promise<boolean>; photoGate?: Promise<void> } = {}) {
   const backend = backendDraftService(), events: string[] = [], rows: any[] = [];
   const files = Array.from({ length: 3 }, (_, i) => ({ uri: `file:///cache/composer-${i}.jpg`, fileName: `${i}.jpg`, mimeType: 'image/jpeg', size: 100 }));
   let uncertainPhoto = false, pickerCalls = 0;
@@ -434,7 +434,7 @@ function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'p
     routine: { load: async (id: string) => { if (opts.routineGate) await opts.routineGate; if (opts.routineFails) throw Error('Routine read failed'); const d = h.vm().propertyState.draft, n = (v: string) => v.trim() === '' ? null : Number(v); return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: d.propertyType, city: d.city, barangay: d.barangay, floor_number: n(d.floorNumber), bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: opts.areaMissing ? null : n(d.floorAreaSqm), max_occupants: n(d.maxOccupants), total_floors: n(d.totalFloors), furnishing_status: d.furnishingStatus, access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false, property_subtype: d.propertySubtype || null, lot_area_sqm: n(d.lotAreaSqm ?? ''), parking_spaces: n(d.parkingSpaces ?? ''), model_attributes_version: 2 }; }, hasPending: async () => false, save: async (c: any, d: any) => ({ ...c, bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: d.floorAreaSqm.trim() ? Number(d.floorAreaSqm) : null, edit_version: '60000000-0000-4000-8000-000000000003' }), reconcile: async () => null },
     creation: { create: async () => { events.push('property'); if (failure === 'property' || failure === 'uncertain-property') throw Object.assign(Error('rejected or unknown'), { code: failure === 'property' ? 'property_creation_rejected' : 'property_creation_uncertain' }); return { propertyId: backend.propertyId, status: 'created' }; } },
     photos: { context: async (propertyId: string) => { assert.equal(propertyId, backend.propertyId); return { ownerId: 'test-owner', propertyId }; }, assertContext: async () => {}, list: async () => [...rows], hasPending: async () => uncertainPhoto,
-      upload: async (context: any, file: any) => { assert.equal(context.propertyId, backend.propertyId); events.push(`photo:${file.fileName}`); if (failure === 'photo' && file.fileName === '1.jpg') { uncertainPhoto = true; throw Error('Unknown photo result'); } rows.push({ id: file.fileName, property_id: backend.propertyId, publicUrl: 'https://example.test/photo', storage_path: '', sort_order: rows.length, is_cover: !rows.length, alt_text: null, created_at: '2026-10-29' }); },
+      upload: async (context: any, file: any) => { if (opts.photoGate) await opts.photoGate; assert.equal(context.propertyId, backend.propertyId); events.push(`photo:${file.fileName}`); if (failure === 'photo' && file.fileName === '1.jpg') { uncertainPhoto = true; throw Error('Unknown photo result'); } rows.push({ id: file.fileName, property_id: backend.propertyId, publicUrl: 'https://example.test/photo', storage_path: '', sort_order: rows.length, is_cover: !rows.length, alt_text: null, created_at: '2026-10-29' }); },
     },
   });
   assert.equal(h.vm().screen, 'listingComposer'); h.flush();
@@ -1250,7 +1250,7 @@ const footerAction = (h: any) => findAll(h.detailsView(), n => !!n.props?.action
 const titleField = (h: any) => findAll(h.detailsView(), n => n.props?.label === 'Listing title')[0];
 const arriveAtListing = async (opts: any = {}) => {
   let release!: () => void; const gate = new Promise<void>(r => { release = r; });
-  const fixture = unifiedHarness('none', { routineGate: gate, ...opts }); const { h, fields, confirmMap } = fixture; await h.settle(); fields(); await confirmMap();
+  const fixture = unifiedHarness(opts.failure ?? 'none', { routineGate: gate, ...opts }); const { h, fields, confirmMap } = fixture; await h.settle(); fields(); await confirmMap();
   let done = false; const p = h.vm().nextListingDetails().then(() => { done = true; });
   // On a device React renders and runs effects while the first save is still waiting on the property read.
   for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
@@ -1357,7 +1357,7 @@ test('Step 1 is quiet on arrival: no error is visible, and one plain footer line
   const { h } = unifiedHarness(); await h.settle();
   assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'no red anywhere');
   assert.equal(h.vm().propertyValidationIssue, null);
-  assert.match(h.vm().propertyNextStatus, /^Add /, 'one line that names what is missing');
+  assert.equal(h.vm().propertyNextStatus, 'Choose a property type', 'one line that names what is missing: the type comes first');
   assert.equal(h.vm().propertyNextDisabled, true);
   for (let i = 0; i < 5; i++) { h.flush(); await new Promise<void>(r => setImmediate(r)); }
   assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'and it stays quiet while nobody touches anything'); h.unmount();
@@ -1584,7 +1584,7 @@ test('v6: an "Add:" chip only moves the screen: it never marks the form as attem
 });
 test('v6: the footer names what is missing first, then the location, then the range count', async () => {
   const { h, fields } = unifiedHarness('none', { searchAddress: async () => [geocoded(['address'])] }); await h.settle();
-  assert.match(h.vm().propertyNextStatus, /^Add /);
+  assert.equal(h.vm().propertyNextStatus, 'Choose a property type');
   fields(); await afterLookup(h);
   assert.equal(h.vm().propertyNextStatus, 'Confirm the location to continue', 'a preview alone is not the confirmation');
   h.vm().confirmLocation(false); h.flush();
@@ -1684,4 +1684,59 @@ test('part B: the draft is not loaded while the first save is still running (the
   release(); while (!done) { await new Promise<void>(r => setImmediate(r)); h.flush(); } await p; await h.settle(); h.flush(); await h.settle(); h.flush();
   assert.equal(during, 1, 'only the one load the first save itself starts; the effect added none while saving');
   assert.equal(h.vm().listingDraftState.loaded, true); h.unmount();
+});
+
+// ---- Part C: the type split and photos on Step 2
+test('Part C: a type without a range says so in the footer and asks for no floor area; switching back brings the range count back', async () => {
+  const { h, fields, confirmMap } = unifiedHarness(); await h.settle(); fields(); await confirmMap();
+  const flow = () => h.vm().propertyCreation;
+  assert.equal(h.vm().rangeSupport, 'range'); flow().updateField('floorAreaSqm', ''); h.flush();
+  assert.equal(h.vm().floorAreaMissing, true, 'an apartment needs its floor area for the range'); assert.equal(h.vm().propertyNextStatus, 'Add floor area');
+  flow().updateField('propertyType', 'boarding_house'); h.flush();
+  assert.equal(h.vm().rangeSupport, 'type'); assert.equal(h.vm().floorAreaMissing, false, 'floor area is required only when a range is available');
+  assert.equal(h.vm().propertyNextStatus, 'No range for this type · saves your property'); assert.doesNotMatch(h.vm().propertyNextStatus, /of 8/);
+  assert.equal(h.vm().propertyNextDisabled, false, 'Continue is open without a floor area');
+  flow().updateField('propertyType', 'apartment'); h.flush();
+  assert.equal(h.vm().rangeSupport, 'range'); assert.equal(h.vm().floorAreaMissing, true);
+  flow().updateField('floorAreaSqm', '42'); h.flush(); assert.match(h.vm().propertyNextStatus, /^\d of 8 range details · saves your property$/);
+  h.unmount();
+});
+test('Part C: a hidden range-only value never blocks Continue and survives switching the type away and back', async () => {
+  const { h, fields, confirmMap } = unifiedHarness(); await h.settle(); fields(); await confirmMap();
+  const flow = () => h.vm().propertyCreation;
+  flow().updateField('floorNumber', '9'); flow().updateField('totalFloors', '4'); h.flush(); // the unit floor is higher than the building: invalid for an apartment
+  assert.equal(h.vm().propertyNextDisabled, true, 'an apartment shows Unit floor, so the mismatch is real');
+  flow().updateField('propertyType', 'room'); h.flush();
+  assert.equal(h.vm().propertyNextDisabled, false, 'the unit floor is hidden for a room, so it cannot block');
+  assert.equal(flow().getSnapshot().draft.floorNumber, '9', 'the value is kept in the form');
+  flow().updateField('propertyType', 'apartment'); h.flush();
+  assert.equal(flow().getSnapshot().draft.floorNumber, '9', 'and is back when the type is'); assert.equal(h.vm().propertyNextDisabled, true);
+  h.unmount();
+});
+test('Part C: Step 1 saves the property only: no photo is loaded or uploaded by Continue, and Step 2 loads the photos on arrival', async () => {
+  const { h, events } = await arriveAtListing();
+  assert.equal(h.vm().screen, 'listingDetails'); assert.deepEqual(events, ['property'], 'only the property was written by Step 1');
+  assert.equal(h.vm().photoState.loaded, true, 'Step 2 loaded the photos on arrival'); assert.equal(h.vm().mediaItems.length, 0);
+  h.unmount();
+});
+test('Part C: photos picked on Step 2 upload at once; Continue to Price waits with a reason, typing never waits, and it opens when they are saved', async () => {
+  let release!: () => void; const photoGate = new Promise<void>(r => { release = r; });
+  const { h, events } = await arriveAtListing({ photoGate });
+  const adding = h.vm().propertyPhotos.addPhotos(); for (let i = 0; i < 4; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  assert.equal(h.vm().photoState.busy, true, 'uploads started without another tap');
+  assert.equal(h.vm().listingWriteBlockedReason, 'Uploading your photos…');
+  assert.equal(titleField(h).props.editable, true, 'typing stays open while photos upload');
+  h.vm().updateDraft('title', 'Typed during the upload'); h.flush(); assert.equal(h.vm().draft.title, 'Typed during the upload');
+  h.vm().continuePostingEstimate(); h.flush(); assert.equal(h.vm().screen, 'listingDetails', 'only the step change waits');
+  release(); await adding; await h.settle(); h.flush();
+  assert.equal(h.vm().listingWriteBlockedReason, null); assert.equal(h.vm().photoState.pendingSelections.length, 0); assert.equal(h.vm().mediaItems.length, 3);
+  assert.equal(events.filter(e => e.startsWith('photo:')).length, 3);
+  h.vm().continuePostingEstimate(); h.flush(); assert.equal(h.vm().screen, 'postingEstimate'); h.unmount();
+});
+test('Part C: a photo outcome nobody knows holds Continue with its own reason until the photos are checked', async () => {
+  const { h } = await arriveAtListing({ failure: 'photo' });
+  await h.vm().propertyPhotos.addPhotos(); await h.settle(); h.flush();
+  assert.equal(h.vm().photoState.needsReconcile, true, 'the second upload outcome is unknown');
+  assert.equal(h.vm().listingWriteBlockedReason, 'Some photos need a retry');
+  assert.equal(titleField(h).props.editable, true); h.unmount();
 });

@@ -13,8 +13,6 @@ import {RANGE_SUBTITLE,RANGE_TITLE,allFilledText,type RangeCardView} from '../mo
  */
 export function RangeDetailsCard({view,onFocus,size,unit,comfort}:{view:RangeCardView;onFocus:(field:PropertyValidationField,label:string)=>void;size:ReactNode;unit:ReactNode;comfort:ReactNode}){
   return <View style={styles.card}>
-    <View accessible={false} style={styles.rail}/>
-    <View style={styles.body}>
       <View style={styles.head}>
         <View style={styles.copy}><Text accessibilityRole="header" style={ui.sectionTitle}>{RANGE_TITLE}</Text><Text style={styles.subtitle}>{RANGE_SUBTITLE}</Text></View>
         <Text accessibilityLabel={`${view.filled} of ${view.total} range details filled`} style={styles.pill}>{view.filled} of {view.total}</Text>
@@ -31,12 +29,11 @@ export function RangeDetailsCard({view,onFocus,size,unit,comfort}:{view:RangeCar
       <Text accessibilityRole="header" style={styles.group}>Size</Text>{size}
       <Text accessibilityRole="header" style={styles.group}>{view.unitGroupLabel}</Text>{unit}
       <Text accessibilityRole="header" style={styles.group}>Comfort</Text>{comfort}
-    </View>
   </View>;
 }
 const styles=StyleSheet.create({
-  card:{flexDirection:'row',backgroundColor:colors.primaryPale,borderWidth:1,borderColor:colors.primaryAction,borderRadius:radius.panel,overflow:'hidden'},
-  rail:{width:6,backgroundColor:colors.primaryAction},body:{flex:1,minWidth:0,padding:spacing.md,gap:spacing.sm},
+  // A pale-green card with a regular green border: the same radius and padding as the other cards.
+  card:{backgroundColor:colors.primaryPale,borderWidth:1,borderColor:colors.primaryAction,borderRadius:radius.panel,padding:spacing.md,gap:spacing.sm},
   head:{flexDirection:'row',alignItems:'flex-start',gap:spacing.sm},copy:{flex:1,minWidth:0,gap:2},subtitle:{...ui.supporting,color:colors.textSecondary},
   pill:{...ui.supporting,color:colors.primaryAction,backgroundColor:colors.background,borderRadius:radius.pill,paddingVertical:4,paddingHorizontal:spacing.sm,fontWeight:'700',overflow:'hidden'},
   pips:{flexDirection:'row',gap:4},pip:{flex:1,height:6,borderRadius:3,backgroundColor:colors.border},pipOn:{backgroundColor:colors.primaryAction},

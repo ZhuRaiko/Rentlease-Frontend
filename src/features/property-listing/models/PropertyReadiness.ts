@@ -15,6 +15,7 @@ const joinWords = (words: string[]) => (words.length > 1 ? `${words.slice(0, -1)
 export function missingLine(issues: PropertyValidationIssue[], floorAreaMissing: boolean, locationUndecided: boolean): string | null {
   const names = new Set<string>(issues.filter(i => i.kind === 'required').map(i => i.field));
   if (floorAreaMissing) names.add('floorAreaSqm');
+  if (names.has('propertyType')) return 'Choose a property type';
   const words = MISSING_ORDER.filter(f => names.has(f)).map(f => MISSING_WORDS[f]!);
   if (words.length) return `Add ${joinWords(words)}`;
   if (locationUndecided) return 'Confirm the location to continue';

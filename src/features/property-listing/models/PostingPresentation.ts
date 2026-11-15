@@ -1,6 +1,6 @@
 import type {PropertyValidationIssue} from './DraftProperty';
 
-export type PostingGroup = 'about' | 'location' | 'photos' | 'details' | 'more';
+export type PostingGroup = 'about' | 'location' | 'details' | 'more';
 export function postingValidationGroup(issue:Pick<PropertyValidationIssue,'field'>|null|undefined):PostingGroup|null {
   if(!issue)return null;
   // Property type = type; the range card = the eight details the range reads (floor area, bedrooms, bathrooms, unit floor, lot area, parking, subtype,

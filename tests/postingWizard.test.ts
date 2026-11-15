@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
-const realFiles:Record<string,string>={ListingCheck:'src/features/property-listing/models/ListingCheck.ts',Currency:'src/shared/models/Currency.ts',PostingPrice:'src/features/property-listing/models/PostingPrice.ts',RentalRange:'src/shared/models/RentalRange.ts',colors:'src/shared/theme/colors.ts',spacing:'src/shared/theme/spacing.ts',radius:'src/shared/theme/radius.ts'},realCache:Record<string,any>={};
+const realFiles:Record<string,string>={ListingCheck:'src/features/property-listing/models/ListingCheck.ts',Currency:'src/shared/models/Currency.ts',PostingPrice:'src/features/property-listing/models/PostingPrice.ts',PostingEstimate:'src/features/property-listing/models/PostingEstimate.ts',RentalRange:'src/shared/models/RentalRange.ts',colors:'src/shared/theme/colors.ts',spacing:'src/shared/theme/spacing.ts',radius:'src/shared/theme/radius.ts'},realCache:Record<string,any>={};
 // The money and theme modules are real (the views must show real peso text and real tokens); everything else is a named stub.
 function realMod(n:string,req:any){const f=realFiles[n];if(!f)return undefined;return realCache[n]??=(()=>{const m={exports:{} as any};new Function('require','module','exports',ts.transpileModule(readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(req,m,m.exports);return m.exports;})();}
 function render(name:string,vm:any,extra:Record<string,unknown>={}){const mod={exports:{} as any};const req=(key:string):any=>{if(key==='react/jsx-runtime'){const jsx=(type:any,props:any)=>({type,props});return{jsx,jsxs:jsx};}if(key==='react-native')return{Text:'Text',View:'View',Image:'Image',Pressable:'Pressable',StyleSheet:{create:(s:any)=>s}};{const r=realMod(key.split('/').at(-1)!,req);if(r)return r;}if(key.endsWith('/ui'))return{ui:{}};if(key.endsWith('/PersistedListingDraft'))return{rentalTermOptions:[{value:'monthly',label:'Monthly'}]};const n=key.split('/').at(-1)!;return{[n]:n};};new Function('require','module','exports',ts.transpileModule(readFileSync(`src/features/property-listing/views/${name}.tsx`,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText)(req,mod,mod.exports);return mod.exports[name]({viewModel:vm,onClose(){},...extra});}
@@ -79,4 +79,25 @@ test('Price 3d: the floor-area fix says range, under the range heading, and neve
   assert.ok(all.some(n=>n.props?.label==='Save and show range'));
   assert.ok(!/estimate/i.test(JSON.stringify(all.filter(n=>n===heading||n===copy||n.props?.label==='Save and show range').map(n=>[n.props.children,n.props.label]))),'no "estimate" in the 3d words');
   const saving=render('PostingEstimateView',priceVm(),{estimateSection:null,floorAreaFix:{...fix,value:'40',saving:true}});assert.ok(nodes(saving).some(n=>n.props?.label==='Saving...'));
+});
+
+// ---- Part C: Step 3 for a type (or city) without a typical-rent range is the asking-rent field only
+test('Price step without a range: only the asking-rent field, with the plain line; no estimate card, no floor-area fix, no range explanation', () => {
+  for (const support of ['type', 'city']) {
+    const tree = render('PostingEstimateView', priceVm({ rangeSupport: support }), { estimateSection: { type: 'EstimateCard', props: {} }, floorAreaFix: { value: '', onChange() {}, onSave() {}, saving: false, error: null } }), all = nodes(tree);
+    assert.ok(!all.some(n => n.type === 'EstimateCard'), 'the estimator is never rendered, so nothing asks it');
+    assert.ok(!all.some(n => /Save and show range|Typical rent for similar places/.test(n.props?.label ?? String(n.props?.children ?? ''))), 'no floor-area fix');
+    assert.ok(!all.some(n => n.type === 'PostingSection'), 'no "About the range" section'); assert.ok(!all.some(n => n.props?.highlight), 'no range card');
+    assert.ok(all.some(n => n.props?.label === 'Your monthly asking rent'), 'the rent field stays');
+    assert.ok(text(tree).includes(support === 'type' ? 'A typical-rent range is not available for this type' : 'A typical-rent range is not available for this city'));
+    assert.equal(tree.props.description, 'Choose your monthly asking rent.');
+    assert.equal(nodes(tree.props.footer).find(n => n.props?.label === 'Continue to Review').props.disabled, false, 'Continue works with the rent entered');
+  }
+});
+test('Price step with a range is unchanged: the range card first, the explanation, and the rent field', () => {
+  for (const support of ['range', undefined]) {
+    const tree = render('PostingEstimateView', priceVm({ rangeSupport: support }), { estimateSection: { type: 'EstimateCard', props: {} } }), all = nodes(tree);
+    assert.ok(all.some(n => n.type === 'EstimateCard')); assert.ok(all.some(n => n.type === 'PostingSection')); assert.ok(!/not available for this/.test(text(tree)));
+    assert.equal(tree.props.description, 'See the typical rent range, then choose your monthly asking rent.');
+  }
 });

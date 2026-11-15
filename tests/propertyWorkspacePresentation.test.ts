@@ -154,7 +154,7 @@ test('a missing confirmed location is a required property issue, so the property
   // propertyFormReady lives in the view model hook, which cannot render in this harness, so its two defining lines are pinned in
   // source: the form is ready only with zero issues (the location requirement is on by default), and Continue is disabled otherwise.
   const hook=readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts','utf8');
-  assert.match(hook,/const propertyIssues=workspace\.propertyId\?\[\]:propertyValidationIssues\(propertyState\.draft\);/);
+  assert.match(hook,/const propertyIssues=workspace\.propertyId\?\[\]:propertyValidationIssues\(withoutRangeOnlyValues\(propertyState\.draft\)\);/);
   assert.match(hook,/const propertyFormReady=!!workspace\.propertyId\|\|propertyIssues\.length===0;/);
   assert.match(hook,/const propertyNextDisabled=[^\n]*\|\|!propertyFormReady\|\|wizardFloorAreaMissing\|\|\(postingWizard&&!workspace\.propertyId&&!locationDecided\);/);
   assert.doesNotMatch(hook.match(/const propertyNextDisabled=[^\n]*;/)![0],/completeness/);

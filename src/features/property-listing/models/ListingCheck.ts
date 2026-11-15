@@ -1,3 +1,4 @@
+import { PHOTOS_ATTENTION_MESSAGE, PHOTOS_UPLOADING_MESSAGE } from './PropertyMedia';
 /** The saved-listing check runs in the background. It never blocks typing; it only holds the actions that write. */
 export type ListingCheckState = 'ok' | 'checking' | 'failed';
 export const CHECKING_MESSAGE = 'Checking this listing\u2026';
@@ -22,9 +23,14 @@ export const WAITING_SUFFIX = ' · waiting for check';
 export const TYPING_HINT = 'You can keep typing. Only saving waits.';
 export const RETRY_HINT = 'Retry the check above to continue. You can keep typing.';
 export const DRAFT_RETRY_HINT = 'Retry loading your draft above to continue. You can keep typing.';
+/** Photos still uploading hold only the save, and say so on the button: a normal wait, never red. */
+export const PHOTOS_WAITING_SUFFIX = ' · waiting for photos';
+export const PHOTOS_ATTENTION_HINT = 'Retry or check your photos above to continue. You can keep typing.';
 export function waitingView(reason: string | null, label: string): { label: string; hint: string | null } {
   if (!reason) return { label, hint: null };
-  if (reason === CHECKING_MESSAGE) return { label: label + WAITING_SUFFIX, hint: TYPING_HINT };
+  if (reason === PHOTOS_UPLOADING_MESSAGE) return { label: label + PHOTOS_WAITING_SUFFIX, hint: TYPING_HINT };
+  if (reason === PHOTOS_ATTENTION_MESSAGE) return { label: label + PHOTOS_WAITING_SUFFIX, hint: PHOTOS_ATTENTION_HINT };
+    if (reason === CHECKING_MESSAGE) return { label: label + WAITING_SUFFIX, hint: TYPING_HINT };
   if (reason === CHECK_FAILED_MESSAGE) return { label: label + WAITING_SUFFIX, hint: RETRY_HINT };
   if (reason === DRAFT_LOAD_FAILED_MESSAGE) return { label: label + WAITING_SUFFIX, hint: DRAFT_RETRY_HINT };
   return { label, hint: `${reason} ${TYPING_HINT}` };   // an unresolved status or access problem keeps its own reason

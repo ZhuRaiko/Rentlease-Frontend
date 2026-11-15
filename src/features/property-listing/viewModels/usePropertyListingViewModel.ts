@@ -20,7 +20,7 @@ import { propertyAmenityService } from '../services/propertyAmenityDependencies'
 import { togglePropertyAmenity } from '../models/PropertyAmenity';
 import { listingCompleteness } from '../models/ListingCompleteness';
 import { availabilityDateToLocal } from '../models/AvailabilityDate';
-import { propertyMediaItems } from '../models/PropertyMedia';
+import { propertyMediaItems, photoWait, PHOTOS_ATTENTION_MESSAGE, PHOTOS_UPLOADING_MESSAGE } from '../models/PropertyMedia';
 import { createLandlordPortfolioWorkflow } from './landlordPortfolioWorkflow';
 import { landlordPortfolioService } from '../services/landlordPortfolioDependencies';
 import { portfolioTierLabels, type LandlordPortfolioItem } from '../models/LandlordPortfolio';
@@ -47,7 +47,7 @@ import { decisionKey, decisionStands, type LocationDecision } from '../models/Lo
 import { missingLine } from '../models/PropertyReadiness';
 import { PREVIEW_DEBOUNCE_MS } from '../models/PinPrecision';
 import { rangeRelation } from '../../../shared/models/RentalRange';
-import { estimateBasis, estimateDetailCount, floorAreaMissing, floorAreaRequired, type EstimateInputs } from '../models/PostingEstimate';
+import { estimateBasis, estimateDetailCount, floorAreaMissing, floorAreaRequired, rangeSupport, withoutRangeOnlyValues, NO_RANGE_FOOTER, type EstimateInputs } from '../models/PostingEstimate';
 import { createPropertyPhotoWorkflow } from './propertyPhotoWorkflow';
 import { propertyPhotoService, selectPropertyPhoto, selectPropertyPhotos } from '../services/propertyPhotoDependencies';
 import { createPropertyCreationWorkflow } from './propertyCreationWorkflow';
@@ -244,7 +244,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   },[workspace.propertyId,workspace.item,propertyState.draft.propertyType,portfolioState.items,portfolioState.loaded,portfolioState.busy,portfolioState.error]);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  const operationBusy = ():boolean => unfinishedPost.getSnapshot().busy || propertyIdentity.getSnapshot().busy || propertyRoutine.getSnapshot().busy || publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || (listingDraftPersistence.getSnapshot().busy && !listingDraftPersistence.getSnapshot().checking) || (publication.getSnapshot().busy && !publication.getSnapshot().checking) || lifecycle.getSnapshot().busy;
+  /** `typing` asks only whether a field may take input: photos on their way never hold that (only the actions that save wait for them). */
+  const operationBusy = (typing=false):boolean => unfinishedPost.getSnapshot().busy || propertyIdentity.getSnapshot().busy || propertyRoutine.getSnapshot().busy || publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || (!typing && propertyPhotos.getSnapshot().busy) || (listingDraftPersistence.getSnapshot().busy && !listingDraftPersistence.getSnapshot().checking) || (publication.getSnapshot().busy && !publication.getSnapshot().checking) || lifecycle.getSnapshot().busy;
   const deletedWorkspace=()=>{const status=unfinishedPost.getSnapshot().status;return !!workspaceRef.current.propertyId&&status?.propertyId===workspaceRef.current.propertyId&&status.state!=='live';};
   function canWriteListing(): boolean {
     if(deletedWorkspace())return false;
@@ -411,7 +412,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     field: TField,
     value: ListingDraft[TField],
   ) => {
-    if (initialHydrationPending() || operationBusy() || listingFieldsLocked()) return; // typing: only what is already known blocks it, never the check
+    if (initialHydrationPending() || operationBusy(true) || listingFieldsLocked()) return; // typing: only what is already known blocks it, never the check
     setDraft((current) => ({ ...current, [field]: value }));
   };
 
@@ -469,7 +470,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const toggleAmenity = (amenity: Amenity) => {
-    if (initialHydrationPending() || operationBusy() || listingFieldsLocked()) return; // typing: only what is already known blocks it, never the check
+    if (initialHydrationPending() || operationBusy(true) || listingFieldsLocked()) return; // typing: only what is already known blocks it, never the check
     setDraft((current) => ({
       ...current,
       amenities: current.amenities.includes(amenity)
@@ -479,7 +480,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const toggleRule = (rule: PropertyRule) => {
-    if (initialHydrationPending() || operationBusy() || listingFieldsLocked()) return; // typing: only what is already known blocks it, never the check
+    if (initialHydrationPending() || operationBusy(true) || listingFieldsLocked()) return; // typing: only what is already known blocks it, never the check
     setDraft(current => {
       const lines = current.houseRules.split('\n').map(line => line.trim()).filter(Boolean);
       const houseRules = (lines.includes(rule) ? lines.filter(line => line !== rule) : [...lines, rule]).join('\n');
@@ -769,7 +770,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     location:workspace.propertyId ? amenityState.hasPrivateLocation || propertyState.propertyId===workspace.propertyId&&hasConfirmedPropertyLocation(propertyState.draft) : hasConfirmedPropertyLocation(propertyState.draft),
     photoCount:photoState.photos.length+photoState.pendingSelections.length,amenityCount:selectedAmenityIds.length},confirmedListing?.completeness_score);
   const listingValidationIssue = listingFieldIssue(draft);
-  const propertyIssues=workspace.propertyId?[]:propertyValidationIssues(propertyState.draft);
+  const propertyIssues=workspace.propertyId?[]:propertyValidationIssues(withoutRangeOnlyValues(propertyState.draft)); // hidden range-only values never block the form
   const propertyVisibleIssues=propertyIssues.filter(issue=>propertyState.validationAttempted||propertyState.touchedFields[issue.field]||(issue.section==='floors'&&(propertyState.touchedFields.floorNumber||propertyState.touchedFields.totalFloors)));
   const floorIssues=propertyVisibleIssues.some(issue=>issue.section==='floors')?propertyFloorIssues(propertyState.draft):{floorNumber:null,totalFloors:null};
   const propertyFormReady=!!workspace.propertyId||propertyIssues.length===0;
@@ -792,13 +793,14 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       {key:'verification' as const,done:verified,label:'Property verification (Tier 3)',detail:verified?null:'Required to publish, not to save'},
     ];
   };
-  const rangeCount=estimateDetailCount(estimateInputs);
+  const rangeCount=estimateDetailCount(estimateInputs),rangeKind=rangeSupport(estimateInputs);
   const propertyNextStatus=!workspace.propertyId&&propertyState.uncertain?'Check property creation status before continuing.'
     :!workspace.propertyId&&!propertyState.loaded?'Checking property setup...'
     :operationBusy()?'Finish the current operation before continuing.'
     :wizardMissing?wizardMissing
     :firstPropertyIssue?(firstPropertyIssue.kind==='required'?firstPropertyIssue.message:`Check ${propertySectionLabels[firstPropertyIssue.section].toLowerCase()}.`)
     :wizardFloorAreaMissing?'Add floor area to continue.'
+    :rangeKind==='type'||rangeKind==='city'?NO_RANGE_FOOTER[rangeKind]
     :`${rangeCount.filled} of ${rangeCount.total} range details · saves your property`;
 
   const api = {
@@ -843,7 +845,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     postingRangeRelation:rangeRelation(listingNumber(draft.askingRent),postingEstimateResult?.illustrativeRange),
     priceKeepAvailable:postingOriginalPrice!==null&&postingOriginalPrice!==draft.askingRent,
     estimateBasisText:estimateBasis(physical),
-    estimateInputs,floorAreaRequired:wizardFloorAreaRequired,floorAreaMissing:wizardFloorAreaMissing,estimateDetails:estimateDetailCount(estimateInputs),
+    estimateInputs,/** Whether a typical-rent range is available for this property (shared eligibility): 'none' | 'type' | 'city' | 'range'. */rangeSupport:rangeKind,floorAreaRequired:wizardFloorAreaRequired,floorAreaMissing:wizardFloorAreaMissing,estimateDetails:estimateDetailCount(estimateInputs),
     // Inline fix on the Price page: the existing versioned property save, then the caller requests the estimate. No new service.
     savePostingFloorArea:async(value:string):Promise<boolean>=>{if(!postingWizard||screen!=='postingEstimate'||operationBusy())return false;const id=workspaceRef.current.propertyId;if(!id)return false;if(propertyRoutine.getSnapshot().status==='idle')await propertyRoutine.open(id);const r=propertyRoutine.getSnapshot();if(r.status!=='ready'||r.uncertain||r.conflict)return false;propertyRoutine.update('floorAreaSqm',value);return propertyRoutine.save();},
     returnTo,
@@ -1052,7 +1054,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       const readOnly = publicationReadOnly();
       if (readOnly && !publicationState.loaded && !publicationState.uncertain) return publicationState.error && !publicationState.busy ? CHECK_FAILED_MESSAGE : CHECKING_MESSAGE;
       if (draftPending && publicationState.loaded && !publicationState.uncertain) return draftLoadFailed ? DRAFT_LOAD_FAILED_MESSAGE : CHECKING_MESSAGE;
-      if (!readOnly) return null;
+      if (!readOnly) { const wait = photoWait(photoState, true); return wait === 'uploading' ? PHOTOS_UPLOADING_MESSAGE : wait === 'attention' ? PHOTOS_ATTENTION_MESSAGE : null; }
       return publicationState.uncertain || lifecycleState.uncertain ? 'Check the unresolved listing status before making further changes.' : 'Listing access could not be confirmed. Check its status before editing.';
     })(),
     retryListingCheck: async (): Promise<void> => {

@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RentLease Step 1 v6 - location first, one confirm button</title>
+<style>
+:root{color-scheme:light;--bg:#F7F9F5;--paper:#FFFFFF;--ink:#172C27;--mute:#606A63;--line:#DCE5DD;--soft:#EDF8EE;--fill:#DDF0E3;--accent:#32743C;--warn:#FFF7E8;--warnline:#9A6414;--ctl:#7D9383;--g:#32743C;--g2:#469C53;--pale:#EDF8EE;--blue:#EFF4FC;--blueink:#284C78;--orange:#F1A058}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1280px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:40px 0 4px}h3{font-size:14px;margin:0 0 6px}
+p{margin:0 0 8px}.mute{color:var(--mute)}.small{font-size:12px}
+.lede{max-width:760px}
+.strip{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin:16px 0}
+.step{flex:1 1 200px;border:1.5px solid var(--line);background:var(--paper);border-radius:10px;padding:10px 12px}
+.step b{display:block}.step .save{display:inline-block;margin-top:6px;font-size:11px;border:1px dashed var(--accent);border-radius:20px;padding:1px 8px}
+.step.moved{border-color:var(--accent);border-width:2px}
+.row{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;margin-top:14px}
+.col{flex:1 1 340px;max-width:380px}
+.phone{width:100%;max-width:360px;border:2px solid var(--ink);border-radius:22px;background:var(--paper);overflow:hidden;display:flex;flex-direction:column;min-height:640px}
+.bar{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:600}
+.bar .sp{flex:1}.bar span.i{width:28px;height:28px;border:1.5px solid var(--line);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+.prog{display:flex;gap:4px;padding:10px 14px 4px}.prog i{flex:1;height:5px;border-radius:3px;background:var(--fill)}.prog i.on{background:var(--ink)}
+.plabel{padding:0 14px 8px;font-size:12px;color:var(--mute)}
+.body{padding:6px 14px 14px;display:flex;flex-direction:column;gap:12px;flex:1}
+.foot{border-top:1px solid var(--line);padding:10px 14px;display:flex;flex-direction:column;gap:6px;background:var(--paper)}
+.btn{min-height:48px;border-radius:12px;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-weight:600;text-align:center;padding:0 12px}
+.btn.fill{background:var(--ink);color:var(--paper)}.btn.off{border-color:var(--line);color:var(--mute);background:var(--soft)}
+.btn.sm{min-height:40px;font-size:13px}
+.hint{font-size:12px;color:var(--mute);text-align:center}
+label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:3px}
+.in{min-height:46px;border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;color:var(--mute);background:var(--paper)}
+.in.req{border-color:var(--ink);border-width:2px}.in.val{color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1.5px solid var(--line);border-radius:20px;padding:6px 12px;font-size:13px;min-height:36px;display:inline-flex;align-items:center}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.sec{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.sec.hl{border-color:var(--ink);border-width:2px}
+.sech{display:flex;align-items:center;gap:8px;justify-content:space-between}.sech b{font-size:14px}
+.tag{font-size:11px;border-radius:20px;padding:2px 9px;background:var(--fill);white-space:nowrap}
+.tag.dk{background:var(--ink);color:var(--paper)}
+.meter{height:6px;background:var(--fill);border-radius:3px;overflow:hidden}.meter i{display:block;height:100%;background:var(--ink)}
+.note{background:var(--warn);border:1px solid var(--warnline);border-radius:10px;padding:8px 10px;font-size:12px}
+.info{border:1px dashed var(--line);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--mute)}
+.photo{height:130px;background:var(--fill);border-radius:12px;display:flex;align-items:center;justify-content:center;color:var(--mute);position:relative}
+.photo u{position:absolute;right:8px;bottom:6px;font-size:12px;color:var(--ink)}
+.big{font-size:30px;font-weight:700;letter-spacing:-.5px;line-height:1.1}
+.range{position:relative;height:26px;margin:4px 6px}.range .rail{position:absolute;top:9px;left:0;right:0;height:8px;border-radius:5px;background:var(--fill)}
+.range .e{position:absolute;top:3px;width:2px;height:20px;background:var(--ink)}
+.range .m{position:absolute;top:4px;width:16px;height:16px;border-radius:50%;background:var(--ink);margin-left:-8px;border:3px solid var(--paper)}
+.range .y{position:absolute;top:0;width:0;height:0;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid var(--mute)}
+.two{display:flex;gap:8px}.two>*{flex:1}
+.chk{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--soft)}.chk:last-child{border:0}
+.chk b.o{width:20px;height:20px;border-radius:50%;border:2px solid var(--ink);display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+.chk b.x{border-style:dashed;color:var(--mute)}
+.kv{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--soft)}.kv:last-child{border:0}
+.kv u{font-size:12px;white-space:nowrap}
+.sw{width:44px;height:26px;border-radius:14px;border:2px solid var(--ink);position:relative;flex:none}.sw i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--ink)}
+.notes{margin:10px 0 0;padding:0;list-style:none;font-size:13px}.notes li{display:flex;gap:8px;margin-bottom:8px}
+.n{flex:none;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--paper);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.cap{font-weight:600;margin:0 0 8px}
+table{border-collapse:collapse;width:100%;font-size:13px;background:var(--paper)}th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}th{background:var(--soft)}
+.sheet{border:2px solid var(--ink);border-radius:18px 18px 0 0;margin-top:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--paper)}
+.dim{opacity:.35}
+ul.t{margin:6px 0 0 18px;padding:0}ul.t li{margin-bottom:5px}
+@media (max-width:520px){.phone{min-height:0}}
+
+/* RentLease theme tokens (src/shared/theme/colors.ts): canvas, ink, outline, controlBorder, primaryAction, primary, primaryPale */
+body{font-family:Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg)}
+main{padding-top:0}
+.hero{margin:0 -16px 8px;padding:28px 16px 22px;background:linear-gradient(135deg,#245A38 0%,#367548 60%,#469C53 100%);color:#fff}
+.hero .in-h{max-width:1248px;margin:0 auto}.hero h1{font-size:26px;margin:0 0 6px;color:#fff}.hero p{color:#E3F3E6;margin:0;max-width:760px}
+.hero .pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;background:rgba(255,255,255,.18);border-radius:20px;padding:3px 10px;margin-bottom:10px}
+h2{color:var(--ink);padding-bottom:6px;border-bottom:2px solid var(--fill)}
+.phone{border:1px solid var(--line);border-radius:26px;box-shadow:0 10px 30px rgba(23,44,39,.14),0 0 0 6px #172C27}
+.bar{background:#fff;color:var(--ink)}
+.bar span.i{border-color:var(--ctl);color:var(--ink)}
+.prog i{background:var(--line)}.prog i.on{background:var(--g)}
+.plabel{color:var(--mute)}
+.btn{border:1.5px solid var(--g);color:var(--g);background:#fff}
+.btn.fill{background:var(--g);color:#fff;border-color:var(--g)}
+.btn.off{background:#F0F2EF;color:#8A938C;border-color:#DCE5DD}
+.in{border-color:var(--ctl)}.in.req{border:2px solid var(--g);background:#FBFEFB}.in.val{color:var(--ink)}
+.chip{border-color:var(--ctl);color:var(--ink)}.chip.on{background:var(--g);border-color:var(--g);color:#fff}
+.sec{border:1px solid var(--line);background:#fff}
+.sec.hl{border:2px solid var(--g2);background:var(--pale)}
+.sec.hl .in,.sec.hl .chip:not(.on){background:#fff}
+.tag{background:var(--fill);color:#204C34}.tag.dk{background:var(--g);color:#fff}
+.meter{background:var(--line)}.meter i{background:var(--g2)}
+.note{background:var(--warn);border:1px solid #E6C98B;color:#6B4710}
+.info{background:var(--blue);border:1px solid #CBD9F2;color:var(--blueink)}
+.photo{background:linear-gradient(135deg,#C9E4CF,#8FBF9A);color:#204C34}.photo u{color:#204C34;background:rgba(255,255,255,.85);padding:2px 8px;border-radius:10px}
+.big{color:var(--g)}
+.range .rail{background:linear-gradient(90deg,#DDF0E3,#9ED3A6,#DDF0E3)}
+.range .e{background:var(--g)}.range .m{background:var(--g)}
+.range .y{border-top-color:var(--orange)}
+.chk b.o{background:var(--g);border-color:var(--g);color:#fff}
+.chk b.x{background:#FFF7E8;border:2px solid #9A6414;color:#9A6414}
+.chk u,.kv u,.bar u,.small u{color:var(--g);font-weight:600}
+.sw{border-color:var(--g);background:var(--g)}.sw i{left:auto;right:2px;background:#fff}
+.n{background:var(--g)}
+.step{border:1px solid var(--line)}.step.moved{border:2px solid var(--g2);background:var(--pale)}
+.step .save{border:1px dashed var(--g);color:#204C34;background:#fff}
+th{background:var(--pale);color:#204C34}th,td{border-color:var(--line)}
+table{border-radius:8px}
+code{background:var(--pale);padding:1px 5px;border-radius:4px;font-size:12px}
+.sheet{border:1px solid var(--line);box-shadow:0 -8px 24px rgba(23,44,39,.18)}
+.dim{opacity:.4}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 0;font-size:12px;color:var(--mute)}.legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid var(--line)}
+
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#469C53;margin-left:6px;vertical-align:middle}
+.lg{font-size:12px;color:var(--mute);display:flex;align-items:center;gap:6px;margin:0}.lg .dot{margin:0}
+.map{height:132px;border-radius:12px;background:linear-gradient(135deg,#D9E7D8,#EEF4EB);border:1px solid var(--line);position:relative}
+.map:before{content:"";position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:rgba(70,156,83,.2);border:2px solid #469C53}
+.map i{position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#32743C}
+.map u{position:absolute;right:8px;bottom:6px;font-size:10px;color:#606A63;text-decoration:none}
+.okrow{display:flex;align-items:center;gap:10px;background:var(--pale);border:1px solid #CFE7D3;border-radius:10px;padding:10px 12px}
+.okrow b.c{width:22px;height:22px;border-radius:50%;background:var(--g);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+.stat{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mute);background:#EFF2ED;border-radius:10px;padding:7px 10px}
+.stat u{margin-left:auto}
+.stat.bad{background:var(--warn);border:1px solid #E6C98B;color:#6B4710}
+.ends{display:flex;justify-content:space-between;font-weight:700;font-size:15px}
+.rg{position:relative;height:60px;margin:6px 12px 0}
+.trk{position:absolute;left:0;right:0;top:34px;height:10px;border-radius:6px;background:linear-gradient(90deg,#D6EBD9,#9BD3A4 50%,#D6EBD9)}
+.ball{position:absolute;top:25px;width:28px;height:28px;margin-left:-14px;border-radius:50%;background:var(--g);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.bub{position:absolute;top:0;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:8px;padding:3px 9px;font-size:12px;font-weight:700;white-space:nowrap}
+.rel{font-size:13px;font-weight:700}.rel.ok{color:var(--g)}.rel.hi{color:#9A6414}
+.pm{display:flex;gap:8px}.pm .btn:first-child,.pm .btn:last-child{flex:0 0 48px;padding:0;font-size:20px}.pm .btn:nth-child(2){flex:1}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.req2{color:#9B2C2C}
+.cols3{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;margin-top:14px}
+.phone{min-height:0}
+.ph3{background:#E6EFE6;border-radius:10px;height:70px;display:flex;align-items:center;justify-content:center;color:#204C34;font-size:12px;border:1px dashed #7D9383}
+.sp1{margin-top:10px}
+.bad{color:#9B2C2C;font-weight:700}
+
+.pips{display:flex;gap:4px}.pips i{flex:1;height:8px;border-radius:4px;background:#DCE5DD}.pips i.on{background:#469C53}.pips.full i.on{background:#32743C}
+.mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.mcount{font-weight:700;font-size:13px;color:#204C34;background:#DDF0E3;border-radius:20px;padding:3px 10px;white-space:nowrap}
+.miss{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.miss .m{font-size:12px;border:1.5px dashed #469C53;color:#204C34;border-radius:20px;padding:5px 10px;min-height:32px;display:inline-flex;align-items:center;background:#fff}
+.gl{font-size:12px;font-weight:700;color:#204C34;margin:2px 0 -4px;letter-spacing:.2px}
+.rail{border-left:4px solid #469C53}
+.bef{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.bef span{font-size:13px;border-radius:20px;padding:5px 12px;border:1px solid var(--line)}
+.c1{background:#E7F0FB;color:#284C78}.c2{background:#FFF1DD;color:#7A4A0A}.c3{background:#F1E8FA;color:#5B3A8A}.c4{background:#DDF0E3;color:#204C34}
+.cols3{align-items:flex-start}
+.phone{min-height:0}
+.ph3{background:#E6EFE6;border-radius:10px;height:70px;display:flex;align-items:center;justify-content:center;color:#204C34;font-size:12px;border:1px dashed #7D9383}
+.dot{display:none}
+
+.swrow{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+.swrow .t{flex:1}.swrow .t b{font-size:14px}
+.sw.off{background:#fff;border-color:#7D9383}.sw.off i{left:2px;right:auto;background:#7D9383}
+.map.ph{background:repeating-linear-gradient(135deg,#EEF2EC,#EEF2EC 10px,#E6ECE4 10px,#E6ECE4 20px);display:flex;align-items:center;justify-content:center;color:#606A63;font-size:12px;text-align:center;padding:0 24px}
+.map.ph:before{display:none}
+.dimc{opacity:.45}
+
+.rail{border-left:1px solid var(--g2)!important}
+.sec.hl.rail{border:2px solid var(--g2)}
+.heroph{height:210px;border-radius:24px;position:relative;overflow:hidden;background:linear-gradient(180deg,#BFE3F2 0%,#DDEFE2 55%,#8FBF7A 56%,#5E9A57 100%)}
+.heroph svg{position:absolute;inset:0;width:100%;height:100%}
+.heroph .cov{position:absolute;left:12px;top:12px;background:rgba(255,255,255,.92);color:#204C34;font-size:12px;font-weight:700;border-radius:20px;padding:4px 10px}
+.heroph .cnt{position:absolute;right:12px;bottom:12px;background:rgba(23,44,39,.78);color:#fff;font-size:12px;font-weight:700;border-radius:20px;padding:4px 10px}
+.heroph.empty{background:#EDF8EE;border:2px dashed #469C53;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:0 24px}
+.heroph.empty .ic{width:56px;height:56px;border-radius:50%;background:#fff;border:2px solid #469C53;display:flex;align-items:center;justify-content:center;font-size:24px;color:#32743C}
+.thumbs{display:flex;gap:8px;margin-top:8px}
+.th{flex:1;height:78px;border-radius:18px;position:relative;overflow:hidden}
+.th.a{background:linear-gradient(135deg,#6B8F6A,#C6D8A8)}.th.b{background:linear-gradient(135deg,#B58B63,#E6CFA8)}.th.c{background:linear-gradient(135deg,#3FA7B8,#9CDDE0)}.th.d{background:linear-gradient(135deg,#8E9AA6,#D7DEE4)}
+.th.more{background:#EDF8EE;border:2px dashed #469C53;color:#204C34;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:15px}
+.th .ov{position:absolute;inset:0;background:rgba(255,255,255,.72);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#204C34;text-align:center}
+.th .ov.bad{background:rgba(255,247,232,.92);color:#6B4710}
+.opt{margin:6px 0 0;font-size:13px;font-weight:700;color:#204C34}
+.tile{border:1.5px solid var(--ctl);border-radius:16px;padding:14px 12px;min-height:96px;background:#fff;display:flex;flex-direction:column;gap:6px}
+.tile.on{border:2px solid var(--g);background:var(--pale)}
+.tile b{font-size:15px}
+.badgeg{display:inline-block;font-size:11px;font-weight:700;color:#204C34;background:#DDF0E3;border-radius:20px;padding:2px 9px;align-self:flex-start}
+.badgeo{display:inline-block;font-size:11px;font-weight:700;color:#6B4710;background:#FFF1DD;border-radius:20px;padding:2px 9px;align-self:flex-start}
+.grp{font-size:12px;font-weight:700;color:#204C34;display:flex;align-items:center;gap:8px;margin:4px 0 2px}
+.grp.o{color:#6B4710}
+.seg{display:flex;flex-direction:column;gap:10px}
+.opt3{border:1.5px solid var(--ctl);border-radius:16px;padding:12px 14px;background:#fff;display:flex;gap:12px;align-items:flex-start}
+.opt3.on{border:2px solid var(--g);background:var(--pale)}
+.opt3 .r{width:22px;height:22px;border-radius:50%;border:2px solid var(--ctl);flex:none;margin-top:2px}
+.opt3.on .r{border-color:var(--g);background:radial-gradient(circle,var(--g) 0 45%,#fff 50%)}
+.sheetw{border:1px solid var(--line);border-radius:22px 22px 0 0;box-shadow:0 -8px 24px rgba(23,44,39,.18);padding:14px;display:flex;flex-direction:column;gap:6px;background:#fff;margin-top:auto}
+.sheetw .row1{display:flex;justify-content:space-between;align-items:center;min-height:48px;border-bottom:1px solid var(--soft);font-size:15px}
+.nogo{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+</style></head><body><main><div class="hero"><div class="in-h"><span class="pill">Proposal v7 &middot; Step 2</span><h1>Photos first, on the Listing step</h1><p>Photos move out of Step 1, where they were an afterthought, and become the first thing on the Listing step, styled like the gallery a tenant sees.</p></div></div><h2>What moves, and why Step 2 can hold photos</h2><div class="strip"><div class="step"><b>Step 1 Property</b>Type, location, the range card, More details<br><span class="save">Continue saves the property</span></div><div class="step moved"><b>Step 2 Listing</b><b style="display:inline">Photos and 360&deg; first</b>, then title, description, terms, rules<br><span class="save">Property is already saved, so uploads can start at once</span></div><div class="step"><b>Step 3 Price</b>Unchanged</div><div class="step"><b>Step 4 Review</b>Hero is the cover photo</div></div><h2>Step 2: photos are the first thing you see</h2><p class="mute">Photos get the whole top of the page: one big cover, a row of thumbnails below it, and the same gallery look the tenant sees on the listing. Everything else follows underneath.</p><div class="cols3"><div class="col"><p class="cap">2a. Arrival: photos first, nothing added yet</p><div class="phone"><div class="bar"><span class="i">&larr;</span>Listing Details<span class="sp"></span><span class="i">&times;</span></div><div class="prog"><i class="on"></i><i class="on"></i><i></i><i></i></div><div class="plabel">Step 2 of 4 &middot; Listing</div><div class="body"><div class="sec"><div class="sech"><b>Photos and 360&deg;</b><span class="small mute">0 of 10</span></div><div class="heroph empty"><div class="ic">+</div><b>Add photos</b><span class="small mute">The first photo is your cover. You can add up to 10.</span></div><div class="btn sm">Add a 360&deg; tour</div></div><div class="sec"><div class="sech"><b>Listing details</b></div><div><label class="f">Listing title *</label><div class="in">e.g. Bright 1-bedroom apartment in Imus</div></div><div><label class="f">Description *</label><div class="in" style="min-height:76px">Describe the place, the neighborhood and what is included.</div></div><div><label class="f">Available from *</label><div class="in">Pick a date</div></div></div></div><div class="foot"><div class="btn off">Continue to Price</div><div class="hint">&#9312; Add a title, description and available date</div></div></div></div><div class="col"><p class="cap">2b. Photos added: cover and three thumbnails</p><div class="phone"><div class="bar"><span class="i">&larr;</span>Listing Details<span class="sp"></span><span class="i">&times;</span></div><div class="prog"><i class="on"></i><i class="on"></i><i></i><i></i></div><div class="plabel">Step 2 of 4 &middot; Listing</div><div class="body"><div class="sec"><div class="sech"><b>Photos and 360&deg;</b><span class="small mute">6 of 10</span></div><div class="heroph"><svg viewBox="0 0 320 210" preserveAspectRatio="none"><polygon points="70,120 160,60 250,120" fill="#3B4A57"/><rect x="85" y="120" width="150" height="70" fill="#E9E2D3"/><rect x="105" y="140" width="28" height="50" fill="#7A5A3A"/><rect x="150" y="136" width="34" height="26" fill="#9CC9E3"/><rect x="195" y="136" width="30" height="26" fill="#9CC9E3"/><circle cx="270" cy="40" r="18" fill="#FFE9A8"/></svg><span class="cov">Cover</span><span class="cnt">1 of 6</span></div><div class="thumbs"><div class="th a"></div><div class="th b"></div><div class="th c"></div><div class="th more">+3</div></div><div class="two"><div class="btn sm">Manage photos</div><div class="btn sm">Add more</div></div><div class="btn sm">Add a 360&deg; tour</div></div><div class="sec"><div class="sech"><b>Listing details</b></div><div><label class="f">Listing title *</label><div class="in">e.g. Bright 1-bedroom apartment in Imus</div></div><div><label class="f">Description *</label><div class="in" style="min-height:76px">Describe the place, the neighborhood and what is included.</div></div><div><label class="f">Available from *</label><div class="in">Pick a date</div></div></div></div><div class="foot"><div class="btn off">Continue to Price</div><div class="hint">Add a title, description and available date</div></div></div></div><div class="col"><p class="cap">2c. One uploading, one failed</p><div class="phone"><div class="bar"><span class="i">&larr;</span>Listing Details<span class="sp"></span><span class="i">&times;</span></div><div class="prog"><i class="on"></i><i class="on"></i><i></i><i></i></div><div class="plabel">Step 2 of 4 &middot; Listing</div><div class="body"><div class="sec"><div class="sech"><b>Photos and 360&deg;</b><span class="small mute">4 of 10</span></div><div class="heroph"><svg viewBox="0 0 320 210" preserveAspectRatio="none"><polygon points="70,120 160,60 250,120" fill="#3B4A57"/><rect x="85" y="120" width="150" height="70" fill="#E9E2D3"/><rect x="105" y="140" width="28" height="50" fill="#7A5A3A"/><rect x="150" y="136" width="34" height="26" fill="#9CC9E3"/><rect x="195" y="136" width="30" height="26" fill="#9CC9E3"/><circle cx="270" cy="40" r="18" fill="#FFE9A8"/></svg><span class="cov">Cover</span><span class="cnt">1 of 4</span></div><div class="thumbs"><div class="th a"></div><div class="th b"><div class="ov">Uploading&hellip;</div></div><div class="th c"><div class="ov bad">Couldn&rsquo;t upload<br>Retry</div></div><div class="th more">+</div></div><div class="stat">Uploading 1 of 2&hellip; <u>Retry failed</u></div></div><div class="sec"><div class="sech"><b>Listing details</b></div><div><label class="f">Listing title *</label><div class="in">e.g. Bright 1-bedroom apartment in Imus</div></div><div><label class="f">Description *</label><div class="in" style="min-height:76px">Describe the place, the neighborhood and what is included.</div></div><div><label class="f">Available from *</label><div class="in">Pick a date</div></div></div></div><div class="foot"><div class="btn off">Continue to Price &middot; waiting for photos</div><div class="hint">&#9313; You can keep typing. Only saving waits.</div></div></div></div><div class="col" style="max-width:420px;flex:1 1 320px"><ul class="notes"><li><span class="n">&#9312;</span><span><b>Photos are first.</b> The empty state is a large, inviting drop zone, not a collapsed row with a plus sign. The footer hint names title, description and date, not photos, because photos are not required to continue (see the table).</span></li><li><span class="n">&#9313;</span><span><b>Upload states live on the thumbnails.</b> Uploading shows a veil on that thumbnail, a failed upload shows an amber veil with Retry. Reuse the existing photo workflow (load, queue, resume, reconcile); only the surface changes. Continue waits for uploads and says why, as in Stage 2.</span></li><li><span class="n">&#9314;</span><span><b>Step 1 ends at More details</b> and its footer says what is next. Photos are no longer there.</span></li><li><span class="n">A</span><span>The cover is the first photo. If the existing photo manager supports ordering or choosing a cover, &ldquo;Manage photos&rdquo; offers it. If it does not, the first uploaded photo is the cover and the wireframe makes no promise beyond that. Claude Code: check which and tell me.</span></li><li><span class="n">B</span><span>&ldquo;Add a 360&deg; tour&rdquo; stays as a secondary action under the gallery, with the same rules as built today.</span></li><li><span class="n">C</span><span>Review already shows the cover as its hero, so nothing changes there.</span></li></ul><h3 style="margin-top:16px">Rules</h3><table><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody><tr><td>Required to continue to Price?</td><td>No. Same as today.</td></tr><tr><td>Required to publish?</td><td>Yes, through the existing Review checklist item &ldquo;Photos&rdquo;.</td></tr><tr><td>When can uploads start?</td><td>On arrival at Step 2, because Continue on Step 1 already saved the property.</td></tr><tr><td>Limit</td><td>10 photos, as today</td></tr></tbody></table></div></div><div class="cols3" style="margin-top:6px"><div class="col"><p class="cap">1z. Step 1 now ends at More details</p><div class="phone"><div class="bar"><span class="i">&larr;</span>Property Details<span class="sp"></span><span class="i">&times;</span></div><div class="prog"><i class="on"></i><i></i><i></i><i></i></div><div class="plabel">Step 1 of 4 &middot; Property</div><div class="body"><div class="sec"><div class="sech"><b>Property type</b></div><div class="chips"><span class="chip on">Apartment</span><span class="chip">House</span><span class="chip">Condominium</span><span class="chip">More&hellip;</span></div></div><div class="sec"><div class="sech"><b>Where is it?</b><span class="tag">Also sharpens your range</span></div><div class="okrow"><b class="c">&#10003;</b><div style="flex:1">Location confirmed<div class="small mute">Anabu I-A, Imus &middot; approximate area shared</div></div><u class="small">Change</u></div></div><div class="sec hl rail dimc"><div class="mhead"><div><b>Details that set your range</b></div><span class="mcount">5 of 8</span></div><div class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div></div><div class="sec"><div class="sech"><div><b>More details</b><div class="small mute">Optional &middot; doesn&rsquo;t change your range</div></div><u class="small">Add</u></div></div></div><div class="foot"><div class="btn fill">Continue to Listing</div><div class="hint">&#9314; 5 of 8 range details &middot; saves your property</div></div></div></div><div class="col" style="max-width:420px;flex:1 1 320px"><h3>Implementation notes for Claude Code</h3><table><thead><tr><th>Area</th><th>Detail</th></tr></thead><tbody><tr><td>First save</td><td>Today Continue on Step 1 also loads and reconciles photos (<code>saveComposerDraftCore</code>). With photos in Step 2, Step 1 Continue saves the property only. The photo load, queue and reconcile move to Step 2. Do not lose the retained-photos guarantees.</td></tr><tr><td>Existing guards</td><td>Keep the Stage 0 rule: typing never waits. Keep the draft-load fix. Photo waits show on the button and the hint, never as a red message.</td></tr><tr><td>Look</td><td>Hero 24dp radius, thumbnails 18dp radius, same tokens as the rest of the app. No new dependency.</td></tr><tr><td>Edit mode</td><td>Published listings use the same Step 2 with photos first.</td></tr></tbody></table></div></div></main></body></html>

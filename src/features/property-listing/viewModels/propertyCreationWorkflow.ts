@@ -1,6 +1,7 @@
 import { PropertyCreationError } from '../models/PropertyCreationError';
 import { propertyFloorIssues, draftPropertyError, emptyDraftProperty, hasConfirmedPropertyLocation, propertyCreationInput, type PropertyValidationField, type PropertyValidationSection, type DraftProperty, type PropertyLocationInput } from '../models/DraftProperty';
 import type { PropertyCreationService, UncertainDetail } from '../services/propertyCreationService';
+import { withoutRangeOnlyValues } from '../models/PostingEstimate';
 import { newestFirst, recoveryMessage } from '../models/RecentProperty';
 type Step = 'details' | 'address' | 'review' | 'created';
 interface State {
@@ -93,9 +94,11 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
       if (disposed || state.busy || !state.loaded || state.propertyId || state.uncertain || (!fromComposer && state.step !== 'review')) return;
       if (!fromComposer && !hasConfirmedPropertyLocation(state.draft)) return;
       update({validationAttempted:true});
-      const error = draftPropertyError(state.draft); if (error) { update({ error }); return; }
+      // Details only the range reads are hidden for a type or city without a range: they are left out of the save (the form still holds them until now).
+      const saving = withoutRangeOnlyValues(state.draft);
+      const error = draftPropertyError(saving); if (error) { update({ error }); return; }
       const attempt = epoch; update({ busy: true, error: null });
-      try { const id = await identity(attempt); const receipt = await service.create(id, propertyCreationInput(state.draft)); await identity(attempt); update({ propertyId: receipt.propertyId, step: 'created' }); }
+      try { const id = await identity(attempt); const receipt = await service.create(id, propertyCreationInput(saving)); await identity(attempt); update({ propertyId: receipt.propertyId, step: 'created' }); }
       catch (error) { if (alive(attempt)) fail(error, 'Property could not be saved. Check your details and account, then try again.'); }
       finally { if (alive(attempt)) update({ busy: false }); }
     },
