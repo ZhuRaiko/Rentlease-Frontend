@@ -24,11 +24,12 @@ interface Props {viewModel:PropertyListingViewModel;onClose:()=>void;estimateSec
 export function PostingEstimateView({viewModel:vm,onClose,estimateSection,floorAreaFix,rentFeedback}:Props){
   const saving=!!vm.composerPhase||vm.listingDraftState.busy;
   const rentMessage=vm.priceAttempted&&vm.priceIssue?.field==='askingRent'?vm.priceIssue.message:null;
+  const waiting=vm.listingWriteBlockedReason;
   const blocked=!!vm.priceIssue;
-  const hint=vm.composerPhase||vm.listingDraftState.busy?'Keep this screen open until saving finishes.':blocked?(vm.priceIssue?.field==='askingRent'?'Enter your asking rent to continue':vm.priceIssue!.message):vm.publishedEditing?'Opens Review. Save changes there.':'Saves your draft, then opens Review';
+  const hint=vm.composerPhase||vm.listingDraftState.busy?'Keep this screen open until saving finishes.':waiting?`${waiting} You can keep typing. Only saving waits.`:blocked?(vm.priceIssue?.field==='askingRent'?'Enter your asking rent to continue':vm.priceIssue!.message):vm.publishedEditing?'Opens Review. Save changes there.':'Saves your draft, then opens Review';
   const label=vm.composerPhase==='photos'?'Saving photos...':saving?'Saving listing draft...':'Continue to Review';
   return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} title="Set Your Price" description="See the typical rent range, then choose your monthly asking rent." progress={<PostingProgress step={3} onSelect={vm.goToPostingStep}/>} onBack={vm.goBack} onClose={onClose} formFocus={rentFeedback?{scrollRef:rentFeedback.scrollRef,contentRef:rentFeedback.contentRef}:undefined}
-    footer={<View style={styles.footer}><ListingButton tone="brand" label={label} disabled={saving||blocked} onPress={()=>void vm.continuePostingReview()}/>{hint?<Text accessibilityLiveRegion="polite" style={styles.hint}>{hint}</Text>:null}</View>}>
+    footer={<View style={styles.footer}><ListingButton tone="brand" label={label} disabled={saving||blocked||!!waiting} onPress={()=>void vm.continuePostingReview()}/>{hint?<Text accessibilityLiveRegion="polite" style={styles.hint}>{hint}</Text>:null}</View>}>
     <PostingCard highlight>
       {floorAreaFix?<View style={styles.gap}>
         <Text style={ui.body}>Add your floor area to see an estimate for this property.</Text>

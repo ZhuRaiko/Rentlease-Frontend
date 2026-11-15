@@ -17,6 +17,7 @@ import { ChoiceChip, ListingField } from '../components/ListingControls';
 import { ListingButton } from '../components/ListingButton';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
 import { rentalTermOptions } from '../models/PersistedListingDraft';
+import { ListingCheckLine } from '../components/ListingCheckLine';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
 // Page 2: rental offering only; persistence is coordinated by the ViewModel.
@@ -31,14 +32,17 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
   // Rent is entered on the Price step in the posting wizard; published editing still shows it here.
   const issueNow = vm.listingStepIssue;
   const editable = !vm.listingDraftReadOnly && !vm.composerPhase && !(vm.publishedEditing && vm.listingDraftState.busy);
+  const waiting = vm.listingWriteBlockedReason;
   const saveLabel = vm.publishedEditing&&vm.listingDraftState.busy?'Saving changes...':vm.composerPhase ? (vm.composerPhase === 'property' ? 'Saving property...' : vm.composerPhase === 'photos' ? 'Saving photos...' : 'Saving listing draft...') : vm.publishedEditing?'Save Changes':'Save Draft';
-  const footer = <PropertyProgressFooter compact={vm.postingWizard} viewModel={vm} action={vm.postingWizard?{label:vm.returnTo?'Save and return':'Continue to Price',disabled:!editable,onPress:vm.continuePostingEstimate}:{label:saveLabel,disabled:vm.composerSaveDisabled,onPress:()=>void vm.saveComposerDraft()}} guidance={<>
+  const footer = <PropertyProgressFooter compact={vm.postingWizard} viewModel={vm} action={vm.postingWizard?{label:vm.returnTo?'Save and return':'Continue to Price',disabled:!editable||!!waiting,onPress:vm.continuePostingEstimate}:{label:saveLabel,disabled:vm.composerSaveDisabled,onPress:()=>void vm.saveComposerDraft()}} guidance={<>
     {vm.propertyValidationIssues?.length ? <PropertyReadinessNotice viewModel={vm}/> : null}
     <ListingWorkspaceFeedback viewModel={vm} scope="draft" />
     {vm.composerPhase && !vm.listingDraftState.busy ? <FeedbackNotice message="Saving your progress. Keep this screen open until saving finishes." /> : null}
+    {waiting ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{waiting} You can keep typing. Only saving waits.</Text> : null}
     {!vm.composerPhase && !vm.listingDraftState.error && issueNow ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{issueNow.message}</Text> : null}
   </>} />;
   return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} progress={vm.postingWizard?<PostingProgress step={2} onSelect={vm.goToPostingStep}/>:undefined} title={vm.postingWizard?"Rental Listing":vm.listingDraftState.lastConfirmed?"Edit Listing":"Listing Details"} onBack={vm.goBack} onClose={onClose} footer={footer}>
+    <ListingCheckLine state={vm.listingCheck.state} onRetry={() => void vm.retryListingCheck()} />
     {vm.publishedEditing?<Text accessibilityLiveRegion="polite" style={styles.copy}>Editing {vm.listingDraftState.lastConfirmed?.status==='paused'?'Paused':'Published'} listing. Saving changes preserves this status.</Text>:null}
     <Text style={styles.copy}>{vm.publishedEditing?'* Required to save changes':'* Required to save a listing draft'}</Text>
     {!vm.postingWizard?<><View style={styles.summary}>

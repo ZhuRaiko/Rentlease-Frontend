@@ -38,7 +38,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
       if (name === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
       if (name === 'react-native') return { Alert:{alert:(title:string,_body:string,buttons:any[])=>alerts.push({title,buttons})}, StyleSheet: { create: (styles: any) => styles }, View: 'View', Text: 'Text', Modal: 'Modal', StatusBar: 'StatusBar' };
       if (name.endsWith('/usePropertyListingViewModel')) return { usePropertyListingViewModel: (...args: any[]) => { current = realHook(...args); return current; } };
-      const presentation = ['PostingEstimateView','PostingPriceStep','PostingReviewView','UnfinishedPostDeletionAction','RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold'];
+      const presentation = ['PostingEstimateView','PostingPriceStep','PostingReviewView','UnfinishedPostDeletionAction','RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold', 'PostingSection', 'PostingChoices', 'PostingProgress', 'PropertyVerificationAction', 'PropertyProgressFooter', 'CompletenessHint', 'AvailabilityDateField', 'ComposerRecoveryFeedback', 'ListingControls', 'ListingCheckLine'];
       const component = presentation.find(value => name.endsWith('/' + value));
       if (component) return { [component]: component };
       if(name.endsWith('/unfinishedPostDependencies'))return {unfinishedPostService:overrides.deletion??{inspect:async(id:string)=>({propertyId:id,state:'live',eligible:false,reason:null}),pending:async()=>[],remove:async()=>{throw Error('Not configured');}}};
@@ -79,6 +79,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
     propertyEditError: (message: string, kind: string) => new (load('src/features/property-listing/models/PropertyRoutineEdit.ts').PropertyEditError)(message, kind),
     contextModal:()=>componentProps('Modal'),
     composerView: () => componentProps('ListingComposerView'),
+    detailsView: () => load('src/features/property-listing/views/ListingDetailsView.tsx').ListingDetailsView({ viewModel: current, onClose: () => {} }),
     statusView: () => load('src/features/property-listing/views/PublishedListingStatusView.tsx').PublishedListingStatusView({ viewModel: current, onClose: () => {} }), writes: () => writes, destinations,
     sharedDialog: (props: any) => load('src/shared/components/NavigationConfirmation.tsx').NavigationConfirmation(props),
     bottom: () => componentProps('RentLeaseBottomNavigation'), dialog: () => componentProps('NavigationConfirmation'),
@@ -422,15 +423,15 @@ test('Post detaches an in-flight lifecycle operation without replaying it into t
 });
 
 
-function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any } = {}) {
+function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any; routineGate?: Promise<void>; publication?: any } = {}) {
   const backend = backendDraftService(), events: string[] = [], rows: any[] = [];
   const files = Array.from({ length: 3 }, (_, i) => ({ uri: `file:///cache/composer-${i}.jpg`, fileName: `${i}.jpg`, mimeType: 'image/jpeg', size: 100 }));
   let uncertainPhoto = false, pickerCalls = 0;
   const candidate = { id: 'real-candidate', label: 'Chosen address', longitude: 120.9, latitude: 14.4 };
-  const h = mountProperty(null, { ...backend.service, save: async (c: any, form: any) => { events.push('draft'); if (failure === 'draft') throw h.draftError('Check draft status.'); const saved = await backend.service.save(c, form); return opts.score === undefined ? saved : { ...saved, completeness_score: opts.score }; } }, undefined, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: async () => [candidate] }, {
+  const h = mountProperty(null, { ...backend.service, save: async (c: any, form: any) => { events.push('draft'); if (failure === 'draft') throw h.draftError('Check draft status.'); const saved = await backend.service.save(c, form); return opts.score === undefined ? saved : { ...saved, completeness_score: opts.score }; } }, opts.publication, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: async () => [candidate] }, {
     initialScreen: 'postingType', locationShare: opts.locationShare, pickImages: async () => { pickerCalls++; return files; },
     // The saved-property editor reads back the property that was just created (as the real service does).
-    routine: { load: async (id: string) => { if (opts.routineFails) throw Error('Routine read failed'); const d = h.vm().propertyState.draft, n = (v: string) => v.trim() === '' ? null : Number(v); return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: d.propertyType, city: d.city, barangay: d.barangay, floor_number: n(d.floorNumber), bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: opts.areaMissing ? null : n(d.floorAreaSqm), max_occupants: n(d.maxOccupants), total_floors: n(d.totalFloors), furnishing_status: d.furnishingStatus, access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false, property_subtype: d.propertySubtype || null, lot_area_sqm: n(d.lotAreaSqm ?? ''), parking_spaces: n(d.parkingSpaces ?? ''), model_attributes_version: 2 }; }, hasPending: async () => false, save: async (c: any, d: any) => ({ ...c, bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: d.floorAreaSqm.trim() ? Number(d.floorAreaSqm) : null, edit_version: '60000000-0000-4000-8000-000000000003' }), reconcile: async () => null },
+    routine: { load: async (id: string) => { if (opts.routineGate) await opts.routineGate; if (opts.routineFails) throw Error('Routine read failed'); const d = h.vm().propertyState.draft, n = (v: string) => v.trim() === '' ? null : Number(v); return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: d.propertyType, city: d.city, barangay: d.barangay, floor_number: n(d.floorNumber), bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: opts.areaMissing ? null : n(d.floorAreaSqm), max_occupants: n(d.maxOccupants), total_floors: n(d.totalFloors), furnishing_status: d.furnishingStatus, access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false, property_subtype: d.propertySubtype || null, lot_area_sqm: n(d.lotAreaSqm ?? ''), parking_spaces: n(d.parkingSpaces ?? ''), model_attributes_version: 2 }; }, hasPending: async () => false, save: async (c: any, d: any) => ({ ...c, bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: d.floorAreaSqm.trim() ? Number(d.floorAreaSqm) : null, edit_version: '60000000-0000-4000-8000-000000000003' }), reconcile: async () => null },
     creation: { create: async () => { events.push('property'); if (failure === 'property' || failure === 'uncertain-property') throw Object.assign(Error('rejected or unknown'), { code: failure === 'property' ? 'property_creation_rejected' : 'property_creation_uncertain' }); return { propertyId: backend.propertyId, status: 'created' }; } },
     photos: { context: async (propertyId: string) => { assert.equal(propertyId, backend.propertyId); return { ownerId: 'test-owner', propertyId }; }, assertContext: async () => {}, list: async () => [...rows], hasPending: async () => uncertainPhoto,
       upload: async (context: any, file: any) => { assert.equal(context.propertyId, backend.propertyId); events.push(`photo:${file.fileName}`); if (failure === 'photo' && file.fileName === '1.jpg') { uncertainPhoto = true; throw Error('Unknown photo result'); } rows.push({ id: file.fileName, property_id: backend.propertyId, publicUrl: 'https://example.test/photo', storage_path: '', sort_order: rows.length, is_cover: !rows.length, alt_text: null, created_at: '2026-10-29' }); },
@@ -1230,4 +1231,116 @@ test('Edit property details does nothing for a card that cannot be edited', asyn
     await h.settle(); h.vm().editPortfolioPropertyDetails('p-9'); await settle2(h);
     assert.equal(h.vm().screen, 'dashboard'); assert.equal(h.vm().workspacePropertyId, null); h.unmount();
   }
+});
+
+// ---- Stage 0: typing on the Listing step never waits on a background check
+const findAll = (tree: any, pred: (n: any) => boolean): any[] => {
+  const out: any[] = [], seen = new Set<any>();
+  const walk = (v: any) => { if (!v || typeof v !== 'object' || seen.has(v)) return; seen.add(v); if (Array.isArray(v)) { v.forEach(walk); return; } if (v.props) { if (pred(v)) out.push(v); walk(v.props.children); walk(v.props.footer); walk(v.props.guidance); walk(v.props.helper); } };
+  walk(tree); return out;
+};
+const footerAction = (h: any) => findAll(h.detailsView(), n => !!n.props?.action)[0].props.action;
+const titleField = (h: any) => findAll(h.detailsView(), n => n.props?.label === 'Listing title')[0];
+const arriveAtListing = async (opts: any = {}) => {
+  let release!: () => void; const gate = new Promise<void>(r => { release = r; });
+  const fixture = unifiedHarness('none', { routineGate: gate, ...opts }); const { h, fields, confirmMap } = fixture; await h.settle(); fields(); await confirmMap();
+  let done = false; const p = h.vm().nextListingDetails().then(() => { done = true; });
+  // On a device React renders and runs effects while the first save is still waiting on the property read.
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  release();
+  while (!done) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  await p; await h.settle(); await h.settle(); h.flush();
+  return fixture;
+};
+test('arriving at Listing after the first save: the title is editable and the saved-listing check has run', async () => {
+  const { h } = await arriveAtListing();
+  assert.equal(h.vm().screen, 'listingDetails');
+  assert.equal(h.vm().publicationState.loaded, true, 'the check ran for the new property');
+  assert.equal(h.vm().listingDraftReadOnly, false);
+  assert.equal(titleField(h).props.editable, true, 'the title takes input');
+  assert.equal(h.vm().listingCheck.state, 'ok');
+  assert.equal(h.vm().listingEditExplanation, null); h.unmount();
+});
+test('typing never waits on the check: a check that never finishes leaves every field editable, and only Continue waits, with a reason', async () => {
+  const { h } = await arriveAtListing({ publication: { restore: () => new Promise(() => {}) } });
+  assert.equal(h.vm().screen, 'listingDetails');
+  assert.equal(h.vm().publicationState.loaded, false, 'the check is still running');
+  assert.equal(titleField(h).props.editable, true);
+  assert.equal(findAll(h.detailsView(), n => n.props?.label === 'Description')[0].props.editable, true);
+  h.vm().updateDraft('title', 'Typed while checking'); h.flush();
+  assert.equal(h.vm().draft.title, 'Typed while checking', 'the text is kept');
+  assert.equal(h.vm().listingCheck.state, 'checking');
+  assert.equal(h.vm().listingWriteBlockedReason, 'Checking this listing…');
+  assert.equal(footerAction(h).label, 'Continue to Price'); assert.equal(footerAction(h).disabled, true, 'a write waits');
+  h.vm().continuePostingEstimate(); h.flush(); assert.equal(h.vm().screen, 'listingDetails', 'and does nothing while it waits');
+  h.vm().goBack(); h.flush(); assert.notEqual(h.vm().screen, 'listingDetails', 'Back always works'); h.unmount();
+});
+test('a failed check shows "Couldn\'t check this listing", keeps typing open, and Retry runs the check again', async () => {
+  let attempts = 0, fail = true;
+  const { h } = await arriveAtListing({ publication: { restore: async () => { attempts++; if (fail) throw new Error('offline'); return null; } } });
+  assert.equal(h.vm().publicationState.loaded, false);
+  assert.equal(h.vm().listingCheck.state, 'failed'); assert.equal(h.vm().listingCheck.message, "Couldn't check this listing");
+  assert.equal(titleField(h).props.editable, true);
+  const before = attempts; fail = false;
+  await h.vm().retryListingCheck(); await h.settle(); h.flush();
+  assert.equal(attempts, before + 1, 'Retry actually re-ran the check');
+  assert.equal(h.vm().publicationState.loaded, true); assert.equal(h.vm().listingCheck.state, 'ok');
+  assert.equal(footerAction(h).disabled, false); h.unmount();
+});
+test('Retry also works when the check is stuck running: it abandons the stuck call and starts a new one', async () => {
+  let calls = 0;
+  const { h } = await arriveAtListing({ publication: { restore: () => { calls++; return calls === 1 ? new Promise(() => {}) : Promise.resolve(null); } } });
+  assert.equal(h.vm().listingCheck.state, 'checking'); assert.equal(h.vm().publicationState.busy, true);
+  await h.vm().retryListingCheck(); await h.settle(); h.flush();
+  assert.equal(calls >= 2, true); assert.equal(h.vm().publicationState.loaded, true); assert.equal(h.vm().listingCheck.state, 'ok'); h.unmount();
+});
+test('the existing guards still hold: a listing that is no longer a draft is not editable, and an inactive property is not editable', async () => {
+  const f = savedHydrationHarness(); await f.init(); f.setRow({ ...f.getRow(), status: 'archived' });
+  const h = f.mount({ load: async () => routineContext(f), hasPending: async () => false }); await h.settle();
+  h.vm().openPortfolioItem(f.backend.propertyId); await settle2(h);
+  assert.equal(h.vm().screen, 'published'); assert.equal(h.vm().listingDraftReadOnly, true, 'archived stays locked'); h.unmount();
+});
+test('writes still refuse while a publish is uncertain, even though typing is open', async () => {
+  const { h } = await arriveAtListing({ publication: { restore: async () => ({ pending: true, row: { id: 'l', property_id: '10000000-0000-4000-8000-000000000001', status: 'draft' } }) } });
+  assert.equal(h.vm().publicationState.uncertain, true);
+  assert.equal(h.vm().listingDraftReadOnly, false, 'the fields are open');
+  assert.ok(h.vm().listingWriteBlockedReason, 'a write waits, with a reason');
+  h.vm().continuePostingEstimate(); h.flush(); assert.equal(h.vm().screen, 'listingDetails'); h.unmount();
+});
+
+// ---- Stage 0 follow-ups: the heal effect cannot loop, and typed text survives a check that finds a non-draft listing
+test('a failed check is not retried on its own: renders and effects do not re-fire it, only Retry does', async () => {
+  let attempts = 0;
+  const { h } = await arriveAtListing({ publication: { restore: async () => { attempts++; for (let i = 0; i < 3; i++) await new Promise<void>(r => setImmediate(r)); throw new Error('offline'); } } });
+  // the failure arrives a tick later, so a render happens while it is busy and another after it fails (where a loop would start)
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  assert.equal(h.vm().listingCheck.state, 'failed');
+  const afterArrival = attempts;
+  for (let i = 0; i < 25; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); h.vm().updateDraft('title', `Typing ${i}`); }
+  await h.settle(); h.flush();
+  assert.equal(attempts, afterArrival, 'no automatic retry after the failure, however many renders happen');
+  assert.equal(h.vm().listingCheck.state, 'failed');
+  const retrying = h.vm().retryListingCheck();
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  await retrying; await h.settle(); h.flush();
+  assert.equal(attempts, afterArrival + 1, 'Retry runs it exactly once');
+  assert.equal(h.vm().listingCheck.state, 'failed', 'and a second failure stays failed without looping');
+  for (let i = 0; i < 10; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  assert.equal(attempts, afterArrival + 1); h.unmount();
+});
+test('typing while the check runs, then the check finds the listing is not a draft: the text is kept, the page locks, and says why', async () => {
+  let release!: (v: any) => void; const gate = new Promise<any>(r => { release = r; });
+  const { h, backend } = await arriveAtListing({ publication: { restore: () => gate } });
+  assert.equal(h.vm().listingCheck.state, 'checking');
+  h.vm().updateDraft('title', 'Typed while checking'); h.flush();
+  const saved = await backend.service.read();
+  assert.equal(h.vm().draft.title, 'Typed while checking');
+  release({ row: { ...saved, status: 'archived' }, operations: [] });
+  await h.settle(); await h.settle(); h.flush();
+  assert.equal(h.vm().publicationState.status, 'archived');
+  assert.equal(h.vm().draft.title, 'Typed while checking', 'nothing discarded');
+  assert.equal(h.vm().listingDraftReadOnly, true, 'the page locks');
+  assert.equal(h.vm().listingEditExplanation, 'This listing is no longer a draft. Content editing is unavailable; use its listing management actions.');
+  h.vm().updateDraft('title', 'More typing'); h.flush();
+  assert.equal(h.vm().draft.title, 'Typed while checking', 'further typing is refused once locked'); h.unmount();
 });

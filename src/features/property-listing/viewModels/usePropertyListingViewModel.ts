@@ -42,6 +42,7 @@ import { applyPendingLocationShare, pendingShareNotice } from '../models/Locatio
 import { reconcileWish, shareBindingKey, wishAfterPress, wishApplies, type ShareWish } from '../models/ShareWish';
 import { currentActorId, locationShareService } from '../services/locationShareDependencies';
 import { currentEstimate } from '../models/PostingPrice';
+import { CHECKING_MESSAGE, CHECK_FAILED_MESSAGE, type ListingCheckState } from '../models/ListingCheck';
 import { rangeRelation } from '../../../shared/models/RentalRange';
 import { estimateBasis, estimateDetailCount, floorAreaMissing, floorAreaRequired, type EstimateInputs } from '../models/PostingEstimate';
 import { createPropertyPhotoWorkflow } from './propertyPhotoWorkflow';
@@ -238,7 +239,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   },[workspace.propertyId,workspace.item,propertyState.draft.propertyType,portfolioState.items,portfolioState.loaded,portfolioState.busy,portfolioState.error]);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  const operationBusy = ():boolean => unfinishedPost.getSnapshot().busy || propertyIdentity.getSnapshot().busy || propertyRoutine.getSnapshot().busy || publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy || publication.getSnapshot().busy || lifecycle.getSnapshot().busy;
+  const operationBusy = ():boolean => unfinishedPost.getSnapshot().busy || propertyIdentity.getSnapshot().busy || propertyRoutine.getSnapshot().busy || publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy || (publication.getSnapshot().busy && !publication.getSnapshot().checking) || lifecycle.getSnapshot().busy;
   const deletedWorkspace=()=>{const status=unfinishedPost.getSnapshot().status;return !!workspaceRef.current.propertyId&&status?.propertyId===workspaceRef.current.propertyId&&status.state!=='live';};
   function canWriteListing(): boolean {
     if(deletedWorkspace())return false;
@@ -250,6 +251,23 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     return active.current && propertyRoutine.getSnapshot().status==='idle' && !propertyRoutine.getSnapshot().busy && !propertyCreation.getSnapshot().busy && !propertyPhotos.getSnapshot().busy && !listingDraftPersistence.getSnapshot().busy && !listingDraftPersistence.getSnapshot().uncertain && !publication.getSnapshot().busy && !publication.getSnapshot().uncertain;
   }
   const publicationReadOnly = () => workspaceRef.current.mode==='editPublished'? !publishedContent.getSnapshot().loaded||publishedContent.getSnapshot().uncertain||!['active','paused'].includes(publishedContent.getSnapshot().lastConfirmed?.status??'') : !!workspaceRef.current.propertyId && (!canWriteListing() || !publication.getSnapshot().loaded || publication.getSnapshot().uncertain || (!!publication.getSnapshot().status && publication.getSnapshot().status !== 'draft'));
+  /**
+   * What blocks TYPING is only what is already known: an inactive property, a deleted post, or a listing that is no longer a draft. A check that
+   * has not finished, or failed, holds the actions that write (publicationReadOnly) but never the fields. Published editing keeps its own
+   * hydration rule: its fields wait for the saved listing to load, because they are filled from it.
+   */
+  const listingFieldsLocked = () => {
+    const w = workspaceRef.current;
+    if (w.mode === 'editPublished') return publicationReadOnly();
+    if (!w.propertyId) return false;
+    const status = publication.getSnapshot().status, row = lifecycle.getSnapshot().row;
+    return w.item?.property.is_active === false || deletedWorkspace() || (!!status && status !== 'draft') || (!!row && row.status !== 'draft');
+  };
+  // A saved property whose listing check never ran (or was skipped during a save) is checked as soon as nothing is saving. A failure stops here and shows Retry.
+  useEffect(() => {
+    if (!workspace.propertyId || composerPhase || composerSaving.current || publicationState.loaded || publicationState.busy || publicationState.error || publicationState.uncertain) return;
+    void publication.restore(workspace.listingId);
+  }, [workspace.propertyId, workspace.listingId, composerPhase, publicationState.loaded, publicationState.busy, publicationState.error, publicationState.uncertain]);
   const editingPublished=workspace.mode==='editPublished';
   const savedWizardEditor=postingWizard&&!!workspace.propertyId&&(!!workspace.item||propertyRoutineState.propertyId===workspace.propertyId&&propertyRoutineState.status!=='idle');
   useEffect(()=>{if(returnTo&&screen===returnTo)setReturnTo(null);},[screen,returnTo]);
@@ -378,7 +396,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     field: TField,
     value: ListingDraft[TField],
   ) => {
-    if (initialHydrationPending() || operationBusy() || publicationReadOnly()) return;
+    if (initialHydrationPending() || operationBusy() || listingFieldsLocked()) return; // typing: only what is already known blocks it, never the check
     setDraft((current) => ({ ...current, [field]: value }));
   };
 
@@ -436,7 +454,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const toggleAmenity = (amenity: Amenity) => {
-    if (initialHydrationPending() || operationBusy() || publicationReadOnly()) return;
+    if (initialHydrationPending() || operationBusy() || listingFieldsLocked()) return; // typing: only what is already known blocks it, never the check
     setDraft((current) => ({
       ...current,
       amenities: current.amenities.includes(amenity)
@@ -446,7 +464,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const toggleRule = (rule: PropertyRule) => {
-    if (initialHydrationPending() || operationBusy() || publicationReadOnly()) return;
+    if (initialHydrationPending() || operationBusy() || listingFieldsLocked()) return; // typing: only what is already known blocks it, never the check
     setDraft(current => {
       const lines = current.houseRules.split('\n').map(line => line.trim()).filter(Boolean);
       const houseRules = (lines.includes(rule) ? lines.filter(line => line !== rule) : [...lines, rule]).join('\n');
@@ -905,6 +923,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
           if(!active.current||token!==workspaceGeneration.current)return;
           if(!adoptCreatedProperty())return;
           token=workspaceGeneration.current;
+          // The workspace effect skips its check while this save runs, so the new property is checked here.
+          void publication.restore(null);
           setComposerNotice('Property saved');freshlySaved=true;
           if(shareWanted){
             const actor=await currentActorId(),savedId=workspaceRef.current.propertyId;
@@ -943,11 +963,27 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     },
     publication,
     publicationState,
-    listingDraftReadOnly: publicationReadOnly(),
+    listingDraftReadOnly: listingFieldsLocked(),
+    /** The saved-listing check, as the Listing step shows it. 'ok' also covers a locked or published listing, which have their own messages. */
+    listingCheck: ((): { state: ListingCheckState; message: string | null } => {
+      if (!workspace.propertyId || editingPublished || listingFieldsLocked() || publicationState.uncertain || publicationState.loaded) return { state: 'ok', message: null };
+      return publicationState.error && !publicationState.busy ? { state: 'failed', message: CHECK_FAILED_MESSAGE } : { state: 'checking', message: CHECKING_MESSAGE };
+    })(),
+    /** Why the actions that write are waiting, when the only thing in the way is the check (or an unresolved status). Null when nothing waits. */
+    listingWriteBlockedReason: ((): string | null => {
+      if (!workspace.propertyId || listingFieldsLocked() || !publicationReadOnly()) return null;
+      if (!publicationState.loaded && !publicationState.uncertain) return publicationState.error && !publicationState.busy ? CHECK_FAILED_MESSAGE : CHECKING_MESSAGE;
+      return publicationState.uncertain || lifecycleState.uncertain ? 'Check the unresolved listing status before making further changes.' : 'Listing access could not be confirmed. Check its status before editing.';
+    })(),
+    retryListingCheck: async (): Promise<void> => {
+      const p = publication.getSnapshot(); if (!p.propertyId) return;
+      const ok = p.uncertain || p.listingId ? await (p.listingId ? publication.reconcile() : publication.restore()) : await publication.recheck(workspaceRef.current.listingId);
+      if (ok && active.current && (!publication.getSnapshot().status || publication.getSnapshot().status === 'draft') && !publication.getSnapshot().uncertain) await listingDraftPersistence.reconcile();
+    },
     propertyVerificationLabel: workspace.item ? portfolioTierLabels[workspace.item.tier3.status] : null,
     listingEditExplanation: !workspace.propertyId || !publicationReadOnly() ? null
       : workspace.item?.property.is_active === false ? 'This property is inactive. Draft editing is unavailable.'
-      : publicationState.busy || !publicationState.loaded ? 'Checking this saved listing before editing. Your local details are retained.'
+      : publicationState.busy || !publicationState.loaded ? null // the check is shown by listingCheck and never locks the fields
       : publicationState.uncertain || lifecycleState.uncertain ? 'Check the unresolved listing status before making further changes.'
       : publicationState.status && publicationState.status !== 'draft' ? 'This listing is no longer a draft. Content editing is unavailable; use its listing management actions.'
       : 'Listing access could not be confirmed. Check its status before editing.',
@@ -965,7 +1001,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     listingDraftState:contentState,
     canPersistListing: hasListingMinimum(workspace.propertyId, draft),
     saveDraftLabel: hasListingMinimum(workspace.propertyId, draft) ? 'Save listing draft to account' : 'Keep local progress',
-    editSavedListingDraft: () => { if (!publicationReadOnly() && workspaceRef.current.propertyId) navigate('listingDetails'); },
+    editSavedListingDraft: () => { if (!listingFieldsLocked() && workspaceRef.current.propertyId) navigate('listingDetails'); },
     continueListingPreview: () => { if (workspaceRef.current.propertyId || adoptCreatedProperty()) navigate('listingComposer'); },
     openComposerPreview: () => {
       if(editingPublished)return;
