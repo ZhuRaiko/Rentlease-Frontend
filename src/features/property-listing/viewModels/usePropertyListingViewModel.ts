@@ -43,6 +43,8 @@ import { reconcileWish, shareBindingKey, wishAfterPress, wishApplies, type Share
 import { currentActorId, locationShareService } from '../services/locationShareDependencies';
 import { currentEstimate } from '../models/PostingPrice';
 import { CHECKING_MESSAGE, CHECK_FAILED_MESSAGE, type ListingCheckState } from '../models/ListingCheck';
+import { decisionKey, decisionStands, type LocationDecision } from '../models/LocationConsent';
+import { missingLine } from '../models/PropertyReadiness';
 import { rangeRelation } from '../../../shared/models/RentalRange';
 import { estimateBasis, estimateDetailCount, floorAreaMissing, floorAreaRequired, type EstimateInputs } from '../models/PostingEstimate';
 import { createPropertyPhotoWorkflow } from './propertyPhotoWorkflow';
@@ -120,6 +122,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const [postingOriginalPrice,setPostingOriginalPrice]=useState<string|null>(null);
   // The owner pressed "Confirm location and share it" on a property that is not saved yet: a wish bound to the point on screen (see ShareWish).
   const [shareWish,setShareWish]=useState<ShareWish>(null),[shareLocationNotice,setShareLocationNotice]=useState<string|null>(null);
+  // Either consent button confirms the location. The decision is bound to the exact point and address (same key as the wish) and asks again if they change.
+  const [locationDecision,setLocationDecision]=useState<LocationDecision>(null);
   // The estimate the Price page already holds (never fetched here): drives the rent comparison and the Review badge.
   const [postingEstimateHeld,setPostingEstimateHeld]=useState<{result:PredictionReceipt;basis:string}|null>(null);
   const [priceAttempted,setPriceAttempted]=useState(false);
@@ -721,6 +725,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   // is dropped when the owner leaves Step 1 or the property is saved.
   const wishSnapshot={inStep1:screen==='listingComposer'&&!workspace.propertyId,confirmed:hasConfirmedPropertyLocation(propertyState.draft),key:shareBindingKey(propertyState.draft,propertyState.locationRevision)};
   useEffect(()=>{const r=reconcileWish(shareWish,wishSnapshot);if(r.wish!==shareWish)setShareWish(r.wish);if(r.notice)setShareLocationNotice(r.notice);},[shareWish,wishSnapshot.inStep1,wishSnapshot.confirmed,wishSnapshot.key]);
+  const decisionSnap={confirmed:wishSnapshot.confirmed,key:decisionKey(propertyState.draft,propertyState.locationRevision)};
+  const locationDecided=decisionStands(locationDecision,decisionSnap)&&(!locationDecision?.share||shareWish!==null);
+  useEffect(()=>{if(locationDecision&&!wishSnapshot.inStep1)setLocationDecision(null);},[locationDecision,wishSnapshot.inStep1]);
   const estimateBasisKey=JSON.stringify(physical??null),postingEstimateResult=currentEstimate(postingEstimateHeld,estimateBasisKey);
   const confirmedListing = contentState.lastConfirmed?.property_id === workspace.propertyId && (!workspace.listingId || contentState.lastConfirmed.id===workspace.listingId) ? contentState.lastConfirmed : null;
   const completeness = listingCompleteness({title:draft.title,description:draft.description,rent:listingNumber(draft.askingRent),availableDate:!!availabilityDateToLocal(draft.availableDate),
@@ -738,8 +745,10 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const estimateInputs:EstimateInputs=savedWizardEditor&&rc&&rd?{propertyType:rc.property_type,city:rc.city,furnishingStatus:rd.furnishingStatus,propertySubtype:rd.propertySubtype??'',floorAreaSqm:rd.floorAreaSqm,floorNumber:rc.floor_number===null?'':String(rc.floor_number),lotAreaSqm:rd.lotAreaSqm??'',parkingSpaces:rd.parkingSpaces??'',bedrooms:rd.bedrooms,bathrooms:rd.bathrooms,amenityCount:rd.amenityIds.length}
     :{propertyType:pd.propertyType,city:pd.city,furnishingStatus:pd.furnishingStatus,propertySubtype:pd.propertySubtype??'',floorAreaSqm:pd.floorAreaSqm,floorNumber:pd.floorNumber,lotAreaSqm:pd.lotAreaSqm??'',parkingSpaces:pd.parkingSpaces??'',bedrooms:pd.bedrooms,bathrooms:pd.bathrooms,amenityCount:selectedAmenityIds.length};
   const wizardFloorAreaRequired=postingWizard&&floorAreaRequired(estimateInputs),wizardFloorAreaMissing=postingWizard&&floorAreaMissing(estimateInputs);
-  const propertyNextDisabled=operationBusy()||(savedWizardEditor&&(propertyRoutineState.status!=='ready'||propertyRoutineState.uncertain||propertyRoutineState.conflict))||(!workspace.propertyId&&(!propertyState.loaded||propertyState.uncertain))||!propertyFormReady||wizardFloorAreaMissing;
+  const propertyNextDisabled=operationBusy()||(savedWizardEditor&&(propertyRoutineState.status!=='ready'||propertyRoutineState.uncertain||propertyRoutineState.conflict))||(!workspace.propertyId&&(!propertyState.loaded||propertyState.uncertain))||!propertyFormReady||wizardFloorAreaMissing||(postingWizard&&!workspace.propertyId&&!locationDecided);
   const firstPropertyIssue=propertyIssues[0];
+  // The footer is the one place that names what is missing (field errors wait until a field is left).
+  const wizardMissing=postingWizard&&!workspace.propertyId?missingLine(propertyIssues,wizardFloorAreaMissing,!locationDecided):null;
   const postingChecklist=()=>{
     const saved=listingDraftState.lastConfirmed,clean=!listingDraftDirty,photosSaved=photoState.loaded&&!photoState.error&&!photoState.needsReconcile&&!photoState.pendingSelections.length&&!propertyPhotos.dirty();
     const verified=propertyVerificationState.propertyId===workspace.propertyId&&propertyVerificationState.loaded&&propertyVerificationState.status==='approved'&&!propertyVerificationState.error;
@@ -753,6 +762,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const propertyNextStatus=!workspace.propertyId&&propertyState.uncertain?'Check property creation status before continuing.'
     :!workspace.propertyId&&!propertyState.loaded?'Checking property setup...'
     :operationBusy()?'Finish the current operation before continuing.'
+    :wizardMissing?wizardMissing
     :firstPropertyIssue?(firstPropertyIssue.kind==='required'?firstPropertyIssue.message:`Check ${propertySectionLabels[firstPropertyIssue.section].toLowerCase()}.`)
     :wizardFloorAreaMissing?'Add floor area to continue.'
     :workspace.propertyId?'Saved property selected. Continue to listing details.':'Property information is ready. Next saves the property before listing details.';
@@ -774,7 +784,10 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     // Where the asking rent sits against the ends of the typical range (the only comparison there is; no point value exists).
     shareLocationWanted:shareWish!==null,shareLocationNotice,
     /** true = the owner pressed the explicit button; false = skip or clear. Either way the old notice goes. */
-    setShareLocationWanted:(on:boolean)=>{setShareLocationNotice(null);setShareWish(on?wishAfterPress(wishSnapshot):null);},
+    setShareLocationWanted:(on:boolean)=>{setShareLocationNotice(null);setShareWish(on?wishAfterPress(wishSnapshot):null);setLocationDecision(wishSnapshot.inStep1&&wishSnapshot.confirmed?{key:decisionSnap.key,share:on}:null);},
+    /** Both consent buttons confirmed the location (true) and whether the approximate area is shared. */
+    locationDecided,locationShared:locationDecided&&!!locationDecision?.share,
+    changeLocationChoice:()=>{setShareLocationNotice(null);setShareWish(null);setLocationDecision(null);},
     postingRangeRelation:rangeRelation(listingNumber(draft.askingRent),postingEstimateResult?.illustrativeRange),
     priceKeepAvailable:postingOriginalPrice!==null&&postingOriginalPrice!==draft.askingRent,
     estimateBasisText:estimateBasis(physical),
@@ -835,8 +848,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     propertyValidationIssues:propertyIssues,propertyVisibleValidationIssues:propertyVisibleIssues,
     propertyMeasurementWarnings:propertyMeasurementWarnings({floor_area_sqm:propertyState.draft.floorAreaSqm.trim()?Number(propertyState.draft.floorAreaSqm):null,bedrooms:propertyState.draft.bedrooms.trim()?Number(propertyState.draft.bedrooms):null,bathrooms:propertyState.draft.bathrooms.trim()?Number(propertyState.draft.bathrooms):null}),
     propertyFormReady,propertyNextDisabled,propertyNextStatus,
-    propertyReadinessReviewAvailable:!operationBusy()&&!workspace.propertyId&&propertyState.loaded&&!propertyState.uncertain&&propertyIssues.length>0,
-    reviewPropertyReadiness:()=>{if(!operationBusy())requestPropertyValidation();},
+    /** A field was left: its error may show now (typing alone never shows one). */
+    markPropertyFieldTouched:(field:PropertyValidationIssue['field'])=>propertyCreation.markFieldTouched(field),
     propertyValidationTarget,focusPropertyIssue,requestPropertyValidation,
     submitProperty:async()=>{if(requestPropertyValidation())await propertyCreation.submit();},
     propertyFloorIssues: floorIssues,
@@ -915,6 +928,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       if(!workspaceRef.current.propertyId){
         const current=propertyCreation.getSnapshot();
         if(!current.loaded||current.uncertain||!requestPropertyValidation())return;
+        if(postingWizard&&!locationDecided)return; // a pin is not enough: one of the two consent buttons must confirm it
         let token=workspaceGeneration.current;
         composerSaving.current=true;setComposerPhase('property');setComposerNotice(null);
         setShareWish(null);setShareLocationNotice(null); // the wish is spent now: kept in shareWanted for this save only, so a failed save leaves none behind

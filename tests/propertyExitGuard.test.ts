@@ -443,11 +443,17 @@ function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'p
     creation.updateField('bedrooms', '0'); creation.updateField('bathrooms', '0'); creation.updateField('propertyType', 'apartment'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Buhay na Tubig'); creation.updateField('addressLine1', 'Owner-entered address'); creation.updateField('floorAreaSqm', '42'); creation.updateField('maxOccupants', '3');
     h.vm().updateDraft('title', 'Before UUID title'); h.vm().updateDraft('description', 'Before UUID description'); h.vm().updateDraft('askingRent', '15000'); h.vm().updateDraft('minimumStayMonths', '6'); h.flush();
   };
-  const confirmMap = async () => {
+  // A pin placed on the map, with no consent decision yet (the state the consent card asks about).
+  const pinMap = async () => {
     h.vm().openPropertyLocation(); await h.settle(); assert.equal(h.vm().screen, 'listingComposer');
     const map = h.vm().propertyLocation; map.chooseCandidate(candidate.id); map.mapLoaded(); map.movePoint([120.91, 14.41]); assert.equal(map.confirmExact(), true); h.flush();
   };
-  return { h, events, files, backend, fields, confirmMap, picks: () => pickerCalls };
+  const confirmMap = async () => {
+    await pinMap();
+    // Either consent button confirms the location. The map helper records the choice the test already made (wish or none), as the card's buttons do.
+    h.vm().setShareLocationWanted(h.vm().shareLocationWanted); h.flush();
+  };
+  return { h, events, files, backend, fields, confirmMap, pinMap, picks: () => pickerCalls };
 }
 
 test('Property Listing choice renders composer before any property, preserving local photos and all fields across map', async () => {
@@ -581,7 +587,7 @@ test('Stage 1 untouched Property form is neutral, incomplete, disabled and never
 });
 test('Stage 1 required errors follow interaction and disappear when corrected',async()=>{
  const {h,events}=unifiedHarness();await h.settle();const flow=h.vm().propertyCreation;
- flow.updateField('barangay','');h.flush();assert.deepEqual(h.vm().propertyVisibleValidationIssues.map(i=>i.field),['barangay']);flow.updateField('barangay','Corrected barangay');h.flush();assert.equal(h.vm().propertyVisibleValidationIssues.length,0);assert.equal(h.vm().propertyNextDisabled,true);assert.deepEqual(events,[]);h.unmount();
+ flow.updateField('barangay','');h.flush();assert.deepEqual(h.vm().propertyVisibleValidationIssues,[],'typing alone shows nothing');h.vm().markPropertyFieldTouched('barangay');h.flush();assert.deepEqual(h.vm().propertyVisibleValidationIssues.map(i=>i.field),['barangay'],'leaving the field shows it');flow.updateField('barangay','Corrected barangay');h.flush();assert.equal(h.vm().propertyVisibleValidationIssues.length,0);assert.equal(h.vm().propertyNextDisabled,true);assert.deepEqual(events,[]);h.unmount();
 });
 test('Stage 1 Next uses physical readiness and confirmed location, independent of listing completeness',async()=>{
  const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();h.vm().updateDraft('title','');h.vm().updateDraft('description','');h.vm().updateDraft('askingRent','');h.flush();assert.equal(h.vm().propertyNextDisabled,true);
@@ -589,7 +595,7 @@ test('Stage 1 Next uses physical readiness and confirmed location, independent o
  h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.ok(h.vm().workspacePropertyId);assert.deepEqual(events,['property']);h.unmount();
 });
 test('Stage 1 optional floor inconsistency blocks Next, preserves entries and clears after correction',async()=>{
- const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();const flow=h.vm().propertyCreation;flow.updateField('floorNumber','8');flow.updateField('totalFloors','2');h.flush();assert.equal(h.vm().propertyNextDisabled,true);assert.ok(h.vm().propertyVisibleValidationIssues.some(i=>i.section==='floors'&&i.kind==='invalid'));h.vm().nextListingDetails();h.flush();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.equal(h.vm().draft.title,'Before UUID title');
+ const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();const flow=h.vm().propertyCreation;flow.updateField('floorNumber','8');flow.updateField('totalFloors','2');h.flush();assert.equal(h.vm().propertyNextDisabled,true);assert.equal(h.vm().propertyVisibleValidationIssues.length,0,'quiet while typing');h.vm().markPropertyFieldTouched('totalFloors');h.flush();assert.ok(h.vm().propertyVisibleValidationIssues.some(i=>i.section==='floors'&&i.kind==='invalid'));h.vm().nextListingDetails();h.flush();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.equal(h.vm().draft.title,'Before UUID title');
  flow.updateField('floorNumber','2');h.flush();assert.equal(h.vm().propertyFloorIssues.floorNumber,null);assert.equal(h.vm().propertyNextDisabled,false);assert.deepEqual(events,[]);h.unmount();
 });
 
@@ -830,7 +836,7 @@ test('Stage A: a saved-property load that fails after creation never blocks List
 test('Stage B: floor area is required in the wizard only when the property can be estimated, and Continue says what is missing',async()=>{
  const {h,fields,confirmMap}=unifiedHarness();await h.settle();fields();await confirmMap();const c=h.vm().propertyCreation;
  const before=h.vm().estimateDetails;assert.equal(before.total,8);
- c.updateField('floorAreaSqm','');h.flush();assert.equal(h.vm().floorAreaRequired,true);assert.equal(h.vm().floorAreaMissing,true);assert.equal(h.vm().propertyNextDisabled,true);assert.equal(h.vm().propertyNextStatus,'Add floor area to continue.');
+ c.updateField('floorAreaSqm','');h.flush();assert.equal(h.vm().floorAreaRequired,true);assert.equal(h.vm().floorAreaMissing,true);assert.equal(h.vm().propertyNextDisabled,true);assert.equal(h.vm().propertyNextStatus,'Add floor area');
  assert.equal(h.vm().estimateDetails.filled,before.filled-1,'the count follows the field');
  await h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingComposer','the action itself refuses, not only the disabled button');assert.equal(h.vm().workspacePropertyId,null);
  for(const bad of ['0','-3','abc']){c.updateField('floorAreaSqm',bad);h.flush();assert.equal(h.vm().floorAreaMissing,true,bad);assert.equal(h.vm().propertyNextDisabled,true,bad);}
@@ -938,7 +944,8 @@ for (const [name, change] of triggers) test(`the wish is cleared with a notice w
   assert.equal(h.vm().shareLocationNotice, CHANGED);
   assert.equal(cardState(h).button!.action, h.vm().propertyState.draft.publicLatitude ? 'recordWish' : 'openMapShare', 'the button is back to asking');
   assert.equal(cardState(h).asking, true);
-  if (!h.vm().propertyState.draft.publicLatitude) await confirmMap();
+  // The decision belonged to the old point, so the owner decides again before saving: here, without sharing.
+  if (!h.vm().propertyState.draft.publicLatitude) await confirmMap(); else { h.vm().setShareLocationWanted(false); h.flush(); }
   await h.vm().nextListingDetails(); await h.settle();
   assert.deepEqual(events.slice(0, 1), ['property'], 'the property itself still saves');
   assert.deepEqual(s.calls, [], 'no consent call for a point the owner did not press on'); h.unmount();
@@ -1343,4 +1350,94 @@ test('typing while the check runs, then the check finds the listing is not a dra
   assert.equal(h.vm().listingEditExplanation, 'This listing is no longer a draft. Content editing is unavailable; use its listing management actions.');
   h.vm().updateDraft('title', 'More typing'); h.flush();
   assert.equal(h.vm().draft.title, 'Typed while checking', 'further typing is refused once locked'); h.unmount();
+});
+
+// ---- Stage 1: quiet on arrival, one footer line, and the consent decision
+test('Step 1 is quiet on arrival: no error is visible, and one plain footer line names what is missing', async () => {
+  const { h } = unifiedHarness(); await h.settle();
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'no red anywhere');
+  assert.equal(h.vm().propertyValidationIssue, null);
+  assert.match(h.vm().propertyNextStatus, /^Add /, 'one line that names what is missing');
+  assert.equal(h.vm().propertyNextDisabled, true);
+  for (let i = 0; i < 5; i++) { h.flush(); await new Promise<void>(r => setImmediate(r)); }
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'and it stays quiet while nobody touches anything'); h.unmount();
+});
+test('an error shows only after its field was left, and only for that field', async () => {
+  const { h } = unifiedHarness(); await h.settle(); const flow = h.vm().propertyCreation;
+  flow.updateField('barangay', 'x'); flow.updateField('barangay', ''); flow.updateField('addressLine1', ''); h.flush();
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'typing and clearing is not leaving');
+  h.vm().markPropertyFieldTouched('barangay'); h.flush();
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues.map((i: any) => i.field), ['barangay'], 'only the field that was left');
+  flow.updateField('barangay', 'Anabu'); h.flush();
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'and it clears when corrected'); h.unmount();
+});
+test('the footer line follows the form: missing fields, then the location, then ready', async () => {
+  const { h, fields, pinMap } = unifiedHarness(); await h.settle();
+  fields(); h.flush();
+  assert.equal(h.vm().propertyNextStatus, 'Confirm the location to continue', 'with every field filled, only the location is left');
+  await pinMap();
+  assert.equal(h.vm().propertyNextStatus, 'Confirm the location to continue', 'a pin alone is not the confirmation');
+  h.vm().setShareLocationWanted(false); h.flush();
+  assert.match(h.vm().propertyNextStatus, /Next saves the property/); h.unmount();
+});
+test('a pin is not enough: one of the two consent buttons must confirm it before Continue works', async () => {
+  const { h, fields, pinMap, events } = unifiedHarness(); await h.settle(); fields(); await pinMap();
+  assert.equal(h.vm().locationDecided, false); assert.equal(h.vm().propertyNextDisabled, true);
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.equal(h.vm().screen, 'listingComposer'); assert.equal(h.vm().workspacePropertyId, null); assert.deepEqual(events, [], 'the action itself refuses, not only the disabled button');
+  h.vm().setShareLocationWanted(false); h.flush();
+  assert.equal(h.vm().locationDecided, true); assert.equal(h.vm().locationShared, false); assert.equal(h.vm().shareLocationWanted, false); assert.equal(h.vm().propertyNextDisabled, false);
+  h.vm().changeLocationChoice(); h.flush();
+  assert.equal(h.vm().locationDecided, false, 'Change asks again'); assert.equal(h.vm().propertyNextDisabled, true);
+  h.vm().setShareLocationWanted(true); h.flush();
+  assert.equal(h.vm().locationDecided, true); assert.equal(h.vm().locationShared, true); assert.equal(h.vm().shareLocationWanted, true, 'the wish is exactly what it was'); h.unmount();
+});
+test("a moved pin or an edited address asks again; the type or floor does not undo Confirm, don't share but does undo a share", async () => {
+  const noShare = unifiedHarness(); await noShare.h.settle(); noShare.fields(); await noShare.pinMap(); noShare.h.vm().setShareLocationWanted(false); noShare.h.flush();
+  assert.equal(noShare.h.vm().locationDecided, true);
+  noShare.h.vm().propertyCreation.updateField('propertyType', 'condominium'); noShare.h.vm().propertyCreation.updateField('floorNumber', '4'); noShare.h.flush();
+  assert.equal(noShare.h.vm().locationDecided, true, "type and floor do not change a don't-share choice");
+  noShare.h.vm().propertyCreation.updateField('barangay', 'Another'); noShare.h.flush();
+  assert.equal(noShare.h.vm().locationDecided, false, 'an edited address clears the pin and the decision');
+  assert.equal(noShare.h.vm().propertyNextDisabled, true);
+  await noShare.pinMap();
+  assert.equal(noShare.h.vm().locationDecided, false, 'a new pin is a new question'); noShare.h.unmount();
+  const share = unifiedHarness(); await share.h.settle(); share.fields(); await share.pinMap(); share.h.vm().setShareLocationWanted(true); share.h.flush();
+  assert.equal(share.h.vm().locationDecided, true);
+  share.h.vm().propertyCreation.updateField('propertyType', 'condominium'); share.h.flush(); await share.h.settle(); share.h.flush();
+  assert.equal(share.h.vm().shareLocationWanted, false, 'the share wish is cleared by the identity change, as before');
+  assert.equal(share.h.vm().locationDecided, false, 'so a share decision no longer stands');
+  assert.equal(share.h.vm().shareLocationNotice, 'Location changed. Confirm sharing again.'); share.h.unmount();
+});
+test('once the location is confirmed the property saves, and nothing is left over', async () => {
+  const { h, fields, pinMap, events } = unifiedHarness(); await h.settle(); fields(); await pinMap(); h.vm().setShareLocationWanted(false); h.flush();
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.deepEqual(events.slice(0, 1), ['property'], 'it saves once the location is confirmed');
+  assert.ok(h.vm().workspacePropertyId); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false); h.unmount();
+});
+
+// ---- Stage 1 follow-up: the consent decision belongs to a NEW unsaved property only
+test('a saved property never needs a fresh location decision: Continue works, and the map and address are closed to edits', async () => {
+  const { h, fields, confirmMap } = unifiedHarness(); await h.settle(); fields(); await confirmMap();
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.ok(h.vm().workspacePropertyId);
+  while (h.vm().screen !== 'listingComposer') { h.vm().goBack(); h.flush(); await h.settle(); }
+  assert.equal(h.vm().editorMode, 'draft'); assert.equal(h.vm().propertyRoutineState.status, 'ready');
+  assert.equal(h.vm().locationDecided, false, 'there is no decision in this session, and none is needed');
+  assert.equal(h.vm().propertyNextDisabled, false, 'Continue is enabled without asking again');
+  h.vm().openPropertyLocation(); await h.settle(); h.flush();
+  assert.equal(h.vm().locationState.stage, 'closed', 'the pin cannot be moved on a saved property');
+  const addressBefore = JSON.stringify(h.vm().propertyState.draft);
+  h.vm().propertyCreation.updateField('barangay', 'Edited after saving'); h.flush();
+  assert.equal(JSON.stringify(h.vm().propertyState.draft), addressBefore, 'the address cannot be edited on a saved property');
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'listingDetails', 'Continue proceeds'); h.unmount();
+});
+test('the consent gate is written for a new property only', () => {
+  const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
+  assert.match(vm, /\|\|\(postingWizard&&!workspace\.propertyId&&!locationDecided\);/, 'the disabled state');
+  const next = vm.match(/nextListingDetails: async \(\) => \{[\s\S]*?\n    \},/)![0];
+  assert.ok(next.indexOf('if(postingWizard&&!locationDecided)return;') > next.indexOf('if(!workspaceRef.current.propertyId){'), 'inside the new-property branch');
+  assert.ok(next.indexOf('if(postingWizard&&!locationDecided)return;') < next.indexOf('propertyCreation.submit(true)'), 'before anything is saved');
 });

@@ -6,9 +6,7 @@ import {spacing} from '../../../shared/theme/spacing';
 import {ListingButton} from './ListingButton';
 import type {PropertyListingViewModel} from '../viewModels/usePropertyListingViewModel';
 export function PropertyReadinessNotice({viewModel:vm}:{viewModel:PropertyListingViewModel}) {
-  return vm.propertyReadinessReviewAvailable?<Pressable accessibilityRole="button" accessibilityLabel={`${vm.propertyNextStatus} Review the first field.`} onPress={vm.reviewPropertyReadiness} style={styles.review}>
-    <Text accessibilityLiveRegion="polite" style={ui.supporting}>{vm.propertyNextStatus} <Text style={styles.link}>Review field</Text></Text>
-  </Pressable>:<Text accessibilityLiveRegion="polite" style={ui.supporting}>{vm.propertyNextStatus}</Text>;
+  return <Text accessibilityLiveRegion="polite" style={ui.supporting}>{vm.propertyNextStatus}</Text>;
 }
 interface ProgressFooterProps {
   viewModel: PropertyListingViewModel;
@@ -47,7 +45,7 @@ export function PropertyProgressFooter({viewModel:vm,action,guidance,compact=fal
   </View>;
 }
 const styles=StyleSheet.create({
-  footer:{gap:spacing.xs},review:{minHeight:48,justifyContent:'center'},link:{textDecorationLine:'underline'},
+  footer:{gap:spacing.xs},
   summary:{flexDirection:'row',alignItems:'center',gap:spacing.sm},summaryLabel:{...ui.supporting,flex:1,flexShrink:1,fontWeight:'600'},percent:{...ui.sectionTitle},
   infoButton:{minHeight:48,minWidth:48,alignItems:'center',justifyContent:'center'},
   infoIcon:{height:20,width:20,borderRadius:10,borderWidth:1.4,borderColor:colors.primaryAction,alignItems:'center',justifyContent:'center',gap:2},infoDot:{width:3,height:3,borderRadius:2,backgroundColor:colors.primaryAction},infoStem:{width:2,height:7,borderRadius:1,backgroundColor:colors.primaryAction},

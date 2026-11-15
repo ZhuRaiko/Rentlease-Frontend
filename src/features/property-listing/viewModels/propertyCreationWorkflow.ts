@@ -56,7 +56,7 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
     updateField<K extends Exclude<keyof DraftProperty, keyof PropertyLocationInput>>(field: K, value: DraftProperty[K]) {
       if (state.busy || state.propertyId || state.uncertain) return;
       const addressChanged = ['city', 'barangay', 'addressLine1', 'addressLine2', 'postalCode'].includes(field) && String(state.draft[field]??'').trim()!==String(value??'').trim();
-      update({ touchedFields:{...state.touchedFields,[field]:true}, draft: { ...state.draft, [field]: value, ...(addressChanged ? { exactLatitude: null, exactLongitude: null, publicLatitude: null, publicLongitude: null } : {}) }, ...(addressChanged ? { locationRevision: state.locationRevision + 1 } : {}), error: null });
+      update({ draft: { ...state.draft, [field]: value, ...(addressChanged ? { exactLatitude: null, exactLongitude: null, publicLatitude: null, publicLongitude: null } : {}) }, ...(addressChanged ? { locationRevision: state.locationRevision + 1 } : {}), error: null });
     },
     next() {
       if (!state.loaded || state.busy || state.propertyId || state.uncertain) return;

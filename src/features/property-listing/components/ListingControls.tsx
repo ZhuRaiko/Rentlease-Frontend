@@ -27,6 +27,8 @@ interface ListingFieldProps {
   /** A value was just applied to this field for the owner (for example from the range slider): primary border and an Applied chip. */
   applied?:boolean;
   inputRef?:Ref<TextInput>|undefined;
+  /** The field was left. The form uses it to show that field's error only now. */
+  onBlur?:(() => void)|undefined;
 }
 
 export function ListingField({
@@ -38,7 +40,7 @@ export function ListingField({
   keyboardType = 'default',
   prefix,
   helper,
-  editable = true, required = false, usedInEstimate = false, error, invalid=false, applied=false, inputRef,
+  editable = true, required = false, usedInEstimate = false, error, invalid=false, applied=false, inputRef, onBlur,
 }: ListingFieldProps) {
   return (
     <View style={styles.fieldGroup}>
@@ -54,6 +56,7 @@ export function ListingField({
           keyboardType={keyboardType}
           multiline={multiline}
           onChangeText={onChangeText}
+          onBlur={onBlur}
           placeholder={placeholder}
           placeholderTextColor={colors.textMuted}
           style={[styles.input, multiline && styles.multiline]}

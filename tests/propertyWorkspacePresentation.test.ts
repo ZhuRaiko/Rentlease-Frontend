@@ -156,7 +156,7 @@ test('a missing confirmed location is a required property issue, so the property
   const hook=readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts','utf8');
   assert.match(hook,/const propertyIssues=workspace\.propertyId\?\[\]:propertyValidationIssues\(propertyState\.draft\);/);
   assert.match(hook,/const propertyFormReady=!!workspace\.propertyId\|\|propertyIssues\.length===0;/);
-  assert.match(hook,/const propertyNextDisabled=[^\n]*\|\|!propertyFormReady\|\|wizardFloorAreaMissing;/);
+  assert.match(hook,/const propertyNextDisabled=[^\n]*\|\|!propertyFormReady\|\|wizardFloorAreaMissing\|\|\(postingWizard&&!workspace\.propertyId&&!locationDecided\);/);
   assert.doesNotMatch(hook.match(/const propertyNextDisabled=[^\n]*;/)![0],/completeness/);
 });
 test('Location section shows the map button, the confirm helper and the location error from the view model',()=>{
@@ -255,8 +255,9 @@ for(const disabled of [true,false])test(`Stage 1 footer binds the real Next read
  const nodes=flatten(render({viewModel:vm}));const button=nodes.find(n=>n.type==='ListingButton');assert.equal(button.props.label,'Next: Listing');assert.equal(button.props.disabled,disabled);if(!disabled)button.props.onPress();assert.equal(next,disabled?0:1);assert.equal(nodes.some(n=>n.type==='PropertyValidationSummary'),false);
 });
 test('Stage 1 readiness explanation is accessible while Next is disabled without another checklist',()=>{
- const render=presentation('src/features/property-listing/components/PropertyProgressFooter.tsx','PropertyReadinessNotice');let reviews=0;const vm:any={propertyReadinessReviewAvailable:true,propertyNextStatus:'Enter the property barangay.',reviewPropertyReadiness:()=>reviews++};
- const tree=render({viewModel:vm});assert.equal(tree.type,'Pressable');assert.equal(tree.props.accessibilityRole,'button');assert.match(tree.props.accessibilityLabel,/barangay.*Review the first field/);tree.props.onPress();assert.equal(reviews,1);assert.doesNotMatch(JSON.stringify(tree),/Before saving the property/);vm.propertyReadinessReviewAvailable=false;assert.equal(render({viewModel:vm}).type,'Text');
+ const render=presentation('src/features/property-listing/components/PropertyProgressFooter.tsx','PropertyReadinessNotice');const vm:any={propertyNextStatus:'Add floor area, city, barangay and street'};
+ // One plain line names what is missing: no link, no second message.
+ const tree=render({viewModel:vm});assert.equal(tree.type,'Text');assert.equal(tree.props.children,vm.propertyNextStatus);assert.equal(tree.props.accessibilityLiveRegion,'polite');assert.doesNotMatch(JSON.stringify(tree),/Review field|Before saving the property/);
 });
 test('Stage 1 action footer remains outside the scroll content and does not overlay form controls',()=>{
  const render=presentation('src/features/property-listing/components/ListingWizardScaffold.tsx','ListingWizardScaffold');const marker={type:'Text',props:{children:'Persistent action'}};
@@ -281,7 +282,7 @@ test('Stage 2 information panel expands and collapses without changing form valu
  const info=(tree:any)=>flatten(tree).find(n=>n.props.accessibilityLabel==='About listing completeness');let tree=render({viewModel:vm});assert.equal(info(tree).props.accessibilityState.expanded,false);assert.doesNotMatch(JSON.stringify(tree),/Property-specific Tier 3/);info(tree).props.onPress();tree=render({viewModel:vm});assert.equal(info(tree).props.accessibilityState.expanded,true);const text=JSON.stringify(flatten(tree).find(n=>n.type==='ScrollView'));assert.match(text,/local estimate/i);assert.match(text,/80%/);assert.match(text,/Property-specific Tier 3/);assert.doesNotMatch(text,/Add a listing title|Write at least 30|Add maximum occupants/);info(tree).props.onPress();tree=render({viewModel:vm});assert.equal(info(tree).props.accessibilityState.expanded,false);assert.equal(JSON.stringify(vm),before);assert.equal(writes,0);assert.deepEqual(render.announcements,['Completeness information expanded.','Completeness information collapsed.']);
 });
 test('Stage 2 Property has no large inline completeness block and keeps contextual field hints',()=>{
- const render=presentation('src/features/property-listing/views/ListingComposerView.tsx','ListingComposerView');const vm:any={workspacePropertyId:null,propertyState:{},photoState:{},...composerSummaryInputs,locationState:{stage:'closed'},propertyLocation:{}};const nodes=flatten(render({viewModel:vm,onClose:()=>{}}));assert.equal(nodes.some(n=>n.type==='ListingCompletenessSummary'),false);assert.doesNotMatch(JSON.stringify(nodes),/score above covers/);assert.ok(nodes.some(n=>n.type==='ComposerPropertyFields'));const fields=readFileSync('src/features/property-listing/components/ComposerPropertyFields.tsx','utf8');assert.match(fields,/CompletenessHint/);
+ const render=presentation('src/features/property-listing/views/ListingComposerView.tsx','ListingComposerView');const vm:any={workspacePropertyId:null,propertyState:{draft:{}},photoState:{},...composerSummaryInputs,locationState:{stage:'closed'},propertyLocation:{}};const nodes=flatten(render({viewModel:vm,onClose:()=>{}}));assert.equal(nodes.some(n=>n.type==='ListingCompletenessSummary'),false);assert.doesNotMatch(JSON.stringify(nodes),/score above covers/);assert.ok(nodes.some(n=>n.type==='ComposerPropertyFields'));const fields=readFileSync('src/features/property-listing/components/ComposerPropertyFields.tsx','utf8');assert.match(fields,/CompletenessHint/);
 });
 
 
