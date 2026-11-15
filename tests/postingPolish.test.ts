@@ -89,6 +89,7 @@ test('formatPeso: peso sign, thousands separators, centavos only when present', 
   assert.equal(formatPeso(NaN), '');
 });
 const reviewVm = (over: any = {}) => ({
+  listingCheck: { state: 'ok', message: null }, retryListingCheck() {},
   publishedEditing: false, listingDraftState: { busy: false, propertyId: 'p1', listingId: 'l1', error: null, notice: null, uncertain: false, conflict: false },
   publicationState: { propertyId: null }, lifecycleState: { propertyId: null }, workspacePropertyId: 'p1', workspaceListingId: null,
   composerPhase: null, draft: { title: 'Actual rental', askingRent: '12227', description: 'Real description', rentalTerm: 'monthly', securityDepositMonths: '1', advanceRentMonths: '0', availableDate: '2026-12-01', houseRules: '' },
@@ -108,7 +109,7 @@ test('Review shows exactly one saved notice for a new draft and for a resumed dr
   assert.equal(savedNotices(render('PostingReviewView', reviewVm())), 1, 'new draft, no notice left behind');
 });
 test('Review still shows other draft notices and errors', () => {
-  const t = text(render('PostingReviewView', reviewVm({ listingDraftState: { busy: false, propertyId: 'p1', listingId: 'l1', error: 'Save failed. Try again.', notice: null, uncertain: false, conflict: false } })));
+  const t = text(render('PostingReviewView', reviewVm({ listingDraftState: { busy: false, propertyId: 'p1', listingId: 'l1', error: 'Save failed. Try again.', errorSource: 'save', notice: null, uncertain: false, conflict: false } })));
   assert.match(t, /Save failed\. Try again\./);
   const loaded = text(render('PostingReviewView', reviewVm({ listingDraftState: { busy: false, propertyId: 'p1', listingId: 'l1', error: null, notice: 'Current backend draft loaded. Review it before saving again.', uncertain: false, conflict: false } })));
   assert.match(loaded, /Current backend draft loaded/);

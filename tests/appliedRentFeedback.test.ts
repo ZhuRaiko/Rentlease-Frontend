@@ -136,7 +136,7 @@ test('the asking-rent field shows the primary border and an Applied chip beside 
   const bad = expand(load('src/features/property-listing/components/ListingControls.tsx').ListingField({ label: 'x', value: '', placeholder: '', onChangeText() {}, applied: true, error: 'Enter a rent' }));
   assert.equal(flat(nodes(bad).find(n => n.type === 'View' && Array.isArray(n.props.style) && nodes(n).some(c => c.type === 'TextInput')).props.style).borderColor, '#9B2C2C', 'an error still wins over the applied border');
 });
-const priceVm = (over: any = {}) => ({ publishedEditing: false, composerPhase: null, listingDraftState: { busy: false }, listingDraftReadOnly: false, draft: { askingRent: '13000' }, priceIssue: null, priceAttempted: false, postingEstimate: null, priceKeepAvailable: false, goBack() {}, ...over });
+const priceVm = (over: any = {}) => ({ listingCheck: { state: 'ok', message: null }, retryListingCheck() {}, publishedEditing: false, composerPhase: null, listingDraftState: { busy: false }, listingDraftReadOnly: false, draft: { askingRent: '13000' }, priceIssue: null, priceAttempted: false, postingEstimate: null, priceKeepAvailable: false, goBack() {}, ...over });
 const priceView = (feedback: any) => {
   const view = load('src/features/property-listing/views/PostingEstimateView.tsx');
   return expand(view.PostingEstimateView({ viewModel: priceVm(), onClose() {}, estimateSection: null, rentFeedback: feedback }));

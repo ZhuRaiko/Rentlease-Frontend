@@ -7,6 +7,7 @@ import {ListingWorkspaceFeedback} from '../components/ListingWorkspaceFeedback';
 import {ComposerRecoveryFeedback} from '../components/ComposerRecoveryFeedback';
 import {PropertyVerificationAction} from '../components/PropertyVerificationAction';
 import {PostingCard} from '../components/PostingCard';
+import {ListingCheckLine} from '../components/ListingCheckLine';
 import {rentalTermOptions} from '../models/PersistedListingDraft';
 import {askingRentLabel,reviewPriceDetail} from '../models/PostingPrice';
 import {RELATION_TEXT} from '../../../shared/models/RentalRange';
@@ -28,6 +29,7 @@ export function PostingReviewView({viewModel:vm,onClose}:{viewModel:PropertyList
     ?<ListingButton tone="brand" label={saving?'Saving...':'Save Changes'} disabled={vm.composerSaveDisabled} onPress={()=>void vm.saveComposerDraft()}/>
     :<View style={styles.footer}><ListingButton tone="brand" label="Publish listing" disabled={!vm.postingPublishReady} onPress={vm.requestPublish}/><ListingButton tone="outline" label={saving?'Saving...':'Save and exit'} disabled={vm.saveAndExitDisabled} onPress={()=>void vm.saveAndExit()}/>{!vm.postingPublishReady?<Text style={styles.hint}>Publish unlocks when every item above is checked</Text>:null}</View>;
   return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose,published?undefined:{label:'Save and exit',onPress:()=>void vm.saveAndExit(),disabled:vm.saveAndExitDisabled})} title="Review Your Rental" description={published?'Review your changes. Saving preserves the current publication status.':'One last check before you publish.'} progress={<PostingProgress step={4} onSelect={vm.goToPostingStep}/>} onBack={vm.goBack} onClose={onClose} footer={footer}>
+    <ListingCheckLine state={vm.listingCheck.state} message={vm.listingCheck.message} onRetry={()=>void vm.retryListingCheck()}/>
     {uri?<View><Image source={{uri}} accessibilityLabel={photo?'Saved property cover photo':'Selected property photo, not saved yet'} style={styles.cover}/>{!published?<View style={styles.overlay}><Edit label="Change photos" onPress={()=>vm.editPostingStep('property')}/></View>:null}</View>:<Text style={ui.supporting}>No property photos selected.</Text>}
     <View style={styles.gap}>
       <Text style={ui.sectionTitle}>{d.title||'Listing title not entered'}</Text>

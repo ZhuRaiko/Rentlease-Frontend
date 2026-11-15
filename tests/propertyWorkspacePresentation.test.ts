@@ -48,7 +48,7 @@ test('unified marketplace account can post rentals without a separate landlord r
   const tenant={marketplace:true,admin:false,tenant:true,landlord:false};assert.deepEqual(propertiesWorkspace(tenant,'postingType'),{type:'properties',initialScreen:'postingType'});
   assert.deepEqual(propertiesWorkspace({...tenant,landlord:true},'postingType'),{type:'properties',initialScreen:'postingType'});assert.equal(propertiesWorkspace({...tenant,admin:true,landlord:true},'postingType'),null);
 });
-function vm() { return { workspacePropertyId: 'B', workspaceListingId: 'B-listing', listingDraftState: { propertyId: 'A', listingId: 'A-listing', error: 'A draft error' }, publicationState: { propertyId: 'A', listingId: 'A-listing', error: 'A publication error', uncertain: true }, lifecycleState: { propertyId: 'A', listingId: 'A-listing', error: 'A lifecycle error', uncertain: true } }; }
+function vm() { return { workspacePropertyId: 'B', workspaceListingId: 'B-listing', listingDraftState: { propertyId: 'A', listingId: 'A-listing', error: 'A draft error', errorSource: 'save' }, publicationState: { propertyId: 'A', listingId: 'A-listing', error: 'A publication error', uncertain: true }, lifecycleState: { propertyId: 'A', listingId: 'A-listing', error: 'A lifecycle error', uncertain: true } }; }
 for (const scope of ['draft', 'publication', 'management']) test(`${scope} feedback never shows another property/listing's notices`, () => {
   const render = feedback(); assert.doesNotMatch(JSON.stringify(render({ viewModel: vm(), scope })), /A draft error|A publication error|A lifecycle error/);
 });
@@ -364,3 +364,21 @@ test('selected photo detail exposes description, safe removal and accessible mov
 
 test('Manage Listing separates lifecycle actions from property tools and exposes Edit Listing',()=>{const render=presentation('src/features/property-listing/views/PublishedListingStatusView.tsx','PublishedListingStatusView');let edited=0;const lifecycle:any[]=[];const tree=render({viewModel:{lifecycleState:{},realListing:{id:'listing',title:'Rental',status:'active',completeness_score:1},lifecycleStatusLabel:{active:'Published'},lifecycleActions:['pause','archive'],lifecycleLabel:{pause:'Pause Listing',archive:'Archive Listing'},lifecycle:{request:(a:any)=>lifecycle.push(a)},editManagedListing:()=>edited++},onClose(){}});const nodes=flatten(tree);assert.equal(tree.props.title,'Manage Status');assert.equal(nodes.some(n=>n.props.label==='Edit Property'||n.props.label==='Manage Property Photos'),false);nodes.find(n=>n.props.label==='Edit Rental').props.onPress();nodes.find(n=>n.props.label==='Pause Listing').props.onPress();nodes.find(n=>n.props.label==='Archive Listing').props.onPress();assert.equal(edited,1);assert.deepEqual(lifecycle,['pause','archive']);});
 test('Edit Listing groups shared property and photo tools without duplicating their forms',()=>{const render=presentation('src/features/property-listing/views/ListingDetailsView.tsx','ListingDetailsView');let properties=0,photos=0;const tree=render({viewModel:{publishedEditing:true,draftHydration:{status:'ready'},draft:{},workspacePropertyId:'property',propertySummary:{},mediaItems:[],propertyState:{draft:{}},photoState:{},listingDraftState:{lastConfirmed:{status:'active'}},propertyEditAvailable:true,openPropertyDetails:()=>properties++,navigate:(screen:string)=>{assert.equal(screen,'photoManager');photos++;}},onClose(){}});const nodes=flatten(tree);assert.match(JSON.stringify(nodes),/Property Details/);assert.match(JSON.stringify(nodes),/Property Photos/);assert.equal(nodes.filter(n=>n.props.label==='Edit Property').length,0,'there is no second Edit Property button: the Property step header reaches Step 1');nodes.find(n=>n.props.label==='Manage Property Photos').props.onPress();assert.equal(properties,0);assert.equal(photos,1);assert.equal(nodes.some(n=>n.type==='PropertyRoutineEditView'||n.type==='PropertyPhotosView'),false);});
+
+// ---- Part B: one amber line for a failed draft load; the other recoveries keep their own controls
+const draftFeedback = (state: any) => JSON.stringify(feedback()({ viewModel: { workspacePropertyId: 'B', workspaceListingId: null, publishedEditing: false, listingDraftState: { propertyId: 'B', listingId: null, busy: false, checking: false, loaded: false, uncertain: false, conflict: false, error: null, errorSource: null, notice: null, ...state }, publicationState: { propertyId: 'B' }, lifecycleState: { propertyId: 'B' }, listingDraftPersistence: {}, saveComposerDraft() {} }, scope: 'draft' }));
+test('a plain failure to load the draft shows no red message and no "Retry loading draft" group (the amber line carries it)', () => {
+  const s = draftFeedback({ error: 'Load the current property draft before saving.' });
+  assert.doesNotMatch(s, /Load the current property draft|Retry loading draft|Checking or saving/);
+  assert.doesNotMatch(draftFeedback({ error: 'x', errorSource: 'load' }), /Retry loading draft/);
+});
+test('a plain load in progress shows no grey "Checking or saving" message either', () => {
+  assert.doesNotMatch(draftFeedback({ busy: true, checking: true }), /Checking or saving/);
+  assert.match(draftFeedback({ busy: true, checking: false }), /Checking or saving/, 'a real save still says so');
+});
+test('a real save error, an uncertain save and a conflict keep their own explicit recovery', () => {
+  assert.match(draftFeedback({ loaded: true, error: 'Save failed.', errorSource: 'save' }), /Save failed\.[\s\S]*Retry saving draft/);
+  assert.match(draftFeedback({ loaded: true, uncertain: true, error: 'A previous save needs checking.' }), /A previous save needs checking\.[\s\S]*Check draft save status/);
+  assert.match(draftFeedback({ loaded: true, conflict: true, error: 'Someone changed it.' }), /Someone changed it\./);
+  assert.match(draftFeedback({ loaded: false, uncertain: true, error: 'Pending.' }), /Check draft save status/, 'uncertain wins even before it is marked loaded');
+});

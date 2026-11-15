@@ -10,6 +10,7 @@ import {ListingField} from '../components/ListingControls';
 import {ComposerRecoveryFeedback} from '../components/ComposerRecoveryFeedback';
 import {ListingWorkspaceFeedback} from '../components/ListingWorkspaceFeedback';
 import {waitingView} from '../models/ListingCheck';
+import {ListingCheckLine} from '../components/ListingCheckLine';
 import {colors} from '../../../shared/theme/colors';
 import {spacing} from '../../../shared/theme/spacing';
 import {ui} from '../../../shared/theme/ui';
@@ -32,6 +33,7 @@ export function PostingEstimateView({viewModel:vm,onClose,estimateSection,floorA
   const hint=vm.composerPhase||vm.listingDraftState.busy?'Keep this screen open until saving finishes.':wait.hint?wait.hint:blocked?(vm.priceIssue?.field==='askingRent'?'Enter your asking rent to continue':vm.priceIssue!.message):vm.publishedEditing?'Opens Review. Save changes there.':'Saves your draft, then opens Review';
   return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} title="Set Your Price" description="See the typical rent range, then choose your monthly asking rent." progress={<PostingProgress step={3} onSelect={vm.goToPostingStep}/>} onBack={vm.goBack} onClose={onClose} formFocus={rentFeedback?{scrollRef:rentFeedback.scrollRef,contentRef:rentFeedback.contentRef}:undefined}
     footer={<View style={styles.footer}><ListingButton tone="brand" label={wait.label} disabled={saving||blocked||!!waiting} onPress={()=>void vm.continuePostingReview()}/>{hint?<Text accessibilityLiveRegion="polite" style={styles.hint}>{hint}</Text>:null}</View>}>
+    <ListingCheckLine state={vm.listingCheck.state} message={vm.listingCheck.message} onRetry={()=>void vm.retryListingCheck()}/>
     <PostingCard highlight>
       {floorAreaFix?<View style={styles.gap}>
         <Text accessibilityRole="header" style={ui.sectionTitle}>Typical rent for similar places</Text>

@@ -126,7 +126,7 @@ test('typing is gated only by what is known; writes keep the check; navigation i
   assert.match(vm, /void publication\.restore\(workspace\.listingId\);\s*\}, \[workspace\.propertyId/, 'a saved property whose check never ran is checked once nothing is saving');
   assert.match(vm, /listingDraftReadOnly: listingFieldsLocked\(\)/);
   const view = readFileSync('src/features/property-listing/views/ListingDetailsView.tsx', 'utf8');
-  assert.match(view, /<ListingCheckLine state=\{vm\.listingCheck\.state\} onRetry=\{\(\) => void vm\.retryListingCheck\(\)\} \/>/);
+  assert.match(view, /<ListingCheckLine state=\{vm\.listingCheck\.state\} message=\{vm\.listingCheck\.message\} onRetry=\{\(\) => void vm\.retryListingCheck\(\)\} \/>/);
   assert.match(view, /disabled:!editable\|\|!!waiting/);
   assert.match(view, /waitingView\(waiting, vm\.returnTo \? 'Save and return' : 'Continue to Price'\)/);
   const price = readFileSync('src/features/property-listing/views/PostingEstimateView.tsx', 'utf8');
@@ -173,4 +173,18 @@ test('the Price step button waits the same way, and the recovery feedback hides 
   assert.match(price, /wait\.hint\?wait\.hint:blocked\?/);
   const feedback = readFileSync('src/features/property-listing/components/ComposerRecoveryFeedback.tsx', 'utf8');
   assert.match(feedback, /message=\{slimSaved && savedLineText\(vm\.composerNotice\) \? null : vm\.composerNotice\}/, 'a warning notice still shows as a card');
+});
+test('a draft that could not load says so on the button and points at Retry, in its own words', () => {
+  assert.deepEqual(waitingView("Couldn't load your draft", 'Continue to Review'), { label: 'Continue to Review · waiting for check', hint: 'Retry loading your draft above to continue. You can keep typing.' });
+  assert.equal(listingCheckLine('failed', false, "Couldn't load your draft")!.text, "Couldn't load your draft"); assert.equal(listingCheckLine('failed', false)!.text, "Couldn't check this listing");
+  assert.equal(listingCheckLine('failed', false, "Couldn't load your draft")!.retry, true);
+});
+test('two plain draft loads at once share one read; a save waits for it instead of being refused', async () => {
+  const { createListingDraftWorkflow } = await import('../src/features/property-listing/viewModels/listingDraftWorkflow');
+  let reads = 0, release!: () => void; const gate = new Promise<void>(r => { release = r; });
+  const service: any = { context: async () => ({ userId: 'u', propertyId: property }), assertContext: async () => {}, hasPending: async () => false, read: async () => { reads++; await gate; return null; } };
+  const flow = createListingDraftWorkflow(service, () => {}); flow.setProperty(property);
+  const a = flow.load(), b = flow.load(); assert.equal(flow.getSnapshot().checking, true);
+  release(); assert.deepEqual(await Promise.all([a, b]), [true, true]); assert.equal(reads, 1, 'one read'); assert.equal(flow.getSnapshot().loaded, true); assert.equal(flow.getSnapshot().checking, false);
+  assert.equal(await flow.load(), true); assert.equal(reads, 2, 'a later load reads again');
 });

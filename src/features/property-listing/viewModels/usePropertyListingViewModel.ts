@@ -42,7 +42,7 @@ import { applyPendingLocationShare, pendingShareNotice } from '../models/Locatio
 import { reconcileWish, shareBindingKey, wishAfterPress, wishApplies, type ShareWish } from '../models/ShareWish';
 import { currentActorId, locationShareService } from '../services/locationShareDependencies';
 import { currentEstimate } from '../models/PostingPrice';
-import { CHECKING_MESSAGE, CHECK_FAILED_MESSAGE, type ListingCheckState } from '../models/ListingCheck';
+import { CHECKING_MESSAGE, CHECK_FAILED_MESSAGE, DRAFT_LOAD_FAILED_MESSAGE, type ListingCheckState } from '../models/ListingCheck';
 import { decisionKey, decisionStands, type LocationDecision } from '../models/LocationConsent';
 import { missingLine } from '../models/PropertyReadiness';
 import { PREVIEW_DEBOUNCE_MS } from '../models/PinPrecision';
@@ -244,7 +244,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   },[workspace.propertyId,workspace.item,propertyState.draft.propertyType,portfolioState.items,portfolioState.loaded,portfolioState.busy,portfolioState.error]);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  const operationBusy = ():boolean => unfinishedPost.getSnapshot().busy || propertyIdentity.getSnapshot().busy || propertyRoutine.getSnapshot().busy || publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || listingDraftPersistence.getSnapshot().busy || (publication.getSnapshot().busy && !publication.getSnapshot().checking) || lifecycle.getSnapshot().busy;
+  const operationBusy = ():boolean => unfinishedPost.getSnapshot().busy || propertyIdentity.getSnapshot().busy || propertyRoutine.getSnapshot().busy || publishedContent.getSnapshot().busy || !active.current || propertyVerification.getSnapshot().opening || !!propertyVerification.getSnapshot().entryPropertyId || composerSaving.current || propertyCreation.getSnapshot().busy || propertyPhotos.getSnapshot().busy || (listingDraftPersistence.getSnapshot().busy && !listingDraftPersistence.getSnapshot().checking) || (publication.getSnapshot().busy && !publication.getSnapshot().checking) || lifecycle.getSnapshot().busy;
   const deletedWorkspace=()=>{const status=unfinishedPost.getSnapshot().status;return !!workspaceRef.current.propertyId&&status?.propertyId===workspaceRef.current.propertyId&&status.state!=='live';};
   function canWriteListing(): boolean {
     if(deletedWorkspace())return false;
@@ -273,7 +273,17 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if (!workspace.propertyId || composerPhase || composerSaving.current || publicationState.loaded || publicationState.busy || publicationState.error || publicationState.uncertain) return;
     void publication.restore(workspace.listingId);
   }, [workspace.propertyId, workspace.listingId, composerPhase, publicationState.loaded, publicationState.busy, publicationState.error, publicationState.uncertain]);
+  // A saved property whose draft never loaded (the first save skipped the workspace effect) is loaded once nothing is saving. After a failure
+  // only Retry loads it again, so this can never loop: a failure leaves `error` set, which this effect waits on.
+  useEffect(() => {
+    if (!workspace.propertyId || workspace.mode === 'editPublished' || composerPhase || composerSaving.current || !publicationState.loaded || publicationState.uncertain || (!!publicationState.status && publicationState.status !== 'draft')) return;
+    if (listingDraftState.loaded || listingDraftState.busy || listingDraftState.error || listingDraftState.uncertain || listingDraftState.conflict) return;
+    void listingDraftPersistence.load(false, workspace.listingId);
+  }, [workspace.propertyId, workspace.listingId, workspace.mode, composerPhase, publicationState.loaded, publicationState.uncertain, publicationState.status, listingDraftState.loaded, listingDraftState.busy, listingDraftState.error, listingDraftState.uncertain, listingDraftState.conflict]);
   const editingPublished=workspace.mode==='editPublished';
+  /** The saved draft has not been read yet (or could not be): only the actions that write wait for it. */
+  const draftPending=!!workspace.propertyId&&!editingPublished&&!listingDraftState.loaded&&!listingDraftState.uncertain&&!listingDraftState.conflict;
+  const draftLoadFailed=draftPending&&!listingDraftState.busy&&!!listingDraftState.error;
   const savedWizardEditor=postingWizard&&!!workspace.propertyId&&(!!workspace.item||propertyRoutineState.propertyId===workspace.propertyId&&propertyRoutineState.status!=='idle');
   useEffect(()=>{if(returnTo&&screen===returnTo)setReturnTo(null);},[screen,returnTo]);
   const contentState=editingPublished?publishedContentState:listingDraftState;
@@ -511,13 +521,23 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if (operationBusy() || !receipt || receipt.generation !== workspaceGeneration.current || receipt.propertyId !== workspaceRef.current.propertyId || row?.id !== receipt.listingId || row.status !== 'draft') return;
     savedConfirmation.current = null; setPostingWizard(true);setHistory(['dashboard']); setScreen('listingComposer');void propertyRoutine.open(row.property_id); setComposerNotice(null);
   };
+  /** Saves the listing draft. If the draft was never loaded it is loaded first, so a normal press never meets "load the draft first". 'unloaded' means the load itself failed. */
+  const saveListingDraft = async (form: typeof draft): Promise<'local' | 'saved' | 'blocked' | 'unloaded'> => {
+    const token = workspaceGeneration.current;
+    if (workspaceRef.current.propertyId && !listingDraftPersistence.getSnapshot().loaded) {
+      await listingDraftPersistence.load(false, workspaceRef.current.listingId);
+      if (!active.current || token !== workspaceGeneration.current) return 'blocked';
+      if (!listingDraftPersistence.getSnapshot().loaded) return 'unloaded';
+    }
+    return listingDraftPersistence.save(form);
+  };
   const saveDraft = async () => {
     if(initialHydrationPending())return;
     if (operationBusy() || savedConfirmation.current || publicationReadOnly()) return;
     const token = workspaceGeneration.current;
-    const outcome = await listingDraftPersistence.save(draft);
+    const outcome = await saveListingDraft(draft);
     if (!active.current || token !== workspaceGeneration.current) return;
-    if (outcome === 'blocked') return;
+    if (outcome === 'blocked' || outcome === 'unloaded') return;
     if (outcome === 'saved') { showDraftSaved(); return; }
     syncListingSummary('draft');
     setHistory([]);
@@ -590,8 +610,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       if (media.needsReconcile || media.pendingSelections.length || media.busy) { setComposerNotice('Property saved. Photos need attention before the listing draft can be saved.'); return; }
       if (!hasListingMinimum(propertyId, submittedDraft)) { setComposerNotice('Property and confirmed photos saved. Listing details remain local; add a title, description and positive monthly rent, then Save draft.'); return; }
       setComposerPhase('draft');
-      const outcome = await listingDraftPersistence.save(submittedDraft);
+      const outcome = await saveListingDraft(submittedDraft);
       if (!live()) return;
+      if (outcome === 'unloaded') return; // the draft could not be loaded: the one amber line with Retry says so
       if (outcome === 'saved') { savedOutcome.current=true; if(stayAfterSave.current){setComposerNotice(null);return;} if(postingWizard&&screen==='postingReview')setComposerNotice(null);/* Review already says "Draft saved" once */else showDraftSaved(); return; }
       setComposerNotice('Property and confirmed photos are retained. Check the listing draft details or save status before continuing.');
     } finally { if (live()) { composerSaving.current = false; setComposerPhase(null); } }
@@ -977,6 +998,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
           token=workspaceGeneration.current;
           // The workspace effect skips its check while this save runs, so the new property is checked here.
           void publication.restore(null);
+          // Same for the saved draft: the workspace effect skipped its load while this save ran, and a brand-new property has no draft to adopt.
+          void listingDraftPersistence.load(false,null);
           setComposerNotice('Property saved');freshlySaved=true;
           if(shareWanted){
             const actor=await currentActorId(),savedId=workspaceRef.current.propertyId;
@@ -1018,17 +1041,25 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     listingDraftReadOnly: listingFieldsLocked(),
     /** The saved-listing check, as the Listing step shows it. 'ok' also covers a locked or published listing, which have their own messages. */
     listingCheck: ((): { state: ListingCheckState; message: string | null } => {
-      if (!workspace.propertyId || editingPublished || listingFieldsLocked() || publicationState.uncertain || publicationState.loaded) return { state: 'ok', message: null };
-      return publicationState.error && !publicationState.busy ? { state: 'failed', message: CHECK_FAILED_MESSAGE } : { state: 'checking', message: CHECKING_MESSAGE };
+      if (!workspace.propertyId || editingPublished || listingFieldsLocked() || publicationState.uncertain) return { state: 'ok', message: null };
+      if (!publicationState.loaded) return publicationState.error && !publicationState.busy ? { state: 'failed', message: CHECK_FAILED_MESSAGE } : { state: 'checking', message: CHECKING_MESSAGE };
+      if (draftPending) return draftLoadFailed ? { state: 'failed', message: DRAFT_LOAD_FAILED_MESSAGE } : { state: 'checking', message: CHECKING_MESSAGE };
+      return { state: 'ok', message: null };
     })(),
     /** Why the actions that write are waiting, when the only thing in the way is the check (or an unresolved status). Null when nothing waits. */
     listingWriteBlockedReason: ((): string | null => {
-      if (!workspace.propertyId || listingFieldsLocked() || !publicationReadOnly()) return null;
-      if (!publicationState.loaded && !publicationState.uncertain) return publicationState.error && !publicationState.busy ? CHECK_FAILED_MESSAGE : CHECKING_MESSAGE;
+      if (!workspace.propertyId || listingFieldsLocked()) return null;
+      const readOnly = publicationReadOnly();
+      if (readOnly && !publicationState.loaded && !publicationState.uncertain) return publicationState.error && !publicationState.busy ? CHECK_FAILED_MESSAGE : CHECKING_MESSAGE;
+      if (draftPending && publicationState.loaded && !publicationState.uncertain) return draftLoadFailed ? DRAFT_LOAD_FAILED_MESSAGE : CHECKING_MESSAGE;
+      if (!readOnly) return null;
       return publicationState.uncertain || lifecycleState.uncertain ? 'Check the unresolved listing status before making further changes.' : 'Listing access could not be confirmed. Check its status before editing.';
     })(),
     retryListingCheck: async (): Promise<void> => {
       const p = publication.getSnapshot(); if (!p.propertyId) return;
+      const d = listingDraftPersistence.getSnapshot();
+      // The listing check is fine and only the draft could not be read: load it again (nothing else).
+      if (p.loaded && !p.uncertain && !d.loaded && !d.uncertain && !d.conflict && d.error && workspaceRef.current.mode !== 'editPublished') { await listingDraftPersistence.load(false, workspaceRef.current.listingId); return; }
       const ok = p.uncertain || p.listingId ? await (p.listingId ? publication.reconcile() : publication.restore()) : await publication.recheck(workspaceRef.current.listingId);
       if (ok && active.current && (!publication.getSnapshot().status || publication.getSnapshot().status === 'draft') && !publication.getSnapshot().uncertain) await listingDraftPersistence.reconcile();
     },

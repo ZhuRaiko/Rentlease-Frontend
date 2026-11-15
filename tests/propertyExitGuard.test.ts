@@ -423,12 +423,12 @@ test('Post detaches an in-flight lifecycle operation without replaying it into t
 });
 
 
-function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any; routineGate?: Promise<void>; publication?: any; searchAddress?: (query: string, signal: AbortSignal) => Promise<any[]> } = {}) {
+function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any; routineGate?: Promise<void>; publication?: any; searchAddress?: (query: string, signal: AbortSignal) => Promise<any[]>; draftRead?: (...a: any[]) => Promise<any>; draftPending?: () => Promise<boolean> } = {}) {
   const backend = backendDraftService(), events: string[] = [], rows: any[] = [];
   const files = Array.from({ length: 3 }, (_, i) => ({ uri: `file:///cache/composer-${i}.jpg`, fileName: `${i}.jpg`, mimeType: 'image/jpeg', size: 100 }));
   let uncertainPhoto = false, pickerCalls = 0;
   const candidate = { id: 'real-candidate', label: 'Chosen address', longitude: 120.9, latitude: 14.4 };
-  const h = mountProperty(null, { ...backend.service, save: async (c: any, form: any) => { events.push('draft'); if (failure === 'draft') throw h.draftError('Check draft status.'); const saved = await backend.service.save(c, form); return opts.score === undefined ? saved : { ...saved, completeness_score: opts.score }; } }, opts.publication, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: opts.searchAddress ?? (async () => [candidate]) }, {
+  const h = mountProperty(null, { ...backend.service, ...(opts.draftRead ? { read: opts.draftRead } : {}), ...(opts.draftPending ? { hasPending: opts.draftPending } : {}), save: async (c: any, form: any) => { events.push('draft'); if (failure === 'draft') throw h.draftError('Check draft status.'); const saved = await backend.service.save(c, form); return opts.score === undefined ? saved : { ...saved, completeness_score: opts.score }; } }, opts.publication, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: opts.searchAddress ?? (async () => [candidate]) }, {
     initialScreen: 'postingType', locationShare: opts.locationShare, pickImages: async () => { pickerCalls++; return files; },
     // The saved-property editor reads back the property that was just created (as the real service does).
     routine: { load: async (id: string) => { if (opts.routineGate) await opts.routineGate; if (opts.routineFails) throw Error('Routine read failed'); const d = h.vm().propertyState.draft, n = (v: string) => v.trim() === '' ? null : Number(v); return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: d.propertyType, city: d.city, barangay: d.barangay, floor_number: n(d.floorNumber), bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: opts.areaMissing ? null : n(d.floorAreaSqm), max_occupants: n(d.maxOccupants), total_floors: n(d.totalFloors), furnishing_status: d.furnishingStatus, access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false, property_subtype: d.propertySubtype || null, lot_area_sqm: n(d.lotAreaSqm ?? ''), parking_spaces: n(d.parkingSpaces ?? ''), model_attributes_version: 2 }; }, hasPending: async () => false, save: async (c: any, d: any) => ({ ...c, bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: d.floorAreaSqm.trim() ? Number(d.floorAreaSqm) : null, edit_version: '60000000-0000-4000-8000-000000000003' }), reconcile: async () => null },
@@ -1602,4 +1602,86 @@ test('v6: no lookup is made for an address whose pin is already confirmed', asyn
   assert.equal(hasPin(h), true); const afterTool = n;
   await afterLookup(h); await afterLookup(h);
   assert.equal(n, afterTool, 'the map tool made its own search; the page makes none once a pin is confirmed'); assert.equal(h.vm().locationPreview.status, 'idle'); h.unmount();
+});
+
+// ---- Part B: the draft is loaded after the first save, so Continue to Review never needs a retry
+// On a device the effects run while the first save is still waiting on the property read (arriveAtListing emulates that), so the workspace effect skips its loads.
+const toPrice = async (opts: any = {}) => {
+  const fixture = await arriveAtListing(opts); const { h } = fixture;
+  h.vm().continuePostingEstimate(); h.flush(); await h.settle(); h.flush();
+  return fixture;
+};
+test('part B: create a property, fill Listing and Price, press Continue to Review: the draft saves, Review opens, no notice and no retry', async () => {
+  const { h, events } = await toPrice();
+  assert.equal(h.vm().screen, 'postingEstimate'); h.vm().typeAskingRent('15000'); h.flush();
+  await h.vm().continuePostingReview(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'postingReview', 'Review opens'); assert.deepEqual(events.filter(e => e === 'draft'), ['draft'], 'the draft was saved once');
+  const d = h.vm().listingDraftState;
+  assert.equal(d.loaded, true); assert.equal(d.error, null); assert.equal(h.vm().composerNotice, null, 'no "retained" notice');
+  assert.equal(h.vm().listingCheck.state, 'ok'); assert.equal(h.vm().listingWriteBlockedReason, null); h.unmount();
+});
+
+test('part B: a draft that never loaded, then Continue: it is loaded first, then saved, and Review opens', async () => {
+  const { h, events, backend } = await toPrice();
+  h.vm().typeAskingRent('15000');
+  h.vm().listingDraftPersistence.setProperty(null); h.vm().listingDraftPersistence.setProperty(backend.propertyId);   // as if its load never ran; nothing renders before the press
+  assert.equal(h.vm().listingDraftPersistence.getSnapshot().loaded, false);
+  await h.vm().continuePostingReview(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'postingReview'); assert.equal(events.filter(e => e === 'draft').length, 1, 'saved once, after the load');
+  assert.equal(h.vm().listingDraftState.error, null); assert.equal(h.vm().composerNotice, null); h.unmount();
+});
+test('part B: the draft load right after the first save does not hold Back or navigation, and a save waits for it instead of being refused', async () => {
+  let release!: () => void; const gate = new Promise<void>(r => { release = r; }); let reads = 0;
+  const { h } = await arriveAtListing({ draftRead: async () => { reads++; await gate; return null; } });
+  assert.equal(h.vm().screen, 'listingDetails', 'the load is still running and navigation was not held');
+  assert.equal(h.vm().listingDraftPersistence.getSnapshot().busy, true); assert.equal(h.vm().listingDraftPersistence.getSnapshot().checking, true);
+  assert.equal(h.vm().listingCheck.state, 'checking'); assert.ok(h.vm().listingWriteBlockedReason, 'writes wait, with a reason');
+  h.vm().goBack(); h.flush(); assert.notEqual(h.vm().screen, 'listingDetails', 'Back works while it loads');
+  release(); await h.settle(); h.flush(); assert.equal(reads, 1, 'one read, shared'); h.unmount();
+});
+test('part B: when the automatic load truly fails: one amber state with Retry, nothing red, and no loop', async () => {
+  let reads = 0, fail = true;
+  const { h } = await arriveAtListing({ draftRead: async () => { reads++; if (fail) throw new Error('offline'); return null; } });
+  const atFailure = reads;
+  for (let i = 0; i < 20; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  assert.equal(reads, atFailure, 'no automatic retry, however many renders');
+  const c = h.vm().listingCheck; assert.equal(c.state, 'failed'); assert.equal(c.message, "Couldn't load your draft");
+  assert.equal(h.vm().listingWriteBlockedReason, "Couldn't load your draft");
+  assert.equal(h.vm().composerNotice === null || h.vm().composerNotice === 'Property saved', true, 'no "retained" notice');
+  // Retry works, once, and the person reaches Review
+  fail = false; const before = reads; await h.vm().retryListingCheck(); await h.settle(); h.flush();
+  assert.equal(reads, before + 1, 'Retry loads once'); assert.equal(h.vm().listingCheck.state, 'ok'); assert.equal(h.vm().listingWriteBlockedReason, null);
+  h.vm().continuePostingEstimate(); h.flush(); await h.settle(); h.flush(); assert.equal(h.vm().screen, 'postingEstimate'); h.unmount();
+});
+test('part B: Continue pressed while the draft cannot load saves nothing and shows no retained-draft notice', async () => {
+  let fail = true; const { h, events } = await toPrice({ draftRead: async () => { if (fail) throw new Error('offline'); return null; } });
+  h.vm().typeAskingRent('15000');
+  await h.vm().continuePostingReview(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'postingEstimate'); assert.deepEqual(events.filter(e => e === 'draft'), [], 'nothing was saved');
+  assert.notEqual(h.vm().composerNotice, 'Property and confirmed photos are retained. Check the listing draft details or save status before continuing.');
+  fail = false; await h.vm().retryListingCheck(); await h.settle(); h.flush();
+  await h.vm().continuePostingReview(); await h.settle(); h.flush(); assert.equal(h.vm().screen, 'postingReview'); assert.equal(events.filter(e => e === 'draft').length, 1); h.unmount();
+});
+test('part B: a real uncertain save still needs its own explicit recovery, and a draft with a pending marker is not loaded over', async () => {
+  const { h, events } = await toPrice({ draftPending: async () => true });
+  assert.equal(h.vm().listingDraftState.uncertain, true, 'an unresolved earlier save is uncertain, not "not loaded"');
+  h.vm().typeAskingRent('15000'); await h.vm().continuePostingReview(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'postingEstimate'); assert.deepEqual(events.filter(e => e === 'draft'), [], 'it does not save over an unknown outcome'); h.unmount();
+});
+test('part B: the load is shared, started once after the first save, and the heal effect only runs when nothing else can', () => {
+  const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
+  assert.match(vm, /void publication\.restore\(null\);[\s\S]{0,260}void listingDraftPersistence\.load\(false,null\);/, 'right after the first save, next to the publication check');
+  assert.match(vm, /if \(listingDraftState\.loaded \|\| listingDraftState\.busy \|\| listingDraftState\.error \|\| listingDraftState\.uncertain \|\| listingDraftState\.conflict\) return;/, 'never while loaded, running, failed, uncertain or in conflict');
+  assert.match(vm, /\(listingDraftPersistence\.getSnapshot\(\)\.busy && !listingDraftPersistence\.getSnapshot\(\)\.checking\)/, 'a plain load does not hold navigation');
+  assert.equal((vm.match(/listingDraftPersistence\.save\(/g) ?? []).length, 1, 'one place saves, and it loads first');
+});
+test('part B: the draft is not loaded while the first save is still running (the heal waits for nothing to be saving)', async () => {
+  let reads = 0; let release!: () => void; const gate = new Promise<void>(r => { release = r; });
+  const fixture = unifiedHarness('none', { routineGate: gate, draftRead: async () => { reads++; return null; } }); const { h, fields, confirmMap } = fixture; await h.settle(); fields(); await confirmMap();
+  let done = false; const p = h.vm().nextListingDetails().then(() => { done = true; });
+  for (let i = 0; i < 8; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  const during = reads;
+  release(); while (!done) { await new Promise<void>(r => setImmediate(r)); h.flush(); } await p; await h.settle(); h.flush(); await h.settle(); h.flush();
+  assert.equal(during, 1, 'only the one load the first save itself starts; the effect added none while saving');
+  assert.equal(h.vm().listingDraftState.loaded, true); h.unmount();
 });

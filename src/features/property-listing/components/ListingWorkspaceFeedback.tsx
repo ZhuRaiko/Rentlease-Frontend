@@ -11,8 +11,9 @@ export function ListingWorkspaceFeedback({ viewModel: vm, scope, hideSavedNotice
   const ownPublication = publication.propertyId === id && (!vm.workspaceListingId || publication.listingId === vm.workspaceListingId);
   const ownLifecycle = lifecycle.propertyId === id && lifecycle.listingId === vm.workspaceListingId;
   return <>
-    {scope !== 'management' && ownDraft ? <>
-      <FeedbackNotice message={draft.busy ? vm.publishedEditing?'Checking or saving your listing changes...':'Checking or saving your listing draft…' : draft.error ?? (hideSavedNotice && draft.notice === DRAFT_SAVED_NOTICE ? null : draft.notice)} tone={draft.error ? 'error' : 'info'} />
+    {/* A plain failure to load the draft is shown once, as the amber line with Retry (ListingCheckLine); never as a grey, a red and a button. */}
+    {scope !== 'management' && ownDraft && !(!vm.publishedEditing && !draft.loaded && !draft.uncertain && !draft.conflict && draft.errorSource !== 'save' && !!draft.error) ? <>
+      <FeedbackNotice message={draft.busy && !draft.checking ? vm.publishedEditing?'Checking or saving your listing changes...':'Checking or saving your listing draft…' : draft.error ?? (hideSavedNotice && draft.notice === DRAFT_SAVED_NOTICE ? null : draft.notice)} tone={draft.error ? 'error' : 'info'} />
       {!draft.busy && (draft.error || draft.uncertain || draft.conflict) && !publication.uncertain ? <ListingButton label={draft.conflict ? RELOAD_LABEL : draft.uncertain ? vm.publishedEditing?'Check saved changes':'Check draft save status' : draft.errorSource === 'save' && draft.loaded ? vm.publishedEditing?'Retry saving changes':'Retry saving draft' : 'Retry loading draft'} tone="outline" onPress={() => void ((draft.uncertain || draft.conflict) ? vm.listingDraftPersistence.reconcile() : draft.errorSource === 'save' && draft.loaded ? vm.saveComposerDraft() : vm.listingDraftPersistence.load(false, vm.workspaceListingId))} /> : null}
     </> : null}
     {ownPublication && (scope !== 'draft' || publication.uncertain || !!publication.error) ? <>

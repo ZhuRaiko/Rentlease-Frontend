@@ -46,7 +46,7 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     {!vm.composerPhase && !vm.listingDraftState.error && issueNow ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{issueNow.message}</Text> : null}
   </>} />;
   return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} progress={vm.postingWizard?<PostingProgress step={2} onSelect={vm.goToPostingStep}/>:undefined} title={vm.postingWizard?"Rental Listing":vm.listingDraftState.lastConfirmed?"Edit Listing":"Listing Details"} onBack={vm.goBack} onClose={onClose} footer={footer}>
-    <ListingCheckLine state={vm.listingCheck.state} onRetry={() => void vm.retryListingCheck()} />
+    <ListingCheckLine state={vm.listingCheck.state} message={vm.listingCheck.message} onRetry={() => void vm.retryListingCheck()} />
     {vm.listingCheck.state === 'ok' && savedLine ? <ListingSavedLine text={savedLine} /> : null}
     {vm.publishedEditing?<Text accessibilityLiveRegion="polite" style={styles.copy}>Editing {vm.listingDraftState.lastConfirmed?.status==='paused'?'Paused':'Published'} listing. Saving changes preserves this status.</Text>:null}
     <Text style={styles.copy}>{vm.publishedEditing?'* Required to save changes':'* Required to save a listing draft'}</Text>

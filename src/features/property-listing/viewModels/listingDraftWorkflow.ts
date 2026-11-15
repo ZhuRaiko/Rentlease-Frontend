@@ -3,8 +3,8 @@ import type { ListingDraftContext, ListingDraftService } from '../services/listi
 import { isPropertyUuid } from '../models/DraftProperty';
 /** The notice a confirmed draft save leaves behind. Review shows its own saved line, so it hides this one. */
 export const DRAFT_SAVED_NOTICE = 'Listing draft saved to your account. It is not published.';
-interface State { propertyId: string | null; listingId: string | null; loaded: boolean; busy: boolean; error: string | null; errorSource: 'load'|'save'|null; conflict:boolean; uncertain: boolean; lastConfirmed: SavedListingDraft | null; notice: string | null }
-const initial = (propertyId: string | null = null): State => ({ propertyId, listingId: null, loaded: false, busy: false, error: null, errorSource: null, conflict:false, uncertain: false, lastConfirmed: null, notice: null });
+interface State { propertyId: string | null; listingId: string | null; loaded: boolean; busy: boolean; /** busy because of a plain load (not a save or a reconcile): it never holds Back or navigation */ checking: boolean; error: string | null; errorSource: 'load'|'save'|null; conflict:boolean; uncertain: boolean; lastConfirmed: SavedListingDraft | null; notice: string | null }
+const initial = (propertyId: string | null = null): State => ({ propertyId, listingId: null, loaded: false, busy: false, checking: false, error: null, errorSource: null, conflict:false, uncertain: false, lastConfirmed: null, notice: null });
 export function createListingDraftWorkflow(service: ListingDraftService, onConfirmed: (row: SavedListingDraft, source: 'load'|'save'|'adopt') => void, canWrite = () => true, mode: 'draft'|'published'='draft') {
   const editable=(status:string)=>mode==='published'?status==='active'||status==='paused':status==='draft';
   let state = initial(), generation = 0, disposed = false, context: ListingDraftContext | null = null;
@@ -21,10 +21,18 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
     else update({...(error instanceof ListingDraftError && error.kind==='conflict'?{conflict:true}:{}), errorSource: source, error: listingDraftMessage(error), ...(error instanceof ListingDraftError && error.kind === 'uncertain' ? { uncertain: true } : {}) });
   };
   const accept = (row: SavedListingDraft, source: 'load'|'save'|'adopt' = 'load') => { onConfirmed(row,source); update({ listingId: row.id, lastConfirmed: row, loaded: true }); };
-  const load = async (reconcile = false, selectedListingId: string | null = null) => {
+  // A plain load that is already running is shared: a caller that needs the draft (a save) waits for it instead of being refused.
+  let loading: Promise<boolean> | null = null;
+  const load = (reconcile = false, selectedListingId: string | null = null): Promise<boolean> => {
+    if (loading && !reconcile) return loading;
+    const run = loadOnce(reconcile, selectedListingId);
+    if (!reconcile) { loading = run; void run.finally(() => { if (loading === run) loading = null; }); }
+    return run;
+  };
+  const loadOnce = async (reconcile = false, selectedListingId: string | null = null) => {
     if (disposed || state.busy || !state.propertyId) return false;
     if (state.lastConfirmed && !editable(state.lastConfirmed.status)) return true;
-    const g = generation; update({ listingId:selectedListingId??state.listingId,busy: true, error: null, errorSource: null, notice: null });
+    const g = generation; update({ listingId:selectedListingId??state.listingId,busy: true, checking: !reconcile, error: null, errorSource: null, notice: null });
     try {
       const next = await service.context(state.propertyId); if (!alive(g)) return false;
       if (context && context.userId !== next.userId) throw new ListingDraftError('Your account changed. Reopen the listing.', 'identity');
@@ -35,7 +43,7 @@ export function createListingDraftWorkflow(service: ListingDraftService, onConfi
       if (row) accept(row); else update({ loaded: true });
       update({ conflict:false, uncertain: false, notice: reconcile ? mode==='published'?'Current saved listing loaded. Review it before saving again; this does not prove the earlier changes applied.':'Current backend draft loaded. Review it before saving again; this does not prove the earlier save applied.' : null }); return true;
     } catch (error) { fail(g, error); return false; }
-    finally { if (alive(g)) update({ busy: false }); }
+    finally { if (alive(g)) update({ busy: false, checking: false }); }
   };
   return {
     getSnapshot: () => state, subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },

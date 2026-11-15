@@ -6,10 +6,10 @@ import {spacing} from '../../../shared/theme/spacing';
 import {ui} from '../../../shared/theme/ui';
 import {CHECK_STALL_MS,listingCheckLine,type ListingCheckState} from '../models/ListingCheck';
 /** One slim line: quiet while the check runs, amber with Retry when it failed or has run too long. Typing is never held by it. */
-export function ListingCheckLine({state,onRetry}:{state:ListingCheckState;onRetry:()=>void}){
+export function ListingCheckLine({state,onRetry,message}:{state:ListingCheckState;onRetry:()=>void;/** what failed, when it is not the listing check itself (for example the draft) */message?:string|null|undefined}){
   const [stalled,setStalled]=useState(false);
   useEffect(()=>{setStalled(false);if(state!=='checking')return;const id=setTimeout(()=>setStalled(true),CHECK_STALL_MS);return()=>clearTimeout(id);},[state]);
-  const line=listingCheckLine(state,stalled);
+  const line=listingCheckLine(state,stalled,state==='failed'&&message?message:undefined);
   if(!line)return null;
   const failed=line.kind==='failed';
   return <View accessibilityLiveRegion="polite" style={[styles.line,failed&&styles.failed]}>
