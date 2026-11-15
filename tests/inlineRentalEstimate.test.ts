@@ -86,7 +86,7 @@ const textOf=(tree:any[])=>tree.filter(n=>n.type==='Text').map(n=>[n.props.child
 const withRange={...receipt,illustrativeRange:range};
 test('details variant: one estimate action, then the range card for the asking rent, never a point value',()=>{
   let calls=0;const workflow={predict(){calls++;}};
-  const initial=nodes(renderInline({workflow}));const buttons=initial.filter(n=>n.type==='Button');assert.equal(buttons.length,1);assert.equal(buttons[0].props.label,'Estimate rental price');buttons[0].props.onPress();assert.equal(calls,1);
+  const initial=nodes(renderInline({workflow}));const buttons=initial.filter(n=>n.type==='Button');assert.equal(buttons.length,1);assert.equal(buttons[0].props.label,'Show typical rent range');buttons[0].props.onPress();assert.equal(calls,1);
   assert.ok(!initial.some(n=>n.props?.accessibilityLabel==='About rental price estimation'),'the old info icon is replaced by the card link');
   const tree=nodes(renderInline({workflow,result:withRange}));const card=tree.find(n=>n.type==='RangeCard');assert.deepEqual(card.props.range,range);assert.equal(card.props.rent,21000);assert.equal(card.props.onUseRent,undefined);
   assert.doesNotMatch(textOf(tree),/Estimated monthly rent|20,000|XGBoost|Model:/);
@@ -97,18 +97,18 @@ test('details variant: one estimate action, then the range card for the asking r
 test('guidance variant: the range card carries the Use action; loading, retry and unsupported states never offer one',()=>{
   let applied:number|null=null,calls=0;const workflow={predict(){calls++;}};
   const first=nodes(renderInline({workflow},undefined,undefined,{variant:'guidance',onUseRent:(r:number)=>applied=r}));
-  const get=first.find(n=>n.props.accessibilityLabel==='Get typical rent range');assert.ok(get);assert.equal(calls,0);get.props.onPress();assert.equal(calls,1);assert.equal(applied,null);
+  const get=first.find(n=>n.props.accessibilityLabel==='Show typical rent range');assert.ok(get);assert.equal(calls,0);get.props.onPress();assert.equal(calls,1);assert.equal(applied,null);
   const tree=nodes(renderInline({workflow,result:withRange},undefined,undefined,{variant:'guidance',askingRent:18000,onUseRent:(r:number)=>applied=r}));
   assert.match(textOf(tree),/Rental price guidance/);const card=tree.find(n=>n.type==='RangeCard');assert.deepEqual(card.props.range,range);assert.equal(card.props.rent,18000);
   assert.ok(!tree.some(n=>n.type==='Modal'));assert.equal(applied,null);card.props.onUseRent(15500);assert.equal(applied,15500);
   assert.doesNotMatch(textOf(tree),/XGBoost|estimated rent|20,000/);
   const busy=nodes(renderInline({workflow,busy:true,result:withRange},undefined,undefined,{variant:'guidance',onUseRent(){}}));assert.ok(busy.some(n=>n.type==='Loading'));assert.ok(!busy.some(n=>n.type==='RangeCard'),'no range is offered while a request is running');
   const error=nodes(renderInline({workflow,error:'Temporary failure',retryable:true},undefined,undefined,{variant:'guidance'}));assert.ok(error.some(n=>n.props.accessibilityLabel==='Retry estimate'));assert.ok(!error.some(n=>n.type==='RangeCard'));
-  const unsupported=nodes(renderInline({workflow,eligibility:{eligible:false,reason:'Unsupported saved category'}},undefined,undefined,{variant:'guidance'}));assert.ok(!unsupported.some(n=>n.props.accessibilityLabel==='Get typical rent range'));assert.match(JSON.stringify(unsupported),/Unsupported saved category/);
+  const unsupported=nodes(renderInline({workflow,eligibility:{eligible:false,reason:'Unsupported saved category'}},undefined,undefined,{variant:'guidance'}));assert.ok(!unsupported.some(n=>n.props.accessibilityLabel==='Show typical rent range'));assert.match(JSON.stringify(unsupported),/Unsupported saved category/);
 });
 test('posting variant: a range card with the owner rent and the Use action; transient retry; no point value',()=>{
   let applied:number|null=null,predicts=0;const workflow={predict:async()=>{predicts++;}};
-  const initial=nodes(renderInline({workflow},undefined,undefined,{variant:'posting',onUseRent:(r:number)=>applied=r}));initial.find(n=>n.props?.accessibilityLabel==='Estimate Rental Price')!.props.onPress();assert.equal(predicts,1);assert.equal(applied,null);
+  const initial=nodes(renderInline({workflow},undefined,undefined,{variant:'posting',onUseRent:(r:number)=>applied=r}));initial.find(n=>n.props?.accessibilityLabel==='Show typical rent range')!.props.onPress();assert.equal(predicts,1);assert.equal(applied,null);
   const ready=nodes(renderInline({workflow,result:withRange},undefined,undefined,{variant:'posting',askingRent:13000,onUseRent:(r:number)=>applied=r}));
   const card=ready.find(n=>n.type==='RangeCard');assert.deepEqual(card.props.range,range);assert.equal(card.props.rent,13000);card.props.onUseRent(14500);assert.equal(applied,14500);
   const marked=nodes(renderInline({workflow,result:withRange},undefined,undefined,{variant:'posting',askingRent:13000,onUseRent(){},appliedRent:13000})).find(n=>n.type==='RangeCard');assert.equal(marked.props.appliedRent,13000,'the applied rent reaches the card');assert.equal(card.props.appliedRent,undefined);
@@ -119,7 +119,7 @@ test('posting variant: a range card with the owner rent and the Use action; tran
 test('spotlight (tenant): read-only range card for the listing, one protected action, and no range before a result',()=>{
   let calls=0;const workflow={predict(){calls++;}};
   const initial=nodes(renderInline({workflow},undefined,undefined,{variant:'spotlight',askingRent:9999}));
-  assert.match(textOf(initial),/Is this rent fairly priced/);assert.ok(!initial.some(n=>n.type==='RangeCard'));
+  assert.match(textOf(initial),/Typical rent for similar places/);assert.doesNotMatch(textOf(initial),/Is this rent fairly priced|Rental intelligence/);assert.ok(!initial.some(n=>n.type==='RangeCard'));
   const actions=initial.filter(n=>n.type==='Pressable');assert.equal(actions.length,1);actions[0].props.onPress();assert.equal(calls,1);
   const result=nodes(renderInline({workflow,result:withRange},undefined,undefined,{variant:'spotlight',askingRent:9999,onUseRent(){}}));const card=result.find(n=>n.type==='RangeCard');
   assert.deepEqual(card.props.range,range);assert.equal(card.props.rent,9999);assert.equal(card.props.subject,'listing');assert.equal(card.props.onUseRent,undefined);

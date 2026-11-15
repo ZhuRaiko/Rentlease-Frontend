@@ -9,6 +9,7 @@ import {PropertyVerificationAction} from '../components/PropertyVerificationActi
 import {PostingCard} from '../components/PostingCard';
 import {rentalTermOptions} from '../models/PersistedListingDraft';
 import {askingRentLabel,reviewPriceDetail} from '../models/PostingPrice';
+import {RELATION_TEXT} from '../../../shared/models/RentalRange';
 import {radius} from '../../../shared/theme/radius';
 import {colors} from '../../../shared/theme/colors';
 import {spacing} from '../../../shared/theme/spacing';
@@ -16,7 +17,7 @@ import {ui} from '../../../shared/theme/ui';
 import type {PropertyListingViewModel} from '../viewModels/usePropertyListingViewModel';
 
 const Edit=({label,onPress}:{label:string;onPress:()=>void})=><Pressable accessibilityRole="button" accessibilityLabel={label} style={styles.edit} onPress={onPress}><Text style={styles.editText}>Edit</Text></Pressable>;
-const Row=({title,detail,onEdit,label,last=false}:{title:string;detail:string;onEdit?:(()=>void)|undefined;label:string;last?:boolean})=><View style={[styles.row,!last&&styles.divider]}><View style={styles.copy}><Text style={ui.body}>{title}</Text><Text style={ui.supporting}>{detail}</Text></View>{onEdit?<Edit label={label} onPress={onEdit}/>:null}</View>;
+const Row=({title,detail,onEdit,label,last=false,lines}:{title:string;detail:string;onEdit?:(()=>void)|undefined;label:string;last?:boolean;lines?:number})=><View style={[styles.row,!last&&styles.divider]}><View style={styles.copy}><Text style={ui.body}>{title}</Text><Text numberOfLines={lines} ellipsizeMode="tail" style={ui.supporting}>{detail}</Text></View>{onEdit?<Edit label={label} onPress={onEdit}/>:null}</View>;
 
 // Step 4: a final check. Gates are unchanged (saved draft, 80% completeness, approved Tier 3, saved photos, confirmation and server checks).
 export function PostingReviewView({viewModel:vm,onClose}:{viewModel:PropertyListingViewModel;onClose:()=>void}){
@@ -30,7 +31,7 @@ export function PostingReviewView({viewModel:vm,onClose}:{viewModel:PropertyList
     {uri?<View><Image source={{uri}} accessibilityLabel={photo?'Saved property cover photo':'Selected property photo, not saved yet'} style={styles.cover}/>{!published?<View style={styles.overlay}><Edit label="Change photos" onPress={()=>vm.editPostingStep('property')}/></View>:null}</View>:<Text style={ui.supporting}>No property photos selected.</Text>}
     <View style={styles.gap}>
       <Text style={ui.sectionTitle}>{d.title||'Listing title not entered'}</Text>
-      <View style={styles.priceLine}><Text style={ui.pageTitle}>{askingRentLabel(d.askingRent)} / month</Text></View>
+      <View style={styles.priceLine}><Text style={ui.pageTitle}>{askingRentLabel(d.askingRent)==='Not entered'?'Not entered':`${askingRentLabel(d.askingRent)} per month`}</Text>{vm.postingRangeRelation?<Text accessibilityLabel={RELATION_TEXT[vm.postingRangeRelation]} style={[styles.badge,vm.postingRangeRelation!=='within'&&styles.badgeWarn]}>{RELATION_TEXT[vm.postingRangeRelation]}</Text>:null}</View>
       <View style={styles.chips}>{[p.type,`${p.bedrooms} bd`,`${p.bathrooms} ba`,p.floorAreaSqm?`${p.floorAreaSqm} sqm`:null,p.location].filter(Boolean).map(text=><Text key={String(text)} style={styles.chip}>{text}</Text>)}</View>
     </View>
     {published?<Text style={ui.supporting}>Publication status will be preserved. Save Changes updates this rental without pausing, reactivating or republishing it. Use Manage Status for lifecycle actions.</Text>
@@ -46,7 +47,7 @@ export function PostingReviewView({viewModel:vm,onClose}:{viewModel:PropertyList
     <PostingCard>
       <Row title="Property" detail={`${p.type} · ${p.bedrooms} bd · ${p.bathrooms} ba${p.floorAreaSqm?` · ${p.floorAreaSqm} sqm`:''}`} label="Edit property" onEdit={edit('property')}/>
       <Row title="Price" detail={reviewPriceDetail(d.askingRent,vm.postingEstimate?.illustrativeRange)} label="Edit price" onEdit={edit('price')}/>
-      <Row title="Description" detail={d.description||'No description entered'} label="Edit description" onEdit={edit('listing')}/>
+      <Row title="Description" detail={d.description||'No description entered'} lines={2} label="Edit description" onEdit={edit('listing')}/>
       <Row title="Terms" detail={`${rentalTermOptions.find(x=>x.value===d.rentalTerm)?.label??'Rental term not entered'} · Deposit ${d.securityDepositMonths||'not specified'} · Advance ${d.advanceRentMonths||'not specified'}${d.minimumStayMonths?` · Minimum stay ${d.minimumStayMonths}`:''} · Available ${d.availableDate||'not specified'}`} label="Edit terms" last={!d.houseRules} onEdit={edit('listing')}/>
       {d.houseRules?<Row title="House rules" detail={d.houseRules} label="Edit house rules" last onEdit={edit('listing')}/>:null}
     </PostingCard>
@@ -55,7 +56,7 @@ export function PostingReviewView({viewModel:vm,onClose}:{viewModel:PropertyList
 }
 const styles=StyleSheet.create({
   footer:{gap:8},hint:{...ui.supporting,textAlign:'center'},cover:{width:'100%',height:200,borderRadius:12},gap:{gap:spacing.xs},
-  priceLine:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:spacing.sm},badge:{...ui.supporting,color:colors.primaryAction,backgroundColor:colors.primaryPale,paddingVertical:4,paddingHorizontal:10,borderRadius:20,fontWeight:'600'},
+  priceLine:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',gap:spacing.sm},badge:{...ui.supporting,color:colors.primaryAction,backgroundColor:colors.primaryPale,paddingVertical:4,paddingHorizontal:10,borderRadius:20,fontWeight:'600'},badgeWarn:{color:colors.warning,backgroundColor:colors.warningSurface},
   chips:{flexDirection:'row',flexWrap:'wrap',gap:spacing.xs},chip:{...ui.supporting,borderWidth:1,borderColor:colors.outline,borderRadius:20,paddingVertical:4,paddingHorizontal:10},
   info:{...ui.supporting,backgroundColor:colors.identitySurface,color:colors.identityInk,borderRadius:10,paddingVertical:spacing.sm,paddingHorizontal:spacing.md},
   overlay:{position:'absolute',right:spacing.xs,bottom:spacing.xs,backgroundColor:colors.background,borderRadius:24,paddingHorizontal:spacing.sm,opacity:0.96},

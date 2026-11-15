@@ -9,6 +9,12 @@ export const RANGE_ROUNDING = 500;
 /** The slider moves in steps of this many pesos. */
 export const SLIDER_STEP = 500;
 export const RANGE_DISCLAIMER = 'Illustrative range from a model, not an appraisal.';
+/** The owner's slider card: how to use it, and what the range is. */
+export const SLIDE_HINT = 'Slide along the range to try a price. It is an illustrative range from a model, not an appraisal.';
+/** The tenant view of a listing. */
+export const LISTING_DISCLAIMER = 'An illustrative range from a model, not an appraisal or a guarantee.';
+/** The one on-demand button, wherever the range is requested. */
+export const SHOW_RANGE_LABEL = 'Show typical rent range';
 
 export interface RentalRange { minimum: number; maximum: number }
 

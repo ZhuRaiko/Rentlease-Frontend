@@ -296,3 +296,10 @@ test('the Price step wires the slider to the asking-rent field without saving, a
   assert.match(review, /reviewPriceDetail\(d\.askingRent,vm\.postingEstimate\?\.illustrativeRange\)/);
   assert.match(readFileSync('src/features/property-listing/views/PostingEstimateView.tsx', 'utf8'), /Or type your own price\. Any amount is allowed\./);
 });
+test('the polish words: the slider hint, the tenant disclaimer and the one on-demand button', async () => {
+  const m = await import('../src/shared/models/RentalRange');
+  assert.equal(m.SLIDE_HINT, 'Slide along the range to try a price. It is an illustrative range from a model, not an appraisal.');
+  assert.equal(m.LISTING_DISCLAIMER, 'An illustrative range from a model, not an appraisal or a guarantee.');
+  assert.equal(m.SHOW_RANGE_LABEL, 'Show typical rent range');
+  assert.equal(m.RANGE_DISCLAIMER, 'Illustrative range from a model, not an appraisal.', 'the standalone card keeps its short disclaimer');
+});

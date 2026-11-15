@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
 import { formatPeso } from '../src/shared/models/Currency';
+import { colors } from '../src/shared/theme/colors';
 import { askingRentLabel, currentEstimate, reviewPriceDetail } from '../src/features/property-listing/models/PostingPrice';
 import { placeLabel, titleCasePlace } from '../src/features/property-listing/models/PlaceLabel';
 import { DRAFT_SAVED_NOTICE } from '../src/features/property-listing/viewModels/listingDraftWorkflow';
@@ -214,8 +215,38 @@ test('Review price line: rent per month with its relation to the typical range; 
 });
 test('Review shows peso text from the shared formatter, the relation, and no PHP amount or estimate figure', () => {
   const t = text(render('PostingReviewView', reviewVm({ draft: { ...reviewVm().draft, askingRent: '13000' } })));
-  assert.match(t, /₱13,000 \/ month/);
+  assert.match(t, /₱13,000 per month/);
   assert.match(t, /₱13,000 per month · Within the typical range/);
   assert.ok(!/PHP|estimate PHP|Matches the estimate|Within estimate range/.test(t));
   assert.match(text(render('PostingReviewView', reviewVm({ draft: { ...reviewVm().draft, askingRent: '19500' } }))), /₱19,500 per month · Above the typical range/);
+});
+
+// ---- Review 4a polish
+test('Review 4a: a badge under the price says where the rent sits against the range, warning-colored outside it', () => {
+  for (const [relation, words, warn] of [['within', 'Within the typical range', false], ['above', 'Above the typical range', true], ['below', 'Below the typical range', true]] as const) {
+    const tree = render('PostingReviewView', reviewVm({ postingRangeRelation: relation }));
+    const badge = nodes(tree).find(n => n.type === 'Text' && n.props.accessibilityLabel === words);
+    assert.ok(badge, relation); assert.equal([badge.props.children].flat(Infinity).join(''), words);
+    const style = Object.assign({}, ...[badge.props.style].flat(Infinity).filter(Boolean));
+    assert.equal(style.backgroundColor, warn ? colors.warningSurface : colors.primaryPale, relation + ' background'); assert.equal(style.color, warn ? colors.warning : colors.primaryAction, relation + ' text');
+  }
+  const none = render('PostingReviewView', reviewVm({ postingRangeRelation: null }));
+  assert.ok(!nodes(none).some(n => n.type === 'Text' && n.props.accessibilityLabel && /typical range/.test(n.props.accessibilityLabel)), 'no badge without a range');
+});
+test('Review 4a: the price reads "per month", and an unentered price is just "Not entered"', () => {
+  assert.match(text(render('PostingReviewView', reviewVm({ draft: { ...reviewVm().draft, askingRent: '13000' } }))), /₱13,000 per month/);
+  assert.ok(!/ \/ month/.test(text(render('PostingReviewView', reviewVm({ draft: { ...reviewVm().draft, askingRent: '13000' } })))));
+  const empty = text(render('PostingReviewView', reviewVm({ draft: { ...reviewVm().draft, askingRent: '' } })));
+  assert.ok(!/Not entered per month|Not entered \/ month/.test(empty)); assert.match(empty, /Not entered/);
+});
+test('Review 4a: the description row is two lines with an ellipsis; no other row is clipped', () => {
+  const tree = render('PostingReviewView', reviewVm({ draft: { ...reviewVm().draft, description: 'A very long description. '.repeat(40) } }));
+  const rows = nodes(tree).filter(n => n.type === 'Text' && n.props.numberOfLines !== undefined);
+  assert.deepEqual(rows.map(n => [n.props.numberOfLines, n.props.ellipsizeMode]), [[2, 'tail']], 'exactly one clipped line: the description');
+  assert.ok(String(rows[0].props.children).startsWith('A very long description.'), 'the full text is still in the row (screen readers read it; Edit shows it all)');
+});
+test('Review 4a: the verification row says it is needed to publish, not to save', () => {
+  const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
+  assert.match(vm, /detail:verified\?null:'Required to publish, not to save'/);
+  assert.ok(!/'Required to publish'\}/.test(vm));
 });

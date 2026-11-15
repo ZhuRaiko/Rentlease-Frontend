@@ -122,7 +122,7 @@ test('the range card tells the slider to read Applied only while ball, field and
   } finally { pickedStub = null; }
 });
 test('the asking-rent field shows the primary border and an Applied chip beside its label only while applied', () => {
-  const field = (applied?: boolean) => expand(load('src/features/property-listing/components/ListingControls.tsx').ListingField({ label: 'Monthly asking rent', value: '13000', placeholder: 'x', onChangeText() {}, ...(applied === undefined ? {} : { applied }) }));
+  const field = (applied?: boolean) => expand(load('src/features/property-listing/components/ListingControls.tsx').ListingField({ label: 'Your monthly asking rent', value: '13000', placeholder: 'x', onChangeText() {}, ...(applied === undefined ? {} : { applied }) }));
   const on = field(true), shell = nodes(on).find(n => n.type === 'View' && Array.isArray(n.props.style) && nodes(n).some(c => c.type === 'TextInput'));
   assert.equal(flat(shell.props.style).borderColor, '#32743C');
   assert.equal(flat(shell.props.style).borderWidth, 2);
@@ -144,16 +144,16 @@ const priceView = (feedback: any) => {
 test('the Price view marks the rent field applied, hands its refs to the scaffold, and wraps the rent card so it can be scrolled to', () => {
   const refs = () => ({ cardRef: { current: null }, scrollRef: { current: null }, contentRef: { current: null } });
   const r = refs(), tree = priceView({ applied: true, ...r });
-  assert.equal(nodes(tree).find(n => n.props?.label === 'Monthly asking rent').props.applied, true);
+  assert.equal(nodes(tree).find(n => n.props?.label === 'Your monthly asking rent').props.applied, true);
   assert.equal(tree.props.formFocus.scrollRef, r.scrollRef);
   assert.equal(tree.props.formFocus.contentRef, r.contentRef);
   const wrapper = nodes(tree).find(n => n.type === 'View' && n.props.ref === r.cardRef);
-  assert.ok(wrapper && nodes(wrapper).some(n => n.props?.label === 'Monthly asking rent'), 'the ref wraps the whole rent card');
+  assert.ok(wrapper && nodes(wrapper).some(n => n.props?.label === 'Your monthly asking rent'), 'the ref wraps the whole rent card');
   assert.equal(wrapper.props.collapsable, false);
-  assert.equal(nodes(priceView({ applied: false, ...refs() })).find(n => n.props?.label === 'Monthly asking rent').props.applied, false);
+  assert.equal(nodes(priceView({ applied: false, ...refs() })).find(n => n.props?.label === 'Your monthly asking rent').props.applied, false);
   const plain = expand(load('src/features/property-listing/views/PostingEstimateView.tsx').PostingEstimateView({ viewModel: priceVm(), onClose() {}, estimateSection: null }));
   assert.equal(plain.props.formFocus, undefined);
-  assert.equal(nodes(plain).find(n => n.props?.label === 'Monthly asking rent').props.applied, false);
+  assert.equal(nodes(plain).find(n => n.props?.label === 'Your monthly asking rent').props.applied, false);
 });
 
 // ---- The Price step wiring (hooks, timer, scroll, announcement)

@@ -34,14 +34,15 @@ export function PostingEstimateView({viewModel:vm,onClose,estimateSection,floorA
     footer={<View style={styles.footer}><ListingButton tone="brand" label={wait.label} disabled={saving||blocked||!!waiting} onPress={()=>void vm.continuePostingReview()}/>{hint?<Text accessibilityLiveRegion="polite" style={styles.hint}>{hint}</Text>:null}</View>}>
     <PostingCard highlight>
       {floorAreaFix?<View style={styles.gap}>
-        <Text style={ui.body}>Add your floor area to see an estimate for this property.</Text>
+        <Text accessibilityRole="header" style={ui.sectionTitle}>Typical rent for similar places</Text>
+        <Text style={ui.body}>Add your floor area to see the range for this property.</Text>
         <ListingField label="Floor area (sqm)" required placeholder="e.g. 85" keyboardType="numeric" value={floorAreaFix.value} error={floorAreaFix.error} editable={!floorAreaFix.saving} onChangeText={floorAreaFix.onChange}/>
-        <ListingButton tone="brand" label={floorAreaFix.saving?'Saving...':'Save and estimate'} disabled={floorAreaFix.saving||!floorAreaFix.value.trim()} onPress={floorAreaFix.onSave}/>
+        <ListingButton tone="brand" label={floorAreaFix.saving?'Saving...':'Save and show range'} disabled={floorAreaFix.saving||!floorAreaFix.value.trim()} onPress={floorAreaFix.onSave}/>
       </View>:estimateSection}
       {vm.estimateBasisText?<View style={styles.basis}><Text style={[ui.supporting,styles.flex]}>Based on: {vm.estimateBasisText}</Text>{vm.propertyEditAvailable?<Pressable accessibilityRole="button" accessibilityLabel="Edit property details" style={styles.link} onPress={()=>vm.editPostingStep('property')}><Text style={styles.linkText}>Edit details</Text></Pressable>:null}</View>:null}
     </PostingCard>
-    <View ref={rentFeedback?.cardRef} collapsable={false}><PostingCard title="Your monthly asking rent">
-      <ListingField label="Monthly asking rent" required prefix={'₱'} keyboardType="numeric" placeholder="Enter amount" value={vm.draft.askingRent} error={rentMessage} editable={!vm.listingDraftReadOnly&&!saving} applied={!!rentFeedback?.applied} onChangeText={vm.typeAskingRent}/>
+    <View ref={rentFeedback?.cardRef} collapsable={false}><PostingCard>
+      <ListingField label="Your monthly asking rent" required prefix={'₱'} keyboardType="numeric" placeholder="Enter amount" value={vm.draft.askingRent} error={rentMessage} editable={!vm.listingDraftReadOnly&&!saving} applied={!!rentFeedback?.applied} onChangeText={vm.typeAskingRent}/>
       {vm.priceKeepAvailable?<View style={styles.chips}>
         {vm.priceKeepAvailable?<Pressable accessibilityRole="button" accessibilityLabel="Keep My Price" accessibilityHint="Restores the rent you entered" disabled={saving} style={styles.chip} onPress={vm.keepPostingPrice}><Text style={styles.chipText}>Keep My Price</Text></Pressable>:null}
       </View>:null}

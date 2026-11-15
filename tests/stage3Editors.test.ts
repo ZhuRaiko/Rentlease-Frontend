@@ -157,7 +157,7 @@ test('the rent field is on the Price step only (Listing step has it just outside
   assert.match(readFileSync('src/features/property-listing/views/ListingDetailsView.tsx', 'utf8'), /\{!vm\.postingWizard\?<ListingField editable=\{editable\} required error=\{issueNow\?\.field==='askingRent'/);
   const price = readFileSync('src/features/property-listing/views/PostingEstimateView.tsx', 'utf8');
   assert.ok(!/rentHere|Edit it on the Listing step/.test(price));
-  assert.match(price, /label="Monthly asking rent"/);
+  assert.match(price, /label="Your monthly asking rent"/);
   const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
   assert.match(vm, /priceIssue:postingWizard\?listingValidationIssue:null/);
   assert.match(vm, /listingStepIssue:postingWizard\?listingDetailsIssue\(draft\):listingValidationIssue/);

@@ -5,6 +5,7 @@ import {colors} from '../theme/colors';
 import {ui} from '../theme/ui';
 import {type PredictionTarget,type PredictionReceipt} from '../models/RentalPrediction';
 import {RangeEstimateCard} from './RangeEstimateCard';
+import {SHOW_RANGE_LABEL} from '../models/RentalRange';
 import {useInlineRentalEstimate} from '../viewModels/useInlineRentalEstimate';
 /** Posting wizard only (rendered just when a caller passes onResult or autoPredict): reports the result upward and requests once for a freshly saved property. */
 function EstimateBridge({result,onResult,autoPredict,ready,workflow}:{result:PredictionReceipt|null;onResult?:((result:PredictionReceipt|null)=>void)|undefined;autoPredict:boolean;ready:boolean;workflow:{predict:()=>Promise<unknown>}}){
@@ -20,11 +21,11 @@ export function InlineRentalEstimate({accountId,target,property,onReview,variant
  const bridge=onResult||autoPredict?<EstimateBridge result={result??null} onResult={onResult} autoPredict={autoPredict} ready={vm.eligibility?.eligible===true&&!vm.busy} workflow={vm.workflow}/>:null;
  const noRange=result&&!range?<Text style={ui.supporting}>No typical range is available for this property. Your asking rent stays your choice.</Text>:null;
  if(variant==='spotlight')return <View style={styles.featureArea}>
- <View style={styles.featureHead}><View style={{flex:1,gap:4}}><Text style={styles.kicker}>Rental intelligence</Text><Text accessibilityRole="header" style={styles.featureTitle}>Is this rent fairly priced?</Text><Text style={styles.featureSubtitle}>See the typical rent range for similar places</Text></View><View accessible={false} style={styles.featureSymbol}><Text style={styles.symbolText}>{'₱'}</Text></View></View>
+ <View style={styles.featureHead}><View style={{flex:1,gap:4}}><Text accessibilityRole="header" style={styles.featureTitle}>Typical rent for similar places</Text></View><View accessible={false} style={styles.featureSymbol}><Text style={styles.symbolText}>{'₱'}</Text></View></View>
  <View style={styles.priceSpotlight}>
- {range?<RangeEstimateCard range={range} rent={rent} subject="listing"/>:null}
+ {range?<RangeEstimateCard range={range} rent={rent} subject="listing" showTitle={false}/>:null}
  {noRange}
- {vm.eligibility?.eligible===false?<Text style={styles.featureDescription}>{vm.eligibility.reason}</Text>:!(vm.error&&vm.retryable===false)?<Pressable accessibilityRole="button" accessibilityState={{busy:vm.busy,disabled:vm.busy}} disabled={vm.busy} onPress={()=>void vm.workflow.predict()} style={({pressed})=>[styles.featurePrimary,pressed?{opacity:.8}:null]}><Text style={styles.featurePrimaryText}>{vm.busy?'Estimating...':vm.error?'Retry estimate':result?'Estimate again':'Get Rental Price Estimate'}</Text></Pressable>:null}
+ {vm.eligibility?.eligible===false?<Text style={styles.featureDescription}>{vm.eligibility.reason}</Text>:!(vm.error&&vm.retryable===false)?<Pressable accessibilityRole="button" accessibilityState={{busy:vm.busy,disabled:vm.busy}} disabled={vm.busy} onPress={()=>void vm.workflow.predict()} style={({pressed})=>[styles.featurePrimary,pressed?{opacity:.8}:null]}><Text style={styles.featurePrimaryText}>{vm.busy?'Estimating...':vm.error?'Retry estimate':result?'Estimate again':SHOW_RANGE_LABEL}</Text></Pressable>:null}
  {vm.busy?<ActivityIndicator accessibilityLabel="Estimating rental price"/>:null}
  {vm.error?<Text accessibilityRole="alert" style={styles.featureDescription}>{vm.error}{result?' The previous range is shown; the latest request did not succeed.':''}</Text>:null}
  <Text style={styles.featureDescription}>Optional guidance based on saved property details. Eligibility and model availability apply. The landlord's price stays unchanged.</Text>
@@ -33,7 +34,7 @@ export function InlineRentalEstimate({accountId,target,property,onReview,variant
  {bridge}
  {variant==='guidance'?<Text accessibilityRole="header" style={styles.guidanceHeading}>Rental price guidance</Text>:null}
  {vm.eligibility?.eligible===false?<Text style={ui.supporting}>{vm.eligibility.reason}</Text>:<>
- {(!result||vm.busy)&&(!vm.error||vm.retryable!==false)?<View style={styles.guidanceActions}><Pressable accessibilityRole="button" accessibilityLabel={vm.error?'Retry estimate':variant==='posting'?'Estimate Rental Price':'Get typical rent range'} accessibilityState={{disabled:disabled||vm.busy,busy:vm.busy}} disabled={disabled||vm.busy} onPress={()=>void vm.workflow.predict()} style={styles.smallAction}><Text style={styles.actionText}>{vm.busy?'Estimating…':vm.error?'Retry estimate':variant==='posting'?'Estimate Rental Price':'Get typical rent range'}</Text></Pressable>{vm.busy?<ActivityIndicator accessibilityLabel="Estimating rental price"/>:null}</View>:null}
+ {(!result||vm.busy)&&(!vm.error||vm.retryable!==false)?<View style={styles.guidanceActions}><Pressable accessibilityRole="button" accessibilityLabel={vm.error?'Retry estimate':SHOW_RANGE_LABEL} accessibilityState={{disabled:disabled||vm.busy,busy:vm.busy}} disabled={disabled||vm.busy} onPress={()=>void vm.workflow.predict()} style={styles.smallAction}><Text style={styles.actionText}>{vm.busy?'Estimating…':vm.error?'Retry estimate':SHOW_RANGE_LABEL}</Text></Pressable>{vm.busy?<ActivityIndicator accessibilityLabel="Estimating rental price"/>:null}</View>:null}
  {range&&!vm.busy?<RangeEstimateCard range={range} rent={rent} onUseRent={onUseRent} appliedRent={appliedRent} disabled={disabled||vm.busy}/>:null}
  {!vm.busy?noRange:null}
  </>}
@@ -42,7 +43,7 @@ export function InlineRentalEstimate({accountId,target,property,onReview,variant
  return <View style={{gap:10}}>
  <Text accessibilityRole="header" style={ui.sectionTitle}>Typical rent range</Text>
  {vm.eligibility?.eligible===false?<View style={{gap:6}}><Text style={ui.supporting}>{vm.eligibility.reason}</Text>{onReview?<AppButton variant="secondary" label="Review property details" onPress={onReview}/>:null}</View>:null}
- {vm.eligibility?.eligible!==false&&!(vm.error&&vm.retryable===false)?<AppButton label={vm.busy?'Estimating…':vm.error?'Retry estimate':result?'Estimate again':'Estimate rental price'} disabled={vm.busy} onPress={()=>void vm.workflow.predict()}/>:null}
+ {vm.eligibility?.eligible!==false&&!(vm.error&&vm.retryable===false)?<AppButton label={vm.busy?'Estimating…':vm.error?'Retry estimate':result?'Estimate again':SHOW_RANGE_LABEL} disabled={vm.busy} onPress={()=>void vm.workflow.predict()}/>:null}
  {vm.busy?<View accessibilityLiveRegion="polite" style={{gap:6}}><ActivityIndicator accessibilityLabel="Estimating rental price"/><Text style={ui.supporting}>Render may take up to a minute to start.</Text></View>:null}
  {range?<RangeEstimateCard range={range} rent={rent}/>:null}
  {noRange}

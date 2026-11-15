@@ -756,7 +756,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       {key:'photos' as const,done:photosSaved,label:`Photos (${photoState.photos.length})`,detail:photosSaved?(photoState.photos.length?null:'No photos added yet'):'Save your photos to continue'},
       {key:'listing' as const,done:!!saved&&clean&&saved.completeness_score>=0.8,label:`Listing details (${completeness.percent}% complete)`,detail:!saved||!clean?'Save your listing details':saved.completeness_score>=0.8?null:'At least 80% is required to publish'},
       {key:'price' as const,done:!!saved&&clean&&saved.asking_rent_monthly>0,label:'Price set',detail:null},
-      {key:'verification' as const,done:verified,label:'Property verification (Tier 3)',detail:verified?null:'Required to publish'},
+      {key:'verification' as const,done:verified,label:'Property verification (Tier 3)',detail:verified?null:'Required to publish, not to save'},
     ];
   };
   const propertyNextStatus=!workspace.propertyId&&propertyState.uncertain?'Check property creation status before continuing.'
