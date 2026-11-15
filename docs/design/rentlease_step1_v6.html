@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RentLease Step 1 v6 - location first, one confirm button</title>
+<style>
+:root{color-scheme:light;--bg:#F7F9F5;--paper:#FFFFFF;--ink:#172C27;--mute:#606A63;--line:#DCE5DD;--soft:#EDF8EE;--fill:#DDF0E3;--accent:#32743C;--warn:#FFF7E8;--warnline:#9A6414;--ctl:#7D9383;--g:#32743C;--g2:#469C53;--pale:#EDF8EE;--blue:#EFF4FC;--blueink:#284C78;--orange:#F1A058}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1280px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:40px 0 4px}h3{font-size:14px;margin:0 0 6px}
+p{margin:0 0 8px}.mute{color:var(--mute)}.small{font-size:12px}
+.lede{max-width:760px}
+.strip{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;margin:16px 0}
+.step{flex:1 1 200px;border:1.5px solid var(--line);background:var(--paper);border-radius:10px;padding:10px 12px}
+.step b{display:block}.step .save{display:inline-block;margin-top:6px;font-size:11px;border:1px dashed var(--accent);border-radius:20px;padding:1px 8px}
+.step.moved{border-color:var(--accent);border-width:2px}
+.row{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;margin-top:14px}
+.col{flex:1 1 340px;max-width:380px}
+.phone{width:100%;max-width:360px;border:2px solid var(--ink);border-radius:22px;background:var(--paper);overflow:hidden;display:flex;flex-direction:column;min-height:640px}
+.bar{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:600}
+.bar .sp{flex:1}.bar span.i{width:28px;height:28px;border:1.5px solid var(--line);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+.prog{display:flex;gap:4px;padding:10px 14px 4px}.prog i{flex:1;height:5px;border-radius:3px;background:var(--fill)}.prog i.on{background:var(--ink)}
+.plabel{padding:0 14px 8px;font-size:12px;color:var(--mute)}
+.body{padding:6px 14px 14px;display:flex;flex-direction:column;gap:12px;flex:1}
+.foot{border-top:1px solid var(--line);padding:10px 14px;display:flex;flex-direction:column;gap:6px;background:var(--paper)}
+.btn{min-height:48px;border-radius:12px;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-weight:600;text-align:center;padding:0 12px}
+.btn.fill{background:var(--ink);color:var(--paper)}.btn.off{border-color:var(--line);color:var(--mute);background:var(--soft)}
+.btn.sm{min-height:40px;font-size:13px}
+.hint{font-size:12px;color:var(--mute);text-align:center}
+label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:3px}
+.in{min-height:46px;border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;color:var(--mute);background:var(--paper)}
+.in.req{border-color:var(--ink);border-width:2px}.in.val{color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{border:1.5px solid var(--line);border-radius:20px;padding:6px 12px;font-size:13px;min-height:36px;display:inline-flex;align-items:center}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.sec{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+.sec.hl{border-color:var(--ink);border-width:2px}
+.sech{display:flex;align-items:center;gap:8px;justify-content:space-between}.sech b{font-size:14px}
+.tag{font-size:11px;border-radius:20px;padding:2px 9px;background:var(--fill);white-space:nowrap}
+.tag.dk{background:var(--ink);color:var(--paper)}
+.meter{height:6px;background:var(--fill);border-radius:3px;overflow:hidden}.meter i{display:block;height:100%;background:var(--ink)}
+.note{background:var(--warn);border:1px solid var(--warnline);border-radius:10px;padding:8px 10px;font-size:12px}
+.info{border:1px dashed var(--line);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--mute)}
+.photo{height:130px;background:var(--fill);border-radius:12px;display:flex;align-items:center;justify-content:center;color:var(--mute);position:relative}
+.photo u{position:absolute;right:8px;bottom:6px;font-size:12px;color:var(--ink)}
+.big{font-size:30px;font-weight:700;letter-spacing:-.5px;line-height:1.1}
+.range{position:relative;height:26px;margin:4px 6px}.range .rail{position:absolute;top:9px;left:0;right:0;height:8px;border-radius:5px;background:var(--fill)}
+.range .e{position:absolute;top:3px;width:2px;height:20px;background:var(--ink)}
+.range .m{position:absolute;top:4px;width:16px;height:16px;border-radius:50%;background:var(--ink);margin-left:-8px;border:3px solid var(--paper)}
+.range .y{position:absolute;top:0;width:0;height:0;margin-left:-6px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid var(--mute)}
+.two{display:flex;gap:8px}.two>*{flex:1}
+.chk{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--soft)}.chk:last-child{border:0}
+.chk b.o{width:20px;height:20px;border-radius:50%;border:2px solid var(--ink);display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+.chk b.x{border-style:dashed;color:var(--mute)}
+.kv{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--soft)}.kv:last-child{border:0}
+.kv u{font-size:12px;white-space:nowrap}
+.sw{width:44px;height:26px;border-radius:14px;border:2px solid var(--ink);position:relative;flex:none}.sw i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--ink)}
+.notes{margin:10px 0 0;padding:0;list-style:none;font-size:13px}.notes li{display:flex;gap:8px;margin-bottom:8px}
+.n{flex:none;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--paper);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.cap{font-weight:600;margin:0 0 8px}
+table{border-collapse:collapse;width:100%;font-size:13px;background:var(--paper)}th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}th{background:var(--soft)}
+.sheet{border:2px solid var(--ink);border-radius:18px 18px 0 0;margin-top:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--paper)}
+.dim{opacity:.35}
+ul.t{margin:6px 0 0 18px;padding:0}ul.t li{margin-bottom:5px}
+@media (max-width:520px){.phone{min-height:0}}
+
+/* RentLease theme tokens (src/shared/theme/colors.ts): canvas, ink, outline, controlBorder, primaryAction, primary, primaryPale */
+body{font-family:Roboto,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg)}
+main{padding-top:0}
+.hero{margin:0 -16px 8px;padding:28px 16px 22px;background:linear-gradient(135deg,#245A38 0%,#367548 60%,#469C53 100%);color:#fff}
+.hero .in-h{max-width:1248px;margin:0 auto}.hero h1{font-size:26px;margin:0 0 6px;color:#fff}.hero p{color:#E3F3E6;margin:0;max-width:760px}
+.hero .pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;background:rgba(255,255,255,.18);border-radius:20px;padding:3px 10px;margin-bottom:10px}
+h2{color:var(--ink);padding-bottom:6px;border-bottom:2px solid var(--fill)}
+.phone{border:1px solid var(--line);border-radius:26px;box-shadow:0 10px 30px rgba(23,44,39,.14),0 0 0 6px #172C27}
+.bar{background:#fff;color:var(--ink)}
+.bar span.i{border-color:var(--ctl);color:var(--ink)}
+.prog i{background:var(--line)}.prog i.on{background:var(--g)}
+.plabel{color:var(--mute)}
+.btn{border:1.5px solid var(--g);color:var(--g);background:#fff}
+.btn.fill{background:var(--g);color:#fff;border-color:var(--g)}
+.btn.off{background:#F0F2EF;color:#8A938C;border-color:#DCE5DD}
+.in{border-color:var(--ctl)}.in.req{border:2px solid var(--g);background:#FBFEFB}.in.val{color:var(--ink)}
+.chip{border-color:var(--ctl);color:var(--ink)}.chip.on{background:var(--g);border-color:var(--g);color:#fff}
+.sec{border:1px solid var(--line);background:#fff}
+.sec.hl{border:2px solid var(--g2);background:var(--pale)}
+.sec.hl .in,.sec.hl .chip:not(.on){background:#fff}
+.tag{background:var(--fill);color:#204C34}.tag.dk{background:var(--g);color:#fff}
+.meter{background:var(--line)}.meter i{background:var(--g2)}
+.note{background:var(--warn);border:1px solid #E6C98B;color:#6B4710}
+.info{background:var(--blue);border:1px solid #CBD9F2;color:var(--blueink)}
+.photo{background:linear-gradient(135deg,#C9E4CF,#8FBF9A);color:#204C34}.photo u{color:#204C34;background:rgba(255,255,255,.85);padding:2px 8px;border-radius:10px}
+.big{color:var(--g)}
+.range .rail{background:linear-gradient(90deg,#DDF0E3,#9ED3A6,#DDF0E3)}
+.range .e{background:var(--g)}.range .m{background:var(--g)}
+.range .y{border-top-color:var(--orange)}
+.chk b.o{background:var(--g);border-color:var(--g);color:#fff}
+.chk b.x{background:#FFF7E8;border:2px solid #9A6414;color:#9A6414}
+.chk u,.kv u,.bar u,.small u{color:var(--g);font-weight:600}
+.sw{border-color:var(--g);background:var(--g)}.sw i{left:auto;right:2px;background:#fff}
+.n{background:var(--g)}
+.step{border:1px solid var(--line)}.step.moved{border:2px solid var(--g2);background:var(--pale)}
+.step .save{border:1px dashed var(--g);color:#204C34;background:#fff}
+th{background:var(--pale);color:#204C34}th,td{border-color:var(--line)}
+table{border-radius:8px}
+code{background:var(--pale);padding:1px 5px;border-radius:4px;font-size:12px}
+.sheet{border:1px solid var(--line);box-shadow:0 -8px 24px rgba(23,44,39,.18)}
+.dim{opacity:.4}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 0;font-size:12px;color:var(--mute)}.legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid var(--line)}
+
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#469C53;margin-left:6px;vertical-align:middle}
+.lg{font-size:12px;color:var(--mute);display:flex;align-items:center;gap:6px;margin:0}.lg .dot{margin:0}
+.map{height:132px;border-radius:12px;background:linear-gradient(135deg,#D9E7D8,#EEF4EB);border:1px solid var(--line);position:relative}
+.map:before{content:"";position:absolute;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;background:rgba(70,156,83,.2);border:2px solid #469C53}
+.map i{position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#32743C}
+.map u{position:absolute;right:8px;bottom:6px;font-size:10px;color:#606A63;text-decoration:none}
+.okrow{display:flex;align-items:center;gap:10px;background:var(--pale);border:1px solid #CFE7D3;border-radius:10px;padding:10px 12px}
+.okrow b.c{width:22px;height:22px;border-radius:50%;background:var(--g);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+.stat{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mute);background:#EFF2ED;border-radius:10px;padding:7px 10px}
+.stat u{margin-left:auto}
+.stat.bad{background:var(--warn);border:1px solid #E6C98B;color:#6B4710}
+.ends{display:flex;justify-content:space-between;font-weight:700;font-size:15px}
+.rg{position:relative;height:60px;margin:6px 12px 0}
+.trk{position:absolute;left:0;right:0;top:34px;height:10px;border-radius:6px;background:linear-gradient(90deg,#D6EBD9,#9BD3A4 50%,#D6EBD9)}
+.ball{position:absolute;top:25px;width:28px;height:28px;margin-left:-14px;border-radius:50%;background:var(--g);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.bub{position:absolute;top:0;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:8px;padding:3px 9px;font-size:12px;font-weight:700;white-space:nowrap}
+.rel{font-size:13px;font-weight:700}.rel.ok{color:var(--g)}.rel.hi{color:#9A6414}
+.pm{display:flex;gap:8px}.pm .btn:first-child,.pm .btn:last-child{flex:0 0 48px;padding:0;font-size:20px}.pm .btn:nth-child(2){flex:1}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.req2{color:#9B2C2C}
+.cols3{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;margin-top:14px}
+.phone{min-height:0}
+.ph3{background:#E6EFE6;border-radius:10px;height:70px;display:flex;align-items:center;justify-content:center;color:#204C34;font-size:12px;border:1px dashed #7D9383}
+.sp1{margin-top:10px}
+.bad{color:#9B2C2C;font-weight:700}
+
+.pips{display:flex;gap:4px}.pips i{flex:1;height:8px;border-radius:4px;background:#DCE5DD}.pips i.on{background:#469C53}.pips.full i.on{background:#32743C}
+.mhead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.mcount{font-weight:700;font-size:13px;color:#204C34;background:#DDF0E3;border-radius:20px;padding:3px 10px;white-space:nowrap}
+.miss{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.miss .m{font-size:12px;border:1.5px dashed #469C53;color:#204C34;border-radius:20px;padding:5px 10px;min-height:32px;display:inline-flex;align-items:center;background:#fff}
+.gl{font-size:12px;font-weight:700;color:#204C34;margin:2px 0 -4px;letter-spacing:.2px}
+.rail{border-left:4px solid #469C53}
+.bef{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.bef span{font-size:13px;border-radius:20px;padding:5px 12px;border:1px solid var(--line)}
+.c1{background:#E7F0FB;color:#284C78}.c2{background:#FFF1DD;color:#7A4A0A}.c3{background:#F1E8FA;color:#5B3A8A}.c4{background:#DDF0E3;color:#204C34}
+.cols3{align-items:flex-start}
+.phone{min-height:0}
+.ph3{background:#E6EFE6;border-radius:10px;height:70px;display:flex;align-items:center;justify-content:center;color:#204C34;font-size:12px;border:1px dashed #7D9383}
+.dot{display:none}
+
+.swrow{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+.swrow .t{flex:1}.swrow .t b{font-size:14px}
+.sw.off{background:#fff;border-color:#7D9383}.sw.off i{left:2px;right:auto;background:#7D9383}
+.map.ph{background:repeating-linear-gradient(135deg,#EEF2EC,#EEF2EC 10px,#E6ECE4 10px,#E6ECE4 20px);display:flex;align-items:center;justify-content:center;color:#606A63;font-size:12px;text-align:center;padding:0 24px}
+.map.ph:before{display:none}
+.dimc{opacity:.45}
+</style></head><body><main>
+<div class="hero"><div class="in-h"><span class="pill">Proposal v6 &middot; Step 1 only</span><h1>Location first, one confirm button</h1><p>Same design as v5, rearranged: Property type, then Where is it, then the range card, then Photos and More details. The two consent buttons are replaced by one &ldquo;Confirm location&rdquo; button and a switch, and the map keeps its place on the page from the start, so nothing pops in while you type.</p></div></div>
+<div class="legend"><span><i style="background:#32743C"></i>Primary action</span><span><i style="background:#EDF8EE"></i>Range card / confirmed</span><span><i style="background:#469C53"></i>Meter pip: filled</span><span><i style="background:#EFF4FC"></i>Info notice</span></div>
+<h2>New page order</h2>
+<div class="strip"><div class="step"><b>1 Property type</b>Apartment, House, Condominium<br><span class="save">unchanged</span></div><div class="step moved"><b>2 Where is it?</b>Address, map, one switch, one button<br><span class="save">moved up, redesigned</span></div><div class="step moved"><b>3 Details that set your range</b>All 8 details, meter and missing chips<br><span class="save">moved below location</span></div><div class="step"><b>4 Photos</b>Add photos and 360&deg;</div><div class="step"><b>5 More details</b>Optional, not range<br><span class="save">unchanged from v5</span></div></div>
+<h2>Location: the map never pops in</h2><p class="mute">The map area is on the page from the first frame, drawn as a quiet placeholder with a reason, so typing the address never pushes the page around. The two buttons become a switch and one button.</p><div class="cols3"><div class="col"><p class="cap">1a. Arrival: the map has its place from the start</p><div class="phone"><div class="bar"><span class="i">&larr;</span>Property Details<span class="sp"></span><span class="i">&times;</span></div><div class="prog"><i class="on"></i><i></i><i></i><i></i></div><div class="plabel">Step 1 of 4 &middot; Property</div><div class="body"><div class="sec"><div class="sech"><b>Property type</b></div><div class="chips"><span class="chip on">Apartment</span><span class="chip">House</span><span class="chip">Condominium</span><span class="chip">More&hellip;</span></div></div><div class="sec"><div class="sech"><b>Where is it?</b><span class="tag">Also sharpens your range</span></div><div><label class="f">City *</label><div class="in">Select city</div></div><div><label class="f">Barangay *</label><div class="in">Enter barangay</div></div><div><label class="f">House/unit number and street *</label><div class="in">e.g. 12 Mabini St</div></div><div class="small mute">+ More address details (optional)</div><div class="map ph">&#9312; The map appears here once the address is complete</div><div class="swrow dimc"><div class="t"><b>Use my approximate area for a sharper range</b><div class="small mute">Available once the address is complete.</div></div><span class="sw off"><i></i></span></div><div class="btn off">Confirm location</div></div><div class="sec hl rail dimc"><div class="mhead"><div><b>Details that set your range</b></div><span class="mcount">2 of 8</span></div><div class="pips"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div><div class="foot"><div class="btn off">Continue to Listing</div><div class="hint">&#9314; Add city, barangay and street</div></div></div></div><div class="col"><p class="cap">1b. Address complete, switch off (default)</p><div class="phone"><div class="bar"><span class="i">&larr;</span>Property Details<span class="sp"></span><span class="i">&times;</span></div><div class="prog"><i class="on"></i><i></i><i></i><i></i></div><div class="plabel">Step 1 of 4 &middot; Property</div><div class="body"><div class="sec"><div class="sech"><b>Property type</b></div><div class="chips"><span class="chip on">Apartment</span><span class="chip">House</span><span class="chip">Condominium</span><span class="chip">More&hellip;</span></div></div><div class="sec"><div class="sech"><b>Where is it?</b><span class="tag">Also sharpens your range</span></div><div><label class="f">City *</label><div class="in val">Imus</div></div><div><label class="f">Barangay *</label><div class="in val">Anabu I-A</div></div><div><label class="f">House/unit number and street *</label><div class="in val">12 Mabini St</div></div><div class="small mute">+ More address details (optional)</div><div class="map"><i></i><u>approximate area only</u></div><div class="swrow"><div class="t"><b>Use my approximate area for a sharper range</b><div class="small mute">Only the approximate map area is shared, never your exact address. Turn it off any time.</div></div><span class="sw off"><i></i></span></div><div class="btn fill">Confirm location</div></div><div class="sec hl rail dimc"><div class="mhead"><div><b>Details that set your range</b></div><span class="mcount">2 of 8</span></div><div class="pips"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div><div class="foot"><div class="btn off">Continue to Listing</div><div class="hint">Confirm the location to continue</div></div></div></div><div class="col"><p class="cap">1c. Switch on, same button</p><div class="phone"><div class="bar"><span class="i">&larr;</span>Property Details<span class="sp"></span><span class="i">&times;</span></div><div class="prog"><i class="on"></i><i></i><i></i><i></i></div><div class="plabel">Step 1 of 4 &middot; Property</div><div class="body"><div class="sec"><div class="sech"><b>Property type</b></div><div class="chips"><span class="chip on">Apartment</span><span class="chip">House</span><span class="chip">Condominium</span><span class="chip">More&hellip;</span></div></div><div class="sec"><div class="sech"><b>Where is it?</b><span class="tag">Also sharpens your range</span></div><div><label class="f">City *</label><div class="in val">Imus</div></div><div><label class="f">Barangay *</label><div class="in val">Anabu I-A</div></div><div><label class="f">House/unit number and street *</label><div class="in val">12 Mabini St</div></div><div class="small mute">+ More address details (optional)</div><div class="map"><i></i><u>approximate area only</u></div><div class="swrow"><div class="t"><b>Use my approximate area for a sharper range</b><div class="small mute">Only the approximate map area is shared, never your exact address. Turn it off any time.</div></div><span class="sw"><i></i></span></div><div class="btn fill">Confirm location</div></div><div class="sec hl rail dimc"><div class="mhead"><div><b>Details that set your range</b></div><span class="mcount">2 of 8</span></div><div class="pips"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div><div class="foot"><div class="btn off">Continue to Listing</div><div class="hint">Confirm the location to continue</div></div></div></div><div class="col" style="max-width:420px;flex:1 1 320px"><ul class="notes"><li><span class="n">&#9312;</span><span><b>Reserved space, not a surprise.</b> The map box and the switch row exist from the start, dimmed, with one line saying what unlocks them. When the address is complete the map fills the same box, so nothing shifts down.</span></li><li><span class="n">&#9313;</span><span><b>One button.</b> &ldquo;Confirm location&rdquo; is the only action. It stays disabled until the address is complete.</span></li><li><span class="n">&#9314;</span><span>The footer names what is missing while the address is incomplete.</span></li><li><span class="n">&#9315;</span><span><b>The switch is the share choice.</b> Off: the location is confirmed and nothing extra is shared, and the range uses the city only. On: the approximate area is also shared with the range. Pressing Confirm records whichever state the switch is in, so the two old buttons are the same two outcomes, with the same logic underneath.</span></li><li><span class="n">&#9316;</span><span>Footer shows the range count once nothing blocks Continue, as in v5.</span></li></ul></div></div><div class="cols3" style="margin-top:6px"><div class="col"><p class="cap">1d. Confirmed: the page continues with the range card</p><div class="phone"><div class="bar"><span class="i">&larr;</span>Property Details<span class="sp"></span><span class="i">&times;</span></div><div class="prog"><i class="on"></i><i></i><i></i><i></i></div><div class="plabel">Step 1 of 4 &middot; Property</div><div class="body"><div class="sec"><div class="sech"><b>Property type</b></div><div class="chips"><span class="chip on">Apartment</span><span class="chip">House</span><span class="chip">Condominium</span><span class="chip">More&hellip;</span></div></div><div class="sec"><div class="sech"><b>Where is it?</b><span class="tag">Also sharpens your range</span></div><div class="okrow"><b class="c">&#10003;</b><div style="flex:1">Location confirmed<div class="small mute">Anabu I-A, Imus &middot; approximate area shared</div></div><u class="small">Change</u></div></div><div class="sec hl rail"><div class="mhead"><div><b>Details that set your range</b><div class="small mute">Every field here moves the typical-rent range</div></div><span class="mcount">5 of 8</span></div><div class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div><div class="miss"><span class="small mute">Add:</span><span class="m">+ Parking</span><span class="m">+ Subtype</span><span class="m">+ Amenities</span></div><div class="gl">Size</div><div><label class="f">Floor area (sqm) *</label><div class="in val">42</div></div><div class="two"><div><label class="f">Bedrooms</label><div class="in val">1</div></div><div><label class="f">Bathrooms</label><div class="in val">1</div></div></div><div class="gl">The unit</div><div class="two"><div><label class="f">Unit floor</label><div class="in val">5</div></div><div><label class="f">Parking spaces</label><div class="in">0</div></div></div><div><label class="f">Subtype</label><div class="chips"><span class="chip on">Not specified</span><span class="chip">Studio</span><span class="chip">Loft</span><span class="chip">Penthouse</span></div></div><div class="gl">Comfort</div><div><label class="f">Furnishing</label><div class="chips"><span class="chip">Unfurnished</span><span class="chip on">Semi</span><span class="chip">Furnished</span></div></div><div><label class="f">Amenities</label><div class="chips"><span class="chip">Wi-Fi</span><span class="chip">Air Conditioning</span><span class="chip">Parking</span><span class="chip">Laundry Area</span><span class="chip">Balcony</span><span class="chip">24/7 Security</span><span class="chip">Show all 16</span></div></div></div><div class="sec"><div class="sech"><b>Photos and 360&deg;</b><span class="small mute">0 of 10</span></div><div class="two"><div class="ph3">+ Add photos</div><div class="ph3">+ 360&deg; tour</div></div></div><div class="sec"><div class="sech"><div><b>More details</b><div class="small mute">Optional &middot; doesn&rsquo;t change your range</div></div><u class="small">Add</u></div></div></div><div class="foot"><div class="btn fill">Continue to Listing</div><div class="hint">&#9316; 5 of 8 range details &middot; saves your property</div></div></div></div><div class="col"><p class="cap">1e. House, location kept private, all 8 filled</p><div class="phone"><div class="bar"><span class="i">&larr;</span>Property Details<span class="sp"></span><span class="i">&times;</span></div><div class="prog"><i class="on"></i><i></i><i></i><i></i></div><div class="plabel">Step 1 of 4 &middot; Property</div><div class="body"><div class="sec"><div class="sech"><b>Property type</b></div><div class="chips"><span class="chip">Apartment</span><span class="chip on">House</span><span class="chip">Condominium</span><span class="chip">More&hellip;</span></div></div><div class="sec"><div class="sech"><b>Where is it?</b><span class="tag">Also sharpens your range</span></div><div class="okrow"><b class="c">&#10003;</b><div style="flex:1">Location confirmed<div class="small mute">Anabu I-A, Imus &middot; approximate area not shared</div></div><u class="small">Change</u></div></div><div class="sec hl rail"><div class="mhead"><div><b>Details that set your range</b><div class="small mute">Every field here moves the typical-rent range</div></div><span class="mcount">8 of 8</span></div><div class="pips full"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div><div class="small" style="color:#204C34;font-weight:700">&#10003; All 8 filled. Your range is as sharp as it gets.</div><div class="gl">Size</div><div><label class="f">Floor area (sqm) *</label><div class="in val">85</div></div><div class="two"><div><label class="f">Bedrooms</label><div class="in val">1</div></div><div><label class="f">Bathrooms</label><div class="in val">1</div></div></div><div class="gl">The lot</div><div class="two"><div><label class="f">Lot area (sqm)</label><div class="in val">120</div></div><div><label class="f">Parking spaces</label><div class="in val">2</div></div></div><div><label class="f">Subtype</label><div class="chips"><span class="chip">Not specified</span><span class="chip">House</span><span class="chip on">Townhouse</span><span class="chip">Villa</span></div></div><div class="gl">Comfort</div><div><label class="f">Furnishing</label><div class="chips"><span class="chip">Unfurnished</span><span class="chip on">Semi</span><span class="chip">Furnished</span></div></div><div><label class="f">Amenities</label><div class="chips"><span class="chip on">Wi-Fi</span><span class="chip on">Air Conditioning</span><span class="chip">Parking</span><span class="chip">Laundry Area</span><span class="chip">Balcony</span><span class="chip on">24/7 Security</span><span class="chip">Show all 16</span></div></div></div></div><div class="foot"><div class="btn fill">Continue to Listing</div><div class="hint">8 of 8 range details &middot; saves your property</div></div></div></div><div class="col" style="max-width:420px;flex:1 1 320px"><ul class="notes"><li><span class="n">&#9317;</span><span><b>After confirming</b> the card collapses to one row and says whether the area is shared. &ldquo;Change&rdquo; reopens the address, the map and the switch. Changing the address or the pin clears the confirmation and asks again, as built today.</span></li><li><span class="n">&#9318;</span><span>Everything below the location card is as in v5: the range card with its meter, then Photos, then More details.</span></li></ul></div></div><div class="cols3" style="margin-top:6px"><div class="col"><p class="cap">1f. More details, unchanged from v5</p><div class="phone"><div class="bar"><span class="i">&larr;</span>Property Details<span class="sp"></span><span class="i">&times;</span></div><div class="prog"><i class="on"></i><i></i><i></i><i></i></div><div class="plabel">Step 1 of 4 &middot; Property</div><div class="body"><div class="sec"><div class="sech"><b>More details</b><u class="small">Hide</u></div><p class="small mute" style="margin:0">Nothing here changes your range.</p><div class="two"><div><label class="f">Floors in building</label><div class="in">e.g. 5</div></div><div><label class="f">Max occupants</label><div class="in">e.g. 2</div></div></div><div><label class="f">Entrance instructions</label><div class="in" style="min-height:70px">e.g. Gate code, nearest landmark</div></div><div class="small mute">+ More address details (building, postal code)</div></div></div><div class="foot"><div class="btn fill">Continue to Listing</div></div></div></div><div class="col" style="max-width:420px;flex:1 1 320px"><h3>Rules for Claude Code</h3><table><thead><tr><th>Rule</th><th>Detail</th></tr></thead><tbody><tr><td>Consent logic</td><td>Do not change <code>ShareWish.ts</code> or <code>LocationShare.ts</code>. The one button calls the existing confirm-and-share action when the switch is on and the confirm-without-sharing action when it is off.</td></tr><tr><td>Switch default</td><td>Off. See the decision below.</td></tr><tr><td>Layout</td><td>The map box has a fixed height from the start. Nothing may appear and push content while the person types.</td></tr><tr><td>Reset</td><td>Editing the address or pin clears the confirmation, as built today.</td></tr><tr><td>Order</td><td>Property type, Where is it, range card, Photos, More details</td></tr><tr><td>Unchanged</td><td>Range card design, meter, missing chips, footer count, More details, Steps 2 to 4</td></tr></tbody></table></div></div>
+<h2>Decisions for you</h2>
+<div class="note"><b>1. Switch default: off or on.</b> I drew it off, because a pre-ticked box is weak consent for sharing location. The cost is that most people will not turn it on, so more ranges will use the city only. If you decide the approximate area is low-risk enough to pre-tick, it is a one-word change. This is your call, and for a thesis it is worth writing down which way you chose and why.<br><b>2. What the map pin means.</b> Your screenshot shows a map centered on Imus with the street typed as just &ldquo;w&rdquo;. The app drew a pin and offered to share it before the address was meaningful. Claude Code should check what the pin is based on and avoid showing &ldquo;share this area&rdquo; for a pin that is only the city center.<br><b>3. &ldquo;The confirmation appearing after the fact.&rdquo;</b> I read this as the map and buttons popping in while you type the street. If you meant the green &ldquo;Location confirmed&rdquo; row replacing the form after you press the button, tell me and I will redraw that state so the address stays visible.</div>
+</main></body></html>

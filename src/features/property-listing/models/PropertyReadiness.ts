@@ -22,27 +22,17 @@ export function missingLine(issues: PropertyValidationIssue[], floorAreaMissing:
   return invalid ? invalid.message : null;
 }
 
-/** The optional fields "More details" offers for a type. Lot area is for a house only; unit floor never for a house. */
 export type MoreField = 'propertySubtype' | 'lotAreaSqm' | 'parkingSpaces' | 'floorNumber' | 'totalFloors' | 'maxOccupants';
-export function moreDetailsFields(type: string | null): MoreField[] {
-  const house = type === 'house';
-  return [
-    ...(offeredSubtypeOptions(type).length ? ['propertySubtype' as const] : []),
-    ...(house ? ['lotAreaSqm' as const] : []),
-    'parkingSpaces',
-    ...(house ? [] : ['floorNumber' as const]),
-    'totalFloors',
-    'maxOccupants',
-  ];
+/** The fields that are NOT range details: floors in building (stories for a house) and maximum occupants, under More details. */
+export const moreDetailsFields = (_type: string | null): MoreField[] => ['totalFloors', 'maxOccupants'];
+/**
+ * The unit (or lot) group of the range card, in the order it shows: unit floor for an apartment or condominium, lot area for a house (never the other
+ * way round), then parking, then the subtype chips where the type has any.
+ */
+export function unitFields(type: string | null): MoreField[] {
+  return [type === 'house' ? 'lotAreaSqm' : 'floorNumber', 'parkingSpaces', ...(offeredSubtypeOptions(type).length ? ['propertySubtype' as const] : [])];
 }
-/** The fields the price model reads (a dot on the label). Floors in building, stories and maximum occupants are not model inputs. */
-export const MORE_FIELD_FEEDS_RANGE: Record<MoreField, boolean> = { propertySubtype: true, lotAreaSqm: true, parkingSpaces: true, floorNumber: true, totalFloors: false, maxOccupants: false };
 export const MORE_LABELS = (type: string | null): Record<MoreField, string> => ({
   propertySubtype: 'Subtype', lotAreaSqm: 'Lot area (sqm)', parkingSpaces: 'Parking spaces', floorNumber: 'Unit floor',
   totalFloors: type === 'house' ? 'Stories' : 'Floors in building', maxOccupants: 'Max occupants',
 });
-/** "Optional · none added" until something is entered, then "Optional · 2 added". Only fields the type offers are counted. */
-export function moreDetailsSummary(type: string | null, d: Partial<Record<MoreField, string | undefined>>): string {
-  const n = moreDetailsFields(type).filter(f => (d[f] ?? '').trim() !== '').length;
-  return `Optional · ${n ? `${n} added` : 'none added'}`;
-}

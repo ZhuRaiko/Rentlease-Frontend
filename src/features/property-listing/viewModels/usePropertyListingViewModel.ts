@@ -45,6 +45,7 @@ import { currentEstimate } from '../models/PostingPrice';
 import { CHECKING_MESSAGE, CHECK_FAILED_MESSAGE, type ListingCheckState } from '../models/ListingCheck';
 import { decisionKey, decisionStands, type LocationDecision } from '../models/LocationConsent';
 import { missingLine } from '../models/PropertyReadiness';
+import { PREVIEW_DEBOUNCE_MS } from '../models/PinPrecision';
 import { rangeRelation } from '../../../shared/models/RentalRange';
 import { estimateBasis, estimateDetailCount, floorAreaMissing, floorAreaRequired, type EstimateInputs } from '../models/PostingEstimate';
 import { createPropertyPhotoWorkflow } from './propertyPhotoWorkflow';
@@ -728,6 +729,17 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const decisionSnap={confirmed:wishSnapshot.confirmed,key:decisionKey(propertyState.draft,propertyState.locationRevision)};
   const locationDecided=decisionStands(locationDecision,decisionSnap)&&(!locationDecision?.share||shareWish!==null);
   useEffect(()=>{if(locationDecision&&!wishSnapshot.inStep1)setLocationDecision(null);},[locationDecision,wishSnapshot.inStep1]);
+  // Once the address is complete it is looked up on the map, so the card's map box fills without the person doing anything. It only previews:
+  // nothing is confirmed, shared or saved until Confirm location is pressed. A change to the address clears it (the workflow resets on the new revision).
+  const previewDraft=propertyState.draft;
+  const previewWanted=postingWizard&&screen==='listingComposer'&&!workspace.propertyId&&propertyState.loaded&&!propertyState.busy&&!propertyState.uncertain&&!!previewDraft.city&&!!previewDraft.barangay.trim()&&!!previewDraft.addressLine1.trim()&&!hasConfirmedPropertyLocation(previewDraft);
+  const previewAddressKey=JSON.stringify([previewDraft.city,previewDraft.barangay.trim(),previewDraft.addressLine1.trim(),previewDraft.addressLine2.trim(),previewDraft.postalCode.trim()]);
+  useEffect(()=>{
+    if(!previewWanted){if(propertyLocation.getSnapshot().preview.status!=='idle')propertyLocation.clearPreview();return;}
+    const current=propertyCreation.getSnapshot(),context={addressRevision:current.locationRevision,setupId:'physical-property-setup',query:propertyAddressQuery(current.draft)};
+    const id=setTimeout(()=>{void propertyLocation.previewAddress(context);},PREVIEW_DEBOUNCE_MS);
+    return()=>clearTimeout(id);
+  },[previewWanted,propertyState.locationRevision,previewAddressKey]);
   const estimateBasisKey=JSON.stringify(physical??null),postingEstimateResult=currentEstimate(postingEstimateHeld,estimateBasisKey);
   const confirmedListing = contentState.lastConfirmed?.property_id === workspace.propertyId && (!workspace.listingId || contentState.lastConfirmed.id===workspace.listingId) ? contentState.lastConfirmed : null;
   const completeness = listingCompleteness({title:draft.title,description:draft.description,rent:listingNumber(draft.askingRent),availableDate:!!availabilityDateToLocal(draft.availableDate),
@@ -759,13 +771,14 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       {key:'verification' as const,done:verified,label:'Property verification (Tier 3)',detail:verified?null:'Required to publish, not to save'},
     ];
   };
+  const rangeCount=estimateDetailCount(estimateInputs);
   const propertyNextStatus=!workspace.propertyId&&propertyState.uncertain?'Check property creation status before continuing.'
     :!workspace.propertyId&&!propertyState.loaded?'Checking property setup...'
     :operationBusy()?'Finish the current operation before continuing.'
     :wizardMissing?wizardMissing
     :firstPropertyIssue?(firstPropertyIssue.kind==='required'?firstPropertyIssue.message:`Check ${propertySectionLabels[firstPropertyIssue.section].toLowerCase()}.`)
     :wizardFloorAreaMissing?'Add floor area to continue.'
-    :workspace.propertyId?'Saved property selected. Continue to listing details.':'Property information is ready. Next saves the property before listing details.';
+    :`${rangeCount.filled} of ${rangeCount.total} range details · saves your property`;
 
   const api = {
     postingWizard,
@@ -785,7 +798,25 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     shareLocationWanted:shareWish!==null,shareLocationNotice,
     /** true = the owner pressed the explicit button; false = skip or clear. Either way the old notice goes. */
     setShareLocationWanted:(on:boolean)=>{setShareLocationNotice(null);setShareWish(on?wishAfterPress(wishSnapshot):null);setLocationDecision(wishSnapshot.inStep1&&wishSnapshot.confirmed?{key:decisionSnap.key,share:on}:null);},
-    /** Both consent buttons confirmed the location (true) and whether the approximate area is shared. */
+    /** The address as the map box shows it: only a match for the revision on screen counts. */
+    locationPreview:locationState.preview.revision===propertyState.locationRevision?locationState.preview:{status:'idle' as const,revision:null,candidate:null,precise:null},
+    /** Whether the pin in the draft comes from the address (or the owner's own placement) and not from a place-level fallback. Unknown counts as not precise. */
+    locationPinPrecise:locationState.confirmedPrecise===true,
+    /**
+     * The one Confirm location button. It confirms the previewed match (or the pin the map tool already placed) and records the switch. A pin that is only a
+     * fallback centre is confirmed as not shared whatever the switch says. Calls the same wish and decision paths as before; ShareWish.ts is untouched.
+     */
+    confirmLocation:(share:boolean):boolean=>{
+      const current=propertyCreation.getSnapshot();
+      if(!active.current||operationBusy()||!postingWizard||!current.loaded||current.busy||current.propertyId||current.uncertain)return false;
+      if(!hasConfirmedPropertyLocation(current.draft)&&!propertyLocation.confirmPreview({addressRevision:current.locationRevision,setupId:'physical-property-setup',query:propertyAddressQuery(current.draft)}))return false;
+      const confirmed=propertyCreation.getSnapshot(),effective=share&&propertyLocation.getSnapshot().confirmedPrecise===true;
+      setShareLocationNotice(null);
+      setShareWish(effective?wishAfterPress({inStep1:true,confirmed:true,key:shareBindingKey(confirmed.draft,confirmed.locationRevision)}):null);
+      setLocationDecision({key:decisionKey(confirmed.draft,confirmed.locationRevision),share:effective});
+      return true;
+    },
+    /** A decision was made: the location is confirmed, and whether the approximate area is shared. */
     locationDecided,locationShared:locationDecided&&!!locationDecision?.share,
     changeLocationChoice:()=>{setShareLocationNotice(null);setShareWish(null);setLocationDecision(null);},
     postingRangeRelation:rangeRelation(listingNumber(draft.askingRent),postingEstimateResult?.illustrativeRange),
@@ -848,6 +879,13 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     propertyValidationIssues:propertyIssues,propertyVisibleValidationIssues:propertyVisibleIssues,
     propertyMeasurementWarnings:propertyMeasurementWarnings({floor_area_sqm:propertyState.draft.floorAreaSqm.trim()?Number(propertyState.draft.floorAreaSqm):null,bedrooms:propertyState.draft.bedrooms.trim()?Number(propertyState.draft.bedrooms):null,bathrooms:propertyState.draft.bathrooms.trim()?Number(propertyState.draft.bathrooms):null}),
     propertyFormReady,propertyNextDisabled,propertyNextStatus,
+    /**
+     * An "Add:" chip on the range card: scroll to that detail and focus it. It only moves the screen; it never marks the form as attempted, so no error appears.
+     */
+    focusRangeDetail:(field:PropertyValidationIssue['field'],label:string)=>{
+      if(operationBusy()||initialHydrationPending())return;
+      setPropertyValidationTarget({field,section:`detail:${field}` as PropertyValidationIssue['section'],kind:'invalid',message:`Add ${label.toLowerCase()}`,requestId:++validationRequest.current});
+    },
     /** A field was left: its error may show now (typing alone never shows one). */
     markPropertyFieldTouched:(field:PropertyValidationIssue['field'])=>propertyCreation.markFieldTouched(field),
     propertyValidationTarget,focusPropertyIssue,requestPropertyValidation,

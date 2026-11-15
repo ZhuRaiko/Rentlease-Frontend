@@ -15,8 +15,8 @@ import { spacing } from '../../../shared/theme/spacing';
 import { ui } from '../../../shared/theme/ui';
 import { InfoNote } from '../components/InfoNote';
 import { PostingCard } from '../components/PostingCard';
-import { selectedCountLabel } from '../models/AmenityChoices';
-import { moreDetailsSummary, type MoreField } from '../models/PropertyReadiness';
+import { LOCATION_TAG } from '../models/LocationConsent';
+import { MORE_DETAILS_SUMMARY } from '../models/RangeCard';
 import { ComposerPropertyFields } from '../components/ComposerPropertyFields';
 import { ComposerRecoveryFeedback } from '../components/ComposerRecoveryFeedback';
 import { PropertyMediaSection } from '../components/PropertyMediaSection';
@@ -30,15 +30,14 @@ export function ListingComposerView({ viewModel: vm, onClose, estimateSection, a
   const editIssues=routine?.attempted&&routine.context&&routine.draft?routineIssues(routine.context,routine.draft):[];
   const target=vm.propertyValidationTarget??(editIssues[0]?{...editIssues[0],field:editIssues[0].field as PropertyValidationIssue['field'],requestId:1}:null);
   const targetGroup=postingValidationGroup(target);
-  const focus=usePropertyFormFocus(target,vm.postingWizard&&(targetGroup==='details'||targetGroup==='more')?targetGroup:undefined);
-  const amenityCount=vm.workspacePropertyId&&routine?.draft?routine.draft.amenityIds.length:vm.selectedAmenityIds.length;
-  // "Optional · none added" counts only the fields the property type offers (saved or not).
-  const moreDraft=(vm.workspacePropertyId&&routine?.draft?{...routine.draft,floorNumber:String(routine.context?.floor_number??'')}:vm.propertyState.draft) as Partial<Record<MoreField,string|undefined>>;
-  const moreType=vm.workspacePropertyId&&routine?.context?routine.context.property_type:vm.propertyState.draft.propertyType;
-  const sections:Record<PostingGroup,{title:string;summary:string;open?:boolean}>={about:{title:'Basics',summary:'Property type',open:true},location:{title:'Location',summary:vm.workspacePropertyId?vm.propertySummary.location:'Address and map confirmation',open:true},photos:{title:'Photos & 360\u00b0',summary:vm.photoState.busy?'Loading photos...':vm.workspacePropertyId&&!vm.photoState.loaded?'Photo count unavailable':`${vm.mediaItems.length} of 10 photos selected`},details:{title:'Size and rooms',summary:'',open:true},amenities:{title:'Amenities',summary:vm.amenityState.busy?'Loading amenities...':vm.amenityState.loaded?selectedCountLabel(amenityCount):'Choose what your property offers'},more:{title:'More details',summary:moreDetailsSummary(moreType,moreDraft)}};
-  const renderGroup=(key:PostingGroup,body:ReactNode)=>{const item=sections[key],fieldError=(editIssues.length?editIssues:vm.propertyVisibleValidationIssues)?.find(issue=>postingValidationGroup(issue)===key),nonField=key==='photos'&&(!!vm.photoState.error||vm.photoState.needsReconcile)||key==='amenities'&&!!vm.amenityState.error,hasError=!!fieldError||nonField;
-    // The field itself says what is wrong. A card never repeats it in red; it only says "Needs attention" for problems that have no field (photos, amenities).
-    if(key==='photos'||key==='more')return <PostingSection key={key} title={item.title} summary={hasError?'Needs attention - open this section':item.summary} initiallyOpen={item.open??false} revealId={targetGroup===key?target?.requestId:hasError?-1:undefined} toggleWords={key==='more'?['Add','Hide']:undefined}>{body}</PostingSection>;return <PostingCard key={key} title={item.title} feedsRange={key==='amenities'} tag={key==='amenities'&&vm.amenityState.loaded?item.summary:undefined} message={nonField?'Needs attention':null}>{body}</PostingCard>;};
+  const focus=usePropertyFormFocus(target,vm.postingWizard&&!String(target?.section).startsWith('detail:')&&(targetGroup==='details'||targetGroup==='more')?targetGroup:undefined);
+  // Page order: Property type, Where is it?, the range card, Photos and 360, More details. A new property and a saved one use the same cards.
+  const sections:Record<PostingGroup,{title:string;summary:string;open?:boolean}>={about:{title:'Property type',summary:'',open:true},location:{title:'Where is it?',summary:vm.workspacePropertyId?vm.propertySummary.location:'Address and map confirmation',open:true},photos:{title:'Photos & 360\u00b0',summary:vm.photoState.busy?'Loading photos...':vm.workspacePropertyId&&!vm.photoState.loaded?'Photo count unavailable':`${vm.mediaItems.length} of 10 photos selected`},details:{title:'Details that set your range',summary:'',open:true},more:{title:'More details',summary:MORE_DETAILS_SUMMARY}};
+  const renderGroup=(key:PostingGroup,body:ReactNode)=>{const item=sections[key],fieldError=(editIssues.length?editIssues:vm.propertyVisibleValidationIssues)?.find(issue=>postingValidationGroup(issue)===key),nonField=key==='photos'&&(!!vm.photoState.error||vm.photoState.needsReconcile),hasError=!!fieldError||nonField;
+    // The field itself says what is wrong. A card never repeats it in red; it only says "Needs attention" for problems that have no field (photos).
+    // The range card is its own frame, so it is not wrapped in a second card.
+    if(key==='details')return <View key={key}>{body}</View>;
+    if(key==='photos'||key==='more')return <PostingSection key={key} title={item.title} summary={hasError?'Needs attention - open this section':item.summary} initiallyOpen={item.open??false} revealId={targetGroup===key?target?.requestId:hasError?-1:undefined} toggleWords={key==='more'?['Add','Hide']:undefined}>{body}</PostingSection>;return <PostingCard key={key} title={item.title} tag={key==='location'?LOCATION_TAG:undefined} message={nonField?'Needs attention':null}>{body}</PostingCard>;};
   if(vm.postingWizard&&vm.editorMode!=='create'&&['loading','error'].includes(vm.draftHydration.status))return <ListingWizardScaffold title="Edit Rental" onBack={vm.goBack} onClose={onClose}><Text style={ui.body}>{vm.draftHydration.error??'Loading your saved rental and photos...'}</Text>{vm.draftHydration.status==='error'?<ListingButton label="Retry loading rental" onPress={vm.retryDraftHydration}/>:null}</ListingWizardScaffold>;
   const mapOpen = ['searching', 'candidates', 'map'].includes(vm.locationState.stage);
   return <>

@@ -153,10 +153,9 @@ test('saved data never becomes invalid: validation still accepts the older, broa
   for (const type of ['apartment', 'condominium', 'house']) for (const value of offeredSubtypeOptions(type)) assert.ok(modelSubtypeOptions(type).includes(value), `${type}/${value} is accepted by validation`);
 });
 test('the postingValidationGroup sends each field to the card that holds it', () => {
-  for (const f of ['floorAreaSqm', 'bedrooms', 'bathrooms', 'furnishingStatus']) assert.equal(postingValidationGroup({ field: f } as any), 'details', f);
-  for (const f of ['maxOccupants', 'floorNumber', 'totalFloors', 'propertySubtype', 'lotAreaSqm', 'parkingSpaces', 'accessInstructions']) assert.equal(postingValidationGroup({ field: f } as any), 'more', f);
+  for (const f of ['floorAreaSqm', 'bedrooms', 'bathrooms', 'furnishingStatus', 'floorNumber', 'lotAreaSqm', 'parkingSpaces', 'propertySubtype', 'amenityIds']) assert.equal(postingValidationGroup({ field: f } as any), 'details', f);
+  for (const f of ['maxOccupants', 'totalFloors', 'accessInstructions']) assert.equal(postingValidationGroup({ field: f } as any), 'more', f);
   assert.equal(postingValidationGroup({ field: 'propertyType' } as any), 'about');
-  assert.equal(postingValidationGroup({ field: 'amenityIds' } as any), 'amenities');
   assert.equal(postingValidationGroup(null), null);
 });
 
@@ -240,49 +239,6 @@ const deepText = (v: any): string => (v == null || typeof v === 'boolean' ? '' :
 const brandButtons = (tree: any) => nodes(tree).filter(n => n.type === 'ListingButton');
 const link = (tree: any, label: string) => nodes(tree).find(n => n.type === 'Pressable' && textOf(n) === label);
 
-test('new property, address not complete: nothing is asked and nothing is greyed out', () => {
-  assert.equal(card(makeVm({ propertyState: { draft: draft({ barangay: ' ' }), loaded: true } }).vm, model().model), null);
-  assert.equal(card(makeVm({ propertyState: { draft: draft(), loaded: false } }).vm, model().model), null);
-  assert.equal(card(makeVm().vm, model().model, { editable: false }), null);
-});
-test('new property, address complete, no pin yet: one button finds it on the map and no consent is shown', () => {
-  const { vm, log } = makeVm(), t = card(vm, model().model);
-  assert.deepEqual(brandButtons(t).map(b => [b.props.label, b.props.tone]), [['Find it on the map', 'outline']]);
-  assert.ok(!nodes(t).some(n => n.type === 'PublicLocationMap'), 'no map before a pin exists');
-  assert.ok(!/Confirm|share/i.test(textOf(t)), 'no consent text before a pin exists');
-  brandButtons(t)[0].props.onPress();
-  assert.deepEqual(log, ['map']);
-});
-
-test('a pin exists: the approximate map, two equal buttons and one hint line, and nothing else', () => {
-  const { vm, log } = makeVm({ propertyState: { draft: confirmedDraft, loaded: true } }), t = card(vm, model().model);
-  const map = nodes(t).find(n => n.type === 'PublicLocationMap');
-  assert.deepEqual([map.props.latitude, map.props.longitude, map.props.compact], [point.latitude, point.longitude, true]);
-  assert.deepEqual(brandButtons(t).map(b => b.props.label), ['Confirm and share approximate area', "Confirm, don't share"]);
-  assert.equal(new Set(brandButtons(t).map(b => b.props.tone)).size, 1, 'equal buttons: the same look');
-  assert.ok(brandButtons(t).every(b => b.props.disabled === false));
-  assert.equal(textOf(t), 'Sharing helps the range. Skipping is fine: the range then uses the city only.', 'one hint line');
-  assert.ok(!nodes(t).some(n => n.type === 'Pressable'), 'no text links');
-  assert.ok(!/Do not share|Review location on the map|exact pin stays private|never your exact address/i.test(textOf(t)));
-  assert.ok(!/14\.4|120\.9|latitude|longitude/i.test(textOf(t)), 'no raw latitude or longitude');
-  brandButtons(t)[0].props.onPress(); brandButtons(t)[1].props.onPress();
-  assert.deepEqual(log, ['wanted:true', 'wanted:false'], 'both confirm; only the first shares; neither calls a service');
-  const exact = JSON.stringify(nodes(t).filter(n => n.type === 'PublicLocationMap').map(n => n.props));
-  assert.ok(!exact.includes('14.4123,') && !exact.includes('"exact'), 'the exact pin never reaches the map');
-  assert.ok(card(makeVm({ propertyState: { draft: confirmedDraft, loaded: true } }).vm, model().model, { editable: false }) && brandButtons(card(makeVm({ propertyState: { draft: confirmedDraft, loaded: true } }).vm, model().model, { editable: false })).every(b => b.props.disabled === true));
-});
-test('after either button the card shrinks to one row with Change; Change asks again and reopens the map', () => {
-  for (const shared of [true, false]) {
-    const { vm, log } = makeVm({ locationDecided: true, locationShared: shared, propertyState: { draft: confirmedDraft, loaded: true } }), t = card(vm, model().model);
-    assert.equal(textOf(t), `✓ Location confirmed | Barangay B, Imus · approximate area ${shared ? 'shared' : 'not shared'} | Change`);
-    assert.equal(brandButtons(t).length, 0);
-    assert.ok(!nodes(t).some(n => n.type === 'PublicLocationMap'), 'the page shortens: no map once confirmed');
-    const change = nodes(t).find(n => n.type === 'Pressable');
-    assert.equal(change.props.accessibilityRole, 'button'); assert.ok(Object.assign({}, ...[change.props.style].flat()).minHeight >= 48);
-    change.props.onPress(); assert.deepEqual(log, ['change', 'map'], 'Change asks again and reopens the map, where the pin can be adjusted');
-  }
-});
-
 test('saved property: the button records consent through the existing hook; withdrawal and reload stay available', () => {
   const saved = { workspacePropertyId: 'prop-1', estimationProperty: { edit_version: 'v1' } };
   const eligible = model({ state: { approved: false, eligible: true, point } });
@@ -307,8 +263,6 @@ test('saved property: the button records consent through the existing hook; with
 });
 test('no state writes coordinates out, in text or in spoken labels', () => {
   const states: [any, any][] = [
-    [{ propertyState: { draft: confirmedDraft, loaded: true } }, model().model],
-    [{ locationDecided: true, locationShared: true, propertyState: { draft: confirmedDraft, loaded: true } }, model().model],
     [{ workspacePropertyId: 'p', estimationProperty: { edit_version: 'v' } }, model({ state: { approved: true, eligible: true, point } }).model],
     [{ workspacePropertyId: 'p', estimationProperty: { edit_version: 'v' } }, model({ state: { approved: false, eligible: true, point } }).model],
   ];
@@ -317,15 +271,8 @@ test('no state writes coordinates out, in text or in spoken labels', () => {
     assert.ok(!/14\.4|120\.9|latitude|longitude/i.test(spoken), spoken);
   }
 });
-test('the "Location changed" notice shows on the card until the owner acts', () => {
-  const t = card(makeVm({ shareLocationNotice: 'Location changed. Confirm sharing again.', propertyState: { draft: confirmedDraft, loaded: true } }).vm, model().model);
-  assert.match(textOf(t), /Location changed\. Confirm sharing again\./);
-  assert.equal(brandButtons(t).length, 2, 'and both buttons are back');
-  assert.ok(!/Location changed/.test(textOf(card(makeVm({ shareLocationNotice: null, propertyState: { draft: confirmedDraft, loaded: true } }).vm, model().model))));
-});
 test('every link is a 48dp target, and the long privacy paragraph is gone from every state', () => {
   const states: [any, any][] = [
-    [{ locationDecided: true, propertyState: { draft: confirmedDraft, loaded: true } }, model().model],
     [{ workspacePropertyId: 'p', estimationProperty: { edit_version: 'v' } }, model({ state: { approved: true, eligible: true, point } }).model],
     [{ workspacePropertyId: 'p', estimationProperty: { edit_version: 'v' } }, model({ error: 'x' }).model],
   ];
@@ -378,7 +325,7 @@ test('changing the property type drops a subtype that does not fit the new one, 
   const run = (from: string, subtype: string, to: string) => {
     const changes: any[][] = [];
     const vm: any = { propertyState: { draft: { propertyType: from, propertySubtype: subtype, furnishingStatus: 'unfurnished', city: 'imus', barangay: 'B', addressLine1: 'A', bedrooms: '', bathrooms: '' }, loaded: true }, propertySummary: {}, propertyCreation: { updateField: (...a: any[]) => changes.push(a) }, propertyValidationIssues: [], propertyFloorIssues: {}, completeness: {}, estimateDetails: { filled: 0, total: 8 }, shareLocationWanted: false, setShareLocationWanted() {}, openPropertyLocation() {} };
-    const tree = expand(load('src/features/property-listing/components/ComposerPropertyFields.tsx', { ...LC, DraftProperty: { propertyTypeOptions: [{ value: 'apartment', label: 'Apartment' }, { value: 'house', label: 'House' }, { value: 'condominium', label: 'Condominium' }, { value: 'boarding_house', label: 'Boarding house' }], propertyCityOptions: [], furnishingOptions: [], hasConfirmedPropertyLocation: () => false } }).ComposerPropertyFields({ viewModel: vm, renderGroup: (group: string, children: any) => ({ type: 'Group', props: { group, children } }), afterLocation: null, children: null }));
+    const tree = expand(load('src/features/property-listing/components/ComposerPropertyFields.tsx', { ...LC, RangeCard: { rangeCardView: () => ({}) }, DraftProperty: { propertyTypeOptions: [{ value: 'apartment', label: 'Apartment' }, { value: 'house', label: 'House' }, { value: 'condominium', label: 'Condominium' }, { value: 'boarding_house', label: 'Boarding house' }], propertyCityOptions: [], furnishingOptions: [], hasConfirmedPropertyLocation: () => false } }).ComposerPropertyFields({ viewModel: vm, renderGroup: (group: string, children: any) => ({ type: 'Group', props: { group, children } }), afterLocation: null, children: null }));
     nodes(tree).find(n => n.type === 'PostingChoices' && n.props.label === 'Property type').props.onChange(to);
     return changes;
   };
@@ -387,60 +334,30 @@ test('changing the property type drops a subtype that does not fit the new one, 
   assert.deepEqual(run('house', 'villa', 'apartment'), [['propertyType', 'apartment'], ['propertySubtype', '']]);
   assert.deepEqual(run('apartment', '', 'house'), [['propertyType', 'house']]);
 });
-test('a field the range reads carries a green dot, spoken as "feeds your range"; there is no text tag', () => {
-  const label = expand(load('src/features/property-listing/components/FieldLabel.tsx').FieldLabel({ label: 'Bedrooms', usedInEstimate: true }));
-  assert.equal(deepText(label), 'Bedrooms ●');
-  assert.ok(!/Used in the range/i.test(deepText(label)));
-  assert.equal(label.props.accessibilityLabel, 'Bedrooms, feeds your range');
-  assert.equal(deepText(expand(load('src/features/property-listing/components/FieldLabel.tsx').FieldLabel({ label: 'Max occupants' }))), 'Max occupants', 'no dot for a field the range does not read');
-  const legend = expand(load('src/features/property-listing/components/FieldLabel.tsx').RangeLegend());
-  assert.equal(deepText(legend), '● feeds your range', 'one legend line');
-  const src = readFileSync('src/features/property-listing/components/FieldLabel.tsx', 'utf8');
-  assert.ok(!/Used in the range|Used in estimate|used in estimate/.test(src));
-  for (const f of readdirSync('src/features/property-listing/components')) assert.ok(!/Used in the range/.test(readFileSync(join('src/features/property-listing/components', f), 'utf8')), f);
-});
 // ---- Order and the collapsed More details
-test('Step 1 order: Basics, Size and rooms, Location, photos, Amenities, More details; the Size card carries the room fields and the legend', () => {
-  const vm: any = { propertyState: { draft: { propertyType: 'apartment', propertySubtype: '', furnishingStatus: 'unfurnished', city: 'imus', barangay: 'B', addressLine1: 'A', bedrooms: '1', bathrooms: '1', floorAreaSqm: '', maxOccupants: '', floorNumber: '', totalFloors: '', lotAreaSqm: '', parkingSpaces: '', accessInstructions: '' }, loaded: true }, propertySummary: {}, propertyCreation: { updateField() {} }, propertyValidationIssues: [], propertyFloorIssues: {}, completeness: {}, estimateDetails: { filled: 0, total: 8 }, floorAreaRequired: true, markPropertyFieldTouched() {} };
-  const tree = expand(load('src/features/property-listing/components/ComposerPropertyFields.tsx', { ...LC, DraftProperty: { propertyTypeOptions: [{ value: 'apartment', label: 'Apartment' }], propertyCityOptions: [], furnishingOptions: [], hasConfirmedPropertyLocation: () => false } }).ComposerPropertyFields({ viewModel: vm, renderGroup: (group: string, children: any) => ({ type: 'Group', props: { group, children } }), afterLocation: { type: 'Group', props: { group: 'photos' } }, children: { type: 'Amenities' } }));
-  const groups = nodes(tree).filter(n => n.type === 'Group');
-  assert.deepEqual(groups.map(g => g.props.group), ['about', 'details', 'location', 'photos', 'amenities', 'more']);
-  const labelsIn = (g: string) => nodes(groups.find(x => x.props.group === g)!).filter(n => n.type === 'ListingField').map(n => n.props.label);
-  assert.deepEqual(labelsIn('details'), ['Floor area (sqm)', 'Bedrooms', 'Bathrooms']);
-  assert.match(deepText(groups.find(x => x.props.group === 'details')!), /● feeds your range/, 'the legend sits on the Size card');
-  assert.ok(nodes(groups.find(x => x.props.group === 'details')!).some(n => n.type === 'PostingChoices' && n.props.label === 'Furnishing'));
-  assert.ok(nodes(groups.find(x => x.props.group === 'about')!).some(n => n.type === 'PostingChoices' && n.props.label === 'Property type'));
-  assert.ok(!labelsIn('about').length, 'Basics holds the type only');
-  const more = groups.find(x => x.props.group === 'more')!;
-  assert.deepEqual(nodes(more).map(n => n.type).filter(ty => ty === 'MoreDetailsFields' || ty === 'PropertyFloorFields' || ty === 'PropertyModelAttributeFields'), ['MoreDetailsFields'], 'one type-aware grid replaces the stacked rows');
-  const share = nodes(groups.find(x => x.props.group === 'location')!).find(n => n.type === 'LocationShareCard');
-  assert.ok(share); assert.equal(share.props.error, undefined, 'the consent card carries no red message of its own');
-  assert.ok(nodes(groups.find(x => x.props.group === 'location')!).some(n => n.type === 'PostingChoices' && n.props.label === 'City'));
-  const sizeFields = nodes(groups.find(x => x.props.group === 'details')!).filter(n => n.type === 'ListingField');
-  for (const f of sizeFields) assert.equal(f.props.usedInEstimate, true, f.props.label);
-  for (const f of nodes(groups.find(x => x.props.group === 'location')!).filter(n => n.type === 'ListingField' && ['Barangay', 'Street address'].includes(n.props.label))) assert.equal(typeof f.props.onBlur, 'function', `${f.props.label} reports when it is left`);
-});
-test('More details is collapsed ("Optional · none added", Add / Hide) and opens only when a field inside it needs attention; every other card is always open', () => {
+test('More details is collapsed ("Optional · doesn\'t change your range", Add / Hide) and opens only when a field inside it needs attention; every other card is always open', () => {
   const src = readFileSync('src/features/property-listing/views/ListingComposerView.tsx', 'utf8');
-  assert.match(src, /more:\{title:'More details',summary:moreDetailsSummary\(moreType,moreDraft\)\}/, 'no open flag: collapsed by default');
+  assert.match(src, /more:\{title:'More details',summary:MORE_DETAILS_SUMMARY\}/, 'no open flag: collapsed by default');
   assert.match(src, /if\(key==='photos'\|\|key==='more'\)return <PostingSection key=\{key\}[^>]*initiallyOpen=\{item\.open\?\?false\} revealId=\{targetGroup===key\?target\?\.requestId:hasError\?-1:undefined\} toggleWords=\{key==='more'\?\['Add','Hide'\]:undefined\}>/);
-  assert.match(src, /about:\{title:'Basics'/);
-  assert.match(src, /details:\{title:'Size and rooms'/);
-  assert.match(src, /amenities:\{title:'Amenities',summary:vm\.amenityState\.busy\?'Loading amenities\.\.\.':vm\.amenityState\.loaded\?selectedCountLabel\(amenityCount\)/);
-  assert.match(src, /feedsRange=\{key==='amenities'\} tag=\{key==='amenities'&&vm\.amenityState\.loaded\?item\.summary:undefined\} message=\{nonField\?'Needs attention':null\}/, 'a card never repeats a field error in red');
+  assert.match(src, /about:\{title:'Property type'/);
+  assert.match(src, /location:\{title:'Where is it\?'/);
+  assert.match(src, /details:\{title:'Details that set your range'/);
+  assert.match(src, /tag=\{key==='location'\?LOCATION_TAG:undefined\} message=\{nonField\?'Needs attention':null\}/, 'a card never repeats a field error in red; the location card carries its tag');
+  assert.match(src, /if\(key==='details'\)return <View key=\{key\}>\{body\}<\/View>;/, 'the range card is its own frame, not wrapped in a second card');
   assert.ok(!/message=\{fieldError\?\.message/.test(src) && !/summary=\{fieldError\?\.message/.test(src), 'no group-level copy of a field message');
-  assert.match(src, /usePropertyFormFocus\(target,vm\.postingWizard&&\(targetGroup==='details'\|\|targetGroup==='more'\)\?targetGroup:undefined\)/);
+  assert.match(src, /usePropertyFormFocus\(target,vm\.postingWizard&&!String\(target\?\.section\)\.startsWith\('detail:'\)&&\(targetGroup==='details'\|\|targetGroup==='more'\)\?targetGroup:undefined\)/);
   assert.match(src, /<ComposerPropertyFields accountId=\{accountId\}/);
   assert.match(src, /<SavedPropertyFields accountId=\{accountId\}/);
   assert.match(readFileSync('src/features/property-listing/views/PropertyListingFlowView.tsx', 'utf8'), /<ListingComposerView accountId=\{accountId\}/);
 });
-test('the saved-property editor groups the same way and keeps amenities on the existing routine update', () => {
+test('the saved-property editor uses the same order and keeps amenities on the existing routine update', () => {
   const src = readFileSync('src/features/property-listing/components/SavedPropertyFields.tsx', 'utf8');
-  const order = ['group(\'about\'', 'group(\'details\'', 'group(\'location\'', '{photos}', 'group(\'amenities\'', 'group(\'more\''].map(s => src.indexOf(s));
-  assert.ok(order.every(i => i > 0) && order.every((v, i) => i === 0 || v > order[i - 1]!), 'about, details, location, photos, amenities, more');
+  const order = ['group(\'about\'', 'group(\'location\'', 'group(\'details\'', '{photos}', 'group(\'more\''].map(s => src.indexOf(s));
+  assert.ok(order.every(i => i > 0) && order.every((v, i) => i === 0 || v > order[i - 1]!), 'type, where, the range card, photos, more details');
+  assert.ok(!src.includes('group(\'amenities\''), 'amenities live inside the range card');
   assert.match(src, /<LocationShareCard viewModel=\{vm\} accountId=\{accountId\} editable=\{!disabled\}\/>/);
   assert.match(src, /onToggle=\{id=>flow\.update\('amenityIds',/);
-  assert.match(src, /label="Entrance instructions \(private, optional\)"/);
+  assert.match(src, /label="Entrance instructions \(private\)"/);
 });
 test('amenities still save with the property: the new property toggles through the existing handler', () => {
   const src = readFileSync('src/features/property-listing/components/PropertyAmenitiesFields.tsx', 'utf8');

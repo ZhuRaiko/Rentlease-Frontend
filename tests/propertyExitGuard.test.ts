@@ -423,12 +423,12 @@ test('Post detaches an in-flight lifecycle operation without replaying it into t
 });
 
 
-function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any; routineGate?: Promise<void>; publication?: any } = {}) {
+function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any; routineGate?: Promise<void>; publication?: any; searchAddress?: (query: string, signal: AbortSignal) => Promise<any[]> } = {}) {
   const backend = backendDraftService(), events: string[] = [], rows: any[] = [];
   const files = Array.from({ length: 3 }, (_, i) => ({ uri: `file:///cache/composer-${i}.jpg`, fileName: `${i}.jpg`, mimeType: 'image/jpeg', size: 100 }));
   let uncertainPhoto = false, pickerCalls = 0;
   const candidate = { id: 'real-candidate', label: 'Chosen address', longitude: 120.9, latitude: 14.4 };
-  const h = mountProperty(null, { ...backend.service, save: async (c: any, form: any) => { events.push('draft'); if (failure === 'draft') throw h.draftError('Check draft status.'); const saved = await backend.service.save(c, form); return opts.score === undefined ? saved : { ...saved, completeness_score: opts.score }; } }, opts.publication, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: async () => [candidate] }, {
+  const h = mountProperty(null, { ...backend.service, save: async (c: any, form: any) => { events.push('draft'); if (failure === 'draft') throw h.draftError('Check draft status.'); const saved = await backend.service.save(c, form); return opts.score === undefined ? saved : { ...saved, completeness_score: opts.score }; } }, opts.publication, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: opts.searchAddress ?? (async () => [candidate]) }, {
     initialScreen: 'postingType', locationShare: opts.locationShare, pickImages: async () => { pickerCalls++; return files; },
     // The saved-property editor reads back the property that was just created (as the real service does).
     routine: { load: async (id: string) => { if (opts.routineGate) await opts.routineGate; if (opts.routineFails) throw Error('Routine read failed'); const d = h.vm().propertyState.draft, n = (v: string) => v.trim() === '' ? null : Number(v); return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: d.propertyType, city: d.city, barangay: d.barangay, floor_number: n(d.floorNumber), bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: opts.areaMissing ? null : n(d.floorAreaSqm), max_occupants: n(d.maxOccupants), total_floors: n(d.totalFloors), furnishing_status: d.furnishingStatus, access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false, property_subtype: d.propertySubtype || null, lot_area_sqm: n(d.lotAreaSqm ?? ''), parking_spaces: n(d.parkingSpaces ?? ''), model_attributes_version: 2 }; }, hasPending: async () => false, save: async (c: any, d: any) => ({ ...c, bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: d.floorAreaSqm.trim() ? Number(d.floorAreaSqm) : null, edit_version: '60000000-0000-4000-8000-000000000003' }), reconcile: async () => null },
@@ -591,7 +591,7 @@ test('Stage 1 required errors follow interaction and disappear when corrected',a
 });
 test('Stage 1 Next uses physical readiness and confirmed location, independent of listing completeness',async()=>{
  const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();h.vm().updateDraft('title','');h.vm().updateDraft('description','');h.vm().updateDraft('askingRent','');h.flush();assert.equal(h.vm().propertyNextDisabled,true);
- h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().propertyValidationTarget?.section,'location');assert.equal(h.vm().screen,'listingComposer');await confirmMap();assert.equal(h.vm().propertyFormReady,true);assert.equal(h.vm().propertyNextDisabled,false);assert.ok(h.vm().completeness.percent<80);assert.match(h.vm().propertyNextStatus,/Next saves/i);
+ h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().propertyValidationTarget?.section,'location');assert.equal(h.vm().screen,'listingComposer');await confirmMap();assert.equal(h.vm().propertyFormReady,true);assert.equal(h.vm().propertyNextDisabled,false);assert.ok(h.vm().completeness.percent<80);assert.match(h.vm().propertyNextStatus,/^\d of 8 range details · saves your property$/);
  h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.ok(h.vm().workspacePropertyId);assert.deepEqual(events,['property']);h.unmount();
 });
 test('Stage 1 optional floor inconsistency blocks Next, preserves entries and clears after correction',async()=>{
@@ -1378,7 +1378,7 @@ test('the footer line follows the form: missing fields, then the location, then 
   await pinMap();
   assert.equal(h.vm().propertyNextStatus, 'Confirm the location to continue', 'a pin alone is not the confirmation');
   h.vm().setShareLocationWanted(false); h.flush();
-  assert.match(h.vm().propertyNextStatus, /Next saves the property/); h.unmount();
+  assert.match(h.vm().propertyNextStatus, /^\d of 8 range details · saves your property$/); h.unmount();
 });
 test('a pin is not enough: one of the two consent buttons must confirm it before Continue works', async () => {
   const { h, fields, pinMap, events } = unifiedHarness(); await h.settle(); fields(); await pinMap();
@@ -1486,4 +1486,120 @@ test('the description placeholder is the wireframe sentence, and the title has n
   const view = readFileSync('src/features/property-listing/views/ListingDetailsView.tsx', 'utf8');
   assert.ok(!/ of 80|of \$\{|maxLength/.test(view), 'no counter and no limit in the view');
   h.unmount();
+});
+
+// ---- Step 1 v6: the address is looked up on the page, one Confirm location button and a switch
+const hasPin = (h: any) => typeof h.vm().propertyState.draft.publicLatitude === 'number';
+const pause = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+const geocoded = (placeTypes?: string[]) => ({ id: 'geo-1', label: 'Matched place', longitude: 120.91, latitude: 14.41, ...(placeTypes ? { placeTypes } : {}) });
+/** Lets the debounce pass and the lookup finish, as it would while the person reads the page. */
+const afterLookup = async (h: any) => { h.flush(); await pause(800); await h.settle(); h.flush(); };
+test('v6: the address is looked up once the person stops typing, never while it is incomplete, and nothing is confirmed by the lookup', async () => {
+  const calls: string[] = [];
+  const { h, fields } = unifiedHarness('none', { searchAddress: async (q: string) => { calls.push(q); return [geocoded(['address'])]; } }); await h.settle();
+  const flow = h.vm().propertyCreation; flow.updateField('city', 'imus'); flow.updateField('barangay', 'Anabu'); await afterLookup(h);
+  assert.equal(calls.length, 0, 'no street yet: nothing is looked up'); assert.equal(h.vm().locationPreview.status, 'idle');
+  flow.updateField('addressLine1', '1'); flow.updateField('addressLine1', '12'); flow.updateField('addressLine1', '12 Mabini St'); h.flush();
+  assert.equal(calls.length, 0, 'while the person is still typing nothing is sent');
+  await afterLookup(h);
+  assert.equal(calls.length, 1, 'one lookup for the finished address'); assert.match(calls[0]!, /12 Mabini St/);
+  const p = h.vm().locationPreview;
+  assert.equal(p.status, 'ready'); assert.equal(p.precise, true);
+  assert.equal(h.vm().propertyState.draft.publicLatitude, null, 'the lookup only previews: no pin is in the draft'); assert.equal(h.vm().locationDecided, false); assert.equal(h.vm().propertyNextDisabled, true);
+  fields(); h.unmount();
+});
+test('v6: an edited address clears the preview at once and looks it up again', async () => {
+  let n = 0; const { h, fields } = unifiedHarness('none', { searchAddress: async () => { n++; return [geocoded(['address'])]; } }); await h.settle(); fields(); await afterLookup(h);
+  assert.equal(h.vm().locationPreview.status, 'ready'); const before = n;
+  h.vm().propertyCreation.updateField('addressLine1', 'Another street'); h.flush();
+  assert.equal(h.vm().locationPreview.status, 'idle', 'the old match is not kept for a different address');
+  assert.equal(h.vm().confirmLocation(true), false, 'and cannot be confirmed');
+  await afterLookup(h); assert.equal(n, before + 1); assert.equal(h.vm().locationPreview.status, 'ready'); h.unmount();
+});
+test('v6: switch ON then Confirm location shares the approximate area, through the same wish and the same two approval calls', async () => {
+  const s = shareService(); const { h, fields } = unifiedHarness('none', { locationShare: s.service, searchAddress: async () => [geocoded(['address'])] }); await h.settle(); fields(); await afterLookup(h);
+  assert.equal(h.vm().confirmLocation(true), true); h.flush();
+  assert.equal(h.vm().locationDecided, true); assert.equal(h.vm().locationShared, true); assert.equal(h.vm().shareLocationWanted, true);
+  assert.equal(hasPin(h), true, 'the previewed match is now the confirmed pin'); assert.equal(h.vm().propertyNextDisabled, false);
+  assert.equal(h.vm().locationState.confirmedPrecise, true);
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(s.calls.map((c: any) => c[0]), ['load', 'save'], 'saved once, consent recorded once'); h.unmount();
+});
+test('v6: switch OFF then Confirm location confirms without sharing: no wish, no approval call', async () => {
+  const s = shareService(); const { h, fields } = unifiedHarness('none', { locationShare: s.service, searchAddress: async () => [geocoded(['address'])] }); await h.settle(); fields(); await afterLookup(h);
+  assert.equal(h.vm().confirmLocation(false), true); h.flush();
+  assert.equal(h.vm().locationDecided, true); assert.equal(h.vm().locationShared, false); assert.equal(h.vm().shareLocationWanted, false); assert.equal(hasPin(h), true);
+  await h.vm().nextListingDetails(); await h.settle(); assert.deepEqual(s.calls, [], 'nothing shared'); assert.ok(h.vm().workspacePropertyId); h.unmount();
+});
+test('v6: a pin that is only a fallback centre cannot be shared, whatever the switch says, and Confirm location records "not shared"', async () => {
+  for (const types of [['municipality'], ['neighbourhood'], ['place'], ['region']]) {
+    const s = shareService(); const { h, fields } = unifiedHarness('none', { locationShare: s.service, searchAddress: async () => [geocoded(types)] }); await h.settle(); fields(); await afterLookup(h);
+    assert.equal(h.vm().locationPreview.status, 'ready'); assert.equal(h.vm().locationPreview.precise, false, types.join());
+    assert.equal(h.vm().confirmLocation(true), true); h.flush();
+    assert.equal(h.vm().locationDecided, true, types.join()); assert.equal(h.vm().locationShared, false, 'recorded as not shared'); assert.equal(h.vm().shareLocationWanted, false); assert.equal(h.vm().locationPinPrecise, false);
+    await h.vm().nextListingDetails(); await h.settle(); assert.deepEqual(s.calls, [], 'no approval call for a fallback pin'); h.unmount();
+  }
+});
+test('v6: the best match for the address is used: an address result beats a place-level one that came first', async () => {
+  const { h, fields } = unifiedHarness('none', { searchAddress: async () => [{ ...geocoded(['municipality']), id: 'city-centre', longitude: 120.9, latitude: 14.4 }, { ...geocoded(['address']), id: 'the-address' }] }); await h.settle(); fields(); await afterLookup(h);
+  assert.equal(h.vm().locationPreview.candidate!.id, 'the-address'); assert.equal(h.vm().locationPreview.precise, true); h.unmount();
+});
+test('v6: a result that says nothing about its type is not called a fallback', async () => {
+  const { h, fields } = unifiedHarness('none', { searchAddress: async () => [geocoded()] }); await h.settle(); fields(); await afterLookup(h);
+  assert.equal(h.vm().locationPreview.precise, true); h.unmount();
+});
+test('v6: no match, or a failed lookup: nothing to confirm, and the map tool is still the way to place a pin', async () => {
+  for (const search of [async () => [], async () => { throw new Error('offline'); }]) {
+    const { h, fields } = unifiedHarness('none', { searchAddress: search as any }); await h.settle(); fields(); await afterLookup(h);
+    assert.ok(['none', 'failed'].includes(h.vm().locationPreview.status)); assert.equal(h.vm().confirmLocation(true), false); assert.equal(h.vm().locationDecided, false); assert.equal(hasPin(h), false);
+    h.unmount();
+  }
+});
+test('v6: a pin placed in the map tool is confirmed by the same button; a fallback pin the owner did not move is not shareable, one they moved is', async () => {
+  const fallback = [{ id: 'real-candidate', label: 'Chosen address', longitude: 120.9, latitude: 14.4, placeTypes: ['municipality'] }];
+  const a = unifiedHarness('none', { searchAddress: async () => fallback }); await a.h.settle(); a.fields();
+  a.h.vm().openPropertyLocation(); await a.h.settle(); const map = a.h.vm().propertyLocation; map.chooseCandidate('real-candidate'); map.mapLoaded(); assert.equal(map.confirmExact(), true); a.h.flush();
+  assert.equal(a.h.vm().locationState.confirmedPrecise, false, 'the geocoder centre, untouched'); assert.equal(a.h.vm().confirmLocation(true), true); a.h.flush();
+  assert.equal(a.h.vm().locationShared, false); a.h.unmount();
+  const b = unifiedHarness('none', { searchAddress: async () => fallback }); await b.h.settle(); b.fields();
+  b.h.vm().openPropertyLocation(); await b.h.settle(); const m2 = b.h.vm().propertyLocation; m2.chooseCandidate('real-candidate'); m2.mapLoaded(); m2.movePoint([120.91, 14.41]); assert.equal(m2.confirmExact(), true); b.h.flush();
+  assert.equal(b.h.vm().locationState.confirmedPrecise, true, 'the owner put it there'); assert.equal(b.h.vm().confirmLocation(true), true); b.h.flush();
+  assert.equal(b.h.vm().locationShared, true); b.h.unmount();
+});
+test('v6: Change asks again: the decision clears, the pin stays, and the same button can confirm it the other way', async () => {
+  const { h, fields } = unifiedHarness('none', { searchAddress: async () => [geocoded(['address'])] }); await h.settle(); fields(); await afterLookup(h);
+  h.vm().confirmLocation(false); h.flush(); assert.equal(h.vm().locationShared, false);
+  h.vm().changeLocationChoice(); h.flush();
+  assert.equal(h.vm().locationDecided, false); assert.equal(h.vm().propertyNextDisabled, true); assert.equal(hasPin(h), true);
+  assert.equal(h.vm().confirmLocation(true), true); h.flush(); assert.equal(h.vm().locationShared, true); assert.equal(h.vm().shareLocationWanted, true); h.unmount();
+});
+test('v6: an "Add:" chip only moves the screen: it never marks the form as attempted, so no error appears', async () => {
+  const { h } = unifiedHarness(); await h.settle();
+  const before = h.vm().propertyValidationTarget?.requestId ?? 0;
+  h.vm().focusRangeDetail('parkingSpaces', 'Parking'); h.flush();
+  const t = h.vm().propertyValidationTarget!;
+  assert.equal(t.field, 'parkingSpaces'); assert.equal(t.section, 'detail:parkingSpaces'); assert.equal(t.message, 'Add parking'); assert.ok(t.requestId > before);
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'no red anywhere'); assert.equal(h.vm().propertyState.validationAttempted, false);
+  h.vm().focusRangeDetail('floorAreaSqm', 'Floor area'); h.flush(); assert.ok(h.vm().propertyValidationTarget!.requestId > t.requestId, 'every tap is a new request, so the same chip works twice'); h.unmount();
+});
+test('v6: the footer names what is missing first, then the location, then the range count', async () => {
+  const { h, fields } = unifiedHarness('none', { searchAddress: async () => [geocoded(['address'])] }); await h.settle();
+  assert.match(h.vm().propertyNextStatus, /^Add /);
+  fields(); await afterLookup(h);
+  assert.equal(h.vm().propertyNextStatus, 'Confirm the location to continue', 'a preview alone is not the confirmation');
+  h.vm().confirmLocation(false); h.flush();
+  const { filled, total } = h.vm().estimateDetails;
+  assert.equal(h.vm().propertyNextStatus, `${filled} of ${total} range details · saves your property`); assert.equal(total, 8); h.unmount();
+});
+test('v6: a saved property is not looked up again and never needs the new card', async () => {
+  let n = 0; const { h, fields, confirmMap } = unifiedHarness('none', { searchAddress: async () => { n++; return [{ ...geocoded(['address']), id: 'real-candidate' }]; } }); await h.settle(); fields(); await confirmMap();
+  await h.vm().nextListingDetails(); await h.settle(); h.flush(); const afterSave = n;
+  while (h.vm().screen !== 'listingComposer') { h.vm().goBack(); h.flush(); await h.settle(); }
+  await afterLookup(h); assert.equal(n, afterSave, 'no lookup for a saved property'); assert.equal(h.vm().locationPreview.status, 'idle'); assert.equal(h.vm().propertyNextDisabled, false); h.unmount();
+});
+test('v6: no lookup is made for an address whose pin is already confirmed', async () => {
+  let n = 0; const { h, fields, confirmMap } = unifiedHarness('none', { searchAddress: async () => { n++; return [{ ...geocoded(['address']), id: 'real-candidate' }]; } }); await h.settle(); fields(); await confirmMap();
+  assert.equal(hasPin(h), true); const afterTool = n;
+  await afterLookup(h); await afterLookup(h);
+  assert.equal(n, afterTool, 'the map tool made its own search; the page makes none once a pin is confirmed'); assert.equal(h.vm().locationPreview.status, 'idle'); h.unmount();
 });

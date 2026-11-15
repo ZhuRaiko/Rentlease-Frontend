@@ -89,31 +89,6 @@ test('a covered pinned footer drops to spacing.md and loses its gap strip; an un
   assert.equal(make(true).PinnedFooterGap({ style: { height: 12 } }), null);
   assert.deepEqual(make(false).PinnedFooterGap({ style: { height: 12 } }).props.style, { height: 12 });
 });
-test('property step: only fields the range reads carry the dot', () => {
-  const d: any = { propertyType: 'apartment', furnishingStatus: 'unfurnished', city: 'imus', bedrooms: '2', bathrooms: '1', floorAreaSqm: '', maxOccupants: '', floorNumber: '', totalFloors: '', propertySubtype: '', lotAreaSqm: '', parkingSpaces: '', barangay: 'B', addressLine1: 'A', addressLine2: '', postalCode: '', accessInstructions: '' };
-  const vm: any = { propertyState: { draft: d, loaded: true }, propertySummary: {}, propertyCreation: { updateField() {} }, propertyValidationIssues: [], propertyFloorIssues: {}, completeness: {}, floorAreaRequired: true, estimateDetails: { filled: 2, total: 8 }, estimateInputs: { propertyType: 'apartment', city: 'imus', furnishingStatus: 'unfurnished', propertySubtype: '', floorAreaSqm: '', floorNumber: '', lotAreaSqm: '', parkingSpaces: '', bedrooms: '2', bathrooms: '1', amenityCount: 0 } };
-  const render = load('src/features/property-listing/components/ComposerPropertyFields.tsx').ComposerPropertyFields;
-  const tree = render({ viewModel: vm, renderGroup: (group: string, children: any) => ({ type: 'Group', props: { group, children } }), afterLocation: null, children: { type: 'Amenities' } });
-  const all = nodes(tree), field = (label: string) => all.find(n => n.type === 'ListingField' && n.props.label === label);
-  for (const label of ['Bedrooms', 'Bathrooms', 'Floor area (sqm)']) assert.equal(field(label)?.props.usedInEstimate, true, label);
-  assert.ok(!field('Maximum occupants (optional)')?.props.usedInEstimate, 'maximum occupants is not a model input');
-  assert.equal(all.filter(n => n.type === 'PropertyFloorFields').length, 0, 'floors live in the type-aware More details grid now');
-  assert.ok(all.some(n => n.type === 'MoreDetailsFields'), 'subtype, parking, unit floor or lot area live in the type-aware grid');
-  assert.equal(all.find(n => n.type === 'FieldLabel' && n.props.label === 'Furnishing').props.usedInEstimate, true);
-  const more = all.find(n => n.type === 'Group' && n.props.group === 'more');
-  assert.ok(more && nodes(more).some(n => n.type === 'MoreDetailsFields'), 'occupants and the other optional details stay under More details');
-  const order = all.filter(n => n.type === 'EstimateDetailsMeter' || n.props?.label === 'Floor area (sqm)' || n.type === 'Group' && n.props.group === 'more').map(n => n.type === 'ListingField' ? 'area' : n.type === 'EstimateDetailsMeter' ? 'meter' : 'more');
-  assert.deepEqual(order, ['area', 'meter', 'more'], 'floor area leads the card; the meter sits below the fields and above More');
-  assert.equal(all.find(n => n.type === 'EstimateDetailsMeter').props.missing, undefined, 'the meter is given only the count');
-  const plain = render({ viewModel: vm, children: { type: 'Amenities' } });
-  assert.ok(!nodes(plain).some(n => n.props?.usedInEstimate === true || n.props?.marker === true), 'the non-wizard form carries no estimate markers');
-});
-test('range-details meter: one short count, no list of what to add, and never claims accuracy', () => {
-  const Meter = load('src/features/property-listing/components/EstimateDetailsMeter.tsx').EstimateDetailsMeter;
-  for (const [filled, text] of [[7, '7 of 8 range details filled'], [3, '3 of 8 range details filled'], [8, '8 of 8 range details filled']] as const) assert.equal(words(Meter({ filled, total: 8, missing: ['parking spaces', 'subtype'] })), text, 'one short line, and no list of fields to add');
-  assert.doesNotMatch(words(Meter({ filled: 8, total: 8 })), /accura|confiden|guarantee/i);
-  assert.equal(Meter({ filled: 3, total: 8 }).props.accessibilityLabel, '3 of 8 range details filled');
-});
 test('progress header: four bars, then "Step N of 4 · Name", with the unchanged spoken label', () => {
   const Progress = load('src/features/property-listing/components/PostingProgress.tsx').PostingProgress;
   for (const [step, name] of [[1, 'Property'], [2, 'Listing'], [3, 'Price'], [4, 'Review']] as const) {
