@@ -3,6 +3,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createInlineRentalEstimate} from '../src/shared/viewModels/inlineRentalEstimate';
 import {PredictionError} from '../src/shared/models/RentalPrediction';
+import {RANGE_PROPERTY_TYPES,rentalEstimateEligibility as sharedEligibility} from '../src/shared/models/RentalEstimateEligibility';
+import {propertyTypeOptions} from '../src/features/property-listing/models/DraftProperty';
 const target={listingId:'00000000-0000-4000-8000-000000000001'};
 const receipt={target,currency:'PHP' as const,modelVersion:'test',askingRent:21000,predictedAt:'2026-11-08T00:00:00Z'};
 const range={minimum:14000,maximum:26000};
@@ -127,4 +129,16 @@ test('spotlight (tenant): read-only range card for the listing, one protected ac
   const noRange=nodes(renderInline({workflow,result:receipt},undefined,undefined,{variant:'spotlight'}));assert.ok(!noRange.some(n=>n.type==='RangeCard'));
   const denied=nodes(renderInline({workflow,eligibility:{eligible:false,reason:'Unsupported property'}},undefined,undefined,{variant:'spotlight'}));assert.equal(denied.filter(n=>n.type==='Pressable').length,0);assert.match(JSON.stringify(denied),/Unsupported property/);
   for(const state of [{busy:true},{error:'Network unavailable',retryable:true}]){let c=0;const tree=nodes(renderInline({...state,workflow:{predict(){c++;}}},undefined,undefined,{variant:'spotlight'}));assert.ok(!tree.some(n=>n.type==='RangeCard'));const action=tree.find(n=>n.type==='Pressable');if('busy' in state)assert.equal(action.props.disabled,true);else{action.props.onPress();assert.equal(c,1);}}
+});
+
+// The tenant's on-demand button follows the shared eligibility: apartments, houses and condominiums only.
+test('spotlight (tenant): the range button shows for apartment, house and condominium and for no other property type',()=>{
+  const shown:string[]=[];
+  for(const {value} of propertyTypeOptions){
+    const eligibility=sharedEligibility({property_type:value,city:'imus',furnishing_status:'unfurnished',bedrooms:1,bathrooms:1,floor_area_sqm:30});
+    const tree=nodes(renderInline({workflow:{predict(){}},eligibility},undefined,undefined,{variant:'spotlight'}));
+    if(tree.some(n=>n.type==='Pressable'))shown.push(value);
+  }
+  assert.deepEqual(shown.sort(),[...RANGE_PROPERTY_TYPES].sort());
+  assert.equal(propertyTypeOptions.length,9);
 });

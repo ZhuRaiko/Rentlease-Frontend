@@ -42,3 +42,18 @@ test('a property that changed elsewhere gets the plain message, as a conflict, w
 test('an open tenancy refusing a property change says that existing agreements remain binding',async()=>{const h=transport();h.mode('tenancy');await assert.rejects(h.service.save(context(),routineDraft(context())),e=>e instanceof PropertyEditError&&e.kind==='rejected'&&e.message===TENANCY_BINDING_MESSAGE&&/^Existing agreements remain binding/.test(e.message));});
 test('the field guard for an open tenancy uses the same plain wording and names no database term',()=>{const c={...context(),open_tenancy:true},d=routineDraft(c);d.bedrooms='9';const issue=routineIssues(c,d).find(i=>i.field==='bedrooms');assert.equal(issue?.message,TENANCY_FIELD_MESSAGE);assert.match(issue!.message,/^Existing agreements remain binding/);});
 test('a refused property save keeps the owner edits on screen',async()=>{const h=harness();await h.w.open(id);h.w.update('bedrooms','6');h.setFail(new PropertyEditError(TENANCY_BINDING_MESSAGE,'rejected'));await h.w.save();assert.equal(h.w.getSnapshot().draft?.bedrooms,'6');assert.equal(h.w.getSnapshot().error,TENANCY_BINDING_MESSAGE);assert.equal(h.w.dirty(),true);});
+
+// Part C follow-up: a saved property of a type without a range keeps its stored range-only values when it is edited.
+test('editing a saved Studio keeps its stored lot area, parking and floor number: nothing is cleared or sent as null',()=>{
+  const c={...context(),property_type:'studio' as const,floor_number:5,lot_area_sqm:40,parking_spaces:2,property_subtype:null,model_attributes_version:2};
+  const d=routineDraft(c);d.bedrooms='2'; // the owner edits a shared detail; the range-only fields are hidden in the editor
+  const p:any=routinePayload(c,d);
+  assert.equal(p.p_bedrooms,2);
+  assert.equal(p.p_lot_area_sqm,40,'the stored lot area goes back as it was, not null'); assert.equal(p.p_parking_spaces,2,'the stored parking goes back as it was, not null');
+  assert.equal(p.p_property_subtype,null,'a Studio never has a subtype (the table forbids one), so null is the stored value');
+  assert.ok(!('p_floor_number' in p),'the unit floor is not part of the update at all, so it cannot be changed');
+  const untouched=routinePayload(c,routineDraft(c)) as any;
+  assert.deepEqual([untouched.p_lot_area_sqm,untouched.p_parking_spaces],[40,2]);
+  const legacy={...c,model_attributes_version:1,lot_area_sqm:null,parking_spaces:null};
+  assert.deepEqual([(routinePayload(legacy as any,routineDraft(legacy as any)) as any).p_lot_area_sqm],[null],'a property that never had a value still sends none');
+});

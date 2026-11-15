@@ -28,7 +28,7 @@ export function ListingPhotosCard({ viewModel: vm }: { viewModel: PropertyListin
   return <View style={styles.card}>
     <PropertyMediaViewer viewModel={vm} />
     <View style={styles.head}>
-      <Text accessibilityRole="header" style={styles.title}>Photos and 360°</Text>
+      <Text accessibilityRole="header" style={styles.title}>Photos</Text>
       <Text style={ui.supporting}>{count} of 10</Text>
     </View>
     {!cover
@@ -62,8 +62,7 @@ export function ListingPhotosCard({ viewModel: vm }: { viewModel: PropertyListin
             <View style={styles.cell}><ListingButton label="Add more" tone="outline" disabled={blocked || count >= 10} onPress={() => void flow.addPhotos()} /></View>
           </View>
         </>}
-    <ListingButton label="Add a 360° tour" tone="outline" disabled onPress={() => {}} />
-    <Text style={ui.supporting}>A 360° tour is optional. It isn’t available in this build yet. JPEG, PNG or WebP, up to 10 MB each. Photos are public, so leave out private details.</Text>
+    <Text style={ui.supporting}>JPEG, PNG or WebP, up to 10 MB each. Photos are public, so leave out private details.</Text>
     {running ? <Text accessibilityLiveRegion="polite" style={styles.status}>{`Uploading ${Math.min(state.batch.completed + 1, state.batch.total)} of ${state.batch.total}…`}</Text> : null}
     {!running && failed && !state.needsReconcile ? <View style={styles.status}><Text style={styles.statusText}>Some photos didn’t upload.</Text>{!blocked && state.pendingSelections.length ? <ListingButton label="Retry failed" tone="outline" onPress={() => void flow.resumeQueue()} /> : null}</View> : null}
     <FeedbackNotice message={state.error} tone="error" />

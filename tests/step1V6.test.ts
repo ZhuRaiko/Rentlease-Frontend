@@ -510,19 +510,19 @@ const item = (key: string, status: string, over: any = {}) => ({ key, uri: `file
 const photoState = (over: any) => ({ photoState: { busy: false, loaded: true, needsReconcile: false, pendingSelections: [], error: null, notice: null, removeId: null, batch: { status: 'idle', completed: 0, total: 0 }, ...over } });
 test('photos card, empty: one large dashed Add photos target with the cover sentence, and 0 of 10', () => {
   const { tree, texts, log } = photoVm();
-  assert.ok(texts.includes('Photos and 360°') && texts.includes('0 of 10') && texts.includes('Add photos') && texts.includes('The first photo is your cover. You can add up to 10.'));
+  assert.ok(texts.includes('Photos') && texts.includes('0 of 10') && texts.includes('Add photos') && texts.includes('The first photo is your cover. You can add up to 10.'));
   const target = nodes(tree).find(n => n.type === 'Pressable' && /Add photos/.test(n.props.accessibilityLabel ?? ''))!, s = flatStyle(target.props.style);
   assert.equal(s.borderStyle, 'dashed'); assert.equal(s.borderRadius, 24); assert.ok(s.minHeight >= 160); target.props.onPress(); assert.deepEqual(log, ['add']);
   assert.ok(!nodes(tree).some(n => n.type === 'Image'), 'no picture yet');
 });
-test('photos card, filled: a 24dp cover with the Cover badge and its count, 18dp thumbnails, Manage photos, Add more and a disabled 360° tour', () => {
+test('photos card, filled: a 24dp cover with the Cover badge and its count, 18dp thumbnails, Manage photos and Add more, with no 360° control', () => {
   const { tree, texts, buttons, log } = photoVm({}, [item('a', 'Saved', { cover: true }), item('b', 'Saved'), item('c', 'Saved')]);
   assert.ok(texts.includes('3 of 10') && texts.includes('Cover') && texts.includes('1 of 3'));
   const hero = nodes(tree).find(n => n.type === 'Pressable' && /Cover photo/.test(n.props.accessibilityLabel ?? ''))!; assert.equal(flatStyle(hero.props.style).borderRadius, 24);
   const thumbs = nodes(tree).filter(n => n.type === 'Pressable' && /View photo \d/.test(n.props.accessibilityLabel ?? '')); assert.equal(thumbs.length, 3);
   assert.ok(thumbs.every(t => flatStyle(t.props.style).borderRadius === 18 && flatStyle(t.props.style).width >= 48));
-  assert.deepEqual(buttons.map(b => b.props.label), ['Manage photos', 'Add more', 'Add a 360° tour']);
-  assert.equal(buttons[2]!.props.disabled, true, 'the 360° tour stays as built today');
+  assert.deepEqual(buttons.map(b => b.props.label), ['Manage photos', 'Add more']);
+  assert.ok(!JSON.stringify(tree).includes('360'), '360° was never functional in this app, so nothing mentions it here');
   buttons[0]!.props.onPress(); buttons[1]!.props.onPress(); thumbs[1]!.props.onPress(); assert.deepEqual(log, ['go:photoManager', 'add', 'open:1']);
 });
 test('photos card: an uploading thumbnail has a light veil, a failed one an amber veil with Retry that resumes the queue', () => {
