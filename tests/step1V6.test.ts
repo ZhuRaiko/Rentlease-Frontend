@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
-import { MAP_BOX_HEIGHT, MAP_PLACEHOLDER, MAP_SEARCHING, MAP_UNAVAILABLE, SWITCH_SUBTITLE, SWITCH_TITLE, SWITCH_WAITING, confirmedPlace, confirmedStatus, locationCardView, type LocationCardInput } from '../src/features/property-listing/models/LocationConsent';
+import { SAVED_LOADING, SAVED_LOAD_FAILED, SHARED_NOTICE, WITHDRAWN_NOTICE, savedNotice, savedSwitchView, MAP_BOX_HEIGHT, MAP_PLACEHOLDER, MAP_SEARCHING, MAP_UNAVAILABLE, SWITCH_SUBTITLE, SWITCH_TITLE, SWITCH_WAITING, confirmedPlace, confirmedStatus, locationCardView, type LocationCardInput } from '../src/features/property-listing/models/LocationConsent';
 import { FALLBACK_NOTE, PRECISE_PLACE_TYPES, candidatePrecise, pickPreviewCandidate } from '../src/features/property-listing/models/PinPrecision';
 import { RANGE_ORDER, rangeCardView } from '../src/features/property-listing/models/RangeCard';
 import { moreDetailsFields, unitFields } from '../src/features/property-listing/models/PropertyReadiness';
@@ -437,4 +437,30 @@ test('a preview only confirms for the revision it was made for, and clearing it 
   assert.equal(flow.confirmPreview({ addressRevision: 3, setupId: 's', query: 'q' }), true); assert.deepEqual(accepted, [3]); assert.equal(flow.getSnapshot().confirmedPrecise, true);
   flow.clearPreview(); assert.equal(flow.getSnapshot().preview.status, 'idle');
   assert.equal(flow.confirmPreview({ addressRevision: 3, setupId: 's', query: 'q' }), false, 'nothing left to confirm');
+});
+
+// ---- The saved property's switch
+test('the saved-property switch: on shares, off withdraws, a usable approval can always be withdrawn, an unusable point is the fallback note', () => {
+  const v = (approval: any, over: any = {}) => savedSwitchView({ approval, loading: false, error: false, busy: false, ...over });
+  assert.deepEqual(v({ approved: false, eligible: true }), { on: false, enabled: true, note: SWITCH_SUBTITLE, reload: false, showMap: true });
+  assert.deepEqual(v({ approved: true, eligible: true }), { on: true, enabled: true, note: SWITCH_SUBTITLE, reload: false, showMap: true });
+  const stale = v({ approved: true, eligible: false }); assert.equal(stale.enabled, true); assert.equal(stale.on, true);
+  const fallback = v({ approved: false, eligible: false }); assert.equal(fallback.enabled, false); assert.equal(fallback.on, false); assert.equal(fallback.note, FALLBACK_NOTE); assert.equal(fallback.showMap, false);
+  assert.equal(v({ approved: false, eligible: true }, { busy: true }).enabled, false);
+  assert.deepEqual(v(null, { loading: true }), { on: false, enabled: false, note: SAVED_LOADING, reload: false, showMap: false });
+  assert.deepEqual(v(null, { error: true }), { on: false, enabled: false, note: SAVED_LOAD_FAILED, reload: true, showMap: false });
+});
+test('the line after a change appears only once the server has confirmed it, and says which way it went', () => {
+  assert.equal(savedNotice('share', true, false, false), 'Approximate area shared'); assert.equal(SHARED_NOTICE, 'Approximate area shared');
+  assert.equal(savedNotice('withdraw', false, false, false), 'Approximate area no longer shared'); assert.equal(WITHDRAWN_NOTICE, 'Approximate area no longer shared');
+  assert.equal(savedNotice('share', false, false, false), null, 'not yet: the approval is still off');
+  assert.equal(savedNotice('share', true, true, false), null, 'not while it is running'); assert.equal(savedNotice('share', true, false, true), null, 'not after an error');
+  assert.equal(savedNotice(null, true, false, false), null, 'nothing before the person changes anything'); assert.equal(savedNotice('share', null, false, false), null);
+  const card = readFileSync('src/features/property-listing/components/LocationShareCard.tsx', 'utf8');
+  assert.match(card, /const toggle=\(next:boolean\)=>\{setIntent\(next\?'share':'withdraw'\);void model\.save\(next\);\};/, 'the switch calls the existing approval save: on approves, off withdraws');
+});
+test('no "Confirm and share approximate area" label remains anywhere in the app', () => {
+  const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(join(dir, e.name)) : /\.(ts|tsx)$/.test(e.name) ? [join(dir, e.name)] : []);
+  const hits = walk('src').filter(f => /Confirm and share approximate area|CONFIRM_SHARE_LABEL/.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(hits, []);
 });

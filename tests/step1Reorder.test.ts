@@ -199,7 +199,7 @@ test('the counter reads "N selected"', () => {
 const realFiles: Record<string, string> = {
   Currency: 'src/shared/models/Currency.ts', colors: 'src/shared/theme/colors.ts', spacing: 'src/shared/theme/spacing.ts', radius: 'src/shared/theme/radius.ts',
   LocationShare: 'src/features/property-listing/models/LocationShare.ts', AmenityChoices: 'src/features/property-listing/models/AmenityChoices.ts',
-  LocationConsent: 'src/features/property-listing/models/LocationConsent.ts', PropertyReadiness: 'src/features/property-listing/models/PropertyReadiness.ts',
+  LocationConsent: 'src/features/property-listing/models/LocationConsent.ts', PinPrecision: 'src/features/property-listing/models/PinPrecision.ts', PropertyReadiness: 'src/features/property-listing/models/PropertyReadiness.ts',
   PropertyModelAttributes: 'src/features/property-listing/models/PropertyModelAttributes.ts', FieldLabel: 'src/features/property-listing/components/FieldLabel.tsx',
 };
 const cache: Record<string, any> = {};
@@ -209,7 +209,7 @@ function load(file: string, extra: Record<string, any> = {}): any {
   const req = (key: string): any => {
     if (key === 'react/jsx-runtime') { const jsx = (type: any, props: any) => ({ type, props }); return { jsx, jsxs: jsx }; }
     if (key === 'react') return reactStub;
-    if (key === 'react-native') return { Text: 'Text', View: 'View', Pressable: 'Pressable', TextInput: 'TextInput', StyleSheet: { create: (s: any) => s }, useWindowDimensions: () => ({ height: 800, width: 360 }) };
+    if (key === 'react-native') return { Text: 'Text', View: 'View', Pressable: 'Pressable', Switch: 'Switch', TextInput: 'TextInput', StyleSheet: { create: (s: any) => s }, useWindowDimensions: () => ({ height: 800, width: 360 }) };
     const n = key.split('/').at(-1)!;
     if (n in extra) return extra[n];
     if (n === 'ui') return { ui: {} };
@@ -239,27 +239,25 @@ const deepText = (v: any): string => (v == null || typeof v === 'boolean' ? '' :
 const brandButtons = (tree: any) => nodes(tree).filter(n => n.type === 'ListingButton');
 const link = (tree: any, label: string) => nodes(tree).find(n => n.type === 'Pressable' && textOf(n) === label);
 
-test('saved property: the button records consent through the existing hook; withdrawal and reload stay available', () => {
+test('saved property: one switch records through the existing hook (on shares, off withdraws); there is no consent button', () => {
   const saved = { workspacePropertyId: 'prop-1', estimationProperty: { edit_version: 'v1' } };
-  const eligible = model({ state: { approved: false, eligible: true, point } });
-  const t = card(makeVm(saved).vm, eligible.model);
-  assert.equal(brandButtons(t).length, 1);
-  brandButtons(t)[0].props.onPress();
-  assert.deepEqual(eligible.log, ['save:true']);
+  const sw = (t: any) => nodes(t).find(n => n.type === 'Switch');
+  const eligible = model({ state: { approved: false, eligible: true, point } }), t = card(makeVm(saved).vm, eligible.model);
+  assert.equal(sw(t).props.value, false); assert.equal(sw(t).props.disabled, false); assert.equal(sw(t).props.accessibilityLabel, 'Use my approximate area for a sharper range');
+  sw(t).props.onValueChange(true); assert.deepEqual(eligible.log, ['save:true'], 'on shares, through the existing call');
   assert.equal(nodes(t).find(n => n.type === 'PublicLocationMap').props.latitude, point.latitude);
   const approved = model({ state: { approved: true, eligible: true, point } }), t2 = card(makeVm(saved).vm, approved.model);
-  assert.equal(brandButtons(t2).length, 0);
-  link(t2, 'Stop sharing')!.props.onPress();
-  assert.deepEqual(approved.log, ['save:false']);
+  assert.equal(sw(t2).props.value, true); sw(t2).props.onValueChange(false); assert.deepEqual(approved.log, ['save:false'], 'off withdraws');
+  const stale = model({ state: { approved: true, eligible: false, point: null } }), t5 = card(makeVm(saved).vm, stale.model);
+  assert.equal(sw(t5).props.disabled, false, 'a withdrawal is available even if the point is no longer usable');
   const broken = model({ error: 'x' }), t3 = card(makeVm(saved).vm, broken.model);
-  link(t3, 'Reload sharing status')!.props.onPress();
-  assert.deepEqual(broken.log, ['reload']);
-  const ineligible = model({ state: { approved: false, eligible: false, point: null } });
-  assert.equal(brandButtons(card(makeVm(saved).vm, ineligible.model)).length, 0);
-  const busy = model({ state: { approved: false, eligible: true, point }, busy: true });
-  const t4 = card(makeVm(saved).vm, busy.model);
-  assert.equal(brandButtons(t4)[0].props.disabled, true);
-  assert.equal(brandButtons(t4)[0].props.label, 'Updating...');
+  assert.equal(sw(t3).props.disabled, true); link(t3, 'Reload sharing status')!.props.onPress(); assert.deepEqual(broken.log, ['reload']);
+  const ineligible = model({ state: { approved: false, eligible: false, point: null } }), t4 = card(makeVm(saved).vm, ineligible.model);
+  assert.equal(sw(t4).props.disabled, true, 'a fallback pin cannot be shared'); assert.ok(textOf(t4).includes("We couldn't place this address precisely, so only the city is used"));
+  const busy = model({ state: { approved: false, eligible: true, point }, busy: true }); assert.equal(sw(card(makeVm(saved).vm, busy.model)).props.disabled, true, 'not while a change is running');
+  const loading = model({ state: null, busy: true }); assert.equal(sw(card(makeVm(saved).vm, loading.model)).props.disabled, true); assert.match(textOf(card(makeVm(saved).vm, loading.model)), /Checking sharing status/);
+  for (const m of [eligible, approved, stale, broken, ineligible, busy, loading]) assert.equal(brandButtons(card(makeVm(saved).vm, m.model)).length, 0, 'no consent button in any state');
+  assert.ok(!/Confirm and share approximate area|Updating\.\.\./.test(textOf(t) + textOf(t2)));
 });
 test('no state writes coordinates out, in text or in spoken labels', () => {
   const states: [any, any][] = [

@@ -19,10 +19,10 @@ export const MAP_CAPTION = 'approximate area only';
 export const LOCATION_TAG = 'Also sharpens your range';
 /** The map box has this height in every state, so nothing moves while the person types. */
 export const MAP_BOX_HEIGHT = 150;
-/** The saved-property card keeps its own single consent button. */
-export const CONFIRM_SHARE_LABEL = 'Confirm and share approximate area';
-export const CONSENT_HINT = 'Sharing helps the range. Skipping is fine: the range then uses the city only.';
-export const FIND_ON_MAP_LABEL = 'Find it on the map';
+export const SHARED_NOTICE = 'Approximate area shared';
+export const WITHDRAWN_NOTICE = 'Approximate area no longer shared';
+export const SAVED_LOADING = 'Checking sharing status...';
+export const SAVED_LOAD_FAILED = 'Sharing status could not load.';
 
 export type LocationDecision = { key: string; share: boolean } | null;
 /**
@@ -67,3 +67,22 @@ export function locationCardView(i: LocationCardInput): LocationCardView {
 /** "Anabu I-A, Imus": what the collapsed row names, from the address the owner typed. */
 export const confirmedPlace = (barangay: string, cityLabel: string): string => `${barangay.trim()}, ${cityLabel}`;
 export const confirmedStatus = (shared: boolean): string => (shared ? 'approximate area shared' : 'approximate area not shared');
+
+export interface SavedSwitchInput {
+  approval: { approved: boolean; eligible: boolean } | null;
+  loading: boolean; error: boolean; busy: boolean;
+}
+export interface SavedSwitchView { on: boolean; enabled: boolean; note: string; reload: boolean; showMap: boolean }
+/**
+ * The saved property's switch records straight away: on shares (approve), off withdraws. It is available while an approval can be changed:
+ * a point that is not usable (not eligible) cannot be shared, but an existing approval can always be withdrawn. An unusable point shows the fallback note.
+ */
+export function savedSwitchView(i: SavedSwitchInput): SavedSwitchView {
+  if (i.error) return { on: false, enabled: false, note: SAVED_LOAD_FAILED, reload: true, showMap: false };
+  if (!i.approval) return { on: false, enabled: false, note: i.loading ? SAVED_LOADING : FALLBACK_NOTE, reload: false, showMap: false };
+  const usable = i.approval.approved || i.approval.eligible;
+  return { on: i.approval.approved, enabled: usable && !i.busy, note: usable ? SWITCH_SUBTITLE : FALLBACK_NOTE, reload: false, showMap: usable };
+}
+/** The line after a change, shown only once the server has confirmed it (the approval now matches what was asked). */
+export const savedNotice = (intent: 'share' | 'withdraw' | null, approved: boolean | null, busy: boolean, error: boolean): string | null =>
+  !intent || busy || error || approved === null || approved !== (intent === 'share') ? null : intent === 'share' ? SHARED_NOTICE : WITHDRAWN_NOTICE;
