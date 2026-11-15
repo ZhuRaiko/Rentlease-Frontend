@@ -6,6 +6,7 @@ import {ui} from '../theme/ui';
 import {type PredictionTarget,type PredictionReceipt} from '../models/RentalPrediction';
 import {RangeEstimateCard} from './RangeEstimateCard';
 import {SHOW_RANGE_LABEL} from '../models/RentalRange';
+import {RANGE_PROPERTY_TYPES} from '../models/RentalEstimateEligibility';
 import {useInlineRentalEstimate} from '../viewModels/useInlineRentalEstimate';
 /** Posting wizard only (rendered just when a caller passes onResult or autoPredict): reports the result upward and requests once for a freshly saved property. */
 function EstimateBridge({result,onResult,autoPredict,ready,workflow}:{result:PredictionReceipt|null;onResult?:((result:PredictionReceipt|null)=>void)|undefined;autoPredict:boolean;ready:boolean;workflow:{predict:()=>Promise<unknown>}}){
@@ -20,6 +21,8 @@ export function InlineRentalEstimate({accountId,target,property,onReview,variant
  const rent=Number.isFinite(askingRent)&&askingRent!>0?askingRent!:result?.askingRent??null;
  const bridge=onResult||autoPredict?<EstimateBridge result={result??null} onResult={onResult} autoPredict={autoPredict} ready={vm.eligibility?.eligible===true&&!vm.busy} workflow={vm.workflow}/>:null;
  const noRange=result&&!range?<Text style={ui.supporting}>No typical range is available for this property. Your asking rent stays your choice.</Text>:null;
+ // Tenant view: a property type the estimator does not accept shows nothing here (no reason, no button, no empty card).
+ if(variant==='spotlight'&&property&&!RANGE_PROPERTY_TYPES.includes(String(property.property_type)))return null;
  if(variant==='spotlight')return <View style={styles.featureArea}>
  <View style={styles.featureHead}><View style={{flex:1,gap:4}}><Text accessibilityRole="header" style={styles.featureTitle}>Typical rent for similar places</Text></View><View accessible={false} style={styles.featureSymbol}><Text style={styles.symbolText}>{'₱'}</Text></View></View>
  <View style={styles.priceSpotlight}>

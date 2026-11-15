@@ -131,14 +131,19 @@ test('spotlight (tenant): read-only range card for the listing, one protected ac
   for(const state of [{busy:true},{error:'Network unavailable',retryable:true}]){let c=0;const tree=nodes(renderInline({...state,workflow:{predict(){c++;}}},undefined,undefined,{variant:'spotlight'}));assert.ok(!tree.some(n=>n.type==='RangeCard'));const action=tree.find(n=>n.type==='Pressable');if('busy' in state)assert.equal(action.props.disabled,true);else{action.props.onPress();assert.equal(c,1);}}
 });
 
-// The tenant's on-demand button follows the shared eligibility: apartments, houses and condominiums only.
-test('spotlight (tenant): the range button shows for apartment, house and condominium and for no other property type',()=>{
+// Tenant view: a property type the estimator does not accept shows nothing at all in the estimate area.
+test('spotlight (tenant): only apartment, house and condominium show the estimate area; every other type renders nothing',()=>{
   const shown:string[]=[];
   for(const {value} of propertyTypeOptions){
-    const eligibility=sharedEligibility({property_type:value,city:'imus',furnishing_status:'unfurnished',bedrooms:1,bathrooms:1,floor_area_sqm:30});
-    const tree=nodes(renderInline({workflow:{predict(){}},eligibility},undefined,undefined,{variant:'spotlight'}));
-    if(tree.some(n=>n.type==='Pressable'))shown.push(value);
+    const property={property_type:value,city:'imus',furnishing_status:'unfurnished',bedrooms:1,bathrooms:1,floor_area_sqm:30};
+    const vm={workflow:{predict(){}},eligibility:sharedEligibility(property)};
+    const out=renderInline(vm,undefined,undefined,{variant:'spotlight',property});
+    if(RANGE_PROPERTY_TYPES.includes(value)){shown.push(value);assert.ok(nodes(out).some(n=>n.type==='Pressable'),value);}
+    else assert.equal(out,null,`${value}: no reason text, no button, no empty card`);
   }
-  assert.deepEqual(shown.sort(),[...RANGE_PROPERTY_TYPES].sort());
-  assert.equal(propertyTypeOptions.length,9);
+  assert.deepEqual(shown.sort(),[...RANGE_PROPERTY_TYPES].sort()); assert.equal(propertyTypeOptions.length,9);
+});
+test('owner and posting views keep their reason text and review link for an ineligible property',()=>{
+  const property={property_type:'studio',city:'imus'};
+  for(const variant of ['posting','guidance','details'])assert.notEqual(renderInline({workflow:{predict(){}},eligibility:{eligible:false,reason:'Unsupported property'}},undefined,()=>{},{variant,property}),null,variant);
 });
