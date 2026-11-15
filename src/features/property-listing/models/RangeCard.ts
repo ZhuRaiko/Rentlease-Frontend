@@ -39,7 +39,8 @@ export function rangeCardView(inputs: EstimateInputs): RangeCardView {
   const type = inputs.propertyType;
   return {
     filled, total, allFilled: filled === total,
-    pips: RANGE_ORDER.map(key => ({ key, filled: !names.has(key) })),
+    // The meter fills left to right by the count, so the pips and the "N of 8" pill always agree.
+    pips: RANGE_ORDER.map((key, index) => ({ key, filled: index < filled })),
     missing: RANGE_ORDER.filter(key => names.has(key) && (key !== 'subtype' || offeredSubtypeOptions(type).length > 0))
       .map(key => ({ key, label: rangeDetailLabel(key, type), field: rangeDetailField(key, type) })),
     unitGroupLabel: isHouse(type) ? 'The lot' : 'The unit',

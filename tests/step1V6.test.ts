@@ -193,7 +193,7 @@ const inputs = (over: any = {}) => ({ propertyType: 'apartment', city: 'imus', f
 test('the range card view: the count and the names come from the existing estimate model, in card order', () => {
   const v = rangeCardView(inputs({ bedrooms: '1', bathrooms: '1' }));
   assert.equal(v.total, 8); assert.equal(v.filled, 3); assert.equal(v.allFilled, false);
-  assert.deepEqual(v.pips.map(p => p.key), [...RANGE_ORDER]); assert.deepEqual(v.pips.filter(p => p.filled).map(p => p.key), ['bedrooms', 'bathrooms', 'furnishing']);
+  assert.deepEqual(v.pips.map(p => p.key), [...RANGE_ORDER]); assert.deepEqual(v.pips.filter(p => p.filled).map(p => p.key), ['floorArea', 'bedrooms', 'bathrooms'], 'the first N pips are lit, whichever details they are');
   assert.deepEqual(v.missing.map(m => m.label), ['Floor area', 'Unit floor', 'Parking', 'Subtype', 'Amenities']);
   assert.deepEqual(v.missing.map(m => m.field), ['floorAreaSqm', 'floorNumber', 'parkingSpaces', 'propertySubtype', 'amenityIds']);
   assert.equal(v.unitGroupLabel, 'The unit');
@@ -543,4 +543,26 @@ test('photos card: the existing photo recovery stays: Check saved photos after a
   assert.ok(unknown.buttons.find(b => b.props.label === 'Add more')!.props.disabled, 'no new pick while the outcome is unknown');
   const notLoaded = photoVm(photoState({ loaded: false }), []); assert.ok(notLoaded.buttons.some(b => b.props.label === 'Retry loading photos'));
   assert.equal(nodes(notLoaded.tree).find(n => n.type === 'Pressable' && /Add photos/.test(n.props.accessibilityLabel ?? ''))!.props.disabled, true);
+});
+
+// ---- The meter: the pips fill left to right by the count, and an untouched default does not count
+test('the pips and the "N of 8" pill always agree: the first N pips are lit and the rest are grey', () => {
+  const full = inputs({ floorAreaSqm: '40', bedrooms: '1', bathrooms: '1', floorNumber: '3', parkingSpaces: '1', propertySubtype: 'studio', amenityCount: 2 });
+  const steps = [{}, { floorAreaSqm: '40' }, { bathrooms: '1' }, { parkingSpaces: '1' }, { amenityCount: 2 }, { propertySubtype: 'studio' }, { bedrooms: '1' }, { floorNumber: '3' }];
+  let acc: any = { furnishingStatus: '' };
+  for (const [n, step] of steps.entries()) {
+    acc = { ...acc, ...step }; if (n === 7) acc = { ...full, furnishingStatus: 'unfurnished' };
+    const v = rangeCardView(inputs(acc)); assert.equal(v.pips.filter(p => p.filled).length, v.filled, `${n}: pips = count`);
+    assert.deepEqual(v.pips.map(p => p.filled), RANGE_ORDER.map((_, i) => i < v.filled), `${n}: lit from the left`);
+  }
+});
+test('an untouched default does not count; a field set in this session does; a saved property counts what was loaded', () => {
+  const base = { propertyType: 'apartment', city: 'imus', furnishingStatus: 'unfurnished', propertySubtype: '', floorAreaSqm: '', floorNumber: '', lotAreaSqm: '', parkingSpaces: '', bedrooms: '', bathrooms: '', amenityCount: 0 };
+  const fresh = rangeCardView({ ...base, edited: {} }); assert.equal(fresh.filled, 0); assert.equal(fresh.pips.filter(p => p.filled).length, 0, 'a fresh form lights nothing');
+  assert.ok(fresh.missing.some(m => m.key === 'furnishing'), 'the untouched default shows as a missing chip');
+  const withDefaults = rangeCardView({ ...base, bedrooms: '1', bathrooms: '1', edited: {} }); assert.equal(withDefaults.filled, 0, 'default 1 bedroom and 1 bathroom do not count either');
+  const three = rangeCardView({ ...base, floorAreaSqm: '40', bedrooms: '2', bathrooms: '1', edited: { floorAreaSqm: true, bedrooms: true, bathrooms: true } });
+  assert.equal(three.filled, 3); assert.deepEqual(three.pips.map(p => p.filled), [true, true, true, false, false, false, false, false]);
+  assert.ok(rangeCardView({ ...base, edited: { furnishingStatus: true } }).pips[0]!.filled, 'tapping Unfurnished counts, even though it is the default value');
+  const saved = rangeCardView({ ...base, floorAreaSqm: '40', bedrooms: '1', bathrooms: '1' }); assert.equal(saved.filled, 4, 'no edited map: every loaded value counts, furnishing included');
 });

@@ -6,6 +6,8 @@ import { newestFirst, recoveryMessage } from '../models/RecentProperty';
 type Step = 'details' | 'address' | 'review' | 'created';
 interface State {
   touchedFields:Partial<Record<PropertyValidationField,true>>; validationAttempted:boolean;
+  /** Fields the person has set in this session; the range meter counts a detail only when it is set (a default does not count). */
+  edited:Partial<Record<string,true>>;
   draft: DraftProperty; step: Step; busy: boolean; loaded: boolean; propertyId: string | null;
   error: string | null; uncertain: boolean; locationRevision: number;
   /** Recovery: the time on the pending marker (null for an older marker without one), and whether the recent properties were looked up. */
@@ -14,7 +16,7 @@ interface State {
   confirming: boolean;
   recent: Awaited<ReturnType<PropertyCreationService['recentOwned']>>;
 }
-const initial = (): State => ({ touchedFields:{}, validationAttempted:false, draft: emptyDraftProperty(), step: 'details', busy: false, loaded: false, propertyId: null, error: null, uncertain: false, locationRevision: 0, recent: [], uncertainSince: null, recentChecked: false, confirming: false });
+const initial = (): State => ({ touchedFields:{}, edited:{}, validationAttempted:false, draft: emptyDraftProperty(), step: 'details', busy: false, loaded: false, propertyId: null, error: null, uncertain: false, locationRevision: 0, recent: [], uncertainSince: null, recentChecked: false, confirming: false });
 export function createPropertyCreationWorkflow(service: PropertyCreationService) {
   let state = initial(), epoch = 0, disposed = false, owner: string | null = null;
   const listeners = new Set<() => void>();
@@ -60,14 +62,14 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
       if (disposed || state.busy) return;
       // Local discard never clears the durable receipt/uncertain-operation journal.
       epoch++;
-      if (state.propertyId) update({ touchedFields:{}, validationAttempted:false, draft: emptyDraftProperty(), error: null });
+      if (state.propertyId) update({ touchedFields:{}, edited:{}, validationAttempted:false, draft: emptyDraftProperty(), error: null });
       else { owner = null; update({...initial(),locationRevision:state.locationRevision+1}); }
     },
     dirty: () => !state.propertyId && JSON.stringify(state.draft) !== JSON.stringify(emptyDraftProperty()),
     updateField<K extends Exclude<keyof DraftProperty, keyof PropertyLocationInput>>(field: K, value: DraftProperty[K]) {
       if (state.busy || state.propertyId || state.uncertain) return;
       const addressChanged = ['city', 'barangay', 'addressLine1', 'addressLine2', 'postalCode'].includes(field) && String(state.draft[field]??'').trim()!==String(value??'').trim();
-      update({ draft: { ...state.draft, [field]: value, ...(addressChanged ? { exactLatitude: null, exactLongitude: null, publicLatitude: null, publicLongitude: null } : {}) }, ...(addressChanged ? { locationRevision: state.locationRevision + 1 } : {}), error: null });
+      update({ edited: { ...state.edited, [field]: true }, draft: { ...state.draft, [field]: value, ...(addressChanged ? { exactLatitude: null, exactLongitude: null, publicLatitude: null, publicLongitude: null } : {}) }, ...(addressChanged ? { locationRevision: state.locationRevision + 1 } : {}), error: null });
     },
     next() {
       if (!state.loaded || state.busy || state.propertyId || state.uncertain) return;

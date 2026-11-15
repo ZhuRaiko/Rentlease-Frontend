@@ -1740,3 +1740,14 @@ test('Part C: a photo outcome nobody knows holds Continue with its own reason un
   assert.equal(h.vm().listingWriteBlockedReason, 'Some photos need a retry');
   assert.equal(titleField(h).props.editable, true); h.unmount();
 });
+
+// ---- Meter: counts what the person set, not the pre-selected default
+test('range meter: a fresh form shows 0 of 8; each detail the person sets counts; the saved property counts what was stored', async () => {
+  const { h, fields, confirmMap } = unifiedHarness(); await h.settle();
+  const count = () => h.vm().estimateDetails.filled, flow = () => h.vm().propertyCreation;
+  assert.equal(count(), 0, 'Unfurnished is pre-selected but untouched: 0 of 8'); assert.equal(h.vm().estimateDetails.total, 8);
+  flow().updateField('floorAreaSqm', '42'); flow().updateField('bedrooms', '2'); flow().updateField('bathrooms', '1'); h.flush(); assert.equal(count(), 3);
+  flow().updateField('furnishingStatus', 'unfurnished'); h.flush(); assert.equal(count(), 4, 'tapping the default chip is a choice');
+  fields(); await confirmMap(); await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.ok(count() >= 4, 'after the save every stored value counts'); h.unmount();
+});

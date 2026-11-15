@@ -5,6 +5,11 @@ import {propertyTypeOptions,propertyCityOptions,furnishingOptions} from './Draft
 export interface EstimateInputs {
   propertyType:string|null;city:string|null;furnishingStatus:string|null;propertySubtype:string;
   floorAreaSqm:string;floorNumber:string;lotAreaSqm:string;parkingSpaces:string;bedrooms:string;bathrooms:string;amenityCount:number;
+  /**
+   * Form fields the person has set in this session (typed, tapped a chip, toggled). Given for a new, unsaved property: a detail then counts only if its
+   * field was set, so a pre-selected default does not. Left out for a saved property, whose values were all loaded from saved data and count.
+   */
+  edited?:Readonly<Partial<Record<string,true>>>|undefined;
 }
 const filled=(value?:string|null)=>!!value&&!!value.trim();
 export const validFloorArea=(value:string)=>{const n=value.trim()===''?NaN:Number(value);return Number.isFinite(n)&&n>0;};
@@ -21,9 +26,12 @@ export const floorAreaRequired=estimateNeedsFloorArea;
 export const floorAreaMissing=(i:EstimateInputs)=>floorAreaRequired(i)&&!validFloorArea(i.floorAreaSqm);
 
 /** The fields the estimator reads (see mapPredictionInput), in the order the form shows them. One list feeds the count and the names. */
-const estimateChecks=(i:EstimateInputs):readonly (readonly [string,boolean])[]=>[
-  ['floor area',validFloorArea(i.floorAreaSqm)],['floor number or lot area',filled(i.floorNumber)||filled(i.lotAreaSqm)],['parking spaces',filled(i.parkingSpaces)],['subtype',filled(i.propertySubtype)],
-  ['furnishing',filled(i.furnishingStatus)],['amenities',i.amenityCount>0],['bedrooms',filled(i.bedrooms)],['bathrooms',filled(i.bathrooms)]];
+const estimateChecks=(i:EstimateInputs):readonly (readonly [string,boolean])[]=>{
+  const set=(...fields:string[])=>!i.edited||fields.some(f=>i.edited![f]===true); // an untouched default does not count
+  return [
+  ['floor area',validFloorArea(i.floorAreaSqm)&&set('floorAreaSqm')],['floor number or lot area',(filled(i.floorNumber)||filled(i.lotAreaSqm))&&set('floorNumber','lotAreaSqm')],['parking spaces',filled(i.parkingSpaces)&&set('parkingSpaces')],['subtype',filled(i.propertySubtype)&&set('propertySubtype')],
+  ['furnishing',filled(i.furnishingStatus)&&set('furnishingStatus')],['amenities',i.amenityCount>0&&set('amenityIds')],['bedrooms',filled(i.bedrooms)&&set('bedrooms')],['bathrooms',filled(i.bathrooms)&&set('bathrooms')]];
+};
 /** Plain count of the estimate details filled. No accuracy claim. */
 export function estimateDetailCount(i:EstimateInputs){
   const checks=estimateChecks(i);
