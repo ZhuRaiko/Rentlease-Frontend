@@ -1,4 +1,5 @@
 import {modelPropertyCategory,type RentalRequestCategory,type RentalModelSubtype} from './RentalModelAttributes.ts';
+import {RANGE_HALF_WIDTH,roundRangeOutward,type RentalRange} from './RentalRange.ts';
 /** Contract pinned to Rentlease-Features dee06f16fe182361b1d9d7e6ecf35f41703bf1a6. */
 export const ML_SOURCE_COMMIT='dee06f16fe182361b1d9d7e6ecf35f41703bf1a6';
 // Exact fitted vocabulary. Aliases apply only at inference, never to stored listings.
@@ -17,9 +18,11 @@ export interface PredictionRequest {
  bedrooms:number|null;bathrooms:number|null;floor_area_sqm:number;floor_number:number|null;
  lot_area_sqm:number|null;parking_spaces:number|null;latitude:null;longitude:null;amenities_normalized:string[]|null;
 }
-export interface IllustrativeRentalRange {minimum:number;maximum:number}
+export type IllustrativeRentalRange=RentalRange;
+/** The wire shape the Edge function forwards (it still carries the model's point value). Only the Edge function and parsePredictionReceipt read it; no screen does. */
 export interface ModelPrediction {estimatedMonthlyRent:number;currency:'PHP';modelVersion:string;illustrativeRange?:IllustrativeRentalRange|null}
-export interface PredictionReceipt extends ModelPrediction {target:PredictionTarget;predictedAt:string;askingRent:number|null}
+/** What the app keeps and renders: only the range (rounded outward) and the property it belongs to. There is no point value anywhere in this type. */
+export interface PredictionReceipt {currency:'PHP';modelVersion:string;illustrativeRange?:IllustrativeRentalRange|null;target:PredictionTarget;predictedAt:string;askingRent:number|null}
 export class PredictionError extends Error {constructor(message:string,public readonly code='unavailable'){super(message);}}
 const cities:Record<string,string>={imus:'Imus',dasmarinas:'Dasmari\u00f1as',tagaytay:'Tagaytay'};
 export const isPredictionId=(v:unknown):v is string=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -40,13 +43,13 @@ export function mapPredictionInput(property:Record<string,unknown>,amenities:str
  const lot=number('lot_area_sqm'),parking=number('parking_spaces');if(parking!==null&&!Number.isSafeInteger(parking))throw new PredictionError('Review the saved parking-space count.','input');
  return {...category,city,furnishing_status:String(furnishing),bedrooms:number('bedrooms'),bathrooms:number('bathrooms'),floor_area_sqm:area,floor_number:number('floor_number'),lot_area_sqm:lot,parking_spaces:parking,latitude:null,longitude:null,amenities_normalized:mapPredictionAmenities(amenities)};
 }
-/** Validate supplied arithmetic bounds; never invent missing bounds or model uncertainty. */
+/** Validate supplied arithmetic bounds against the point. Never invent missing bounds or model uncertainty. */
 function parseIllustrativeRange(estimate:number,minimum:unknown,maximum:unknown):IllustrativeRentalRange|null {
  if(typeof minimum!=='number'||typeof maximum!=='number'||!Number.isFinite(minimum)||!Number.isFinite(maximum)||minimum<=0||minimum>estimate||maximum<estimate||minimum>=maximum)return null;
  // Estimate and bounds can be independently rounded to PHP cents upstream.
  // Two cents accommodates that rounding, without accepting a different band.
  const tolerance=0.02;
- if(Math.abs(minimum-estimate*.7)>tolerance||Math.abs(maximum-estimate*1.3)>tolerance)return null;
+ if(Math.abs(minimum-estimate*(1-RANGE_HALF_WIDTH))>tolerance||Math.abs(maximum-estimate*(1+RANGE_HALF_WIDTH))>tolerance)return null;
  return {minimum,maximum};
 }
 export function parseModelPrediction(value:unknown):ModelPrediction {
@@ -60,6 +63,7 @@ export function parsePredictionReceipt(value:unknown,target:PredictionTarget):Pr
  const model=parseModelPrediction({estimated_rent_monthly:r.estimatedMonthlyRent,currency:r.currency,model_version:r.modelVersion,range_min:range?.minimum,range_max:range?.maximum});
  const receivedTarget=parsePredictionTarget(r.target);
  if(JSON.stringify(receivedTarget)!==JSON.stringify(target)||typeof r.predictedAt!=='string'||!Number.isFinite(Date.parse(r.predictedAt))||(r.askingRent!==null&&(typeof r.askingRent!=='number'||!Number.isFinite(r.askingRent)||r.askingRent<=0)))throw new PredictionError('The estimate could not be matched to this property.');
- return {...model,target:receivedTarget,predictedAt:r.predictedAt,askingRent:r.askingRent as number|null};
+ // The point value ends here: the UI model keeps the range only, rounded outward.
+ return {currency:model.currency,modelVersion:model.modelVersion,illustrativeRange:model.illustrativeRange?roundRangeOutward(model.illustrativeRange.minimum,model.illustrativeRange.maximum):null,target:receivedTarget,predictedAt:r.predictedAt,askingRent:r.askingRent as number|null};
 }
 export const formatMonthlyPhp=(amount:number)=>new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP',maximumFractionDigits:2}).format(amount)+' / month';

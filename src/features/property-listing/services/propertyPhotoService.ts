@@ -15,7 +15,7 @@ const columns = 'id,property_id,storage_path,alt_text,sort_order,is_cover,create
 const uncertain = () => new PropertyPhotoError('The photo operation could not be confirmed. Check photo status before making further changes.', true);
 const rejected = (error: { code?: string }) => /^(22|23|40|42|P0001|PGRST202)/.test(error.code ?? '');
 const dbError = (error: { code?: string; message?: string }) => new PropertyPhotoError(
-  error.code === '40001' ? 'Photos changed on another device. Check saved photos before trying again.' : error.code === 'PGRST202' ? 'Photo management is awaiting its backend update. Your saved photos are retained.' : error.code === 'P0001' ? 'This change would leave an active listing incomplete. Add a replacement photo before removing this one.' : ['22023'].includes(error.code ?? '') && /10|limit|maximum/i.test(error.message ?? '') ? 'This property has reached the 10-photo limit. Check photo status.' : 'The photo change was rejected. Check your access and photo limits.');
+  error.code === '40001' ? 'Photos changed on another device. Check saved photos before trying again.' : error.code === 'PGRST202' ? 'This feature is not available right now. Try again later. Your saved photos are retained.' : error.code === 'P0001' ? 'This change would leave an active listing incomplete. Add a replacement photo before removing this one.' : ['22023'].includes(error.code ?? '') && /10|limit|maximum/i.test(error.message ?? '') ? 'This property has reached the 10-photo limit. Check photo status.' : 'The photo change was rejected. Check your access and photo limits.');
 
 export function createPropertyPhotoService(getClient: () => SupabaseClient<Database>, journal: Journal, device: PhotoDevice) {
   const key = (c: PhotoContext) => `rentlease:property-photos:${c.ownerId}:${c.propertyId}`;
@@ -38,7 +38,7 @@ export function createPropertyPhotoService(getClient: () => SupabaseClient<Datab
     if(validateIdentity)await assertContext(c);
     const {data,error}=await getClient().rpc('get_property_media_state',{p_property_id:c.propertyId});
     if(optional && error?.code==='PGRST202'){versions.delete(key(c));return null;}
-    if(error || !isPropertyUuid(data)) throw new PropertyPhotoError(error?.code==='PGRST202'?'Photo management is awaiting its backend update. Saved records are retained.':'Could not verify saved photos. Check your connection and access.');
+    if(error || !isPropertyUuid(data)) throw new PropertyPhotoError(error?.code==='PGRST202'?'This feature is not available right now. Try again later. Saved records are retained.':'Could not verify saved photos. Check your connection and access.');
     if(validateIdentity)await assertContext(c);return data;
   };
   const receipt = (value:unknown,c:PhotoContext,action:string):MediaReceipt => {
@@ -50,12 +50,12 @@ export function createPropertyPhotoService(getClient: () => SupabaseClient<Datab
   };
   const command = async(c:PhotoContext,action:string,args:Json,photoId=c.propertyId,path=''):Promise<MediaReceipt> => {
     await assertContext(c);
-    const version=versions.get(key(c))??await readVersion(c);if(!version)throw new PropertyPhotoError('Photo management is awaiting its backend update.');
+    const version=versions.get(key(c))??await readVersion(c);if(!version)throw new PropertyPhotoError('This feature is not available right now. Try again later.');
     const pending:PendingPhoto={kind:'command',photoId,path,requestId:device.uuid(),version,action,args};
     await journal.setItem(key(c),JSON.stringify(pending));
     const {data,error}=await getClient().rpc('manage_property_media',{p_property_id:c.propertyId,p_expected_version:version,p_request_id:pending.requestId!,p_action:action,p_args:args});
     await assertContext(c);
-    if(error){if(rejected(error)){await journal.removeItem(key(c));if(action==='reorder_cover'&&error.code==='22023'&&/Unknown media action|Unexpected fields/.test(error.message??''))throw new PropertyPhotoError('Photo ordering is waiting for its backend update. Saved photos are unchanged.');throw dbError(error);}throw uncertain();}
+    if(error){if(rejected(error)){await journal.removeItem(key(c));if(action==='reorder_cover'&&error.code==='22023'&&/Unknown media action|Unexpected fields/.test(error.message??''))throw new PropertyPhotoError('This feature is not available right now. Try again later. Saved photos are unchanged.');throw dbError(error);}throw uncertain();}
     const r=receipt(data,c,action);versions.set(key(c),r.media_version);
     // Caller replaces the marker or clears it only after the next safe boundary.
     return r;

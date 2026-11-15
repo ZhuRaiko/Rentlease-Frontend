@@ -45,8 +45,9 @@ function serviceHarness() {
     auth: { getUser: async () => ({ data: { user: userId ? { id: userId } : null }, error: null }) },
     from(table: string) {
       reads.push(table);
-      const data = table === 'profiles' ? { account_status: active ? 'active' : 'restricted', tier1_verified_at: tierOne ? 'date' : null } : table === 'user_roles' ? [{ role: landlord ? 'landlord' : 'tenant' }] : { id: propertyId, landlord_id: userId, property_type: 'studio', city: 'imus', barangay: 'Example barangay', created_at: '2026-10-23T00:00:00Z' };
-      const query = { select: (_: string) => query, eq: (_: string, __: unknown) => query, order: (_: string, __: unknown) => query, limit: (_: number) => query, maybeSingle: async () => ({ data, error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data: table === 'properties' ? [data] : data, error: null })) };
+      const data = table === 'profiles' ? { account_status: active ? 'active' : 'restricted', tier1_verified_at: tierOne ? 'date' : null } : table === 'user_roles' ? [{ role: landlord ? 'landlord' : 'tenant' }] : { id: propertyId, landlord_id: userId, property_type: 'studio', city: 'imus', barangay: 'Example barangay', created_at: new Date().toISOString() };
+      let since: string | null = null;
+      const query = { select: (_: string) => query, eq: (_: string, __: unknown) => query, gte: (_: string, value: string) => { since = value; return query; }, order: (_: string, __: unknown) => query, limit: (_: number) => query, maybeSingle: async () => ({ data, error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve(resolve({ data: table === 'properties' ? [data].filter((row: any) => !since || row.created_at >= since) : data, error: null })) };
       return query;
     },
     async rpc(name: string, args: unknown) { assert.equal(name, 'create_property_setup'); rpcCalls++; payload = args; if (wait) await wait; return { data: result, error: rpcError }; },
@@ -63,7 +64,7 @@ function workflowHarness() {
     assertIdentity: async (id: string) => { if (id !== userId) throw Object.assign(new Error('Changed'), { code: 'property_identity_changed' }); },
     restore: async () => null,
     create: async (_: string, __: unknown) => { calls++; if (wait) await wait; if (error) throw error; return { propertyId, status: 'created' as const }; },
-    recentOwned: async () => [], confirmOwned: async () => ({ propertyId, status: 'created' as const }), beginNew: async () => {},
+    recentOwned: async () => [], confirmOwned: async () => ({ propertyId, status: 'created' as const }), beginNew: async () => {}, discardMarker: async () => {}, markerIsYoung: () => false,
   } satisfies PropertyCreationService;
   const flow = createPropertyCreationWorkflow(service);
   const ready = async () => {
@@ -187,12 +188,14 @@ test('explicit uncertain-outcome reconciliation confirms ownership and never sen
   assert.equal(receipt.propertyId, propertyId); assert.equal(h.calls(), 1);
   assert.equal((await h.service.restore('owner'))?.propertyId, propertyId);
 });
-test('an in-flight service request cannot be duplicated by another workflow in the same app process', async () => {
+test('a duplicate request from another workflow in the same app process shares the running save: one call, one result, never an unknown outcome', async () => {
   const h = serviceHarness(); let release!: () => void;
   h.delay(new Promise<void>(resolve => { release = resolve; }));
   const pending = h.service.create('owner', validDraft());
-  await assert.rejects(h.service.create('owner', validDraft()), { code: 'property_creation_uncertain' });
-  release(); await pending; assert.equal(h.calls(), 1);
+  const duplicate = h.service.create('owner', validDraft());
+  release(); const [first, second] = await Promise.all([pending, duplicate]);
+  assert.deepEqual(second, first); assert.equal(h.calls(), 1);
+  assert.ok(!h.diagnostics.some((d: any) => d.outcome === 'uncertain'), 'the duplicate made nothing uncertain');
 });
 
 test('property creation persistence stays separate from dedicated location integration', () => {
@@ -291,7 +294,7 @@ test('floor relationship errors are immediate and independent of other incomplet
 
 test('invalid floor pair is blocked before journal and RPC, retains values, and corrected retry creates only once',async()=>{
   const backend=serviceHarness(),flow=createPropertyCreationWorkflow(backend.service);await flow.initialize();
-  for(const key of ['propertyType','city','barangay','addressLine1','floorNumber','totalFloors','bedrooms','bathrooms'] as const)flow.updateField(key,({...validDraft(),floorNumber:'6',totalFloors:'5'})[key]);
+  for(const key of ['propertyType','city','barangay','addressLine1','floorNumber','totalFloors','bedrooms','bathrooms'] as const)flow.updateField(key,({...validDraft(),propertyType:'apartment' as const,floorNumber:'6',totalFloors:'5'})[key]);
   flow.provideConfirmedLocation(location,flow.getSnapshot().locationRevision);await flow.submit(true);
   assert.match(flow.getSnapshot().error??'',/cannot be higher/);assert.equal(flow.getSnapshot().draft.floorNumber,'6');assert.equal(flow.getSnapshot().draft.totalFloors,'5');assert.equal(flow.getSnapshot().draft.addressLine1,validDraft().addressLine1);assert.equal(backend.calls(),0);assert.equal(backend.values.size,0);
   await assert.rejects(backend.service.create('owner',{...validDraft(),floorNumber:'6',totalFloors:'5'}),/cannot be higher/);assert.equal(backend.calls(),0);
@@ -326,3 +329,22 @@ test('one validation metadata set exposes missing required sections separately f
 });
 
 test('eligible role-free or legacy tenant account can create without reading normal memberships',async()=>{const h=serviceHarness();h.access(true,true,false);assert.equal(await h.service.getEligibleUserId(),'owner');assert.equal(h.reads.includes('user_roles'),false);await h.service.create('owner',validDraft());assert.equal(h.calls(),1);});
+
+// ---- Part C: a type without a typical-rent range hides the details only the range reads; they are kept in the form but left out of the save.
+test('Part C: range-only details are saved for a type with a range and left out for one without; hidden values never block the save', async () => {
+  const run = async (propertyType: any, over: Record<string, string>) => {
+    const backend = serviceHarness(), flow = createPropertyCreationWorkflow(backend.service); await flow.initialize();
+    const draft: any = { ...validDraft(), propertyType, floorNumber: '2', totalFloors: '3', ...over };
+    for (const key of ['propertyType', 'city', 'barangay', 'addressLine1', 'floorNumber', 'totalFloors', 'bedrooms', 'bathrooms', 'floorAreaSqm', 'propertySubtype', 'lotAreaSqm', 'parkingSpaces'] as const) flow.updateField(key, draft[key]);
+    flow.provideConfirmedLocation(location, flow.getSnapshot().locationRevision); await flow.submit(true);
+    return { backend, flow };
+  };
+  const withRange = await run('apartment', {});
+  assert.equal(withRange.flow.getSnapshot().propertyId, propertyId); assert.equal((withRange.backend.payload() as any).p_floor_number, 2, 'an apartment keeps its unit floor');
+  const noRange = await run('boarding_house', { propertySubtype: 'studio', lotAreaSqm: '77', parkingSpaces: '3' });
+  assert.equal(noRange.flow.getSnapshot().propertyId, propertyId, 'a lot area that would not fit the type does not block a type that never shows it');
+  const sent = noRange.backend.payload() as any;
+  assert.equal(sent.p_floor_number, undefined, 'no unit floor is saved'); assert.equal(sent.p_total_floors, 3, 'floors in building is a shared detail and stays');
+  assert.ok(!/studio|77/.test(JSON.stringify(sent)), 'no subtype or lot area is saved');
+  assert.equal(noRange.flow.getSnapshot().draft.floorNumber, '2', 'the form still holds the hidden value until the save');
+});

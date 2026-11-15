@@ -1,4 +1,5 @@
 import {propertyModelAttributes} from './PropertyModelAttributes';
+import {TENANCY_FIELD_MESSAGE} from './RefusalMessages';
 import type {Database,Enums} from '../../../shared/services/supabase/database.types';
 import {emptyDraftProperty,propertyValidationIssues,propertyFloorRelationshipMessage,type DraftProperty} from './DraftProperty';
 export interface PropertyEditContext {
@@ -18,7 +19,7 @@ export function routineIssues(c:PropertyEditContext,d:RoutineDraft){
  const issues=propertyValidationIssues(full,false).filter(i=>i.section!=='address'&&i.field!=='propertyType').map(i=>({...i,field:i.field==='floorNumber'?'totalFloors':i.field}));
  if(c.floor_number!==null&&d.totalFloors.trim()&&Number.isInteger(Number(d.totalFloors))&&Number(d.totalFloors)>0&&c.floor_number>Number(d.totalFloors)&&!issues.some(i=>i.field==='totalFloors'))issues.push({field:'totalFloors',section:'floors',kind:'invalid',message:propertyFloorRelationshipMessage});
  const baseline=routineDraft(c);
- if(c.open_tenancy)for(const field of materialFields)if((field==='propertySubtype'?(d[field]??'')!==(baseline[field]??''):Number(d[field]??'')!==Number(baseline[field]??'')||(String(d[field]??'').trim()==='')!==(String(baseline[field]??'').trim()==='')))issues.push({field,section:'property',kind:'invalid',message:'This detail cannot change while a tenancy is proposed, awaiting confirmation, or active.'});
+ if(c.open_tenancy)for(const field of materialFields)if((field==='propertySubtype'?(d[field]??'')!==(baseline[field]??''):Number(d[field]??'')!==Number(baseline[field]??'')||(String(d[field]??'').trim()==='')!==(String(baseline[field]??'').trim()==='')))issues.push({field,section:'property',kind:'invalid',message:TENANCY_FIELD_MESSAGE});
  if(d.amenityIds.some(id=>!c.catalog.some(a=>a.id===id&&a.is_active)))issues.push({field:'amenityIds',section:'amenities',kind:'invalid',message:'Choose available amenities from the catalog.'});
  return issues;
 }

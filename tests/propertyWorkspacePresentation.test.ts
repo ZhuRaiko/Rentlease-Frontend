@@ -1,4 +1,5 @@
 import { listingCompleteness, type CompletenessInput } from '../src/features/property-listing/models/ListingCompleteness';
+import { emptyDraftProperty, hasConfirmedPropertyLocation, propertyCityOptions, propertyLocationNotice, propertyValidationIssues } from '../src/features/property-listing/models/DraftProperty';
 /// <reference types="node" />
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -7,6 +8,7 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import ts from 'typescript';
 import { propertiesWorkspace } from '../src/shared/models/marketplaceNavigation';
+import { sharedStub } from './support/sharedStubs';
 
 function presentation(path: string, exports: string) {
   const absolute = resolve(path), actual = createRequire(absolute);
@@ -22,15 +24,16 @@ function presentation(path: string, exports: string) {
   if(name.endsWith('/KeyboardAwareScrollView'))return {KeyboardAwareScrollView:'ScrollView'};
   if(name.endsWith('/usePropertyFormFocus'))return {usePropertyFormFocus:()=>({scrollRef:{current:null},contentRef:{current:null},section:()=>()=>{},field:()=>()=>{}})};
   if (name === 'react-native') return {AccessibilityInfo:{announceForAccessibility:(text:string)=>announcements.push(text)},useWindowDimensions:()=>viewport, Platform:{OS:'android'},Modal:'Modal',KeyboardAvoidingView:'KeyboardAvoidingView', Image: 'Image', Pressable: 'Pressable', ScrollView: 'ScrollView', Text: 'Text', View: 'View', TextInput: 'TextInput', RefreshControl: 'RefreshControl', StyleSheet: { create: (x: any) => x } };
-    const part = ['PropertyModelAttributeFields','PropertyPhotoGrid','PropertyVerificationAction', 'PropertyValidationSummary', 'PropertyFloorFields', 'CompletenessHint', 'ListingCompletenessSummary', 'PropertyAmenitiesFields', 'FieldLabel', 'AvailabilityDateField', 'ScreenHeader', 'PropertyPhotosView', 'PropertySetupView', 'FigmaReferenceCrop', 'FullscreenDocumentImage', 'PropertyMediaSection', 'PropertyMediaViewer', 'ComposerRecoveryFeedback', 'ComposerPropertyFields', 'PropertyLocationToolView', 'FeedbackNotice', 'ListingButton', 'ListingWorkspaceFeedback', 'ListingWizardScaffold', 'ListingField', 'ChoiceChip'].find(p => name.endsWith('/' + p));
+    const part = ['PropertyModelAttributeFields','PropertyPhotoGrid','PropertyVerificationAction', 'PropertyValidationSummary', 'PropertyFloorFields', 'CompletenessHint', 'ListingCompletenessSummary', 'PropertyAmenitiesFields', 'FieldLabel', 'AvailabilityDateField', 'ScreenHeader', 'PropertyPhotosView', 'PropertySetupView', 'FigmaReferenceCrop', 'FullscreenDocumentImage', 'PropertyMediaSection', 'PropertyMediaViewer', 'ComposerRecoveryFeedback', 'ComposerPropertyFields', 'PropertyLocationToolView', 'FeedbackNotice', 'ListingButton', 'ListingWorkspaceFeedback', 'ListingWizardScaffold', 'ListingCheckLine','ListingSavedLine', 'ListingField', 'ChoiceChip', 'InterfaceIcon', 'PortfolioFilterTabs', 'PortfolioRentalCard'].find(p => name.endsWith('/' + p));
     if (part && !absolute.endsWith('/'+part+'.tsx') && !absolute.endsWith('\\'+part+'.tsx')) return { [part]: part };
     if (name.endsWith('/ListingControls')) return { ChoiceChip: 'ChoiceChip', ListingField: 'ListingField' };
+    const shared = sharedStub(absolute, name); if (shared) return shared;
     return actual(name);
   };
   const mod = { exports: {} as any };
   const code = ts.transpileModule(readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   new Function('require', 'module', 'exports', code)(req, mod, mod.exports);
-  return Object.assign((...args:any[])=>{hookCursor=0;if(exports==='ListingDetailsView'&&args[0]?.viewModel&&!args[0].viewModel.draftHydration)args[0].viewModel.draftHydration={status:'idle',error:null};return mod.exports[exports](...args);},{announcements,viewport});
+  return Object.assign((...args:any[])=>{hookCursor=0;if(exports==='ListingDetailsView'&&args[0]?.viewModel&&!args[0].viewModel.listingCheck)args[0].viewModel.listingCheck={state:'ok',message:null};if(exports==='ListingDetailsView'&&args[0]?.viewModel&&!args[0].viewModel.draftHydration)args[0].viewModel.draftHydration={status:'idle',error:null};return mod.exports[exports](...args);},{announcements,viewport});
 }
 const feedback = () => presentation('src/features/property-listing/components/ListingWorkspaceFeedback.tsx', 'ListingWorkspaceFeedback');
 test('posting chooser routes only Post a Rental; Community Post is visibly disabled and Close delegates safely', () => {
@@ -45,7 +48,7 @@ test('unified marketplace account can post rentals without a separate landlord r
   const tenant={marketplace:true,admin:false,tenant:true,landlord:false};assert.deepEqual(propertiesWorkspace(tenant,'postingType'),{type:'properties',initialScreen:'postingType'});
   assert.deepEqual(propertiesWorkspace({...tenant,landlord:true},'postingType'),{type:'properties',initialScreen:'postingType'});assert.equal(propertiesWorkspace({...tenant,admin:true,landlord:true},'postingType'),null);
 });
-function vm() { return { workspacePropertyId: 'B', workspaceListingId: 'B-listing', listingDraftState: { propertyId: 'A', listingId: 'A-listing', error: 'A draft error' }, publicationState: { propertyId: 'A', listingId: 'A-listing', error: 'A publication error', uncertain: true }, lifecycleState: { propertyId: 'A', listingId: 'A-listing', error: 'A lifecycle error', uncertain: true } }; }
+function vm() { return { workspacePropertyId: 'B', workspaceListingId: 'B-listing', listingDraftState: { propertyId: 'A', listingId: 'A-listing', error: 'A draft error', errorSource: 'save' }, publicationState: { propertyId: 'A', listingId: 'A-listing', error: 'A publication error', uncertain: true }, lifecycleState: { propertyId: 'A', listingId: 'A-listing', error: 'A lifecycle error', uncertain: true } }; }
 for (const scope of ['draft', 'publication', 'management']) test(`${scope} feedback never shows another property/listing's notices`, () => {
   const render = feedback(); assert.doesNotMatch(JSON.stringify(render({ viewModel: vm(), scope })), /A draft error|A publication error|A lifecycle error/);
 });
@@ -59,9 +62,11 @@ test('same-property different-listing status is not displayed as the selected li
   const current = vm(); current.publicationState.propertyId = 'B'; current.lifecycleState.propertyId = 'B';
   assert.doesNotMatch(JSON.stringify(feedback()({ viewModel: current, scope: 'management' })), /A publication error|A lifecycle error/);
 });
+// ListingComposerView builds its section summaries eagerly, so every fixture must carry what they read.
+const composerSummaryInputs = { mediaItems: [], amenityState: { busy: false, loaded: false }, selectedAmenityIds: [] as string[] };
 test('composer renders before persistence with local media and physical/location controls', () => {
   const render = presentation('src/features/property-listing/views/ListingComposerView.tsx', 'ListingComposerView');
-  const tree = render({ viewModel: { workspacePropertyId: null, propertyState: { draft: {}, loaded: true, recent: [] }, propertyFloorIssues:{floorNumber:null,totalFloors:null}, photoState: { photos: [], pendingSelections: [] }, propertyPhotos: {}, propertyLocation: {}, locationState: { stage: 'closed' }, draft: { amenities: [] }, listingDraftState: {} }, onClose() {} });
+  const tree = render({ viewModel: { workspacePropertyId: null, propertyState: { draft: {}, loaded: true, recent: [] }, propertyFloorIssues:{floorNumber:null,totalFloors:null}, photoState: { photos: [], pendingSelections: [] }, ...composerSummaryInputs, propertyPhotos: {}, propertyLocation: {}, locationState: { stage: 'closed' }, draft: { amenities: [] }, listingDraftState: {} }, onClose() {} });
   assert.match(JSON.stringify(tree), /ComposerPropertyFields/); assert.match(JSON.stringify(tree), /PropertyMediaSection/); assert.doesNotMatch(JSON.stringify(tree), /Property saved\. Continue/);
 });
 test('dashboard empty state comes from loaded owned-property data rather than a fixture route', () => {
@@ -73,7 +78,7 @@ test('unified composer keeps media first, every physical/address field, a mounte
   const composer = readFileSync('src/features/property-listing/views/ListingComposerView.tsx', 'utf8');
   const fields = readFileSync('src/features/property-listing/components/ComposerPropertyFields.tsx', 'utf8');
   assert.ok(composer.indexOf('<PropertyMediaSection') < composer.indexOf('<ComposerPropertyFields'));
-  for (const label of ['Property type', 'Bedrooms', 'Bathrooms', 'Floor area', 'Maximum occupants', 'Furnishing', 'City', 'Barangay', 'Address line 1', 'Address line 2', 'Postal code', 'Access instructions']) assert.ok(fields.includes(label), label);
+  for (const label of ['Property type', 'Bedrooms', 'Bathrooms', 'Floor area', 'Maximum occupants', 'Furnishing', 'City', 'Barangay', 'Street address', 'Building or subdivision', 'Postal code', 'Entrance instructions']) assert.ok(fields.includes(label), label);
   assert.match(composer, /<Modal visible=\{mapOpen\} onRequestClose=\{vm\.propertyLocation\.cancel\}/);
   assert.match(composer, /<ListingWizardScaffold/); assert.match(composer, /<PropertyLocationToolView/);
   assert.doesNotMatch(fields, /getSupabaseClient|\.rpc\(|\/services\//);
@@ -114,7 +119,76 @@ test('gallery swipe navigation reuses existing pinch/pan implementation and nume
 });
 
 function flatten(node:any):any[]{return node&&typeof node==='object'?[node,...[node.props?.children].flat(Infinity).flatMap(flatten)]:[];}
-test('physical composer marks only actively required fields and locates first validation issue',()=>{const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');const vm:any={workspacePropertyId:null,propertyState:{draft:{amenityIds:[],propertyType:null},loaded:true},propertyCreation:{},propertySummary:{},propertyValidationIssue:{field:'barangay',message:'Enter the property barangay.'}};const nodes=flatten(render({viewModel:vm}));const labels=nodes.filter(n=>n.type==='FieldLabel'&&n.props.required).map(n=>n.props.label);assert.deepEqual(labels,['Property type','City','Location']);const requiredInputs=nodes.filter(n=>n.type==='ListingField'&&n.props.required).map(n=>n.props.label);assert.deepEqual(requiredInputs,['Barangay','Address line 1']);assert.equal(nodes.find(n=>n.type==='ListingField'&&n.props.label==='Barangay').props.error,'Enter the property barangay.');assert.equal(nodes.some(n=>n.props.required&&String(n.props.label).includes('optional')),false);});
+// Read from the rendered output (not inferred). Bedrooms and Bathrooms are required inputs because propertyValidationIssues
+// returns a 'required' issue for an empty value (see the model test below). Location is NOT a required FieldLabel any more:
+// the model rule and the Continue gate enforce it, and the Location section explains it (see the Location tests below).
+test('physical composer marks only actively required fields and locates first validation issue',()=>{const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');const vm:any={workspacePropertyId:null,propertyState:{draft:{amenityIds:[],propertyType:null},loaded:true},propertyCreation:{},propertySummary:{},propertyValidationIssue:{field:'barangay',message:'Enter the property barangay.'}};const nodes=flatten(render({viewModel:vm}));const labels=nodes.filter(n=>n.type==='FieldLabel'&&n.props.required).map(n=>n.props.label);assert.deepEqual(labels,['Property type','City']);const requiredInputs=nodes.filter(n=>n.type==='ListingField'&&n.props.required).map(n=>n.props.label);assert.deepEqual(requiredInputs,['Bedrooms','Bathrooms','Barangay','Street address']);assert.equal(nodes.find(n=>n.type==='ListingField'&&n.props.label==='Barangay').props.error,'Enter the property barangay.');assert.equal(nodes.some(n=>n.props.required&&String(n.props.label).includes('optional')),false);
+  // The optional address fields and optional rental facts are never marked required.
+  assert.deepEqual(nodes.filter(n=>n.type==='ListingField'&&!n.props.required).map(n=>n.props.label),['Floor area (sqm, optional)','Maximum occupants (optional)','Building or subdivision (optional)','Postal code (optional)','Entrance instructions (private, optional)']);
+});
+test('the view marks exactly the fields the model requires: Bedrooms and Bathrooms are required by both',()=>{
+  const complete={...emptyDraftProperty(),propertyType:'apartment' as const,city:propertyCityOptions[0]!.value,barangay:'Anabu',addressLine1:'12 Main Street',bedrooms:'2',bathrooms:'1',exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.41,publicLongitude:120.91};
+  assert.deepEqual(propertyValidationIssues(complete),[]);
+  // Each required field, emptied alone, is a 'required' issue for that field (the model's required set).
+  const required=(['propertyType','city','barangay','addressLine1','bedrooms','bathrooms'] as const).filter(field=>propertyValidationIssues({...complete,[field]:field==='propertyType'||field==='city'?null:''}).some(issue=>issue.field===field&&issue.kind==='required'));
+  assert.deepEqual(required,['propertyType','city','barangay','addressLine1','bedrooms','bathrooms']);
+  // Optional fields, emptied, never produce an issue.
+  for(const field of ['floorAreaSqm','maxOccupants','addressLine2','postalCode','accessInstructions','floorNumber','totalFloors'] as const)assert.deepEqual(propertyValidationIssues({...complete,[field]:''}),[],field);
+  // The view's required marks, in the same terms (labels are FieldLabel/ListingField labels).
+  const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');
+  const nodes=flatten(render({viewModel:{workspacePropertyId:null,propertyState:{draft:emptyDraftProperty(),loaded:true},propertyCreation:{},propertySummary:{}}}));
+  const marked=[...nodes.filter(n=>n.type==='FieldLabel'&&n.props.required).map(n=>n.props.label),...nodes.filter(n=>n.type==='ListingField'&&n.props.required).map(n=>n.props.label)];
+  assert.deepEqual(marked,['Property type','City','Bedrooms','Bathrooms','Barangay','Street address']);
+});
+test('a missing confirmed location is a required property issue, so the property form is not ready',()=>{
+  const draft={...emptyDraftProperty(),propertyType:'apartment' as const,city:propertyCityOptions[0]!.value,barangay:'Anabu',addressLine1:'12 Main Street',bedrooms:'2',bathrooms:'1'};
+  assert.equal(hasConfirmedPropertyLocation(draft),false);
+  // Everything else is valid, so the location issue is the only one, and it is a 'required' issue in the location section.
+  const issues=propertyValidationIssues(draft);
+  assert.deepEqual(issues.map(issue=>[issue.field,issue.section,issue.kind,issue.message]),[['location','location','required',propertyLocationNotice]]);
+  // A confirmed location (exact and public coordinates) clears it.
+  const confirmed={...draft,exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.41,publicLongitude:120.91};
+  assert.equal(hasConfirmedPropertyLocation(confirmed),true);assert.deepEqual(propertyValidationIssues(confirmed),[]);
+  // Partial or out-of-range coordinates are not a confirmation.
+  assert.equal(hasConfirmedPropertyLocation({...confirmed,publicLongitude:null}),false);assert.equal(hasConfirmedPropertyLocation({...confirmed,exactLatitude:91}),false);
+  // propertyFormReady lives in the view model hook, which cannot render in this harness, so its two defining lines are pinned in
+  // source: the form is ready only with zero issues (the location requirement is on by default), and Continue is disabled otherwise.
+  const hook=readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts','utf8');
+  assert.match(hook,/const propertyIssues=workspace\.propertyId\?\[\]:propertyValidationIssues\(withoutRangeOnlyValues\(propertyState\.draft\)\);/);
+  assert.match(hook,/const propertyFormReady=!!workspace\.propertyId\|\|propertyIssues\.length===0;/);
+  assert.match(hook,/const propertyNextDisabled=[^\n]*\|\|!propertyFormReady\|\|wizardFloorAreaMissing\|\|\(postingWizard&&!workspace\.propertyId&&!locationDecided\);/);
+  assert.doesNotMatch(hook.match(/const propertyNextDisabled=[^\n]*;/)![0],/completeness/);
+});
+test('Location section shows the map button, the confirm helper and the location error from the view model',()=>{
+  const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');
+  const address={city:propertyCityOptions[0]!.value,barangay:'Anabu',addressLine1:'12 Main Street'};
+  const confirmedPin={exactLatitude:14.4,exactLongitude:120.9,publicLatitude:14.41,publicLongitude:120.91};
+  const view=(draft:object,extra:object={})=>{const opened:string[]=[];const nodes=flatten(render({viewModel:{workspacePropertyId:null,propertyState:{draft:{...emptyDraftProperty(),...draft},loaded:true},propertyCreation:{},propertySummary:{},openPropertyLocation:()=>opened.push('open'),...extra}}));
+    return {opened,nodes,button:nodes.find(n=>n.type==='ListingButton'&&/location on map$/.test(String(n.props.label))),helper:nodes.find(n=>n.type==='Text'&&/^(Location confirmed|Confirm your address on the map to continue\.)$/.test(String(n.props.children)))};};
+  // No address yet: the button is present but disabled, and the helper tells the user what to do. The section is headed "Location".
+  const empty=view({});
+  assert.equal(empty.button.props.label,'Confirm location on map');assert.equal(empty.button.props.disabled,true);
+  assert.equal(empty.helper.props.children,'Confirm your address on the map to continue.');assert.equal(empty.helper.props.accessibilityLiveRegion,'polite');
+  assert.ok(empty.nodes.some(n=>n.type==='Text'&&n.props.accessibilityRole==='header'&&n.props.children==='Location'));
+  assert.ok(empty.nodes.some(n=>n.type==='Text'&&n.props.children==='Your exact pin stays private. Renters see an approximate location.'));
+  // Each address part is needed before the map can open.
+  for(const missing of ['city','barangay','addressLine1'] as const)assert.equal(view({...address,[missing]:missing==='city'?null:''}).button.props.disabled,true,missing);
+  // Complete address, not yet confirmed: the button is enabled and opens the map through the view model.
+  const ready=view(address);
+  assert.equal(ready.button.props.label,'Confirm location on map');assert.equal(ready.button.props.disabled,false);ready.button.props.onPress();assert.deepEqual(ready.opened,['open']);
+  assert.equal(ready.helper.props.children,'Confirm your address on the map to continue.');
+  // Confirmed: the helper says so and the button becomes a review action.
+  const confirmed=view({...address,...confirmedPin});
+  assert.equal(confirmed.button.props.label,'Review location on map');assert.equal(confirmed.helper.props.children,'Location confirmed');
+  // The location error comes from feedback('location'): visible-issues list first, then the single validation issue; absent otherwise.
+  const message='Confirm the property location before saving.';
+  const errorOf=(nodes:any[])=>nodes.find(n=>n.type==='Text'&&n.props.children===message);
+  const fromVisible=view(address,{propertyVisibleValidationIssues:[{field:'location',message}]}).nodes;
+  assert.equal(errorOf(fromVisible).props.accessibilityLiveRegion,'polite');
+  assert.ok(errorOf(view(address,{propertyValidationIssue:{field:'location',message}}).nodes));
+  assert.equal(errorOf(ready.nodes),undefined);
+  assert.equal(errorOf(view(address,{propertyVisibleValidationIssues:[{field:'barangay',message:'Enter the property barangay.'}]}).nodes),undefined);
+});
 test('listing details required title/rent/description preserve optional date and short-description hint',()=>{const render=presentation('src/features/property-listing/views/ListingDetailsView.tsx','ListingDetailsView');const tree=render({viewModel:{draft:{},propertySummary:{},mediaItems:[],propertyState:{draft:{}},photoState:{},listingDraftState:{},listingValidationIssue:{field:'title',message:'Enter a listing title.'}},onClose(){}});const nodes=flatten(tree);assert.deepEqual(nodes.filter(n=>n.type==='ListingField'&&n.props.required).map(n=>n.props.label),['Listing title','Monthly asking rent','Description']);assert.equal(nodes.find(n=>n.props.label==='Description').props.helper.props.factor,'description');assert.equal(nodes.find(n=>n.type==='AvailabilityDateField').props.required,undefined);assert.equal(nodes.find(n=>n.props.label==='House rules (optional)').props.required,undefined);});
 test('required label is accessible and asterisk is a separate semantic error color',()=>{const render=presentation('src/features/property-listing/components/FieldLabel.tsx','FieldLabel');const required=render({label:'City',required:true});assert.equal(required.props.accessibilityLabel,'City, required');assert.match(JSON.stringify(required),/\*/);assert.equal(render({label:'Bedrooms'}).props.accessibilityLabel,'Bedrooms');});
 test('completeness presentation distinguishes server score and local estimate without ranking claims',()=>{const render=presentation('src/features/property-listing/components/ListingCompletenessSummary.tsx','ListingCompletenessSummary');const local=JSON.stringify(render({value:{percent:75,meetsThreshold:false,source:'estimate',next:[]}}));assert.match(local,/Local estimate/);assert.match(local,/80%/);const server=JSON.stringify(render({value:{percent:80,meetsThreshold:true,source:'server',next:[]}}));assert.match(server,/Saved listing score/);assert.match(server,/other checks still apply/);assert.doesNotMatch(server,/boost|Match Score|ranking/);});
@@ -122,7 +196,7 @@ test('completeness presentation distinguishes server score and local estimate wi
 const missingCompleteness:CompletenessInput={title:'',description:'',rent:0,availableDate:false,floorArea:false,maxOccupants:false,location:false,photoCount:0,amenityCount:0};
 function contextualHint(factor:keyof CompletenessInput,input:CompletenessInput=missingCompleteness,hidden=false){return presentation('src/features/property-listing/components/CompletenessHint.tsx','CompletenessHint')({value:listingCompleteness(input),factor,hidden});}
 test('compact completeness summary keeps percent but never prints detached contribution tasks',()=>{const render=presentation('src/features/property-listing/components/ListingCompletenessSummary.tsx','ListingCompletenessSummary');const tree=JSON.stringify(render({value:listingCompleteness(missingCompleteness)}));assert.match(tree,/Listing completeness/);assert.match(tree,/0/);assert.doesNotMatch(tree,/Add property photos|Write at least 30|Confirm the property location|\+20%/);});
-test('location hint is at the location controls and disappears after confirmed handoff',()=>{const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');const tree=render({viewModel:{propertyState:{draft:{},loaded:true},propertyCreation:{},propertySummary:{},completeness:listingCompleteness(missingCompleteness)}});const nodes=flatten(tree);const label=nodes.findIndex(n=>n.type==='FieldLabel'&&n.props.label==='Location'),hint=nodes.findIndex(n=>n.type==='CompletenessHint'&&n.props.factor==='location');assert.ok(label>=0&&hint>label);assert.match(JSON.stringify(contextualHint('location')),/15% completeness/);assert.equal(contextualHint('location',{...missingCompleteness,location:true}),null);});
+test('location hint is at the location controls and disappears after confirmed handoff',()=>{const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');const tree=render({viewModel:{propertyState:{draft:{},loaded:true},propertyCreation:{},propertySummary:{},completeness:listingCompleteness(missingCompleteness)}});const nodes=flatten(tree);const label=nodes.findIndex(n=>n.type==='Text'&&n.props.accessibilityRole==='header'&&n.props.children==='Location'),hint=nodes.findIndex(n=>n.type==='CompletenessHint'&&n.props.factor==='location');assert.ok(label>=0&&hint>label);assert.match(JSON.stringify(contextualHint('location')),/15% completeness/);assert.equal(contextualHint('location',{...missingCompleteness,location:true}),null);});
 test('description hint uses existing thirty-character completion and is supplied by its field',()=>{const render=presentation('src/features/property-listing/views/ListingDetailsView.tsx','ListingDetailsView');const tree=render({viewModel:{draft:{},propertySummary:{},mediaItems:[],propertyState:{draft:{}},photoState:{},listingDraftState:{},completeness:listingCompleteness(missingCompleteness)},onClose(){}});const field=flatten(tree).find(n=>n.props?.label==='Description');assert.equal(field.props.helper.type,'CompletenessHint');assert.equal(field.props.helper.props.factor,'description');assert.match(JSON.stringify(contextualHint('description',{...missingCompleteness,description:'x'.repeat(29)})),/30.*15% completeness/);assert.equal(contextualHint('description',{...missingCompleteness,description:'x'.repeat(30)}),null);});
 test('photo hint appears in the actual media section and local selection completes the action',()=>{const render=presentation('src/features/property-listing/components/PropertyMediaSection.tsx','PropertyMediaSection');const tree=render({viewModel:{photoState:{activeMediaIndex:0,pendingSelections:[],batch:{}},propertyPhotos:{},mediaItems:[],completeness:listingCompleteness(missingCompleteness)}});assert.ok(flatten(tree).some(n=>n.type==='CompletenessHint'&&n.props.factor==='photoCount'));assert.match(JSON.stringify(contextualHint('photoCount')),/20% completeness/);assert.equal(contextualHint('photoCount',{...missingCompleteness,photoCount:1}),null);});
 test('all optional/context hints share weights and read-only physical guidance can be hidden',()=>{for(const [factor,weight] of [['title',10],['rent',10],['floorArea',10],['maxOccupants',5],['availableDate',5],['amenityCount',10]] as const){assert.match(JSON.stringify(contextualHint(factor)),new RegExp(weight+'% completeness'));assert.equal(contextualHint(factor,missingCompleteness,true),null);}});
@@ -133,7 +207,7 @@ test('saved physical property is a read-only summary instead of disabled creatio
   const render=presentation('src/features/property-listing/components/ComposerPropertyFields.tsx','ComposerPropertyFields');
   const tree=render({viewModel:{workspacePropertyId:'saved',propertyState:{draft:{propertyType:'studio'}},propertySummary:{type:'Studio',bedrooms:'1',bathrooms:'1',furnishing:'Furnished',floorAreaSqm:'32',location:'Imus'}},children:'Saved amenities'});
   assert.equal(flatten(tree).filter(n=>n.type==='ListingField'||n.type==='ChoiceChip').length,0);
-  assert.match(JSON.stringify(tree),/read-only/);assert.match(JSON.stringify(tree),/Edit Property/);assert.match(JSON.stringify(tree),/32/);
+  assert.match(JSON.stringify(tree),/Details are saved\. Use Edit Property to make changes\./);assert.match(JSON.stringify(tree),/Edit Property/);assert.match(JSON.stringify(tree),/32/);
 });
 
 test('photo reconciliation has visible success feedback and only offers recovery when needed',()=>{
@@ -181,15 +255,16 @@ for(const disabled of [true,false])test(`Stage 1 footer binds the real Next read
  const nodes=flatten(render({viewModel:vm}));const button=nodes.find(n=>n.type==='ListingButton');assert.equal(button.props.label,'Next: Listing');assert.equal(button.props.disabled,disabled);if(!disabled)button.props.onPress();assert.equal(next,disabled?0:1);assert.equal(nodes.some(n=>n.type==='PropertyValidationSummary'),false);
 });
 test('Stage 1 readiness explanation is accessible while Next is disabled without another checklist',()=>{
- const render=presentation('src/features/property-listing/components/PropertyProgressFooter.tsx','PropertyReadinessNotice');let reviews=0;const vm:any={propertyReadinessReviewAvailable:true,propertyNextStatus:'Enter the property barangay.',reviewPropertyReadiness:()=>reviews++};
- const tree=render({viewModel:vm});assert.equal(tree.type,'Pressable');assert.equal(tree.props.accessibilityRole,'button');assert.match(tree.props.accessibilityLabel,/barangay.*Review the first field/);tree.props.onPress();assert.equal(reviews,1);assert.doesNotMatch(JSON.stringify(tree),/Before saving the property/);vm.propertyReadinessReviewAvailable=false;assert.equal(render({viewModel:vm}).type,'Text');
+ const render=presentation('src/features/property-listing/components/PropertyProgressFooter.tsx','PropertyReadinessNotice');const vm:any={propertyNextStatus:'Add floor area, city, barangay and street'};
+ // One plain line names what is missing: no link, no second message.
+ const tree=render({viewModel:vm});assert.equal(tree.type,'Text');assert.equal(tree.props.children,vm.propertyNextStatus);assert.equal(tree.props.accessibilityLiveRegion,'polite');assert.doesNotMatch(JSON.stringify(tree),/Review field|Before saving the property/);
 });
 test('Stage 1 action footer remains outside the scroll content and does not overlay form controls',()=>{
  const render=presentation('src/features/property-listing/components/ListingWizardScaffold.tsx','ListingWizardScaffold');const marker={type:'Text',props:{children:'Persistent action'}};
  const tree=render({footer:marker,onClose:()=>{},children:{type:'Text',props:{children:'Last property field'}}});const scroll=flatten(tree).find(n=>n.type==='ScrollView');assert.ok(scroll);assert.doesNotMatch(JSON.stringify(scroll),/Persistent action/);assert.match(JSON.stringify(tree),/Persistent action/);assert.equal(scroll.props.keyboardShouldPersistTaps,'handled');
 });
 test('Stage 1 ordinary Property presentation has no validation checklist or action inside the scroll body',()=>{
- const render=presentation('src/features/property-listing/views/ListingComposerView.tsx','ListingComposerView');const vm:any={workspacePropertyId:null,propertyState:{draft:{},loaded:true},photoState:{},locationState:{stage:'closed'},propertyLocation:{}};
+ const render=presentation('src/features/property-listing/views/ListingComposerView.tsx','ListingComposerView');const vm:any={workspacePropertyId:null,propertyState:{draft:{},loaded:true},photoState:{},...composerSummaryInputs,locationState:{stage:'closed'},propertyLocation:{}};
  const tree=render({viewModel:vm,onClose:()=>{}}),scaffold=flatten(tree).find(n=>n.type==='ListingWizardScaffold');assert.equal(scaffold.props.footer.type,'PropertyProgressFooter');assert.equal(flatten(scaffold).some(n=>n.type==='PropertyValidationSummary'),false);assert.equal(flatten(scaffold).some(n=>n.type==='ListingButton'&&String(n.props.label).startsWith('Next:')),false);
 });
 test('Stage 1 contextual field errors respect visible interaction metadata and clear without red untouched fields',()=>{
@@ -207,7 +282,7 @@ test('Stage 2 information panel expands and collapses without changing form valu
  const info=(tree:any)=>flatten(tree).find(n=>n.props.accessibilityLabel==='About listing completeness');let tree=render({viewModel:vm});assert.equal(info(tree).props.accessibilityState.expanded,false);assert.doesNotMatch(JSON.stringify(tree),/Property-specific Tier 3/);info(tree).props.onPress();tree=render({viewModel:vm});assert.equal(info(tree).props.accessibilityState.expanded,true);const text=JSON.stringify(flatten(tree).find(n=>n.type==='ScrollView'));assert.match(text,/local estimate/i);assert.match(text,/80%/);assert.match(text,/Property-specific Tier 3/);assert.doesNotMatch(text,/Add a listing title|Write at least 30|Add maximum occupants/);info(tree).props.onPress();tree=render({viewModel:vm});assert.equal(info(tree).props.accessibilityState.expanded,false);assert.equal(JSON.stringify(vm),before);assert.equal(writes,0);assert.deepEqual(render.announcements,['Completeness information expanded.','Completeness information collapsed.']);
 });
 test('Stage 2 Property has no large inline completeness block and keeps contextual field hints',()=>{
- const render=presentation('src/features/property-listing/views/ListingComposerView.tsx','ListingComposerView');const vm:any={workspacePropertyId:null,propertyState:{},locationState:{stage:'closed'},propertyLocation:{}};const nodes=flatten(render({viewModel:vm,onClose:()=>{}}));assert.equal(nodes.some(n=>n.type==='ListingCompletenessSummary'),false);assert.doesNotMatch(JSON.stringify(nodes),/score above covers/);assert.ok(nodes.some(n=>n.type==='ComposerPropertyFields'));const fields=readFileSync('src/features/property-listing/components/ComposerPropertyFields.tsx','utf8');assert.match(fields,/CompletenessHint/);
+ const render=presentation('src/features/property-listing/views/ListingComposerView.tsx','ListingComposerView');const vm:any={workspacePropertyId:null,propertyState:{draft:{}},photoState:{},...composerSummaryInputs,locationState:{stage:'closed'},propertyLocation:{}};const nodes=flatten(render({viewModel:vm,onClose:()=>{}}));assert.equal(nodes.some(n=>n.type==='ListingCompletenessSummary'),false);assert.doesNotMatch(JSON.stringify(nodes),/score above covers/);assert.ok(nodes.some(n=>n.type==='ComposerPropertyFields'));const fields=readFileSync('src/features/property-listing/components/ComposerPropertyFields.tsx','utf8');assert.match(fields,/CompletenessHint/);
 });
 
 
@@ -226,7 +301,7 @@ test('Stage 2 expanded explanation is bounded for a smaller keyboard viewport wh
  test('draft saved destination clearly separates saved from published and delegates both actions',()=>{
  let opened=0,portfolio=0;const render=presentation('src/features/property-listing/views/ListingDraftSavedView.tsx','ListingDraftSavedView');
  const tree=render({viewModel:{openSavedDraft:()=>opened++,goDashboard:()=>portfolio++},onClose:()=>{}});assert.equal(tree.props.title,'Listing Draft Saved!');assert.match(JSON.stringify(tree),/not published/);
- const nodes=(n:any):any[]=>n&&typeof n==='object'?[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]:[];const all=nodes(tree);all.find(n=>n.props?.label==='Open saved listing').props.onPress();all.find(n=>n.props?.label==='My Rentals').props.onPress();assert.equal(opened,1);assert.equal(portfolio,1);
+ const nodes=(n:any):any[]=>n&&typeof n==='object'?[n,...[n.props?.children].flat(Infinity).flatMap(nodes)]:[];const all=nodes(tree);all.find(n=>n.props?.label==='Continue Editing').props.onPress();all.find(n=>n.props?.label==='My Rentals').props.onPress();assert.equal(opened,1);assert.equal(portfolio,1);
  });
  test('draft feedback retries known save failures but reconciles unknown outcomes without saving',()=>{
  let saved=0,reconciled=0;const render=feedback();const current:any=vm();current.listingDraftState={propertyId:'B',listingId:'B-listing',loaded:true,error:'Save failed',errorSource:'save',uncertain:false,busy:false};current.publicationState.uncertain=false;current.saveComposerDraft=()=>saved++;current.listingDraftPersistence={reconcile:()=>reconciled++};
@@ -257,9 +332,8 @@ for(const status of ['not_submitted','pending','under_review','rejected','approv
  const render=presentation('src/features/property-listing/components/PropertyVerificationAction.tsx','PropertyVerificationAction');let opened=0;const label=status==='approved'?null:status==='not_submitted'?'Verify This Property':status==='rejected'?'View Verification Feedback':'View Verification Status';const tree=render({viewModel:{workspacePropertyId:'property',propertyVerificationState:{propertyId:'property',loaded:true,status,actionLabel:label},openPropertyVerification:()=>opened++}});const button=flatten(tree).find(n=>n.type==='ListingButton');assert.equal(!!button,status!=='approved');if(button){button.props.onPress();assert.equal(opened,1);}else assert.match(JSON.stringify(tree),/Property ownership verified/);
 });
 
-for(const status of ['not_submitted','pending','under_review','rejected','approved']as const)test(`My Rentals card exposes direct ${status} verification while retaining Continue Posting`,()=>{
- const render=presentation('src/features/property-listing/views/PropertyDashboardView.tsx','PropertyDashboardView');const propertyId='10000000-0000-4000-8000-000000000001';let target='',review='',continued='';const item={propertyId,property:{property_type:'house',city:'imus',barangay:'A',is_active:true},currentListing:{id:'different-listing-uuid',title:'Rental',status:'draft',asking_rent_monthly:12000,completeness_score:1},tier3:{status},coverPhoto:null};const tree=render({viewModel:{portfolioState:{loaded:true,items:[item]},portfolioStatistics:{},portfolioItems:[item],portfolio:{load(){}},openPortfolioVerification:(id:string)=>target=id,reviewPortfolioPublication:(id:string)=>review=id,openPortfolioItem:(id:string)=>continued=id}});const all=flatten(tree);all.find(n=>n.props.label==='Continue Posting').props.onPress();assert.equal(continued,propertyId);const verification=all.find(n=>['Verify This Property','View Verification Status','View Verification Feedback'].includes(n.props.label));if(status==='approved'){assert.equal(verification,undefined);assert.match(JSON.stringify(tree),/Property Verified/);all.find(n=>n.props.label==='Review Publication').props.onPress();assert.equal(review,propertyId);}else{assert.ok(verification);verification.props.onPress();assert.equal(target,propertyId);assert.equal(all.some(n=>n.props.label==='Review Publication'),false);}
-});
+// My Rentals card verification/continue actions are covered against the real card in tests/myRentalsRefinement.test.ts.
+
 
 for(const status of ['loading','error'])test(`saved draft ${status} presentation hides fields, completeness and submit actions`,()=>{
  const render=presentation('src/features/property-listing/views/ListingDetailsView.tsx','ListingDetailsView');let retry=0,back=0;
@@ -287,18 +361,24 @@ test('selected photo detail exposes description, safe removal and accessible mov
  const all=visit(tree),modal=all.find(n=>n.type==='Modal');assert.equal(modal.props.visible,true);modal.props.onRequestClose();assert.equal(back,1);all.find(n=>n.props?.label==='Save description').props.onPress();assert.equal(saved,1);all.find(n=>n.props?.label==='Remove photo').props.onPress();assert.equal(removed,'photo');assert.ok(all.some(n=>n.props?.label==='Move earlier'));assert.ok(all.some(n=>n.props?.label==='Move later'));assert.doesNotMatch(JSON.stringify(tree),/Use as cover/);
 });
 
-test('routine editor hides partial fields while loading and keeps Retry available on error',()=>{
- const render=presentation('src/features/property-listing/views/PropertyRoutineEditView.tsx','PropertyRoutineEditView');let retries=0;
- const vm:any={propertyRoutineState:{status:'loading',context:null,draft:null,error:null},propertyRoutine:{reload:()=>retries++},goBack:()=>{}};
- let nodes=flatten(render({viewModel:vm,onClose:()=>{}}));assert.equal(nodes.filter(n=>n.type==='ListingField').length,0);assert.match(JSON.stringify(nodes),/Loading saved property/);vm.propertyRoutineState.status='error';nodes=flatten(render({viewModel:vm,onClose:()=>{}}));nodes.find(n=>n.props.label==='Retry loading').props.onPress();assert.equal(retries,1);
-});
-test('routine editor renders identity read-only and protects only tenancy-sensitive controls',()=>{
- const render=presentation('src/features/property-listing/views/PropertyRoutineEditView.tsx','PropertyRoutineEditView');let saves=0;const updates:any[]=[];
- const c:any={property_id:'property',edit_version:'version',property_type:'house',city:'imus',barangay:'Fixture',floor_number:null,bedrooms:2,bathrooms:1,floor_area_sqm:30,max_occupants:2,total_floors:2,furnishing_status:'unfurnished',access_instructions:null,amenity_ids:[],catalog:[],open_tenancy:true};
- const d:any={bedrooms:'2',bathrooms:'1',floorAreaSqm:'30',maxOccupants:'2',totalFloors:'2',furnishingStatus:'unfurnished',accessInstructions:'',amenityIds:[]};
- const vm:any={propertyRoutineState:{status:'ready',context:c,draft:d,busy:false,uncertain:false,conflict:false},propertyRoutine:{canSave:()=>true,dirty:()=>true,save:()=>saves++,update:(...args:any[])=>updates.push(args)},goBack:()=>{}};
- const tree=render({viewModel:vm,onClose:()=>{}});const nodes=[...flatten(tree),...flatten(tree.props.footer)];const fields=nodes.filter(n=>n.type==='ListingField');assert.equal(fields.filter(n=>n.props.editable===false).length,4);assert.equal(fields.find(n=>n.props.label==='Number of stories (optional)').props.editable,true);assert.equal(fields.some(n=>/address|Unit.s floor|Property type/i.test(n.props.label)),false);assert.match(JSON.stringify(nodes),/read-only/);nodes.find(n=>n.props.label==='Save Changes').props.onPress();assert.equal(saves,1);fields.find(n=>n.props.label.startsWith('Access instructions')).props.onChangeText('Entrance');assert.deepEqual(updates.at(-1),['accessInstructions','Entrance']);
-});
 
-test('Manage Listing separates lifecycle actions from property tools and exposes Edit Listing',()=>{const render=presentation('src/features/property-listing/views/PublishedListingStatusView.tsx','PublishedListingStatusView');let edited=0;const lifecycle:any[]=[];const tree=render({viewModel:{lifecycleState:{},realListing:{id:'listing',title:'Rental',status:'active',completeness_score:1},lifecycleStatusLabel:{active:'Published'},lifecycleActions:['pause','archive'],lifecycleLabel:{pause:'Pause Listing',archive:'Archive Listing'},lifecycle:{request:(a:any)=>lifecycle.push(a)},editManagedListing:()=>edited++},onClose(){}});const nodes=flatten(tree);assert.equal(tree.props.title,'Manage Listing');assert.equal(nodes.some(n=>n.props.label==='Edit Property'||n.props.label==='Manage Property Photos'),false);nodes.find(n=>n.props.label==='Edit Listing').props.onPress();nodes.find(n=>n.props.label==='Pause Listing').props.onPress();nodes.find(n=>n.props.label==='Archive Listing').props.onPress();assert.equal(edited,1);assert.deepEqual(lifecycle,['pause','archive']);});
-test('Edit Listing groups shared property and photo tools without duplicating their forms',()=>{const render=presentation('src/features/property-listing/views/ListingDetailsView.tsx','ListingDetailsView');let properties=0,photos=0;const tree=render({viewModel:{publishedEditing:true,draftHydration:{status:'ready'},draft:{},workspacePropertyId:'property',propertySummary:{},mediaItems:[],propertyState:{draft:{}},photoState:{},listingDraftState:{lastConfirmed:{status:'active'}},propertyEditAvailable:true,openPropertyDetails:()=>properties++,navigate:(screen:string)=>{assert.equal(screen,'photoManager');photos++;}},onClose(){}});const nodes=flatten(tree);assert.match(JSON.stringify(nodes),/Property Details/);assert.match(JSON.stringify(nodes),/Property Photos/);assert.equal(nodes.filter(n=>n.props.label==='Edit Property').length,1);nodes.find(n=>n.props.label==='Edit Property').props.onPress();nodes.find(n=>n.props.label==='Manage Property Photos').props.onPress();assert.equal(properties,1);assert.equal(photos,1);assert.equal(nodes.some(n=>n.type==='PropertyRoutineEditView'||n.type==='PropertyPhotosView'),false);});
+test('Manage Listing separates lifecycle actions from property tools and exposes Edit Listing',()=>{const render=presentation('src/features/property-listing/views/PublishedListingStatusView.tsx','PublishedListingStatusView');let edited=0;const lifecycle:any[]=[];const tree=render({viewModel:{lifecycleState:{},realListing:{id:'listing',title:'Rental',status:'active',completeness_score:1},lifecycleStatusLabel:{active:'Published'},lifecycleActions:['pause','archive'],lifecycleLabel:{pause:'Pause Listing',archive:'Archive Listing'},lifecycle:{request:(a:any)=>lifecycle.push(a)},editManagedListing:()=>edited++},onClose(){}});const nodes=flatten(tree);assert.equal(tree.props.title,'Manage Status');assert.equal(nodes.some(n=>n.props.label==='Edit Property'||n.props.label==='Manage Property Photos'),false);nodes.find(n=>n.props.label==='Edit Rental').props.onPress();nodes.find(n=>n.props.label==='Pause Listing').props.onPress();nodes.find(n=>n.props.label==='Archive Listing').props.onPress();assert.equal(edited,1);assert.deepEqual(lifecycle,['pause','archive']);});
+test('Edit Listing groups shared property and photo tools without duplicating their forms',()=>{const render=presentation('src/features/property-listing/views/ListingDetailsView.tsx','ListingDetailsView');let properties=0,photos=0;const tree=render({viewModel:{publishedEditing:true,draftHydration:{status:'ready'},draft:{},workspacePropertyId:'property',propertySummary:{},mediaItems:[],propertyState:{draft:{}},photoState:{},listingDraftState:{lastConfirmed:{status:'active'}},propertyEditAvailable:true,openPropertyDetails:()=>properties++,navigate:(screen:string)=>{assert.equal(screen,'photoManager');photos++;}},onClose(){}});const nodes=flatten(tree);assert.match(JSON.stringify(nodes),/Property Details/);assert.match(JSON.stringify(nodes),/Property Photos/);assert.equal(nodes.filter(n=>n.props.label==='Edit Property').length,0,'there is no second Edit Property button: the Property step header reaches Step 1');nodes.find(n=>n.props.label==='Manage Property Photos').props.onPress();assert.equal(properties,0);assert.equal(photos,1);assert.equal(nodes.some(n=>n.type==='PropertyRoutineEditView'||n.type==='PropertyPhotosView'),false);});
+
+// ---- Part B: one amber line for a failed draft load; the other recoveries keep their own controls
+const draftFeedback = (state: any) => JSON.stringify(feedback()({ viewModel: { workspacePropertyId: 'B', workspaceListingId: null, publishedEditing: false, listingDraftState: { propertyId: 'B', listingId: null, busy: false, checking: false, loaded: false, uncertain: false, conflict: false, error: null, errorSource: null, notice: null, ...state }, publicationState: { propertyId: 'B' }, lifecycleState: { propertyId: 'B' }, listingDraftPersistence: {}, saveComposerDraft() {} }, scope: 'draft' }));
+test('a plain failure to load the draft shows no red message and no "Retry loading draft" group (the amber line carries it)', () => {
+  const s = draftFeedback({ error: 'Load the current property draft before saving.' });
+  assert.doesNotMatch(s, /Load the current property draft|Retry loading draft|Checking or saving/);
+  assert.doesNotMatch(draftFeedback({ error: 'x', errorSource: 'load' }), /Retry loading draft/);
+});
+test('a plain load in progress shows no grey "Checking or saving" message either', () => {
+  assert.doesNotMatch(draftFeedback({ busy: true, checking: true }), /Checking or saving/);
+  assert.match(draftFeedback({ busy: true, checking: false }), /Checking or saving/, 'a real save still says so');
+});
+test('a real save error, an uncertain save and a conflict keep their own explicit recovery', () => {
+  assert.match(draftFeedback({ loaded: true, error: 'Save failed.', errorSource: 'save' }), /Save failed\.[\s\S]*Retry saving draft/);
+  assert.match(draftFeedback({ loaded: true, uncertain: true, error: 'A previous save needs checking.' }), /A previous save needs checking\.[\s\S]*Check draft save status/);
+  assert.match(draftFeedback({ loaded: true, conflict: true, error: 'Someone changed it.' }), /Someone changed it\./);
+  assert.match(draftFeedback({ loaded: false, uncertain: true, error: 'Pending.' }), /Check draft save status/, 'uncertain wins even before it is marked loaded');
+});

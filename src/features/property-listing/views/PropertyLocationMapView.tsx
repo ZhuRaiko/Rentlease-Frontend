@@ -25,7 +25,7 @@ export function PropertyLocationMapView({ styleUrl, point, initialPoint, error, 
       </Map>
     </View>
     <ScrollView style={styles.footer} contentContainerStyle={styles.footerContent}>
-      <Text style={styles.attribution}>MapTiler ? ? OpenStreetMap contributors. Map attribution is available on the map.</Text>
+      <Text style={styles.attribution}>© MapTiler © OpenStreetMap contributors. Map attribution is available on the map.</Text>
       <FeedbackNotice message={error} tone="error" />
       {!ready && !error ? <Text accessibilityLiveRegion="polite" style={styles.copy}>Loading map...</Text> : null}
       <ListingButton label="Confirm exact location" disabled={!ready || !!error} onPress={onConfirm} />

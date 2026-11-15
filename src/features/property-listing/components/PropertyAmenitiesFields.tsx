@@ -3,7 +3,7 @@ import {StyleSheet,Text,View} from 'react-native';
 import {ui} from '../../../shared/theme/ui';
 import {spacing} from '../../../shared/theme/spacing';
 import {FeedbackNotice} from '../../../shared/components/FeedbackNotice';
-import {ChoiceChip} from './ListingControls';
+import {AmenityChoices} from './AmenityChoices';
 import {ListingButton} from './ListingButton';
 import type {PropertyListingViewModel} from '../viewModels/usePropertyListingViewModel';
 export function PropertyAmenitiesFields({viewModel:vm,compact=false}:{viewModel:PropertyListingViewModel;compact?:boolean}) {
@@ -15,7 +15,7 @@ export function PropertyAmenitiesFields({viewModel:vm,compact=false}:{viewModel:
     <FeedbackNotice message={state.error} tone="error"/>
     <FeedbackNotice message={vm.propertyValidationIssue?.field==='amenityIds'?vm.propertyValidationIssue.message:null} tone="error"/>
     {state.error?<ListingButton label="Retry amenities" tone="outline" disabled={state.busy} onPress={()=>void vm.propertyAmenities.load()}/>:null}
-    <View style={[styles.chips,compact&&{gap:8}]}>{state.catalog.map(item=><ChoiceChip comfortable={compact} key={item.id} label={item.name} selected={vm.selectedAmenityIds.includes(item.id)} disabled={saved||state.busy||!state.loaded||vm.propertyState.busy||vm.propertyState.uncertain||!!vm.composerPhase} onPress={()=>vm.togglePropertyAmenity(item.id)}/>)}</View>
+    <AmenityChoices comfortable={compact} catalog={state.catalog} selectedIds={vm.selectedAmenityIds} disabled={saved||state.busy||!state.loaded||vm.propertyState.busy||vm.propertyState.uncertain||!!vm.composerPhase} onToggle={vm.togglePropertyAmenity}/>
     {state.loaded&&!state.catalog.length?<Text style={ui.supporting}>No active amenities are currently available.</Text>:null}
     <Text style={ui.supporting}>{saved?'Saved property amenities are read-only here.':'Select the amenities this property provides. They are saved with the physical property.'}</Text>
     {saved&&state.selectedIds.some(id=>!state.catalog.some(item=>item.id===id))?<Text style={ui.supporting}>Some saved amenities are no longer in the active catalogue.</Text>:null}

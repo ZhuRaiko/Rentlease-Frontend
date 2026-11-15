@@ -104,7 +104,7 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
     async inquire(owner:string,listingId:string):Promise<string>{
       await identity(owner);const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
       try{const {data,error,status}=await getClient().rpc('start_property_inquiry',{p_listing_id:listingId}).abortSignal(controller.signal);await identity(owner);
-        if(error){traceInquiryDiagnostic(inquiryDiagnostic('start_property_inquiry',error,status));if(error.code==='PGRST202'||error.code==='42883')throw new ManualSearchError('Messaging needs the backend update before it can be used.');throw new ManualSearchError('Could not open this inquiry. Check that the listing is available and retry.');}
+        if(error){traceInquiryDiagnostic(inquiryDiagnostic('start_property_inquiry',error,status));if(error.code==='PGRST202'||error.code==='42883')throw new ManualSearchError('This feature is not available right now. Try again later.');throw new ManualSearchError('Could not open this inquiry. Check that the listing is available and retry.');}
         if(typeof data!=='string'||!/^[0-9a-f-]{36}$/i.test(data))throw new ManualSearchError('Conversation confirmation could not be read.');return data;
       }catch(e){if(!(e instanceof ManualSearchError))traceInquiryDiagnostic(inquiryDiagnostic('start_property_inquiry',e));throw e instanceof ManualSearchError?e:new ManualSearchError('Conversation creation was not confirmed. Retry to reopen the same inquiry.');}finally{clearTimeout(timer);}
     },

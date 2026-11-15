@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { PublicAvatar } from '../../../shared/components/PublicIdentityBadge';
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
@@ -31,10 +32,9 @@ export function FlowHeading({
 }
 
 export function PersonCard({ subject }: { subject: ReviewSubject }) {
-  const initials = subject.name.split(' ').map((part) => part[0]).join('').slice(0, 2);
   return (
     <View style={styles.personCard}>
-      <View style={styles.avatar}><Text style={styles.avatarLabel}>{initials}</Text></View>
+      <PublicAvatar name={subject.name} size={48} />
       <View style={styles.personCopy}>
         <Text style={styles.personName}>{subject.name}</Text>
         <Text style={styles.personRole}>{subject.role}</Text>

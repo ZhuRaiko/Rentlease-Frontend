@@ -1,5 +1,6 @@
 import { env, requireEnvironmentValue } from '../../../../config/env';
-export interface GeocodingCandidate { id: string; label: string; longitude: number; latitude: number }
+/** `placeTypes` is the geocoder's own description of the match (address, street, neighborhood, municipality...). Absent when the answer gave none. */
+export interface GeocodingCandidate { id: string; label: string; longitude: number; latitude: number; placeTypes?: string[] }
 export interface GeocodeAddressOptions { signal?: AbortSignal; limit?: number }
 export class GeocodingError extends Error {}
 const abortError = () => Object.assign(new Error('Location search cancelled.'), { name: 'AbortError' });
@@ -13,7 +14,8 @@ export function parseGeocodingCandidates(payload: unknown, limit = 5): Geocoding
     if (typeof id !== 'string' || !id.trim() || typeof label !== 'string' || !label.trim() || !Array.isArray(center) || center.length !== 2) continue;
     const [longitude, latitude] = center;
     if (typeof longitude !== 'number' || typeof latitude !== 'number' || !Number.isFinite(longitude) || !Number.isFinite(latitude) || Math.abs(longitude) > 180 || Math.abs(latitude) > 90 || ids.has(id.trim())) continue;
-    ids.add(id.trim()); candidates.push({ id: id.trim(), label: label.trim(), longitude, latitude });
+    const types = (feature as { place_type?: unknown }).place_type, placeTypes = Array.isArray(types) ? types.filter((t): t is string => typeof t === 'string' && !!t) : [];
+    ids.add(id.trim()); candidates.push({ id: id.trim(), label: label.trim(), longitude, latitude, ...(placeTypes.length ? { placeTypes } : {}) });
     if (candidates.length >= boundedLimit(limit)) break;
   }
   return candidates;

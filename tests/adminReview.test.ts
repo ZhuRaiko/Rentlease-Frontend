@@ -116,7 +116,8 @@ test('service uses exact generated RPC arguments with optional default-null fiel
 test('service normalizes denied, invalid transition, missing-document and network errors without raw SQL', async () => {
   for (const message of ['not authenticated', 'not admin', 'invalid transition', 'document required', 'network']) {
     const service = createAdminVerificationService(() => ({ rpc: async () => ({ data: null, error: { message, code: '42501' } }) } as unknown as SupabaseClient<Database>));
-    await assert.rejects(service.reviewSubmission({ submissionId: 's', status: 'approved' }), (error: { message: string }) => /refresh/i.test(error.message) && !error.message.includes('42501'));
+    await assert.rejects(service.reviewSubmission({ submissionId: 's', status: 'approved' }), (error: { message: string }) => /refresh|reload/i.test(error.message) && !error.message.includes('42501'));
+    // Intentional: failures now carry a specific reason plus a next step (reload or refresh) instead of one generic refresh message.
   }
 });
 

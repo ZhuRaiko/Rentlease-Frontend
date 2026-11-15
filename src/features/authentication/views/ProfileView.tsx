@@ -1,4 +1,4 @@
-import {PublishedRentalReviews} from '../../../shared/components/RentalReviews';
+import {LandlordExperienceSection} from '../../../shared/components/LandlordExperienceSection';
 import {usePublicIdentitiesViewModel} from '../../../shared/viewModels/usePublicIdentitiesViewModel';
 import { ProfileAvatar } from '../components/ProfileAvatar';
 import { InterfaceIcon } from '../../../shared/components/InterfaceIcon';
@@ -42,7 +42,7 @@ export function ProfileView({ viewModel, marketplaceNavigation, onOpenAdminModer
       <View style={styles.folio}>
         <View style={styles.identityStage}>
           <View style={styles.identityTop}>
-            <ProfileAvatar initials={initials} {...(avatarUrl?{source:{uri:avatarUrl}}:{})} />
+            <ProfileAvatar initials={initials} name={publicIdentity?.nickname} {...(avatarUrl?{source:{uri:avatarUrl}}:{})} />
             <View style={styles.membership}>
               <Text accessibilityRole="header" style={styles.name}>{publicIdentity?.nickname??'RentLease member'}</Text>
               <Text style={styles.role}>{roles || 'RentLease member'}</Text>
@@ -65,7 +65,7 @@ export function ProfileView({ viewModel, marketplaceNavigation, onOpenAdminModer
               <Text accessible={false} style={styles.arrow}>{'\u2197'}</Text>
             </Pressable> : null}
           </View>
-          <AccountVerificationSummary items={viewModel.verificationSummary} />{viewModel.account?<PublishedRentalReviews key={viewModel.account.user.id} accountId={viewModel.account.user.id} kind="user" targetId={viewModel.account.user.id}/>:null}
+          <AccountVerificationSummary items={viewModel.verificationSummary} />{viewModel.account?<LandlordExperienceSection key={viewModel.account.user.id} accountId={viewModel.account.user.id}/>:null}
         </View>
         <View style={styles.accountTools}>
           <Text accessibilityRole="header" style={styles.sectionTitle}>{viewModel.isAdmin ? 'Administration' : 'Preferences'}</Text>

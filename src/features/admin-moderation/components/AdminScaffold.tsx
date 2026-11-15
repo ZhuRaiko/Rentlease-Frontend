@@ -1,8 +1,9 @@
 import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import { ScreenHeader } from '../../../shared/components/ScreenHeader';
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 import { Pressable, RefreshControl,  StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PinnedFooter } from '../../../shared/components/PinnedFooter';
 
 import { colors } from '../../../shared/theme/colors';
 import { ui } from '../../../shared/theme/ui';
@@ -21,6 +22,8 @@ interface AdminScaffoldProps extends PropsWithChildren {
   onRefresh?: () => void;
   refreshing?: boolean;
   refreshEnabled?: boolean;
+  /** Sticky action bar below the scrolling content (decision screens). */
+  footer?: ReactNode;
 }
 
 export function AdminScaffold({
@@ -32,7 +35,7 @@ export function AdminScaffold({
   actionLabel,
   onAction,
   contentPadded = true,
-  onRefresh, refreshing = false, refreshEnabled = true,
+  onRefresh, refreshing = false, refreshEnabled = true, footer,
 }: AdminScaffoldProps) {
   return (
     <View style={styles.screen}>
@@ -48,6 +51,7 @@ export function AdminScaffold({
       >
         {children}
       </ScrollView>
+      {footer ? <PinnedFooter>{footer}</PinnedFooter> : null}
     </View>
   );
 }

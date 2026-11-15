@@ -231,7 +231,7 @@ function MatchingPreferencesContent({
     <>
       <View style={styles.newHereBlock}>
         <Text style={styles.newHereSubtitle}>A place that fits your needs</Text>
-        <Text style={styles.newHereBody}>Every choice is optional. Edit these preferences later from Profile. They filter sample listings for this session; live recommendations are not connected.</Text>
+        <Text style={styles.newHereBody}>Every choice is optional. Edit these preferences later from Profile. They are kept only while the app is open, and they set your Discover filters and your For You recommendations.</Text>
       </View>
 
       <PreferenceSection title="What type of renter are you?">
@@ -281,7 +281,7 @@ function MatchingPreferencesContent({
       <View style={styles.optionalDivider}>
         <Text style={styles.optionalTitle}>Property Preferences (Optional)</Text>
         <Text style={styles.optionalBody}>
-          Filter sample listings locally. This does not activate live recommendations.
+          These narrow your Discover results and shape your For You recommendations.
         </Text>
       </View>
 

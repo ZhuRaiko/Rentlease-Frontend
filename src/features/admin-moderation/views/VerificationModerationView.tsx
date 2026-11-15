@@ -1,147 +1,136 @@
-import {KeyboardAwareScrollView as ScrollView} from '../../../shared/components/KeyboardAwareScrollView';
-import {identityDisplayFields,identityLocationChanged} from '../../../shared/models/PropertyIdentity';
-import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
-import { VerificationStatusBadge } from '../../../shared/components/VerificationStatusBadge';
-import { verificationStatusPresentation } from '../../../shared/models/verificationPresentation';
-import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, View } from 'react-native';
-import { FullscreenDocumentImage } from '../../../shared/components/FullscreenDocumentImage';
+import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
+
 import { AppButton } from '../../../shared/components/AppButton';
-import { ScreenContainer } from '../../../shared/components/ScreenContainer';
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
+import { FullscreenDocumentImage } from '../../../shared/components/FullscreenDocumentImage';
+import { identityLocationChanged } from '../../../shared/models/PropertyIdentity';
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
-import { AdminStatusPill, DetailCard, DetailRow } from '../components/AdminCards';
+import { ui } from '../../../shared/theme/ui';
+import {
+  AdminBottomSheet, AdminCard, AdminCheckbox, AdminChip, AdminChipRow, AdminDiffCard, AdminDiffRow, AdminDisclosure, AdminSectionLabel, DetailRow,
+} from '../components/AdminCards';
 import { AdminScaffold } from '../components/AdminScaffold';
 import { documentTypeLabel, formatVerificationDate, verificationStatusLabel, verificationTierLabel } from '../models/AdminVerification';
+import { summarizeIdentityChanges } from '../models/AdminQueuePresentation';
 import type { AdminModerationViewModel } from '../viewModels/useAdminModerationViewModel';
 
 export function VerificationModerationView({ viewModel }: { viewModel: AdminModerationViewModel }) {
   const detail = viewModel.selectedVerification;
   if (!detail) return (
-    <AdminScaffold onBack={viewModel.goBack} title="Verification Submission">
-      <Text style={styles.viewerNoteBody}>{viewModel.verification.reviewBusy ? 'Review saved. Refreshing backend state...' : viewModel.verification.detailStatus === 'loading' ? 'Loading submission...' : viewModel.verification.detailError ?? 'Select a submission from the current queue.'}</Text>
+    <AdminScaffold onBack={viewModel.goBack} title="Review submission">
+      <Text style={ui.body}>{viewModel.verification.reviewBusy ? 'Review saved. Refreshing backend state...' : viewModel.verification.detailStatus === 'loading' ? 'Loading submission...' : viewModel.verification.detailError ?? 'Select a submission from the current queue.'}</Text>
       <AppButton disabled={viewModel.verification.reviewBusy} label="Back to verification queue" onPress={() => void viewModel.returnToVerificationQueue()} />
     </AdminScaffold>
   );
-  const { item, documents } = detail;
+  const { item, documents, identity } = detail;
   const preview = viewModel.verification.documentPreview;
   const review = viewModel.verification;
   const reviewTier = item.tier === 'tier_3_property' ? 'Tier 3 property' : 'Tier 2';
+  const changes = identity?.same_asset_required ? summarizeIdentityChanges(identity) : null;
+  // Tier 3 corrections need the "same physical property" confirmation; Tier 2 never shows it.
+  const needsSameAsset = review.reviewDialog === 'approved' && !!identity?.same_asset_required;
+  const dialog = review.reviewDialog;
+  const confirmDisabled = review.reviewBusy || (dialog === 'rejected' && !review.rejectionReason.trim()) || (needsSameAsset && !review.sameAssetConfirmed);
+  const showApproveBlock = viewModel.reviewActions.includes('approved') && !!viewModel.approveBlockedReason;
+  const footer = viewModel.reviewActions.length > 0 ? (
+    <View style={styles.footerRow}>
+      {viewModel.reviewActions.includes('under_review') ? <View style={styles.footerButton}><AppButton label="Start review" onPress={() => viewModel.requestReview('under_review')} /></View> : null}
+      {viewModel.reviewActions.includes('rejected') ? <View style={styles.footerButton}><AppButton label="Reject" onPress={() => viewModel.requestReview('rejected')} variant="danger" /></View> : null}
+      {viewModel.reviewActions.includes('approved') ? <View style={styles.footerButton}><AppButton disabled={!!viewModel.approveBlockedReason} label="Approve" onPress={() => viewModel.requestReview('approved')} /></View> : null}
+    </View>
+  ) : undefined;
   return (
-    <AdminScaffold onBack={viewModel.goBack} title={viewModel.screen === 'verificationDocument' ? 'Verification Documents' : 'Verification Submission'}>
+    <AdminScaffold footer={footer} onBack={viewModel.goBack} title="Review submission">
+      <Text accessibilityRole="header" style={styles.name}>{item.displayName}</Text>
+      <AdminChipRow>
+        <AdminChip label={verificationTierLabel(item.tier)} />
+        <AdminChip label={verificationStatusLabel(item.status)} tone={item.status === 'under_review' ? 'info' : item.status === 'approved' ? 'success' : item.status === 'rejected' ? 'danger' : 'warning'} />
+      </AdminChipRow>
+      <Text style={styles.submitted}>Submitted {formatVerificationDate(item.submittedAt)}</Text>
 
-      <Text accessibilityRole="header" style={styles.applicantName}>{item.displayName}</Text>
-      <Text style={styles.caseSubtitle}>{verificationTierLabel(item.tier)} | {formatVerificationDate(item.submittedAt)}</Text>
-      <View style={styles.statusRow}><VerificationStatusBadge {...verificationStatusPresentation(item.status)} label={verificationStatusLabel(item.status)} /></View>
-      <Text style={styles.sectionLabel}>Applicant and submission</Text>
-      <DetailCard>
-        <DetailRow readable label="User ID" value={item.userId} />
-        <DetailRow readable label="Submission ID" value={item.submissionId} />
-        <DetailRow readable label="Updated" value={formatVerificationDate(item.updatedAt)} />
-        <DetailRow readable label="Trust score" value={item.trustScore === null ? 'Not available' : String(item.trustScore)} />
-        <DetailRow readable label="Tier 1 verified" value={item.tier1VerifiedAt ? formatVerificationDate(item.tier1VerifiedAt) : 'Not verified'} />
-        <DetailRow readable label="Tier 2 verified" value={item.tier2VerifiedAt ? formatVerificationDate(item.tier2VerifiedAt) : 'Not verified'} />
-        <DetailRow readable label="Tier 3 account indication" value={item.tier3VerifiedAt ? formatVerificationDate(item.tier3VerifiedAt) : 'Not verified'} />
-        {item.propertyId ? <DetailRow readable label="Property ID" value={item.propertyId} /> : null}
-        <DetailRow readable label="Submitted note" value={item.submittedNote ?? 'No note provided'} last />
-      </DetailCard>
-      {detail.identity?<>
-       <Text accessibilityRole="header" style={styles.sectionLabel}>{detail.identity.same_asset_required?'Property identity correction':'Property identity being verified'}</Text>
-       {identityDisplayFields.map(([key,label])=><View key={key} style={{marginBottom:spacing.sm}}><Text style={styles.inputLabel}>{label}</Text><Text style={styles.viewerNoteBody}>Current: {String(detail.identity!.current[key]??'Not specified').replace(/_/g,' ')}</Text>{detail.identity!.same_asset_required?<Text style={styles.viewerNoteBody}>Proposed: {String(detail.identity!.proposed[key]??'Not specified').replace(/_/g,' ')}</Text>:null}</View>)}
-       <Text style={styles.viewerNoteBody}>{identityLocationChanged(detail.identity.current,detail.identity.proposed)?'Private/public location changes are proposed. Confirm the evidence describes the same physical rental.':'Confirmed location is unchanged.'} Exact coordinates are kept private. Relocation, splitting, merging, or another unit requires a new property.</Text>
-      </>:null}
-      <View style={styles.documentSummary}>
-        <View style={styles.documentCount}><Text style={styles.documentCountValue}>{documents.length}</Text></View>
-        <View style={styles.documentCopy}><Text style={styles.documentTitle}>Documents attached</Text><Text style={styles.documentBody}>Private image previews are available on demand.</Text></View>
-      </View>
-      {documents.length === 0 ? <Text style={styles.viewerNoteBody}>No document attached</Text> : documents.map((document) => (
-        <DetailCard key={document.id}>
-          <DetailRow readable label="Document type" value={documentTypeLabel(document.document_type)} />
-          <DetailRow readable label="Filename" value={document.file_name ?? 'Filename unavailable'} />
-          <DetailRow readable label="File type" value={document.mime_type ?? 'Not available'} />
-          <DetailRow readable label="Attached" value={formatVerificationDate(document.created_at)} last />
-          <View style={styles.previewAction}>
-            {viewModel.canViewPrivateDocument(document.id) ? (
-              <AppButton disabled={!!preview?.isOpening} label="View private document" onPress={() => void viewModel.openPrivateDocument(document.id)} />
-            ) : <Text style={styles.viewerNoteBody}>Preview is not available for this file type.</Text>}
-          </View>
-        </DetailCard>
-      ))}
-      <View style={styles.actions}>
-        {documents.length === 0 ? <AppButton disabled label="View private document" onPress={() => {}} /> : null}
-        {viewModel.reviewActions.includes('under_review') ? <AppButton label="Start review" onPress={() => viewModel.requestReview('under_review')} /> : null}
-        {viewModel.reviewActions.includes('approved') ? <AppButton label="Approve verification" onPress={() => viewModel.requestReview('approved')} /> : null}
-        {viewModel.reviewActions.includes('rejected') ? <AppButton label="Reject verification" onPress={() => viewModel.requestReview('rejected')} variant="danger" /> : null}
-        {review.reviewBusy ? <ActivityIndicator accessibilityLabel="Saving review and refreshing" color={colors.primary} /> : null}
-        <FeedbackNotice tone="error" message={review.reviewError} />
+      {review.reviewBusy ? <ActivityIndicator accessibilityLabel="Saving review and refreshing" color={colors.primaryAction} /> : null}
+      <View style={styles.notices}>
+        {showApproveBlock ? <FeedbackNotice tone="warning" message={`Approval is blocked\n${viewModel.approveBlockedReason}`} /> : null}
+        {!dialog ? <FeedbackNotice tone="error" message={review.reviewError} /> : null}
         <FeedbackNotice tone="success" message={review.reviewNotice} />
-        {review.reviewNeedsRefresh ? <AppButton disabled={review.reviewBusy} label="Reload verification queue" variant="secondary" onPress={() => void viewModel.returnToVerificationQueue()} /> : null}
+        {review.reviewNeedsRefresh ? <AppButton disabled={review.reviewBusy} label="Reload verification queue" onPress={() => void viewModel.returnToVerificationQueue()} variant="secondary" /> : null}
       </View>
-      <Modal visible={!!review.reviewDialog} onRequestClose={viewModel.cancelReview} animationType="fade" presentationStyle="fullScreen">
-        <ScreenContainer>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.confirmation}>
-            <Text accessibilityRole="header" style={styles.documentTitle}>{review.reviewDialog === 'approved' ? `Approve ${reviewTier} verification?` : review.reviewDialog === 'rejected' ? `Reject ${reviewTier} verification` : `Start ${reviewTier} review?`}</Text>
-            <Text style={styles.viewerNoteBody}>{review.reviewDialog === 'approved' ? item.tier === 'tier_3_property' ? 'Approve this property ownership or authorization proof? The backend requires a qualifying property document.' : 'This will verify the submitted identity document and complete Tier 2 verification for this user.' : review.reviewDialog === 'rejected' ? 'Explain why this verification submission is being rejected.' : 'Mark this submission as under review before making a decision.'}</Text>
-            {review.reviewDialog === 'rejected' ? <>
-              <Text style={styles.inputLabel}>Rejection reason (required)</Text>
-              <TextInput accessibilityLabel="Rejection reason" multiline editable={!review.reviewBusy} onChangeText={viewModel.setRejectionReason} value={review.rejectionReason} style={styles.textArea} textAlignVertical="top" />
-            </> : null}
-            {review.reviewDialog==='approved'&&detail.identity?.same_asset_required?<AppButton variant="secondary" disabled={review.reviewBusy} label={review.sameAssetConfirmed?'Same physical property confirmed':'Confirm evidence describes the same physical property'} onPress={()=>viewModel.setSameAssetConfirmed(!review.sameAssetConfirmed)}/>:null}
-            <FeedbackNotice tone="error" message={review.reviewError} />
-            <AppButton disabled={review.reviewBusy || (review.reviewDialog === 'rejected' && !review.rejectionReason.trim())} label={review.reviewBusy ? 'Saving review...' : review.reviewDialog === 'approved' ? 'Approve' : review.reviewDialog === 'rejected' ? 'Reject' : 'Start review'} onPress={() => void viewModel.confirmReview()} variant={review.reviewDialog === 'rejected' ? 'danger' : 'primary'} />
-            <AppButton disabled={review.reviewBusy} label="Cancel" onPress={viewModel.cancelReview} variant="secondary" />
-          </ScrollView>
-        </ScreenContainer>
-      </Modal>
-      <FullscreenDocumentImage visible={!!preview?.isVisible} uri={preview?.signedUrl ?? null} title="Private verification document"
-        description={preview ? `${documentTypeLabel(preview.documentType)} | ${preview.fileName ?? 'Filename unavailable'} | ${preview.mimeType ?? 'MIME type unavailable'}` : ''}
-        loading={!!preview?.isOpening} error={preview?.error ?? null} onClose={viewModel.closePrivateDocument}
-        onImageError={() => { if (preview) viewModel.privateDocumentFailed(preview.requestId); }} />
+
+      {identity ? <>
+        {changes ? <>
+          <AdminSectionLabel>{`Requested changes (${changes.changed.length})`}</AdminSectionLabel>
+          {changes.changed.length > 0 ? (
+            <AdminDiffCard>{changes.changed.map((change, index) => <AdminDiffRow from={change.from} key={change.key} label={change.label} last={index === changes.changed.length - 1} to={change.to} />)}</AdminDiffCard>
+          ) : <Text style={ui.supporting}>No address fields differ. Only the confirmed location is proposed to change.</Text>}
+          {changes.unchanged.length > 0 ? (
+            <AdminDisclosure title={`Unchanged fields (${changes.unchanged.length})`}>
+              {changes.unchanged.map((field) => <DetailRow key={field.key} label={field.label} value={field.value} />)}
+            </AdminDisclosure>
+          ) : null}
+        </> : <>
+          <AdminSectionLabel>Property identity being verified</AdminSectionLabel>
+          <AdminCard>{summarizeIdentityChanges(identity).unchanged.map((field) => <DetailRow key={field.key} label={field.label} value={field.value} />)}</AdminCard>
+        </>}
+        <View style={styles.notices}>
+          <FeedbackNotice tone="info" message={`${identityLocationChanged(identity.current, identity.proposed) ? 'Private and public location changes are proposed. Confirm the evidence describes the same physical rental. ' : 'Confirmed location is unchanged. '}Exact coordinates stay private. A relocation, split, merge or another unit needs a new property.`} />
+        </View>
+      </> : null}
+
+      <AdminSectionLabel>{`Evidence (${documents.length} ${documents.length === 1 ? 'document' : 'documents'})`}</AdminSectionLabel>
+      {documents.length === 0 ? <Text style={ui.body}>No document attached</Text> : documents.map((document) => (
+        <AdminCard key={document.id}>
+          <Text style={styles.cardTitle}>{documentTypeLabel(document.document_type)}</Text>
+          <Text style={ui.supporting}>{`${document.file_name ?? 'Filename unavailable'} · ${document.mime_type ?? 'File type not available'} · ${formatVerificationDate(document.created_at)}`}</Text>
+          {viewModel.canViewPrivateDocument(document.id)
+            ? <AppButton disabled={!!preview?.isOpening} label="View private document" onPress={() => void viewModel.openPrivateDocument(document.id)} variant="secondary" />
+            : <Text style={ui.supporting}>Preview is not available for this file type.</Text>}
+        </AdminCard>
+      ))}
+      {item.submittedNote ? <><AdminSectionLabel>Applicant note</AdminSectionLabel><Text style={ui.body}>{item.submittedNote}</Text></> : null}
+
+      <AdminSectionLabel>Applicant</AdminSectionLabel>
+      <AdminChipRow>
+        <AdminChip label={item.tier1VerifiedAt ? 'Tier 1 verified' : 'Tier 1 not verified'} tone={item.tier1VerifiedAt ? 'success' : 'neutral'} />
+        <AdminChip label={item.tier2VerifiedAt ? 'Tier 2 verified' : 'Tier 2 not verified'} tone={item.tier2VerifiedAt ? 'success' : 'neutral'} />
+        <AdminChip label={item.tier3VerifiedAt ? 'Tier 3 account verified' : 'Tier 3 account not verified'} tone={item.tier3VerifiedAt ? 'success' : 'neutral'} />
+        <AdminChip label={item.trustScore === null ? 'Trust score not available' : `Trust score ${item.trustScore}`} />
+      </AdminChipRow>
+      <AdminDisclosure title="IDs and technical details">
+        <DetailRow label="User ID" value={item.userId} />
+        <DetailRow label="Submission ID" value={item.submissionId} />
+        {item.propertyId ? <DetailRow label="Property ID" value={item.propertyId} /> : null}
+        <DetailRow label="Updated" value={formatVerificationDate(item.updatedAt)} />
+        {!item.submittedNote ? <DetailRow label="Note" value="No note provided" /> : null}
+      </AdminDisclosure>
+
+      <AdminBottomSheet closeDisabled={review.reviewBusy} onClose={viewModel.cancelReview} title={dialog === 'approved' ? `Approve ${reviewTier} verification?` : dialog === 'rejected' ? `Reject ${reviewTier} verification?` : `Start ${reviewTier} review?`} visible={!!dialog}>
+        <Text style={ui.supporting}>{dialog === 'approved' ? item.tier === 'tier_3_property' ? (identity?.same_asset_required ? 'The backend requires a qualifying property document. This applies the requested address changes to the property.' : 'The backend requires a qualifying property document. This verifies the property ownership or authorization proof.') : 'This verifies the submitted identity document and completes Tier 2 verification for this user.' : dialog === 'rejected' ? 'Explain why this verification submission is being rejected.' : 'Mark this submission as under review before making a decision.'}</Text>
+        {dialog === 'rejected' ? <>
+          <Text style={styles.fieldLabel}>Rejection reason (required)</Text>
+          <TextInput accessibilityLabel="Rejection reason" editable={!review.reviewBusy} multiline onChangeText={viewModel.setRejectionReason} style={styles.textArea} textAlignVertical="top" value={review.rejectionReason} />
+        </> : null}
+        {needsSameAsset ? <AdminCheckbox checked={review.sameAssetConfirmed} disabled={review.reviewBusy} label="I confirm the evidence describes the same physical property." onChange={viewModel.setSameAssetConfirmed} /> : null}
+        <FeedbackNotice tone="error" message={review.reviewError} />
+        <AppButton disabled={confirmDisabled} label={review.reviewBusy ? 'Saving review...' : dialog === 'approved' ? 'Approve' : dialog === 'rejected' ? 'Reject' : 'Start review'} onPress={() => void viewModel.confirmReview()} variant={dialog === 'rejected' ? 'danger' : 'primary'} />
+        <AppButton disabled={review.reviewBusy} label="Cancel" onPress={viewModel.cancelReview} variant="secondary" />
+      </AdminBottomSheet>
+
+      <FullscreenDocumentImage description={preview ? `${documentTypeLabel(preview.documentType)} | ${preview.fileName ?? 'Filename unavailable'} | ${preview.mimeType ?? 'MIME type unavailable'}` : ''} error={preview?.error ?? null} loading={!!preview?.isOpening}
+        onClose={viewModel.closePrivateDocument} onImageError={() => { if (preview) viewModel.privateDocumentFailed(preview.requestId); }} title="Private verification document" uri={preview?.signedUrl ?? null} visible={!!preview?.isVisible} />
     </AdminScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  confirmation: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
-  previewAction: { padding: spacing.sm },
-  caseHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xs },
-  caseId: { color: colors.textMuted, fontFamily: typography.family, fontSize: 9 },
-  applicantName: { color: colors.text, fontFamily: typography.family, fontSize: 27, fontWeight: '900', marginTop: spacing.md },
-  caseSubtitle: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21, marginTop: 4 },
-  statusRow: { marginTop: spacing.sm },
-  sectionLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 14, fontWeight: '700', marginBottom: spacing.xs, marginTop: spacing.lg },
-  documentSummary: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.card, flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md, padding: spacing.md },
-  documentCount: { alignItems: 'center', backgroundColor: '#173C2C', borderRadius: 21, height: 42, justifyContent: 'center', width: 42 },
-  documentCountValue: { color: colors.white, fontFamily: typography.family, fontSize: 16, fontWeight: '900' },
-  documentCopy: { flex: 1 },
-  documentTitle: { color: colors.text, fontFamily: typography.family, fontSize: 18, fontWeight: '700' },
-  documentBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, lineHeight: 20, marginTop: 3 },
-  openDocument: { color: '#2E7552', fontFamily: typography.family, fontSize: 10, fontWeight: '900' },
-  actions: { gap: spacing.xs, marginTop: spacing.lg },
-  documentLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 9, fontWeight: '900', letterSpacing: 0.8, marginBottom: spacing.xs },
-  imageCard: { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.card, borderWidth: 1, height: 225, overflow: 'hidden', position: 'relative' },
-  propertyImageCard: { height: 280 },
-  documentImage: { height: '100%', width: '100%' },
-  localBadge: { backgroundColor: colors.overlay, bottom: 0, left: 0, paddingVertical: 7, position: 'absolute', right: 0 },
-  localBadgeText: { color: colors.white, fontFamily: typography.family, fontSize: 8, fontWeight: '900', textAlign: 'center' },
-  fileName: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 9, marginBottom: spacing.lg, marginTop: 5 },
-  viewerNote: { backgroundColor: '#EAF1ED', borderRadius: radius.sm, gap: 4, padding: spacing.sm },
-  viewerNoteTitle: { color: '#173C2C', fontFamily: typography.family, fontSize: 10, fontWeight: '900' },
-  viewerNoteBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
-  checkList: { backgroundColor: colors.primaryPale, borderRadius: radius.card, gap: spacing.sm, marginVertical: spacing.lg, padding: spacing.md },
-  checkItem: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
-  checkCircle: { backgroundColor: colors.primary, borderRadius: 10, height: 20, position: 'relative', width: 20 },
-  checkShort: { backgroundColor: colors.white, height: 2, left: 4, position: 'absolute', top: 10, transform: [{ rotate: '45deg' }], width: 6 },
-  checkLong: { backgroundColor: colors.white, height: 2, left: 8, position: 'absolute', top: 9, transform: [{ rotate: '-45deg' }], width: 9 },
-  checkLabel: { color: colors.text, flex: 1, fontFamily: typography.family, fontSize: 11, fontWeight: '700' },
-  previewNote: { color: colors.textMuted, fontFamily: typography.family, fontSize: 14, lineHeight: 21, marginTop: spacing.sm, textAlign: 'center' },
-  reasonOption: { alignItems: 'center', borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', marginBottom: spacing.xs, minHeight: 56, padding: spacing.sm },
-  reasonSelected: { backgroundColor: colors.restrictedSurface, borderColor: colors.restricted },
-  reasonLabel: { color: colors.text, flex: 1, fontFamily: typography.family, fontSize: 11, fontWeight: '700' },
-  radio: { alignItems: 'center', borderColor: colors.border, borderRadius: 10, borderWidth: 2, height: 20, justifyContent: 'center', width: 20 },
-  radioSelected: { borderColor: colors.restricted },
-  radioCenter: { backgroundColor: colors.restricted, borderRadius: 5, height: 10, width: 10 },
-  inputLabel: { color: colors.textMuted, fontFamily: typography.family, fontSize: 14, fontWeight: '700', marginBottom: spacing.xs, marginTop: spacing.md },
-  textArea: { borderColor: colors.border, borderRadius: radius.md, borderWidth: 1, color: colors.text, fontFamily: typography.family, fontSize: 16, marginBottom: spacing.lg, minHeight: 130, padding: spacing.md },
+  name: { ...ui.pageTitle },
+  submitted: { ...ui.supporting, marginTop: spacing.xs },
+  notices: { gap: spacing.xs, marginTop: spacing.xs },
+  cardTitle: { ...ui.body, fontWeight: '600' },
+  footerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  footerButton: { flexBasis: 140, flexGrow: 1, flexShrink: 1 },
+  fieldLabel: { ...ui.supporting, fontWeight: '700', marginTop: spacing.xs },
+  textArea: { borderColor: colors.controlBorder, borderRadius: radius.control, borderWidth: 1, color: colors.ink, fontFamily: typography.family, fontSize: 16, lineHeight: 22, minHeight: 96, padding: spacing.sm },
 });

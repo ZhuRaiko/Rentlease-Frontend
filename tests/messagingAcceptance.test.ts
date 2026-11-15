@@ -16,7 +16,7 @@ function loadDetail(){
  const file=resolve('src/features/search-discovery/views/LiveSearchViews.tsx'),actual=createRequire(file),mod={exports:{} as any};
  const jsx=(type:any,props:any)=>typeof type==='function'?type(props):({type,props});
  const req=(key:string):any=>{
-  if(key==='react')return{useState:()=>[null,()=>{}]};
+  if(key==='react')return{useState:()=>[null,()=>{}],useEffect:()=>{}};
   if(key==='react/jsx-runtime')return{jsx,jsxs:jsx,Fragment:'Fragment'};
   if(key.endsWith('/KeyboardAwareScrollView'))return{KeyboardAwareScrollView:'ScrollView'};
   if(key==='react-native')return new Proxy({StyleSheet:{create:(s:any)=>s},useWindowDimensions:()=>({width:411})},{get:(o:any,k:string)=>o[k]??k});
@@ -24,6 +24,11 @@ function loadDetail(){
   if(key.endsWith('/SearchListingCard'))return{SearchListingCard:'Card'};
   if(key.endsWith('/FullscreenDocumentImage'))return{FullscreenDocumentImage:'Gallery'};
   if(key.endsWith('/InterfaceIcon'))return{InterfaceIcon:'Icon'};
+  if(key.endsWith('/SaveListingButton'))return{SaveListingButton:'SaveListingButton',SavedListingsFeedback:'SavedListingsFeedback'};
+  if(key.endsWith('/RentalFeedbackSection'))return{RentalFeedbackSection:'RentalFeedbackSection'};
+  if(key.endsWith('/PublicLocationMap'))return{PublicLocationMap:'PublicLocationMap'};
+  if(key.endsWith('/InlineRentalEstimate'))return{InlineRentalEstimate:'InlineRentalEstimate'};
+  if(key.endsWith('/Reporting'))return{ReportAction:'ReportAction',ReportingWorkspace:'ReportingWorkspace'};
   if(key.endsWith('/PublicIdentityBadge'))return{PublicAvatar:'Avatar',PublicIdentityBadge:'Identity'};if(key.endsWith('/usePublicIdentitiesViewModel'))return{usePublicIdentitiesViewModel:()=>({})};return actual(key);
  };
  new Function('require','module','exports',ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText)(req,mod,mod.exports);

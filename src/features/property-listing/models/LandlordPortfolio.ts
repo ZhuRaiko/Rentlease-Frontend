@@ -1,5 +1,6 @@
 import type { Database, Enums } from '../../../shared/services/supabase/database.types';
 import { propertyCityOptions, propertyTypeOptions } from './DraftProperty';
+import { placeLabel } from './PlaceLabel';
 export type PortfolioProperty = Pick<Database['public']['Tables']['properties']['Row'], 'id' | 'landlord_id' | 'property_type' | 'city' | 'barangay' | 'bedrooms' | 'bathrooms' | 'floor_area_sqm' | 'floor_number' | 'total_floors' | 'max_occupants' | 'furnishing_status' | 'is_active' | 'created_at' | 'updated_at'>;
 // Portfolio reads intentionally exclude the draft-edit-only concurrency column.
 export type PortfolioListing = Omit<Database['public']['Tables']['listings']['Row'], 'edit_version'>;
@@ -12,7 +13,7 @@ export interface LandlordPortfolioItem {
 export const portfolioListingLabels: Record<Enums<'listing_status'>, string> = { draft: 'Draft', active: 'Published', paused: 'Paused', rented: 'Rented', archived: 'Archived', removed: 'Removed' };
 export const portfolioTierLabels: Record<LandlordPortfolioItem['tier3']['status'], string> = { not_submitted: 'Ownership verification not submitted', pending: 'Verification pending', under_review: 'Verification under review', approved: 'Ownership verified', rejected: 'Verification rejected', cancelled: 'Verification cancelled', revoked: 'Verification revoked' };
 export const portfolioType = (p: PortfolioProperty) => propertyTypeOptions.find(o => o.value === p.property_type)?.label ?? p.property_type;
-export const portfolioLocation = (p: PortfolioProperty) => `${p.barangay}, ${propertyCityOptions.find(o => o.value === p.city)?.label ?? p.city}`;
+export const portfolioLocation = (p: PortfolioProperty) => placeLabel([p.barangay, propertyCityOptions.find(o => o.value === p.city)?.label ?? p.city]);
 const recent = <T extends { id: string; updated_at: string; created_at: string }>(a: T, b: T) => Date.parse(b.updated_at) - Date.parse(a.updated_at) || Date.parse(b.created_at) - Date.parse(a.created_at) || b.id.localeCompare(a.id);
 export function currentPortfolioListing(rows: PortfolioListing[]) {
   const priority = (status: PortfolioListing['status']) => ['active', 'paused', 'rented'].includes(status) ? 0 : status === 'draft' ? 1 : 2;
@@ -32,5 +33,21 @@ export function filterPortfolio(items: LandlordPortfolioItem[], query: string) {
 export function portfolioStats(items: LandlordPortfolioItem[]) {
   const listings = items.flatMap(item => item.listings);
   return { properties: items.length, published: listings.filter(l => l.status === 'active').length, drafts: listings.filter(l => l.status === 'draft').length, rented: listings.filter(l => l.status === 'rented').length };
+}
+/** Status tabs act on each property's current listing, the same row its card shows, so tab counts always match the cards. */
+export type PortfolioFilter = 'all' | 'published' | 'drafts' | 'rented';
+export const portfolioFilters: readonly { key: PortfolioFilter; label: string }[] = [
+  { key: 'all', label: 'All' }, { key: 'published', label: 'Published' }, { key: 'drafts', label: 'Drafts' }, { key: 'rented', label: 'Rented' },
+];
+export const portfolioFilterEmptyText: Record<Exclude<PortfolioFilter, 'all'>, string> = { published: 'No published rentals yet.', drafts: 'No drafts.', rented: 'No rented listings yet.' };
+const filterStatus: Record<Exclude<PortfolioFilter, 'all'>, Enums<'listing_status'>> = { published: 'active', drafts: 'draft', rented: 'rented' };
+export function portfolioFilterMatches(item: LandlordPortfolioItem, filter: PortfolioFilter) {
+  return filter === 'all' || item.currentListing?.status === filterStatus[filter];
+}
+export function filterPortfolioByStatus(items: LandlordPortfolioItem[], filter: PortfolioFilter) {
+  return items.filter(item => portfolioFilterMatches(item, filter));
+}
+export function portfolioFilterCounts(items: LandlordPortfolioItem[]): Record<PortfolioFilter, number> {
+  return { all: items.length, published: filterPortfolioByStatus(items, 'published').length, drafts: filterPortfolioByStatus(items, 'drafts').length, rented: filterPortfolioByStatus(items, 'rented').length };
 }
 export class PortfolioError extends Error { constructor(message: string, public readonly identity = false) { super(message); } }

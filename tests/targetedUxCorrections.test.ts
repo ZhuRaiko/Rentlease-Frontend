@@ -25,8 +25,8 @@ test('Discovery Notifications follows the guarded feature callback to the existi
   const flow = read('src/features/search-discovery/views/SearchDiscoveryFlowView.tsx');
   assert.match(flow, /onOpenNotifications=\{\(\) => viewModel.requestNavigation\(onOpenNotifications\)\}/);
   const home = read('src/features/search-discovery/views/TenantDiscoveryView.tsx');
-  assert.match(home, /accessibilityLabel="Open Notifications".*onPress=\{onOpenNotifications\}/);
-  assert.match(home, /viewModel.navigate\('searchLocation'\)/);
+  assert.match(home, /accessibilityLabel=\{notificationUnread===null\?'Open Notifications, unread count unavailable':`Open Notifications, \$\{notificationUnread\} unread`\}.*onPress=\{onOpenNotifications\}/);
+  assert.match(home, /vm.navigate\('searchLocation'\)/);
   assert.match(home, /onPress=\{viewModel.openHome\}/);
   assert.doesNotMatch(read('src/features/authentication/views/ProfileView.tsx'), /label="Notifications"/);
 });

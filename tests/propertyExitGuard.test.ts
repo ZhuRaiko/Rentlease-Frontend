@@ -11,7 +11,7 @@ import type { PropertyListingViewModel } from '../src/features/property-listing/
 // Executes the actual hook + actual property/photo workflows + shared navigation guard.
 // Only React's scheduling hooks and native/backend dependency composition are replaced.
 // Explicit flush models the interval before React commits an external-store update.
-function mountProperty(persistedProperty: string | null = null, draftService: any = {}, publicationService: any = { restore: async () => null }, lifecycleService?: any, locationService?: any, overrides: { deletion?:any; identity?:any; routine?:any; published?:any; verification?: any; renderPropertyVerification?: any; amenities?: any; creation?: any; photos?: any; pickImages?: any; portfolio?: any; initialScreen?: 'dashboard' | 'postingType'; replayUpdaters?: boolean } = {}) {
+function mountProperty(persistedProperty: string | null = null, draftService: any = {}, publicationService: any = { restore: async () => null }, lifecycleService?: any, locationService?: any, overrides: { deletion?:any; identity?:any; routine?:any; published?:any; verification?: any; renderPropertyVerification?: any; amenities?: any; locationShare?: any; creation?: any; photos?: any; pickImages?: any; portfolio?: any; initialScreen?: 'dashboard' | 'postingType'; replayUpdaters?: boolean } = {}) {
   let cursor = 0, current: PropertyListingViewModel, mounted = true;
   const slots: any[] = [], effects: (() => void)[] = [], cache = new Map<string, any>();
   let writes = 0, tree: any, realHook: any, backAction: (() => void) | null = null;
@@ -38,7 +38,7 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
       if (name === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
       if (name === 'react-native') return { Alert:{alert:(title:string,_body:string,buttons:any[])=>alerts.push({title,buttons})}, StyleSheet: { create: (styles: any) => styles }, View: 'View', Text: 'Text', Modal: 'Modal', StatusBar: 'StatusBar' };
       if (name.endsWith('/usePropertyListingViewModel')) return { usePropertyListingViewModel: (...args: any[]) => { current = realHook(...args); return current; } };
-      const presentation = ['PostingEstimateView','PostingReviewView','UnfinishedPostDeletionAction','RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold'];
+      const presentation = ['PostingEstimateView','PostingPriceStep','PostingReviewView','UnfinishedPostDeletionAction','RentalPriceGuidance','InlineRentalEstimate','PropertyModelAttributeFields','AppButton', 'FeedbackNotice', 'ListingButton', 'NavigationConfirmation', 'RentLeaseBottomNavigation', 'ScreenContainer', 'CreateListingView', 'ListingComposerView', 'ListingDetailsView', 'ListingPhotosCard', 'ListingDraftSavedView', 'PropertyRoutineEditView', 'PropertyIdentityEditView', 'ListingDetailView', 'ListingManagementView', 'ListingPreviewView', 'PropertyDashboardView', 'PublishedListingStatusView', 'ListingWorkspaceFeedback', 'ListingWizardScaffold', 'PostingSection', 'PostingChoices', 'PostingProgress', 'PropertyVerificationAction', 'PropertyProgressFooter', 'CompletenessHint', 'AvailabilityDateField', 'ComposerRecoveryFeedback', 'ListingControls', 'ListingCheckLine','ListingSavedLine'];
       const component = presentation.find(value => name.endsWith('/' + value));
       if (component) return { [component]: component };
       if(name.endsWith('/unfinishedPostDependencies'))return {unfinishedPostService:overrides.deletion??{inspect:async(id:string)=>({propertyId:id,state:'live',eligible:false,reason:null}),pending:async()=>[],remove:async()=>{throw Error('Not configured');}}};
@@ -51,10 +51,11 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
       if(name.endsWith('/publishedListingDependencies'))return {publishedListingService:overrides.published??draftService};
       if (name.endsWith('/listingDraftDependencies')) return { listingDraftService: draftService };
       if (name.endsWith('/propertyLocationDependencies')) return { propertyLocationService: locationService ?? { searchAddress: async () => [], getMapStyleUrl: () => 'test-style' } };
+      if (name.endsWith('/locationShareDependencies')) return { locationShareService: overrides.locationShare ?? { load: async () => null, save: async () => { throw new Error('unexpected consent call'); } }, currentActorId: async () => 'test-owner' };
       if (name.endsWith('/propertyAmenityDependencies')) return { propertyAmenityService: overrides.amenities ?? { load: async () => ({userId:'test-owner',catalog:[],selectedIds:[],hasPrivateLocation:false}), assertUser:async()=>{} } };
       if (name.endsWith('/propertyCreationDependencies')) return { propertyCreationService: service };
       if (name.endsWith('/propertyPhotoDependencies')) return { propertyPhotoService: overrides.photos ?? {}, selectPropertyPhotos: overrides.pickImages, selectPropertyPhoto: async () => { writes++; throw Error('No picker during navigation'); } };
-      if (name.startsWith('.')) return load(resolve(absolute, '..', name + '.ts'));
+      if (name.startsWith('.')) return load(resolve(absolute, '..', name.endsWith('.ts') ? name : name + '.ts'));
       return actualRequire(name);
     };
     const code = ts.transpileModule(readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -71,12 +72,14 @@ function mountProperty(persistedProperty: string | null = null, draftService: an
   flush();
   if (!overrides.initialScreen) { current!.navigate('postingType'); flush(); }
   return {
-    vm: () => current!, flush, renderStates, postingEstimateView:()=>componentProps('PostingEstimateView'), alerts:()=>alerts,
+    vm: () => current!, flush, renderStates, postingEstimateView:()=>componentProps('PostingEstimateView'), postingPriceStep:()=>componentProps('PostingPriceStep'), alerts:()=>alerts,
     async settle() { for (let i = 0; i < 3; i++) { await new Promise<void>(resolve => setImmediate(resolve)); flush(); } },
     draftConflict: (message:string)=>new (load('src/features/property-listing/models/PersistedListingDraft.ts').ListingDraftError)(message,'conflict'),
     draftError: (message: string) => new (load('src/features/property-listing/models/PersistedListingDraft.ts').ListingDraftError)(message, 'uncertain'),
+    propertyEditError: (message: string, kind: string) => new (load('src/features/property-listing/models/PropertyRoutineEdit.ts').PropertyEditError)(message, kind),
     contextModal:()=>componentProps('Modal'),
     composerView: () => componentProps('ListingComposerView'),
+    detailsView: () => load('src/features/property-listing/views/ListingDetailsView.tsx').ListingDetailsView({ viewModel: current, onClose: () => {} }),
     statusView: () => load('src/features/property-listing/views/PublishedListingStatusView.tsx').PublishedListingStatusView({ viewModel: current, onClose: () => {} }), writes: () => writes, destinations,
     sharedDialog: (props: any) => load('src/shared/components/NavigationConfirmation.tsx').NavigationConfirmation(props),
     bottom: () => componentProps('RentLeaseBottomNavigation'), dialog: () => componentProps('NavigationConfirmation'),
@@ -420,16 +423,18 @@ test('Post detaches an in-flight lifecycle operation without replaying it into t
 });
 
 
-function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none') {
+function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any; routineGate?: Promise<void>; publication?: any; searchAddress?: (query: string, signal: AbortSignal) => Promise<any[]>; draftRead?: (...a: any[]) => Promise<any>; draftPending?: () => Promise<boolean>; photoGate?: Promise<void>; deletion?: any } = {}) {
   const backend = backendDraftService(), events: string[] = [], rows: any[] = [];
   const files = Array.from({ length: 3 }, (_, i) => ({ uri: `file:///cache/composer-${i}.jpg`, fileName: `${i}.jpg`, mimeType: 'image/jpeg', size: 100 }));
   let uncertainPhoto = false, pickerCalls = 0;
   const candidate = { id: 'real-candidate', label: 'Chosen address', longitude: 120.9, latitude: 14.4 };
-  const h = mountProperty(null, { ...backend.service, save: async (c: any, form: any) => { events.push('draft'); if (failure === 'draft') throw h.draftError('Check draft status.'); return backend.service.save(c, form); } }, undefined, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: async () => [candidate] }, {
-    initialScreen: 'postingType', pickImages: async () => { pickerCalls++; return files; },
+  const h = mountProperty(null, { ...backend.service, ...(opts.draftRead ? { read: opts.draftRead } : {}), ...(opts.draftPending ? { hasPending: opts.draftPending } : {}), save: async (c: any, form: any) => { events.push('draft'); if (failure === 'draft') throw h.draftError('Check draft status.'); const saved = await backend.service.save(c, form); return opts.score === undefined ? saved : { ...saved, completeness_score: opts.score }; } }, opts.publication, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: opts.searchAddress ?? (async () => [candidate]) }, {
+    initialScreen: 'postingType', locationShare: opts.locationShare, ...(opts.deletion ? { deletion: opts.deletion } : {}), pickImages: async () => { pickerCalls++; return files; },
+    // The saved-property editor reads back the property that was just created (as the real service does).
+    routine: { load: async (id: string) => { if (opts.routineGate) await opts.routineGate; if (opts.routineFails) throw Error('Routine read failed'); const d = h.vm().propertyState.draft, n = (v: string) => v.trim() === '' ? null : Number(v); return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: d.propertyType, city: d.city, barangay: d.barangay, floor_number: n(d.floorNumber), bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: opts.areaMissing ? null : n(d.floorAreaSqm), max_occupants: n(d.maxOccupants), total_floors: n(d.totalFloors), furnishing_status: d.furnishingStatus, access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false, property_subtype: d.propertySubtype || null, lot_area_sqm: n(d.lotAreaSqm ?? ''), parking_spaces: n(d.parkingSpaces ?? ''), model_attributes_version: 2 }; }, hasPending: async () => false, save: async (c: any, d: any) => ({ ...c, bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: d.floorAreaSqm.trim() ? Number(d.floorAreaSqm) : null, edit_version: '60000000-0000-4000-8000-000000000003' }), reconcile: async () => null },
     creation: { create: async () => { events.push('property'); if (failure === 'property' || failure === 'uncertain-property') throw Object.assign(Error('rejected or unknown'), { code: failure === 'property' ? 'property_creation_rejected' : 'property_creation_uncertain' }); return { propertyId: backend.propertyId, status: 'created' }; } },
     photos: { context: async (propertyId: string) => { assert.equal(propertyId, backend.propertyId); return { ownerId: 'test-owner', propertyId }; }, assertContext: async () => {}, list: async () => [...rows], hasPending: async () => uncertainPhoto,
-      upload: async (context: any, file: any) => { assert.equal(context.propertyId, backend.propertyId); events.push(`photo:${file.fileName}`); if (failure === 'photo' && file.fileName === '1.jpg') { uncertainPhoto = true; throw Error('Unknown photo result'); } rows.push({ id: file.fileName, property_id: backend.propertyId, publicUrl: 'https://example.test/photo', storage_path: '', sort_order: rows.length, is_cover: !rows.length, alt_text: null, created_at: '2026-10-29' }); },
+      upload: async (context: any, file: any) => { if (opts.photoGate) await opts.photoGate; assert.equal(context.propertyId, backend.propertyId); events.push(`photo:${file.fileName}`); if (failure === 'photo' && file.fileName === '1.jpg') { uncertainPhoto = true; throw Error('Unknown photo result'); } rows.push({ id: file.fileName, property_id: backend.propertyId, publicUrl: 'https://example.test/photo', storage_path: '', sort_order: rows.length, is_cover: !rows.length, alt_text: null, created_at: '2026-10-29' }); },
     },
   });
   assert.equal(h.vm().screen, 'listingComposer'); h.flush();
@@ -438,11 +443,17 @@ function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'p
     creation.updateField('bedrooms', '0'); creation.updateField('bathrooms', '0'); creation.updateField('propertyType', 'apartment'); creation.updateField('city', 'imus'); creation.updateField('barangay', 'Buhay na Tubig'); creation.updateField('addressLine1', 'Owner-entered address'); creation.updateField('floorAreaSqm', '42'); creation.updateField('maxOccupants', '3');
     h.vm().updateDraft('title', 'Before UUID title'); h.vm().updateDraft('description', 'Before UUID description'); h.vm().updateDraft('askingRent', '15000'); h.vm().updateDraft('minimumStayMonths', '6'); h.flush();
   };
-  const confirmMap = async () => {
+  // A pin placed on the map, with no consent decision yet (the state the consent card asks about).
+  const pinMap = async () => {
     h.vm().openPropertyLocation(); await h.settle(); assert.equal(h.vm().screen, 'listingComposer');
     const map = h.vm().propertyLocation; map.chooseCandidate(candidate.id); map.mapLoaded(); map.movePoint([120.91, 14.41]); assert.equal(map.confirmExact(), true); h.flush();
   };
-  return { h, events, files, backend, fields, confirmMap, picks: () => pickerCalls };
+  const confirmMap = async () => {
+    await pinMap();
+    // Either consent button confirms the location. The map helper records the choice the test already made (wish or none), as the card's buttons do.
+    h.vm().setShareLocationWanted(h.vm().shareLocationWanted); h.flush();
+  };
+  return { h, events, files, backend, fields, confirmMap, pinMap, picks: () => pickerCalls };
 }
 
 test('Property Listing choice renders composer before any property, preserving local photos and all fields across map', async () => {
@@ -576,15 +587,15 @@ test('Stage 1 untouched Property form is neutral, incomplete, disabled and never
 });
 test('Stage 1 required errors follow interaction and disappear when corrected',async()=>{
  const {h,events}=unifiedHarness();await h.settle();const flow=h.vm().propertyCreation;
- flow.updateField('barangay','');h.flush();assert.deepEqual(h.vm().propertyVisibleValidationIssues.map(i=>i.field),['barangay']);flow.updateField('barangay','Corrected barangay');h.flush();assert.equal(h.vm().propertyVisibleValidationIssues.length,0);assert.equal(h.vm().propertyNextDisabled,true);assert.deepEqual(events,[]);h.unmount();
+ flow.updateField('barangay','');h.flush();assert.deepEqual(h.vm().propertyVisibleValidationIssues,[],'typing alone shows nothing');h.vm().markPropertyFieldTouched('barangay');h.flush();assert.deepEqual(h.vm().propertyVisibleValidationIssues.map(i=>i.field),['barangay'],'leaving the field shows it');flow.updateField('barangay','Corrected barangay');h.flush();assert.equal(h.vm().propertyVisibleValidationIssues.length,0);assert.equal(h.vm().propertyNextDisabled,true);assert.deepEqual(events,[]);h.unmount();
 });
 test('Stage 1 Next uses physical readiness and confirmed location, independent of listing completeness',async()=>{
  const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();h.vm().updateDraft('title','');h.vm().updateDraft('description','');h.vm().updateDraft('askingRent','');h.flush();assert.equal(h.vm().propertyNextDisabled,true);
- h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().propertyValidationTarget?.section,'location');assert.equal(h.vm().screen,'listingComposer');await confirmMap();assert.equal(h.vm().propertyFormReady,true);assert.equal(h.vm().propertyNextDisabled,false);assert.ok(h.vm().completeness.percent<80);assert.match(h.vm().propertyNextStatus,/Next saves/i);
+ h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().propertyValidationTarget?.section,'location');assert.equal(h.vm().screen,'listingComposer');await confirmMap();assert.equal(h.vm().propertyFormReady,true);assert.equal(h.vm().propertyNextDisabled,false);assert.ok(h.vm().completeness.percent<80);assert.match(h.vm().propertyNextStatus,/^\d of 8 range details · saves your property$/);
  h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.ok(h.vm().workspacePropertyId);assert.deepEqual(events,['property']);h.unmount();
 });
 test('Stage 1 optional floor inconsistency blocks Next, preserves entries and clears after correction',async()=>{
- const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();const flow=h.vm().propertyCreation;flow.updateField('floorNumber','8');flow.updateField('totalFloors','2');h.flush();assert.equal(h.vm().propertyNextDisabled,true);assert.ok(h.vm().propertyVisibleValidationIssues.some(i=>i.section==='floors'&&i.kind==='invalid'));h.vm().nextListingDetails();h.flush();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.equal(h.vm().draft.title,'Before UUID title');
+ const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();const flow=h.vm().propertyCreation;flow.updateField('floorNumber','8');flow.updateField('totalFloors','2');h.flush();assert.equal(h.vm().propertyNextDisabled,true);assert.equal(h.vm().propertyVisibleValidationIssues.length,0,'quiet while typing');h.vm().markPropertyFieldTouched('totalFloors');h.flush();assert.ok(h.vm().propertyVisibleValidationIssues.some(i=>i.section==='floors'&&i.kind==='invalid'));h.vm().nextListingDetails();h.flush();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().propertyState.draft.floorNumber,'8');assert.equal(h.vm().draft.title,'Before UUID title');
  flow.updateField('floorNumber','2');h.flush();assert.equal(h.vm().propertyFloorIssues.floorNumber,null);assert.equal(h.vm().propertyNextDisabled,false);assert.deepEqual(events,[]);h.unmount();
 });
 
@@ -693,11 +704,11 @@ for(const status of ['active','paused'])test(`shared photos for ${status} listin
  await h.settle();h.vm().openPortfolioItem(backend.propertyId);await h.settle();h.vm().navigate('photoManager');await h.settle();assert.equal(h.vm().screen,'photoManager');assert.equal(h.vm().workspacePropertyId,backend.propertyId);assert.equal(h.vm().workspaceListingId,backend.listingId);assert.equal(h.vm().photoState.loaded,true);
  await h.vm().propertyPhotos.setCover('30000000-0000-4000-8000-000000000001');await h.settle();assert.equal(cover,1);h.vm().goBack();await h.settle();assert.equal(h.vm().screen,'published');assert.equal(h.vm().realListing?.status,status);assert.equal(backend.calls(),0);assert.equal(h.vm().propertyVerificationState.entryPropertyId,null);assert.ok(loads>0);h.unmount();
 });
-for(const status of ['draft','active','paused'])test(`routine property editor preserves ${status} listing context and protects unsaved Back`,async()=>{
+for(const status of ['draft','active','paused'])test(`property details open in the wizard at Step 1 and preserve ${status} listing context and protect unsaved Back`,async()=>{
  const fixture=savedHydrationHarness();await fixture.init();fixture.setRow({...fixture.getRow(),status,completeness_score:1,published_at:status==='draft'?null:'2026-11-01T00:00:00Z'});
  let c:any={owner_id:'test-owner',property_id:fixture.backend.propertyId,edit_version:'60000000-0000-4000-8000-000000000001',property_type:'apartment',city:'imus',barangay:'Fixture',floor_number:2,total_floors:5,bedrooms:1,bathrooms:1,floor_area_sqm:30,max_occupants:2,furnishing_status:'unfurnished',access_instructions:null,amenity_ids:[],catalog:[],open_tenancy:false};let saves=0;
  const h=fixture.mount({load:async()=>c,hasPending:async()=>false,save:async(_c:any,d:any)=>{saves++;c={...c,bedrooms:Number(d.bedrooms),furnishing_status:d.furnishingStatus,edit_version:'60000000-0000-4000-8000-000000000002'};return c;}});
- await h.settle();h.vm().openPortfolioItem(fixture.backend.propertyId);await h.settle();await h.settle();h.vm().openPropertyDetails();await h.settle();assert.equal(h.vm().screen,status==='draft'?'listingComposer':'propertyEdit');assert.equal(h.vm().propertyRoutineState.status,'ready');
+ await h.settle();h.vm().openPortfolioItem(fixture.backend.propertyId);await h.settle();await h.settle();h.vm().openPropertyDetails();await h.settle();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().postingStep,1);assert.equal(h.vm().propertyRoutineState.status,'ready');
  h.vm().propertyRoutine.update('bedrooms','2');h.flush();h.hardwareBack();h.flush();assert.equal(h.vm().navigationConfirmation,true);h.vm().cancelNavigation();h.flush();assert.equal(h.vm().propertyRoutineState.draft?.bedrooms,'2');
  await h.vm().propertyRoutine.save();await h.settle();assert.equal(saves,1);assert.equal(h.vm().propertySummary.bedrooms,'2');assert.equal(h.vm().workspaceListingId,fixture.backend.listingId);assert.equal(fixture.backend.calls(),0);assert.equal(h.vm().propertyVerificationState.entryPropertyId,null);
  h.vm().goBack();await h.settle();assert.equal(h.vm().screen,status==='draft'?'dashboard':'published');h.unmount();
@@ -719,7 +730,7 @@ test('returning from dirty property subeditor discards only property edits and k
 });
 for(const status of ['active','paused'])test(`Back while opening Edit Listing returns to ${status} management and ignores stale hydration`,async()=>{const f=savedHydrationHarness();await f.init();f.setRow({...f.getRow(),status,published_at:'2026-11-01T00:00:00Z',completeness_score:1});const h=f.mount();await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();f.pause();h.vm().editManagedListing();await h.settle();assert.equal(h.vm().draftHydration.status,'loading');h.vm().goBack();h.flush();assert.equal(h.vm().screen,'published');f.release();await h.settle();await h.settle();assert.equal(h.vm().screen,'published');assert.equal(h.vm().realListing?.status,status);assert.equal(f.backend.calls(),0);h.unmount();});
 
-test('independent physical-property editing needs no listing or listing save',async()=>{const property='10000000-0000-4000-8000-000000000001';const c:any={owner_id:'test-owner',property_id:property,edit_version:'60000000-0000-4000-8000-000000000001',property_type:'house',city:'imus',barangay:'Fixture',floor_number:null,total_floors:2,bedrooms:1,bathrooms:1,floor_area_sqm:30,max_occupants:2,furnishing_status:'unfurnished',access_instructions:null,amenity_ids:[],catalog:[],open_tenancy:false};const item={propertyId:property,property:{id:property,is_active:true},currentListing:null,listings:[],tier3:{status:'not_submitted'}};const h=mountProperty(null,{}, {restore:async()=>null},undefined,undefined,{initialScreen:'dashboard',portfolio:{user:async()=>'test-owner',assertUser:async()=>{},load:async()=>[item]},routine:{load:async()=>c,hasPending:async()=>false}});await h.settle();h.vm().openPortfolioProperty(property);await h.settle();assert.equal(h.vm().screen,'propertyEdit');assert.equal(h.vm().workspacePropertyId,property);assert.equal(h.vm().workspaceListingId,null);assert.equal(h.vm().propertyRoutine.canSave(),false);h.vm().goBack();await h.settle();assert.equal(h.vm().screen,'dashboard');assert.equal(h.writes(),0);h.unmount();});
+test('property details with no listing open the wizard at Step 1 and need no listing or listing save',async()=>{const property='10000000-0000-4000-8000-000000000001';const c:any={owner_id:'test-owner',property_id:property,edit_version:'60000000-0000-4000-8000-000000000001',property_type:'house',city:'imus',barangay:'Fixture',floor_number:null,total_floors:2,bedrooms:1,bathrooms:1,floor_area_sqm:30,max_occupants:2,furnishing_status:'unfurnished',access_instructions:null,amenity_ids:[],catalog:[],open_tenancy:false};const item={propertyId:property,property:{id:property,is_active:true},currentListing:null,listings:[],tier3:{status:'not_submitted'}};const h=mountProperty(null,{}, {restore:async()=>null},undefined,undefined,{initialScreen:'dashboard',portfolio:{user:async()=>'test-owner',assertUser:async()=>{},load:async()=>[item]},routine:{load:async()=>c,hasPending:async()=>false}});await h.settle();h.vm().editPortfolioPropertyDetails(property);await h.settle();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().postingStep,1);assert.equal(h.vm().workspacePropertyId,property);assert.equal(h.vm().workspaceListingId,null);assert.equal(h.vm().propertyRoutine.canSave(),false);h.vm().goBack();await h.settle();assert.equal(h.vm().screen,'dashboard');assert.equal(h.writes(),0);h.unmount();});
 
 
 test('identity correction nested Back protects proposal and retains unsaved listing context',async()=>{
@@ -750,10 +761,8 @@ test('saved optional model edits change estimator identity while unsaved edits k
 
 test('only explicit current-property price guidance adoption changes asking rent and never saves',async()=>{
  const f=savedHydrationHarness();await f.init();const h=f.mount();await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();await h.settle();h.vm().updateDraft('askingRent','5000');h.flush();
- const result:any={target:{propertyId:f.backend.propertyId},estimatedMonthlyRent:18000.25,currency:'PHP',modelVersion:'fixture',askingRent:null,predictedAt:'2026-11-10T00:00:00Z'};
- assert.equal(h.vm().draft.askingRent,'5000');h.vm().applyRentalEstimate({...result,target:{propertyId:'10000000-0000-4000-8000-000000000099'}});h.flush();assert.equal(h.vm().draft.askingRent,'5000');
- h.vm().applyRentalEstimate({...result,estimatedMonthlyRent:NaN});h.vm().applyRentalEstimate({...result,currency:'USD'});h.flush();assert.equal(h.vm().draft.askingRent,'5000');
- h.vm().applyRentalEstimate(result);h.flush();assert.equal(h.vm().draft.askingRent,'18000.25');assert.equal(f.backend.calls(),0);assert.equal(h.writes(),0);
+  assert.equal(h.vm().draft.askingRent,'5000');for(const bad of [NaN,0,-500,Infinity])assert.equal(h.vm().applyRentFromRange(bad),false);h.flush();assert.equal(h.vm().draft.askingRent,'5000','an unusable rent from the range slider is ignored');
+ assert.equal(h.vm().applyRentFromRange(18000),true);h.flush();assert.equal(h.vm().draft.askingRent,'18000');assert.equal(f.backend.calls(),0);assert.equal(h.writes(),0);
  h.vm().updateDraft('askingRent','7000');h.flush();assert.equal(h.vm().draft.askingRent,'7000');h.unmount();
 });
 
@@ -766,7 +775,7 @@ test('first listing rent page receives saved-property eligibility and optional z
  assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().workspacePropertyId,backend.propertyId);assert.deepEqual(events,['property']);assert.equal(h.vm().workspaceListingId,null);
  assert.equal(h.vm().estimationProperty?.property_subtype,'studio');assert.equal(h.vm().estimationProperty?.floor_area_sqm,35);assert.equal(h.vm().estimationProperty?.lot_area_sqm,null);assert.equal(h.vm().estimationProperty?.parking_spaces,0);
  assert.equal(h.vm().draft.askingRent,'');assert.ok(!JSON.stringify(h.vm().estimationProperty).includes('Latitude'));
- h.vm().applyRentalEstimate({target:{propertyId:backend.propertyId},currency:'PHP',estimatedMonthlyRent:18000} as any);h.flush();assert.equal(h.vm().draft.askingRent,'18000');assert.deepEqual(events,['property']);
+ h.vm().applyRentFromRange(18000);h.flush();assert.equal(h.vm().draft.askingRent,'18000');assert.deepEqual(events,['property']);
  h.vm().goBack();h.flush();await h.vm().nextListingDetails();await h.settle();assert.deepEqual(events,['property']);assert.equal(h.vm().screen,'listingDetails');h.unmount();
 });
 
@@ -787,16 +796,81 @@ test('unfinished post pending cleanup removes the editor and blocks stale save a
 });
 
 
-test('T8-A new posting traverses Property Listing Estimate Review with stable UUID and Back',async()=>{const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();const id=h.vm().workspacePropertyId;assert.equal(h.vm().postingWizard,true);h.vm().continuePostingEstimate();h.flush();assert.equal(h.vm().screen,'postingEstimate');h.vm().continuePostingReview();h.flush();assert.equal(h.vm().screen,'postingReview');h.hardwareBack();h.flush();assert.equal(h.vm().screen,'postingEstimate');h.hardwareBack();h.flush();assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().workspacePropertyId,id);assert.ok(h.vm().draft.askingRent);assert.deepEqual(events,['property']);h.unmount();});
-test('T8-A review saves one real draft without leaving review or publishing',async()=>{const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().continuePostingEstimate();h.flush();h.vm().continuePostingReview();h.flush();await h.vm().saveComposerDraft();await h.settle();assert.equal(h.vm().screen,'postingReview');assert.equal(events.filter(x=>x==='property').length,1);assert.equal(events.filter(x=>x==='draft').length,1);assert.match(h.vm().composerNotice??'',/Nothing has been published/);h.unmount();});
+test('T8-A new posting traverses Property Listing Estimate Review with stable UUID and Back',async()=>{const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();const id=h.vm().workspacePropertyId;assert.equal(h.vm().postingWizard,true);h.vm().continuePostingEstimate();h.flush();assert.equal(h.vm().screen,'postingEstimate');await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().screen,'postingReview');h.hardwareBack();h.flush();assert.equal(h.vm().screen,'postingEstimate');h.hardwareBack();h.flush();assert.equal(h.vm().screen,'listingDetails');h.hardwareBack();h.flush();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().editorMode,'draft','Back to the property step shows the editable saved-property form, not the locked create form');assert.equal(h.vm().workspacePropertyId,id);assert.ok(h.vm().draft.askingRent);assert.deepEqual(events,['property','draft'],'one property save at step 1, one draft save when leaving Price');h.unmount();});
+test('T8-A leaving Price saves one real draft; Review does not save it again and nothing is published',async()=>{const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().continuePostingEstimate();h.flush();assert.equal(events.filter(x=>x==='draft').length,0,'the Listing step saves nothing');await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().screen,'postingReview');assert.equal(events.filter(x=>x==='property').length,1);assert.equal(events.filter(x=>x==='draft').length,1);assert.equal(h.vm().postingDraftSaved,true);assert.equal(await h.vm().saveComposerDraft(true),true,'a clean saved draft counts as saved');await h.settle();assert.equal(events.filter(x=>x==='draft').length,1,'no second save');assert.equal(h.vm().postingPublishReady,false,'saving never publishes');h.unmount();});
 
-test('T8-A Keep My Price restores the chosen rent after explicit adoption without saving',async()=>{const {h,fields,confirmMap,events,backend}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().continuePostingEstimate();h.flush();const chosen=h.vm().draft.askingRent;h.vm().applyRentalEstimate({target:{propertyId:backend.propertyId},currency:'PHP',estimatedMonthlyRent:18000.25} as any);h.flush();assert.equal(h.vm().draft.askingRent,'18000.25');h.vm().keepPostingPrice();h.flush();assert.equal(h.vm().draft.askingRent,chosen);assert.deepEqual(events,['property']);h.vm().continuePostingReview();h.flush();assert.equal(h.vm().screen,'postingReview');h.unmount();});
-test('T8-A invalid listing fields cannot advance and no listing writes occur',async()=>{const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().updateDraft('askingRent','');h.flush();h.vm().continuePostingEstimate();h.flush();assert.equal(h.vm().screen,'listingDetails');assert.ok(h.vm().composerNotice);assert.deepEqual(events,['property']);h.unmount();});
-test('T8-A leaving unsaved Review remains guarded and no verification is fabricated',async()=>{const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().continuePostingEstimate();h.flush();h.vm().continuePostingReview();h.flush();assert.equal(h.vm().postingPublishReady,false);h.vm().requestNavigation(()=>assert.fail('unsaved navigation'));h.flush();assert.equal(h.vm().navigationConfirmation,true);h.vm().cancelNavigation();h.flush();assert.equal(h.vm().screen,'postingReview');assert.deepEqual(events,['property']);h.unmount();});
+test('T8-A Keep My Price restores the chosen rent after explicit adoption without saving',async()=>{const {h,fields,confirmMap,events,backend}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().continuePostingEstimate();h.flush();const chosen=h.vm().draft.askingRent;h.vm().applyRentFromRange(18000);h.flush();assert.equal(h.vm().draft.askingRent,'18000');h.vm().keepPostingPrice();h.flush();assert.equal(h.vm().draft.askingRent,chosen);assert.deepEqual(events,['property'],'adopting and keeping a price saves nothing');await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().screen,'postingReview');assert.deepEqual(events,['property','draft'],'only leaving Price saves, with the kept rent');assert.equal(h.vm().listingDraftState.lastConfirmed?.asking_rent_monthly,Number(chosen));h.unmount();});
+test('T8-A invalid listing fields cannot advance and no listing writes occur',async()=>{const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().updateDraft('title','');h.flush();h.vm().continuePostingEstimate();h.flush();assert.equal(h.vm().screen,'listingDetails');assert.match(h.vm().composerNotice??'',/listing title/);assert.deepEqual(events,['property']);h.unmount();});
+test('T8-A rent moved to Price: an empty rent does not block Listing, but cannot leave Price, and nothing is saved',async()=>{const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().updateDraft('askingRent','');h.flush();h.vm().continuePostingEstimate();h.flush();assert.equal(h.vm().screen,'postingEstimate','Listing step no longer requires rent');assert.ok(h.vm().priceIssue);assert.equal(h.vm().priceIssue!.message,'Enter monthly asking rent greater than zero.');await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().screen,'postingEstimate');assert.equal(h.vm().priceAttempted,true);assert.match(h.vm().composerNotice??'',/asking rent/);assert.deepEqual(events,['property']);h.vm().typeAskingRent('0');h.flush();await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().screen,'postingEstimate','zero is not a rent');assert.deepEqual(events,['property']);h.vm().typeAskingRent('26,000');h.flush();assert.equal(h.vm().priceIssue,null);await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().screen,'postingReview');assert.deepEqual(events,['property','draft']);h.unmount();});
+test('T8-A a failed save at Price keeps the user on Price with the draft retained',async()=>{const {h,fields,confirmMap,events}=unifiedHarness('draft');await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().continuePostingEstimate();h.flush();await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().screen,'postingEstimate');assert.deepEqual(events,['property','draft']);assert.equal(h.vm().draft.askingRent,'15000');assert.ok(h.vm().listingDraftState.uncertain||h.vm().listingDraftState.error);h.unmount();});
+test('T8-A edit links from Review return to Review after the edit and save the draft',async()=>{const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().continuePostingEstimate();h.flush();await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().screen,'postingReview');
+ h.vm().editPostingStep('listing');h.flush();assert.equal(h.vm().screen,'listingDetails');h.vm().updateDraft('title','Edited from Review');h.flush();h.vm().continuePostingEstimate();h.flush();await h.settle();assert.equal(h.vm().screen,'postingReview','the edited step returns to Review');assert.equal(h.vm().draft.title,'Edited from Review');assert.equal(h.vm().listingDraftState.lastConfirmed?.title,'Edited from Review','and the draft is saved');assert.equal(h.vm().returnTo,null);
+ h.vm().editPostingStep('price');h.flush();assert.equal(h.vm().screen,'postingEstimate');await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().screen,'postingReview');
+ h.vm().editPostingStep('property');h.flush();await h.settle();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().editorMode,'draft','the property step opened from Review is the editable form');assert.equal(h.vm().propertyRoutineState.status,'ready');h.vm().propertyRoutine.update('bedrooms','2');h.flush();await h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'postingReview');assert.equal(h.vm().propertySummary.bedrooms,'2');h.unmount();});
+test('T8-A leaving unsaved Review remains guarded and no verification is fabricated',async()=>{const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().continuePostingEstimate();h.flush();await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().postingPublishReady,false);h.vm().updateDraft('title','Unsaved edit on Review');h.flush();h.vm().requestNavigation(()=>assert.fail('unsaved navigation'));h.flush();assert.equal(h.vm().navigationConfirmation,true);h.vm().cancelNavigation();h.flush();assert.equal(h.vm().screen,'postingReview');assert.deepEqual(events,['property','draft']);const checklist=h.vm().postingChecklist;assert.equal(checklist.find(i=>i.key==='verification')!.done,false);assert.equal(checklist.find(i=>i.key==='listing')!.done,false,'unsaved edits are not a saved listing');h.unmount();});
 
-test('T8-A Use Estimated Price requires explicit confirmation before changing the local asking rent',async()=>{const {h,fields,confirmMap,events,backend}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().continuePostingEstimate();h.flush();const chosen=h.vm().draft.askingRent;const estimate=h.postingEstimateView().estimateSection;assert.equal(estimate.props.variant,'posting');assert.deepEqual(estimate.props.target,{propertyId:backend.propertyId});estimate.props.onUseEstimate({target:{propertyId:backend.propertyId},currency:'PHP',estimatedMonthlyRent:19500.5});h.flush();assert.equal(h.vm().draft.askingRent,chosen);const confirm=h.alerts().at(-1)!.buttons.find(x=>x.text==='Use Estimated Price');assert.ok(confirm);confirm.onPress();h.flush();assert.equal(h.vm().draft.askingRent,'19500.5');assert.deepEqual(events,['property']);h.unmount();});
+test('T8-A a rent applied from the range slider fills the rent only, without saving; a range for another property is ignored',async()=>{const {h,fields,confirmMap,events,backend}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().continuePostingEstimate();h.flush();const chosen=h.vm().draft.askingRent;const step=h.postingPriceStep();assert.equal(step.viewModel.workspacePropertyId,backend.propertyId);const receipt:any={target:{propertyId:backend.propertyId},currency:'PHP',modelVersion:'fixture',askingRent:null,predictedAt:'2026-11-10T00:00:00Z',illustrativeRange:{minimum:13500,maximum:26000}};assert.equal(h.vm().postingEstimate,null,'no range in state yet');assert.equal(h.vm().postingRangeRelation,null);h.vm().setPostingEstimate(receipt);h.flush();assert.deepEqual(h.vm().postingEstimate!.illustrativeRange,{minimum:13500,maximum:26000});assert.equal('estimatedMonthlyRent' in h.vm().postingEstimate!,false);assert.equal(h.vm().draft.askingRent,chosen,'having a range changes nothing');h.vm().applyRentFromRange(19500);h.flush();assert.equal(h.vm().draft.askingRent,'19500');assert.equal(h.vm().postingRangeRelation,'within');assert.equal(h.vm().priceKeepAvailable,true);assert.deepEqual(events,['property'],'applying a rent fills the field and saves nothing');h.vm().applyRentFromRange(30000);h.flush();assert.equal(h.vm().postingRangeRelation,'above');h.vm().applyRentFromRange(9000);h.flush();assert.equal(h.vm().postingRangeRelation,'below');h.vm().keepPostingPrice();h.flush();assert.equal(h.vm().draft.askingRent,chosen);assert.equal(h.vm().priceKeepAvailable,false);const other:any={...receipt,target:{propertyId:'99999999-9999-4999-8999-999999999999'}};h.vm().setPostingEstimate(other);h.flush();assert.equal(h.vm().postingEstimate,null,'a range for another property is never used');h.unmount();});
 
 
+test('Stage A: the first visit uses the create form; once saved, the property step is the editable saved-property form, also after Back from Listing, Price and Review',async()=>{
+ const {h,fields,confirmMap,events}=unifiedHarness();await h.settle();fields();await confirmMap();
+ assert.equal(h.vm().editorMode,'create');assert.equal(h.vm().propertyRoutineState.status,'idle');
+ await h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().editorMode,'draft');assert.equal(h.vm().propertyRoutineState.status,'ready');assert.equal(h.vm().composerNotice,'Property saved','a visible confirmation');
+ for(const via of ['listing','price','review']){
+  if(via==='price'){h.vm().continuePostingEstimate();h.flush();assert.equal(h.vm().screen,'postingEstimate');}
+  if(via==='review'){h.vm().continuePostingEstimate();h.flush();await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().screen,'postingReview');}
+  while(h.vm().screen!=='listingComposer'){h.vm().goBack();h.flush();await h.settle();}
+  assert.equal(h.vm().editorMode,'draft',`Back from ${via} lands on the editable form`);assert.equal(h.vm().propertyRoutineState.status,'ready');
+  h.vm().propertyRoutine.update('bedrooms',via==='listing'?'1':via==='price'?'2':'3');h.flush();assert.equal(h.vm().propertyRoutineState.draft!.bedrooms,via==='listing'?'1':via==='price'?'2':'3','saved fields accept edits');
+  await h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().propertySummary.bedrooms,via==='listing'?'1':via==='price'?'2':'3','the edit is saved when continuing');
+ }
+ assert.equal(events.filter(x=>x==='property').length,1,'the property is created once');h.unmount();
+});
+test('Stage A: a saved-property load that fails after creation never blocks Listing or Price, and the property step offers Retry on return',async()=>{
+ const {h,fields,confirmMap,events}=unifiedHarness('none',{routineFails:true});await h.settle();fields();await confirmMap();
+ await h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingDetails','the property is saved, so the wizard continues');assert.equal(h.vm().propertyRoutineState.status,'idle','the failed read is closed again');
+ h.vm().updateDraft('title','Edited after a failed read');h.flush();assert.equal(h.vm().draft.title,'Edited after a failed read','listing edits are not blocked');h.vm().continuePostingEstimate();h.flush();assert.equal(h.vm().screen,'postingEstimate');
+ h.vm().goBack();h.flush();h.vm().goBack();h.flush();await h.settle();assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().propertyRoutineState.status,'error');assert.equal(h.vm().editorMode,'draft');assert.equal(h.vm().propertyNextDisabled,true,'Continue waits for a successful load; Retry is on the form');
+ assert.deepEqual(events,['property'],'no second property is ever created');h.unmount();
+});
+test('Stage B: floor area is required in the wizard only when the property can be estimated, and Continue says what is missing',async()=>{
+ const {h,fields,confirmMap}=unifiedHarness();await h.settle();fields();await confirmMap();const c=h.vm().propertyCreation;
+ const before=h.vm().estimateDetails;assert.equal(before.total,8);
+ c.updateField('floorAreaSqm','');h.flush();assert.equal(h.vm().floorAreaRequired,true);assert.equal(h.vm().floorAreaMissing,true);assert.equal(h.vm().propertyNextDisabled,true);assert.equal(h.vm().propertyNextStatus,'Add floor area');
+ assert.equal(h.vm().estimateDetails.filled,before.filled-1,'the count follows the field');
+ await h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingComposer','the action itself refuses, not only the disabled button');assert.equal(h.vm().workspacePropertyId,null);
+ for(const bad of ['0','-3','abc']){c.updateField('floorAreaSqm',bad);h.flush();assert.equal(h.vm().floorAreaMissing,true,bad);assert.equal(h.vm().propertyNextDisabled,true,bad);}
+ c.updateField('floorAreaSqm','42');h.flush();assert.equal(h.vm().floorAreaMissing,false);assert.equal(h.vm().propertyNextDisabled,false);
+ c.updateField('floorAreaSqm','');c.updateField('propertyType','boarding_house');h.flush();assert.equal(h.vm().floorAreaRequired,false,'not estimable: optional');assert.equal(h.vm().floorAreaMissing,false);assert.equal(h.vm().propertyNextDisabled,false);
+ c.updateField('propertyType','house');h.flush();assert.equal(h.vm().floorAreaRequired,true);assert.equal(h.vm().propertyNextDisabled,true);
+ c.updateField('city','tagaytay');h.flush();assert.equal(h.vm().floorAreaRequired,true);c.updateField('floorAreaSqm','90');h.flush();assert.equal(h.vm().floorAreaMissing,false,'B15: a city change re-opens location confirmation, so only the area rule is checked here');
+ c.updateField('floorNumber','');c.updateField('lotAreaSqm','120');c.updateField('parkingSpaces','2');c.updateField('propertySubtype','villa');h.flush();assert.equal(h.vm().estimateDetails.filled,before.filled+3,'lot area, parking and subtype join the already counted area');
+ c.updateField('maxOccupants','5');c.updateField('totalFloors','2');h.flush();assert.equal(h.vm().estimateDetails.filled,before.filled+3,'occupants and floors in building are not model inputs and do not count');
+ h.unmount();
+});
+test('Stage B: the saved-property form applies the same rule and an edited area is saved on Continue',async()=>{
+ const {h,fields,confirmMap}=unifiedHarness();await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();h.vm().goBack();h.flush();await h.settle();
+ assert.equal(h.vm().editorMode,'draft');assert.equal(h.vm().floorAreaRequired,true);assert.equal(h.vm().floorAreaMissing,false);assert.equal(h.vm().estimateDetails.total,8);
+ h.vm().propertyRoutine.update('floorAreaSqm','');h.flush();assert.equal(h.vm().floorAreaMissing,true);assert.equal(h.vm().propertyNextDisabled,true);assert.equal(h.vm().propertyNextStatus,'Add floor area to continue.');
+ await h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingComposer');
+ h.vm().propertyRoutine.update('floorAreaSqm','60');h.flush();assert.equal(h.vm().propertyNextDisabled,false);await h.vm().nextListingDetails();await h.settle();assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().estimationProperty?.floor_area_sqm,60);h.unmount();
+});
+test('Stage D: the Price page fixes a missing floor area with the existing versioned property save, and only on Price',async()=>{
+ const {h,fields,confirmMap,events}=unifiedHarness('none',{areaMissing:true});await h.settle();fields();await confirmMap();await h.vm().nextListingDetails();await h.settle();
+ assert.equal(await h.vm().savePostingFloorArea('85'),false,'not on the Price page');
+ h.vm().continuePostingEstimate();h.flush();assert.equal(h.vm().screen,'postingEstimate');assert.equal(h.vm().floorAreaMissing,true,'the saved property has no floor area, so the estimate is blocked');assert.equal(h.vm().estimationProperty?.floor_area_sqm,null);
+ for(const bad of ['','0','abc','-5']){assert.equal(await h.vm().savePostingFloorArea(bad),false,bad);assert.equal(h.vm().estimationProperty?.floor_area_sqm,null);h.vm().propertyRoutine.discard();h.flush();}
+ assert.equal(await h.vm().savePostingFloorArea('85'),true);h.flush();assert.equal(h.vm().estimationProperty?.floor_area_sqm,85,'the estimator now sees the saved area');assert.equal(h.vm().floorAreaMissing,false);assert.match(h.vm().propertyRoutineState.notice??'',/saved/i);
+ assert.deepEqual(events,['property'],'no listing save and no second property');h.unmount();
+});
+
+for (const [score, done] of [[0.79, false], [0.8, true], [0.85, true]] as const) test(`T8-A Review checklist: a saved listing at ${score} completeness is ${done ? '' : 'not '}ready, and Publish stays gated by verification`, async () => {
+  const { h, fields, confirmMap } = unifiedHarness('none', { score }); await h.settle(); fields(); await confirmMap(); await h.vm().nextListingDetails(); await h.settle();
+  h.vm().continuePostingEstimate(); h.flush(); await h.vm().continuePostingReview(); await h.settle(); assert.equal(h.vm().screen, 'postingReview');
+  const items = Object.fromEntries(h.vm().postingChecklist.map(i => [i.key, i])) as Record<string, { done: boolean; detail: string | null }>;
+  assert.equal(items.listing!.done, done); assert.equal(items.listing!.detail, done ? null : 'At least 80% is required to publish'); assert.equal(items.price!.done, true); assert.equal(items.verification!.done, false);
+  assert.equal(h.vm().postingPublishReady, false, 'no Tier 3 approval, so never ready'); assert.ok(h.vm().postingChecklist.some(i => !i.done), 'Publish is gated while any item is open'); h.unmount();
+});
 for(const status of ['draft','active','paused'])test(`T8-B ${status} opens shared four-step editor and preserves original identity`,async()=>{
  const f=savedHydrationHarness();await f.init();f.setRow({...f.getRow(),status,completeness_score:1,published_at:status==='draft'?null:'2026-11-01T00:00:00Z'});
  const c:any={owner_id:'test-owner',property_id:f.backend.propertyId,edit_version:'60000000-0000-4000-8000-000000000001',property_type:'apartment',city:'imus',barangay:'Fixture',floor_number:null,total_floors:2,bedrooms:1,bathrooms:1,floor_area_sqm:30,max_occupants:2,furnishing_status:'unfurnished',access_instructions:null,amenity_ids:[],catalog:[],open_tenancy:false};let saves=0;
@@ -804,7 +878,7 @@ for(const status of ['draft','active','paused'])test(`T8-B ${status} opens share
  await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();if(status!=='draft'){h.vm().editManagedListing();await h.settle();}await h.settle();
  assert.equal(h.vm().screen,'listingComposer');assert.equal(h.vm().postingWizard,true);assert.equal(h.vm().editorMode,status==='draft'?'draft':'published');assert.equal(h.vm().draftHydration.status,'ready',JSON.stringify(h.vm().draftHydration));assert.equal(h.vm().draft.title,f.getRow().title);
  h.vm().propertyRoutine.update('bedrooms','2');h.flush();await h.vm().nextListingDetails();await h.settle();assert.equal(saves,1);assert.equal(h.vm().screen,'listingDetails');assert.equal(h.vm().propertySummary.bedrooms,'2');
- h.vm().continuePostingEstimate();h.flush();assert.equal(h.vm().screen,'postingEstimate');h.vm().continuePostingReview();h.flush();assert.equal(h.vm().screen,'postingReview');h.vm().goBack();h.flush();assert.equal(h.vm().screen,'postingEstimate');
+ h.vm().continuePostingEstimate();h.flush();assert.equal(h.vm().screen,'postingEstimate');await h.vm().continuePostingReview();await h.settle();assert.equal(h.vm().screen,'postingReview');h.vm().goBack();h.flush();assert.equal(h.vm().screen,'postingEstimate');
  assert.equal(h.vm().workspacePropertyId,f.backend.propertyId);assert.equal(h.vm().workspaceListingId,f.backend.listingId);assert.equal(f.backend.calls(),0);h.unmount();
 });
 
@@ -813,6 +887,943 @@ for(const status of ['draft','active','paused'])test(`T8-B ${status} Review save
  const f=savedHydrationHarness();await f.init();f.setRow({...f.getRow(),status,completeness_score:1,published_at:status==='draft'?null:'2026-11-01T00:00:00Z'});let writes=0;
  const c:any={owner_id:'test-owner',property_id:f.backend.propertyId,edit_version:'60000000-0000-4000-8000-000000000001',property_type:'apartment',city:'imus',barangay:'Fixture',floor_number:null,total_floors:2,bedrooms:1,bathrooms:1,floor_area_sqm:30,max_occupants:2,furnishing_status:'unfurnished',access_instructions:null,amenity_ids:[],catalog:[],open_tenancy:false};
  const service={...f.backend.service,read:async()=>f.getRow(),save:async(_context:any,d:any,expected:any)=>{writes++;assert.equal(expected.listingId,f.backend.listingId);const row={...f.getRow(),title:d.title};f.setRow(row);return row;}};
- const h=f.mount({load:async()=>c,hasPending:async()=>false},undefined,service);await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();if(status!=='draft'){h.vm().editManagedListing();await h.settle();}await h.settle();await h.vm().nextListingDetails();await h.settle();h.vm().updateDraft('title','Updated rental title');h.flush();h.vm().continuePostingEstimate();h.flush();h.vm().continuePostingReview();h.flush();await h.vm().saveComposerDraft();await h.settle();
+ const h=f.mount({load:async()=>c,hasPending:async()=>false},undefined,service);await h.settle();h.vm().openPortfolioItem(f.backend.propertyId);await h.settle();if(status!=='draft'){h.vm().editManagedListing();await h.settle();}await h.settle();await h.vm().nextListingDetails();await h.settle();h.vm().updateDraft('title','Updated rental title');h.flush();h.vm().continuePostingEstimate();h.flush();await h.vm().continuePostingReview();await h.settle();await h.vm().saveComposerDraft();await h.settle();
  assert.equal(h.vm().screen,'postingReview');assert.equal(h.vm().workspaceListingId,f.backend.listingId);assert.equal(h.vm().listingDraftState.lastConfirmed?.status,status);assert.equal(h.vm().draft.title,'Updated rental title');assert.equal(status==='draft'?f.backend.calls():writes,1);assert.equal(h.writes(),0);h.unmount();
+});
+
+// ---- Consent integrity: a sharing wish belongs to the point that was on screen when the owner pressed
+import { shareCardView } from '../src/features/property-listing/models/LocationShare';
+const CHANGED = 'Location changed. Confirm sharing again.';
+const shareService = () => {
+  const calls: any[] = [];
+  return { calls, service: {
+    load: async (actor: string, id: string) => { calls.push(['load', actor, id]); return { revision: '10000000-0000-4000-8000-000000000001', approved: false, eligible: true, policy: 'rental-public-location-v1', point: { latitude: 14.4, longitude: 120.9 } }; },
+    save: async (actor: string, id: string, s: any, approve: boolean) => { calls.push(['save', actor, id, s.revision, s.policy, approve]); return { ...s, approved: approve }; },
+  } };
+};
+const movePin = async (h: any, lng = 120.95, lat = 14.45) => {
+  h.vm().openPropertyLocation(); await h.settle();
+  const map = h.vm().propertyLocation; map.chooseCandidate('real-candidate'); map.mapLoaded(); map.movePoint([lng, lat]); assert.equal(map.confirmExact(), true);
+};
+const cardState = (h: any) => shareCardView({ saved: false, addressReady: true, confirmed: !!h.vm().propertyState.draft.publicLatitude, wanted: h.vm().shareLocationWanted, approval: null, approvalLoading: false, approvalError: false, busy: false });
+test('a wish pressed on a confirmed point is applied once, after the first save, with exactly the two approval calls', async () => {
+  const s = shareService(), { h, fields, confirmMap, backend } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  assert.equal(h.vm().shareLocationWanted, false);
+  h.vm().setShareLocationWanted(true); h.flush();
+  assert.equal(h.vm().shareLocationWanted, true); assert.equal(h.vm().shareLocationNotice, null);
+  assert.deepEqual(s.calls, [], 'the press itself calls no service');
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(s.calls, [['load', 'test-owner', backend.propertyId], ['save', 'test-owner', backend.propertyId, '10000000-0000-4000-8000-000000000001', 'rental-public-location-v1', true]]);
+  assert.equal(h.vm().shareLocationWanted, false, 'spent');
+  assert.equal(h.vm().screen, 'listingDetails'); h.unmount();
+});
+test('a press before the map is confirmed waits, binds to the point the owner then confirms, and is applied', async () => {
+  const s = shareService(), { h, fields, confirmMap } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields();
+  h.vm().setShareLocationWanted(true); h.flush();
+  assert.equal(h.vm().shareLocationWanted, true, 'waiting for the map');
+  await confirmMap(); h.flush();
+  assert.equal(h.vm().shareLocationWanted, true, 'bound to the confirmed point');
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(s.calls.map(c => c[0]), ['load', 'save']); h.unmount();
+});
+const triggers: [string, (h: any) => Promise<void> | void][] = [
+  ['the barangay is edited', h => h.vm().propertyCreation.updateField('barangay', 'Another barangay')],
+  ['the street is edited', h => h.vm().propertyCreation.updateField('addressLine1', 'Another street')],
+  ['the city changes', h => h.vm().propertyCreation.updateField('city', 'tagaytay')],
+  ['the building is edited', h => h.vm().propertyCreation.updateField('addressLine2', 'Tower B')],
+  ['the postal code is edited', h => h.vm().propertyCreation.updateField('postalCode', '4103')],
+  ['the property type changes', h => h.vm().propertyCreation.updateField('propertyType', 'condominium')],
+  ['the rental floor changes', h => h.vm().propertyCreation.updateField('floorNumber', '7')],
+  ['the map pin moves and is confirmed again', h => movePin(h)],
+];
+for (const [name, change] of triggers) test(`the wish is cleared with a notice when ${name} before the first save, and is never applied`, async () => {
+  const s = shareService(), { h, fields, confirmMap, events } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush(); assert.equal(h.vm().shareLocationWanted, true);
+  await change(h); h.flush(); await h.settle(); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false, 'cleared');
+  assert.equal(h.vm().shareLocationNotice, CHANGED);
+  assert.equal(cardState(h).button!.action, h.vm().propertyState.draft.publicLatitude ? 'recordWish' : 'openMapShare', 'the button is back to asking');
+  assert.equal(cardState(h).asking, true);
+  // The decision belonged to the old point, so the owner decides again before saving: here, without sharing.
+  if (!h.vm().propertyState.draft.publicLatitude) await confirmMap(); else { h.vm().setShareLocationWanted(false); h.flush(); }
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(events.slice(0, 1), ['property'], 'the property itself still saves');
+  assert.deepEqual(s.calls, [], 'no consent call for a point the owner did not press on'); h.unmount();
+});
+test('a change that lands between the last render and the save is still caught, because the save compares the live point', async () => {
+  const s = shareService(), { h, fields, confirmMap, events } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush(); assert.equal(h.vm().shareLocationWanted, true);
+  await movePin(h); // no flush: the wish in the last render is still bound to the old point
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(events.slice(0, 1), ['property']);
+  assert.deepEqual(s.calls, []); h.unmount();
+});
+test('pressing again clears the old "Location changed" notice, and binds to the point now on screen', async () => {
+  const s = shareService(), { h, fields, confirmMap } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush();
+  await movePin(h); h.flush(); await h.settle(); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false); assert.equal(h.vm().shareLocationNotice, CHANGED);
+  h.vm().setShareLocationWanted(true); h.flush();
+  assert.equal(h.vm().shareLocationNotice, null, 'the notice goes when the owner presses again');
+  assert.equal(h.vm().shareLocationWanted, true);
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(s.calls.map(c => c[0]), ['load', 'save'], 'the new press is bound to the new point and applies'); h.unmount();
+});
+test('typing in a field that does not touch the point or the identity keeps the wish', async () => {
+  const { h, fields, confirmMap } = unifiedHarness('none', { locationShare: shareService().service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush();
+  h.vm().propertyCreation.updateField('bedrooms', '3'); h.vm().propertyCreation.updateField('floorAreaSqm', '60'); h.vm().propertyCreation.updateField('maxOccupants', '4'); h.vm().propertyCreation.updateField('furnishingStatus', 'furnished'); h.flush();
+  assert.equal(h.vm().shareLocationWanted, true); assert.equal(h.vm().shareLocationNotice, null); h.unmount();
+});
+test('the wish is cleared when the property save fails, and nothing is shared', async () => {
+  const s = shareService(), { h, fields, confirmMap, events } = unifiedHarness('property', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush();
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.deepEqual(events, ['property']); assert.equal(h.vm().workspacePropertyId, null); assert.equal(h.vm().screen, 'listingComposer');
+  assert.equal(h.vm().shareLocationWanted, false, 'cleared by the failed save');
+  assert.deepEqual(s.calls, []);
+  assert.equal(cardState(h).button!.action, 'recordWish', 'the button asks again');
+  h.unmount();
+});
+test('the wish is cleared when the save outcome is unknown too', async () => {
+  const s = shareService(), { h, fields, confirmMap } = unifiedHarness('uncertain-property', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush();
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false); assert.deepEqual(s.calls, []); h.unmount();
+});
+test('the wish is cleared when the owner presses Skip after confirming, and the save shares nothing', async () => {
+  const s = shareService(), { h, fields, confirmMap, events } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush(); assert.equal(h.vm().shareLocationWanted, true);
+  h.vm().setShareLocationWanted(false); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false); assert.equal(h.vm().shareLocationNotice, null, 'a deliberate skip is not a change');
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(events.slice(0, 1), ['property']); assert.deepEqual(s.calls, []); h.unmount();
+});
+test('the wish is cleared when the owner leaves the wizard, and a later visit starts with none', async () => {
+  const s = shareService(), { h, fields, confirmMap } = unifiedHarness('none', { locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(true); h.flush(); assert.equal(h.vm().shareLocationWanted, true);
+  h.vm().goBack(); h.flush(); if (h.vm().navigationConfirmation) { h.vm().confirmNavigation(); h.flush(); }
+  await h.settle(); h.flush();
+  assert.notEqual(h.vm().screen, 'listingComposer'); assert.equal(h.vm().shareLocationWanted, false);
+  h.vm().startCreate(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'listingComposer'); assert.equal(h.vm().shareLocationWanted, false, 'a new visit never inherits a wish'); assert.deepEqual(s.calls, []); h.unmount();
+});
+test('a wish pressed on a saved property is not a wish: the card calls the approval hook directly', async () => {
+  const { h, fields, confirmMap } = unifiedHarness('none', { locationShare: shareService().service }); await h.settle(); fields(); await confirmMap();
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.ok(h.vm().workspacePropertyId);
+  h.vm().setShareLocationWanted(true); h.flush(); await h.settle(); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false, 'once saved there is nothing to queue'); h.unmount();
+});
+
+// ---- Stage 3: one editor per state
+import { LISTING_CHANGED_MESSAGE, LISTING_NOT_EDITABLE_MESSAGE, TENANCY_BINDING_MESSAGE } from '../src/features/property-listing/models/RefusalMessages';
+const routineContext = (f: any) => ({ owner_id: 'test-owner', property_id: f.backend.propertyId, edit_version: '60000000-0000-4000-8000-000000000001', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: 1, bathrooms: 1, floor_area_sqm: 30, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false });
+/** A saved listing in the given state, opened the way the card opens it, with a recording published-update service. */
+async function editorFixture(status: 'draft' | 'active' | 'paused', over: { refuse?: string; routineRefuse?: string; routineSave?: (d: any) => Promise<any> } = {}) {
+  const f = savedHydrationHarness(); await f.init();
+  f.setRow({ ...f.getRow(), status, completeness_score: 1, published_at: status === 'draft' ? null : '2026-11-01T00:00:00Z', asking_rent_monthly: 15000 });
+  const saved: any[] = []; let routine = routineContext(f); let H: any;
+  const service = { ...f.backend.service, read: async () => f.getRow(), save: async (_c: any, d: any, expected: any) => { saved.push({ rent: d.askingRent, listingId: expected.listingId }); if (over.refuse) throw H.draftConflict(over.refuse); const row = { ...f.getRow(), title: d.title, asking_rent_monthly: Number(d.askingRent) }; f.setRow(row); return row; } };
+  const h = f.mount({ load: async () => routine, hasPending: async () => false, save: async (_c: any, d: any) => { if (over.routineRefuse) throw H.propertyEditError(over.routineRefuse, 'rejected'); if (over.routineSave) return over.routineSave(d); routine = { ...routine, bedrooms: Number(d.bedrooms), edit_version: '60000000-0000-4000-8000-000000000002' }; return routine; } }, undefined, service);
+  H = h; await h.settle();
+  return { f, h, saved, id: f.backend.propertyId };
+}
+const settle2 = async (h: any) => { await h.settle(); await h.settle(); h.flush(); };
+
+for (const status of ['draft', 'active', 'paused'] as const) test(`${status}: the card button and "Edit property details" both open the same wizard at Step 1, and nothing opens a property-only screen`, async () => {
+  const open = async (action: 'primary' | 'details') => {
+    const { h, id } = await editorFixture(status);
+    if (action === 'details') h.vm().editPortfolioPropertyDetails(id);
+    else if (status === 'draft') h.vm().openPortfolioItem(id);      // Continue editing
+    else h.vm().editPortfolioListing(id);                            // Edit listing
+    await settle2(h);
+    const seen = { screen: h.vm().screen, wizard: h.vm().postingWizard, mode: h.vm().editorMode, step: h.vm().postingStep, listing: h.vm().workspaceListingId };
+    h.unmount(); return seen;
+  };
+  const primary = await open('primary'), details = await open('details');
+  assert.deepEqual(primary, details, 'one editor');
+  assert.equal(primary.screen, 'listingComposer'); assert.equal(primary.wizard, true); assert.equal(primary.step, 1);
+  assert.equal(primary.mode, status === 'draft' ? 'draft' : 'published');
+  assert.ok(primary.listing, 'the original listing is the one being edited');
+});
+for (const status of ['active', 'paused'] as const) test(`${status}: "Manage status" opens the status screen, which is not an editor`, async () => {
+  const { h, id } = await editorFixture(status); h.vm().openPortfolioItem(id); await settle2(h);
+  assert.equal(h.vm().screen, 'published'); assert.equal(h.vm().postingWizard, false); h.unmount();
+});
+test('no listing: Continue posting resumes at the first incomplete step; Edit property details opens Step 1', async () => {
+  const mk = (floor: number | null) => ({ propertyId: 'p-1', property: { id: 'p-1', is_active: true, property_type: 'apartment', city: 'imus', furnishing_status: 'unfurnished', floor_area_sqm: floor }, currentListing: null, listings: [], tier3: { status: 'not_submitted' } });
+  const run = async (floor: number | null, action: 'continue' | 'details') => {
+    const c: any = { owner_id: 'test-owner', property_id: 'p-1', edit_version: '60000000-0000-4000-8000-000000000001', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: 1, bathrooms: 1, floor_area_sqm: floor, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false };
+    const h = mountProperty(null, {}, { restore: async () => null }, undefined, undefined, { initialScreen: 'dashboard', portfolio: { user: async () => 'test-owner', assertUser: async () => {}, load: async () => [mk(floor)] }, routine: { load: async () => c, hasPending: async () => false } });
+    await h.settle(); if (action === 'continue') h.vm().continuePortfolioPosting('p-1'); else h.vm().editPortfolioPropertyDetails('p-1'); await settle2(h);
+    const seen = [h.vm().screen, h.vm().postingWizard, h.vm().workspaceListingId]; h.unmount(); return seen;
+  };
+  assert.deepEqual(await run(30, 'continue'), ['listingDetails', true, null], 'Step 1 is complete, so resume at the Listing step');
+  assert.deepEqual(await run(null, 'continue'), ['listingComposer', true, null], 'a size the range needs is missing, so resume at Step 1');
+  assert.deepEqual(await run(30, 'details'), ['listingComposer', true, null]);
+});
+test('archived: Create a new listing opens the Listing step and Edit property details opens Step 1, both on the same property with no listing id', async () => {
+  const mk = () => ({ propertyId: 'p-2', property: { id: 'p-2', is_active: true, property_type: 'apartment', city: 'imus', furnishing_status: 'unfurnished', floor_area_sqm: 30 }, currentListing: { id: 'l-old', status: 'archived', property_id: 'p-2' }, listings: [], tier3: { status: 'not_submitted' } });
+  const c: any = { owner_id: 'test-owner', property_id: 'p-2', edit_version: '60000000-0000-4000-8000-000000000001', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: 1, bathrooms: 1, floor_area_sqm: 30, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false };
+  const run = async (action: 'create' | 'details') => {
+    const h = mountProperty(null, {}, { restore: async () => null }, undefined, undefined, { initialScreen: 'dashboard', portfolio: { user: async () => 'test-owner', assertUser: async () => {}, load: async () => [mk()] }, routine: { load: async () => c, hasPending: async () => false } });
+    await h.settle(); if (action === 'create') h.vm().createListingForProperty('p-2'); else h.vm().editPortfolioPropertyDetails('p-2'); await settle2(h);
+    const seen = [h.vm().screen, h.vm().postingWizard, h.vm().workspaceListingId, h.vm().workspacePropertyId]; h.unmount(); return seen;
+  };
+  assert.deepEqual(await run('create'), ['listingDetails', true, null, 'p-2']);
+  assert.deepEqual(await run('details'), ['listingComposer', true, null, 'p-2']);
+});
+
+for (const status of ['active', 'paused'] as const) test(`${status}: the rent is changed on the Price step (typed or from the range) and saved once on Review through the published update`, async () => {
+  for (const how of ['typed', 'slider'] as const) {
+    const { h, saved, id } = await editorFixture(status);
+    h.vm().editPortfolioListing(id); await settle2(h);
+    await h.vm().nextListingDetails(); await settle2(h); assert.equal(h.vm().screen, 'listingDetails');
+    h.vm().continuePostingEstimate(); h.flush(); assert.equal(h.vm().screen, 'postingEstimate');
+    if (how === 'typed') h.vm().typeAskingRent('18000'); else assert.equal(h.vm().applyRentFromRange(18500), true);
+    h.flush(); assert.equal(h.vm().draft.askingRent, how === 'typed' ? '18000' : '18500');
+    await h.vm().continuePostingReview(); await settle2(h); assert.equal(h.vm().screen, 'postingReview');
+    assert.equal(saved.length, 0, 'nothing is saved before Save changes');
+    await h.vm().saveComposerDraft(); await settle2(h);
+    assert.deepEqual(saved, [{ rent: how === 'typed' ? '18000' : '18500', listingId: h.vm().workspaceListingId }], 'one published update with the new rent');
+    assert.equal(h.vm().listingDraftState.lastConfirmed?.status, status, 'the status is preserved');
+    assert.equal(h.vm().listingDraftState.lastConfirmed?.asking_rent_monthly, how === 'typed' ? 18000 : 18500);
+    h.unmount();
+  }
+});
+test('in edit mode the Listing step no longer asks for rent; the Price step does, and refuses to continue without one', async () => {
+  const { h, saved, id } = await editorFixture('active'); h.vm().editPortfolioListing(id); await settle2(h);
+  await h.vm().nextListingDetails(); await settle2(h);
+  h.vm().updateDraft('askingRent', ''); h.flush();
+  h.vm().continuePostingEstimate(); h.flush();
+  assert.equal(h.vm().screen, 'postingEstimate', 'Step 2 does not need the rent');
+  assert.equal(h.vm().priceIssue?.field, 'askingRent');
+  await h.vm().continuePostingReview(); await settle2(h);
+  assert.equal(h.vm().screen, 'postingEstimate', 'Price blocks until the rent is usable'); assert.equal(h.vm().priceAttempted, true);
+  h.vm().typeAskingRent('16000'); h.flush(); await h.vm().continuePostingReview(); await settle2(h);
+  assert.equal(h.vm().screen, 'postingReview'); assert.deepEqual(saved, []); h.unmount();
+});
+test('a draft still saves through the draft path when leaving the Price step', async () => {
+  const { f, h, id } = await editorFixture('draft'); h.vm().openPortfolioItem(id); await settle2(h);
+  await h.vm().nextListingDetails(); await settle2(h); h.vm().continuePostingEstimate(); h.flush(); h.vm().typeAskingRent('17000'); h.flush();
+  const before = f.backend.calls(); await h.vm().continuePostingReview(); await settle2(h);
+  assert.equal(h.vm().screen, 'postingReview'); assert.equal(f.backend.calls() - before, 1, 'one draft save'); h.unmount();
+});
+
+const refusals: [string, string][] = [['changed elsewhere', LISTING_CHANGED_MESSAGE], ['no longer editable', LISTING_NOT_EDITABLE_MESSAGE]];
+for (const [name, message] of refusals) test(`a published save refused because the listing ${name} keeps the owner's edits, shows the plain message and offers a reload`, async () => {
+  const { h, id } = await editorFixture('active', { refuse: message });
+  h.vm().editPortfolioListing(id); await settle2(h); await h.vm().nextListingDetails(); await settle2(h);
+  h.vm().updateDraft('title', 'My new title'); h.flush(); h.vm().continuePostingEstimate(); h.flush(); h.vm().typeAskingRent('19000'); h.flush();
+  await h.vm().continuePostingReview(); await settle2(h);
+  await h.vm().saveComposerDraft(); await settle2(h);
+  assert.equal(h.vm().screen, 'postingReview', 'the owner stays where they are');
+  assert.equal(h.vm().draft.askingRent, '19000'); assert.equal(h.vm().draft.title, 'My new title', 'every edit is still on screen');
+  assert.equal(h.vm().listingDraftState.error, message);
+  assert.equal(h.vm().listingDraftState.conflict, true);
+  assert.equal(h.vm().listingDraftState.lastConfirmed?.asking_rent_monthly, 15000, 'the saved version is untouched');
+  h.unmount();
+});
+test('a property save refused by an active tenancy keeps the owner on Step 1 with the edits and the plain explanation', async () => {
+  const { h, id } = await editorFixture('active', { routineRefuse: TENANCY_BINDING_MESSAGE });
+  h.vm().editPortfolioListing(id); await settle2(h);
+  h.vm().propertyRoutine.update('bedrooms', '3'); h.flush();
+  await h.vm().nextListingDetails(); await settle2(h);
+  assert.equal(h.vm().screen, 'listingComposer', 'the refused save does not move on');
+  assert.equal(h.vm().propertyRoutineState.draft?.bedrooms, '3', 'the edit is still on screen');
+  assert.equal(h.vm().propertyRoutineState.error, TENANCY_BINDING_MESSAGE);
+  assert.match(TENANCY_BINDING_MESSAGE, /^Existing agreements remain binding/);
+  h.unmount();
+});
+
+test('the step header reaches every step from every step, in edit mode and for a draft', async () => {
+  for (const status of ['active', 'draft'] as const) {
+    const { h, id, saved } = await editorFixture(status);
+    if (status === 'draft') h.vm().openPortfolioItem(id); else h.vm().editPortfolioListing(id);
+    await settle2(h); assert.equal(h.vm().postingStep, 1);
+    let at = 1;
+    for (const next of [2, 3, 4, 1, 3, 2, 4, 2, 1, 4, 3, 1]) {
+      h.vm().goToPostingStep(next as 1 | 2 | 3 | 4); await settle2(h);
+      assert.equal(h.vm().postingStep, next, `${status}: ${at} -> ${next}`); at = next;
+    }
+    if (status === 'active') assert.deepEqual(saved, [], 'moving between steps never saves the listing: only Save changes does');
+    h.unmount();
+  }
+});
+test('leaving Step 1 by the header saves property changes first, then lands on the tapped step', async () => {
+  let saves = 0;
+  const { h, id } = await editorFixture('active', { routineSave: async (d: any) => { saves++; return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: Number(d.bedrooms), bathrooms: 1, floor_area_sqm: 30, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false }; } });
+  h.vm().editPortfolioListing(id); await settle2(h);
+  h.vm().propertyRoutine.update('bedrooms', '2'); h.flush();
+  h.vm().goToPostingStep(3); await settle2(h);
+  assert.equal(saves, 1, 'the property was saved before leaving Step 1'); assert.equal(h.vm().postingStep, 3); assert.equal(h.vm().propertySummary.bedrooms, '2'); h.unmount();
+});
+test('a refused property save on a header tap keeps the owner on Step 1, keeps the edits and drops the pending destination', async () => {
+  const { h, id } = await editorFixture('active', { routineRefuse: TENANCY_BINDING_MESSAGE });
+  h.vm().editPortfolioListing(id); await settle2(h);
+  h.vm().propertyRoutine.update('bedrooms', '4'); h.flush();
+  h.vm().goToPostingStep(3); await settle2(h);
+  assert.equal(h.vm().postingStep, 1); assert.equal(h.vm().propertyRoutineState.draft?.bedrooms, '4'); assert.equal(h.vm().returnTo ?? null, null, 'no stale "Save and return"');
+  h.vm().goToPostingStep(1); await settle2(h); assert.equal(h.vm().postingStep, 1); h.unmount();
+});
+test('the step header does nothing outside the wizard', async () => {
+  const h = mountProperty(null, {}, undefined, undefined, undefined, { initialScreen: 'dashboard' }); await h.settle(); h.vm().goToPostingStep(3); h.flush(); assert.equal(h.vm().screen, 'dashboard'); h.unmount();
+});
+
+// ---- Stage 3: the header's checks, its no-ops, and the cards that cannot be edited
+const atStep = async (h: any, id: string, step: 1 | 2 | 3 | 4, kind: 'published' | 'draft' = 'published') => {
+  if (kind === 'draft') h.vm().openPortfolioItem(id); else h.vm().editPortfolioListing(id);
+  await settle2(h);
+  for (let s = 1; s < step; s++) { h.vm().goToPostingStep((s + 1) as 1 | 2 | 3 | 4); await settle2(h); }
+  assert.equal(h.vm().postingStep, step);
+};
+test('tapping the step you are already on does nothing, on every step', async () => {
+  for (const step of [1, 2, 3, 4] as const) {
+    const { h, id, saved } = await editorFixture('active'); await atStep(h, id, step);
+    const before = [h.vm().screen, h.vm().workspaceListingId, saved.length];
+    h.vm().goToPostingStep(step); await settle2(h);
+    assert.equal(h.vm().postingStep, step, `step ${step} stays`); assert.deepEqual([h.vm().screen, h.vm().workspaceListingId, saved.length], before); h.unmount();
+  }
+});
+test('the header runs the Listing step checks before leaving it forward, and shows the reason', async () => {
+  const { h, id } = await editorFixture('active'); await atStep(h, id, 2);
+  h.vm().updateDraft('title', ''); h.flush();
+  h.vm().goToPostingStep(3); await settle2(h);
+  assert.equal(h.vm().postingStep, 2, 'blocked'); assert.ok(h.vm().composerNotice, 'with the reason');
+  h.vm().goToPostingStep(4); await settle2(h);
+  assert.equal(h.vm().postingStep, 2, 'blocked on the way to Review too'); h.unmount();
+});
+test('the header runs the Price checks before leaving it forward', async () => {
+  const { h, id } = await editorFixture('active'); await atStep(h, id, 3);
+  h.vm().typeAskingRent(''); h.flush();
+  h.vm().goToPostingStep(4); await settle2(h);
+  assert.equal(h.vm().postingStep, 3, 'no Review without a usable rent'); assert.equal(h.vm().priceAttempted, true); h.unmount();
+});
+test('the header cannot skip the rent: from the Listing step straight to Review needs a usable rent', async () => {
+  const { h, id } = await editorFixture('active'); await atStep(h, id, 2);
+  h.vm().updateDraft('askingRent', ''); h.flush();
+  h.vm().goToPostingStep(4); await settle2(h);
+  assert.equal(h.vm().postingStep, 2); assert.equal(h.vm().priceAttempted, true); assert.ok(h.vm().composerNotice);
+  h.vm().updateDraft('askingRent', '16500'); h.flush(); h.vm().goToPostingStep(4); await settle2(h);
+  assert.equal(h.vm().postingStep, 4, 'with a rent it goes through'); h.unmount();
+});
+test('the Listing step itself no longer reports a missing rent in edit mode', async () => {
+  const { h, id } = await editorFixture('paused'); await atStep(h, id, 2);
+  h.vm().updateDraft('askingRent', ''); h.flush();
+  assert.equal(h.vm().listingStepIssue, null, 'the rent is the Price step job'); h.unmount();
+});
+test('going back by the header drops a pending "save and return" destination', async () => {
+  const { h, id } = await editorFixture('draft'); await atStep(h, id, 4, 'draft');
+  h.vm().editPostingStep('price'); await settle2(h); assert.equal(h.vm().postingStep, 3); assert.equal(h.vm().returnTo, 'postingReview');
+  h.vm().goToPostingStep(2); await settle2(h);
+  assert.equal(h.vm().postingStep, 2); assert.equal(h.vm().returnTo ?? null, null, 'Continue would otherwise jump back to Review'); h.unmount();
+});
+test('a header tap is ignored while a property save is running, so nothing saves twice', async () => {
+  let release!: () => void, saves = 0;
+  const gate = new Promise<void>(r => { release = r; });
+  const { h, id } = await editorFixture('active', { routineSave: async (d: any) => { saves++; await gate; return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: Number(d.bedrooms), bathrooms: 1, floor_area_sqm: 30, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false }; } });
+  h.vm().editPortfolioListing(id); await settle2(h);
+  h.vm().propertyRoutine.update('bedrooms', '2'); h.flush();
+  const first = h.vm().nextListingDetails(); await h.settle(); h.flush();
+  h.vm().goToPostingStep(3); h.vm().goToPostingStep(4); h.flush();
+  release(); await first; await settle2(h);
+  assert.equal(saves, 1, 'one save'); h.unmount();
+});
+test('Edit property details does nothing for a card that cannot be edited', async () => {
+  const mk = (over: any) => ({ propertyId: 'p-9', property: { id: 'p-9', is_active: true, property_type: 'apartment', city: 'imus', furnishing_status: 'unfurnished', floor_area_sqm: 30, ...over.property }, currentListing: over.listing, listings: [], tier3: { status: 'not_submitted' } });
+  const c: any = { owner_id: 'test-owner', property_id: 'p-9', edit_version: '60000000-0000-4000-8000-000000000001', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: 1, bathrooms: 1, floor_area_sqm: 30, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false };
+  for (const over of [{ property: { is_active: false }, listing: null }, { property: {}, listing: { id: 'l', status: 'removed', property_id: 'p-9' } }, { property: {}, listing: { id: 'l', status: 'rented', property_id: 'p-9' } }]) {
+    const h = mountProperty(null, {}, { restore: async () => null }, undefined, undefined, { initialScreen: 'dashboard', portfolio: { user: async () => 'test-owner', assertUser: async () => {}, load: async () => [mk(over)] }, routine: { load: async () => c, hasPending: async () => false } });
+    await h.settle(); h.vm().editPortfolioPropertyDetails('p-9'); await settle2(h);
+    assert.equal(h.vm().screen, 'dashboard'); assert.equal(h.vm().workspacePropertyId, null); h.unmount();
+  }
+});
+
+// ---- Stage 0: typing on the Listing step never waits on a background check
+const findAll = (tree: any, pred: (n: any) => boolean): any[] => {
+  const out: any[] = [], seen = new Set<any>();
+  const walk = (v: any) => { if (!v || typeof v !== 'object' || seen.has(v)) return; seen.add(v); if (Array.isArray(v)) { v.forEach(walk); return; } if (v.props) { if (pred(v)) out.push(v); walk(v.props.children); walk(v.props.footer); walk(v.props.guidance); walk(v.props.helper); } };
+  walk(tree); return out;
+};
+const footerAction = (h: any) => findAll(h.detailsView(), n => !!n.props?.action)[0].props.action;
+const titleField = (h: any) => findAll(h.detailsView(), n => n.props?.label === 'Listing title')[0];
+const arriveAtListing = async (opts: any = {}) => {
+  let release!: () => void; const gate = new Promise<void>(r => { release = r; });
+  const fixture = unifiedHarness(opts.failure ?? 'none', { routineGate: gate, ...opts }); const { h, fields, confirmMap } = fixture; await h.settle(); fields(); await confirmMap();
+  let done = false; const p = h.vm().nextListingDetails().then(() => { done = true; });
+  // On a device React renders and runs effects while the first save is still waiting on the property read.
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  release();
+  while (!done) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  await p; await h.settle(); await h.settle(); h.flush();
+  return fixture;
+};
+test('arriving at Listing after the first save: the title is editable and the saved-listing check has run', async () => {
+  const { h } = await arriveAtListing();
+  assert.equal(h.vm().screen, 'listingDetails');
+  assert.equal(h.vm().publicationState.loaded, true, 'the check ran for the new property');
+  assert.equal(h.vm().listingDraftReadOnly, false);
+  assert.equal(titleField(h).props.editable, true, 'the title takes input');
+  assert.equal(h.vm().listingCheck.state, 'ok');
+  assert.equal(h.vm().listingEditExplanation, null); h.unmount();
+});
+test('typing never waits on the check: a check that never finishes leaves every field editable, and only Continue waits, with a reason', async () => {
+  const { h } = await arriveAtListing({ publication: { restore: () => new Promise(() => {}) } });
+  assert.equal(h.vm().screen, 'listingDetails');
+  assert.equal(h.vm().publicationState.loaded, false, 'the check is still running');
+  assert.equal(titleField(h).props.editable, true);
+  assert.equal(findAll(h.detailsView(), n => n.props?.label === 'Description')[0].props.editable, true);
+  h.vm().updateDraft('title', 'Typed while checking'); h.flush();
+  assert.equal(h.vm().draft.title, 'Typed while checking', 'the text is kept');
+  assert.equal(h.vm().listingCheck.state, 'checking');
+  assert.equal(h.vm().listingWriteBlockedReason, 'Checking this listing…');
+  assert.equal(footerAction(h).label, 'Continue to Price · waiting for check'); assert.equal(footerAction(h).disabled, true, 'a write waits');
+  h.vm().continuePostingEstimate(); h.flush(); assert.equal(h.vm().screen, 'listingDetails', 'and does nothing while it waits');
+  h.vm().goBack(); h.flush(); assert.notEqual(h.vm().screen, 'listingDetails', 'Back always works'); h.unmount();
+});
+test('a failed check shows "Couldn\'t check this listing", keeps typing open, and Retry runs the check again', async () => {
+  let attempts = 0, fail = true;
+  const { h } = await arriveAtListing({ publication: { restore: async () => { attempts++; if (fail) throw new Error('offline'); return null; } } });
+  assert.equal(h.vm().publicationState.loaded, false);
+  assert.equal(h.vm().listingCheck.state, 'failed'); assert.equal(h.vm().listingCheck.message, "Couldn't check this listing");
+  assert.equal(titleField(h).props.editable, true);
+  const before = attempts; fail = false;
+  await h.vm().retryListingCheck(); await h.settle(); h.flush();
+  assert.equal(attempts, before + 1, 'Retry actually re-ran the check');
+  assert.equal(h.vm().publicationState.loaded, true); assert.equal(h.vm().listingCheck.state, 'ok');
+  assert.equal(footerAction(h).disabled, false); h.unmount();
+});
+test('Retry also works when the check is stuck running: it abandons the stuck call and starts a new one', async () => {
+  let calls = 0;
+  const { h } = await arriveAtListing({ publication: { restore: () => { calls++; return calls === 1 ? new Promise(() => {}) : Promise.resolve(null); } } });
+  assert.equal(h.vm().listingCheck.state, 'checking'); assert.equal(h.vm().publicationState.busy, true);
+  await h.vm().retryListingCheck(); await h.settle(); h.flush();
+  assert.equal(calls >= 2, true); assert.equal(h.vm().publicationState.loaded, true); assert.equal(h.vm().listingCheck.state, 'ok'); h.unmount();
+});
+test('the existing guards still hold: a listing that is no longer a draft is not editable, and an inactive property is not editable', async () => {
+  const f = savedHydrationHarness(); await f.init(); f.setRow({ ...f.getRow(), status: 'archived' });
+  const h = f.mount({ load: async () => routineContext(f), hasPending: async () => false }); await h.settle();
+  h.vm().openPortfolioItem(f.backend.propertyId); await settle2(h);
+  assert.equal(h.vm().screen, 'published'); assert.equal(h.vm().listingDraftReadOnly, true, 'archived stays locked'); h.unmount();
+});
+test('writes still refuse while a publish is uncertain, even though typing is open', async () => {
+  const { h } = await arriveAtListing({ publication: { restore: async () => ({ pending: true, row: { id: 'l', property_id: '10000000-0000-4000-8000-000000000001', status: 'draft' } }) } });
+  assert.equal(h.vm().publicationState.uncertain, true);
+  assert.equal(h.vm().listingDraftReadOnly, false, 'the fields are open');
+  assert.ok(h.vm().listingWriteBlockedReason, 'a write waits, with a reason');
+  h.vm().continuePostingEstimate(); h.flush(); assert.equal(h.vm().screen, 'listingDetails'); h.unmount();
+});
+
+// ---- Stage 0 follow-ups: the heal effect cannot loop, and typed text survives a check that finds a non-draft listing
+test('a failed check is not retried on its own: renders and effects do not re-fire it, only Retry does', async () => {
+  let attempts = 0;
+  const { h } = await arriveAtListing({ publication: { restore: async () => { attempts++; for (let i = 0; i < 3; i++) await new Promise<void>(r => setImmediate(r)); throw new Error('offline'); } } });
+  // the failure arrives a tick later, so a render happens while it is busy and another after it fails (where a loop would start)
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  assert.equal(h.vm().listingCheck.state, 'failed');
+  const afterArrival = attempts;
+  for (let i = 0; i < 25; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); h.vm().updateDraft('title', `Typing ${i}`); }
+  await h.settle(); h.flush();
+  assert.equal(attempts, afterArrival, 'no automatic retry after the failure, however many renders happen');
+  assert.equal(h.vm().listingCheck.state, 'failed');
+  const retrying = h.vm().retryListingCheck();
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  await retrying; await h.settle(); h.flush();
+  assert.equal(attempts, afterArrival + 1, 'Retry runs it exactly once');
+  assert.equal(h.vm().listingCheck.state, 'failed', 'and a second failure stays failed without looping');
+  for (let i = 0; i < 10; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  assert.equal(attempts, afterArrival + 1); h.unmount();
+});
+test('typing while the check runs, then the check finds the listing is not a draft: the text is kept, the page locks, and says why', async () => {
+  let release!: (v: any) => void; const gate = new Promise<any>(r => { release = r; });
+  const { h, backend } = await arriveAtListing({ publication: { restore: () => gate } });
+  assert.equal(h.vm().listingCheck.state, 'checking');
+  h.vm().updateDraft('title', 'Typed while checking'); h.flush();
+  const saved = await backend.service.read();
+  assert.equal(h.vm().draft.title, 'Typed while checking');
+  release({ row: { ...saved, status: 'archived' }, operations: [] });
+  await h.settle(); await h.settle(); h.flush();
+  assert.equal(h.vm().publicationState.status, 'archived');
+  assert.equal(h.vm().draft.title, 'Typed while checking', 'nothing discarded');
+  assert.equal(h.vm().listingDraftReadOnly, true, 'the page locks');
+  assert.equal(h.vm().listingEditExplanation, 'This listing is no longer a draft. Content editing is unavailable; use its listing management actions.');
+  h.vm().updateDraft('title', 'More typing'); h.flush();
+  assert.equal(h.vm().draft.title, 'Typed while checking', 'further typing is refused once locked'); h.unmount();
+});
+
+// ---- Stage 1: quiet on arrival, one footer line, and the consent decision
+test('Step 1 is quiet on arrival: no error is visible, and one plain footer line names what is missing', async () => {
+  const { h } = unifiedHarness(); await h.settle();
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'no red anywhere');
+  assert.equal(h.vm().propertyValidationIssue, null);
+  assert.equal(h.vm().propertyNextStatus, 'Choose a property type', 'one line that names what is missing: the type comes first');
+  assert.equal(h.vm().propertyNextDisabled, true);
+  for (let i = 0; i < 5; i++) { h.flush(); await new Promise<void>(r => setImmediate(r)); }
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'and it stays quiet while nobody touches anything'); h.unmount();
+});
+test('an error shows only after its field was left, and only for that field', async () => {
+  const { h } = unifiedHarness(); await h.settle(); const flow = h.vm().propertyCreation;
+  flow.updateField('barangay', 'x'); flow.updateField('barangay', ''); flow.updateField('addressLine1', ''); h.flush();
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'typing and clearing is not leaving');
+  h.vm().markPropertyFieldTouched('barangay'); h.flush();
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues.map((i: any) => i.field), ['barangay'], 'only the field that was left');
+  flow.updateField('barangay', 'Anabu'); h.flush();
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'and it clears when corrected'); h.unmount();
+});
+test('the footer line follows the form: missing fields, then the location, then ready', async () => {
+  const { h, fields, pinMap } = unifiedHarness(); await h.settle();
+  fields(); h.flush();
+  assert.equal(h.vm().propertyNextStatus, 'Confirm the location to continue', 'with every field filled, only the location is left');
+  await pinMap();
+  assert.equal(h.vm().propertyNextStatus, 'Confirm the location to continue', 'a pin alone is not the confirmation');
+  h.vm().setShareLocationWanted(false); h.flush();
+  assert.match(h.vm().propertyNextStatus, /^\d of 8 range details · saves your property$/); h.unmount();
+});
+test('a pin is not enough: one of the two consent buttons must confirm it before Continue works', async () => {
+  const { h, fields, pinMap, events } = unifiedHarness(); await h.settle(); fields(); await pinMap();
+  assert.equal(h.vm().locationDecided, false); assert.equal(h.vm().propertyNextDisabled, true);
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.equal(h.vm().screen, 'listingComposer'); assert.equal(h.vm().workspacePropertyId, null); assert.deepEqual(events, [], 'the action itself refuses, not only the disabled button');
+  h.vm().setShareLocationWanted(false); h.flush();
+  assert.equal(h.vm().locationDecided, true); assert.equal(h.vm().locationShared, false); assert.equal(h.vm().shareLocationWanted, false); assert.equal(h.vm().propertyNextDisabled, false);
+  h.vm().changeLocationChoice(); h.flush();
+  assert.equal(h.vm().locationDecided, false, 'Change asks again'); assert.equal(h.vm().propertyNextDisabled, true);
+  h.vm().setShareLocationWanted(true); h.flush();
+  assert.equal(h.vm().locationDecided, true); assert.equal(h.vm().locationShared, true); assert.equal(h.vm().shareLocationWanted, true, 'the wish is exactly what it was'); h.unmount();
+});
+test("a moved pin or an edited address asks again; the type or floor does not undo Confirm, don't share but does undo a share", async () => {
+  const noShare = unifiedHarness(); await noShare.h.settle(); noShare.fields(); await noShare.pinMap(); noShare.h.vm().setShareLocationWanted(false); noShare.h.flush();
+  assert.equal(noShare.h.vm().locationDecided, true);
+  noShare.h.vm().propertyCreation.updateField('propertyType', 'condominium'); noShare.h.vm().propertyCreation.updateField('floorNumber', '4'); noShare.h.flush();
+  assert.equal(noShare.h.vm().locationDecided, true, "type and floor do not change a don't-share choice");
+  noShare.h.vm().propertyCreation.updateField('barangay', 'Another'); noShare.h.flush();
+  assert.equal(noShare.h.vm().locationDecided, false, 'an edited address clears the pin and the decision');
+  assert.equal(noShare.h.vm().propertyNextDisabled, true);
+  await noShare.pinMap();
+  assert.equal(noShare.h.vm().locationDecided, false, 'a new pin is a new question'); noShare.h.unmount();
+  const share = unifiedHarness(); await share.h.settle(); share.fields(); await share.pinMap(); share.h.vm().setShareLocationWanted(true); share.h.flush();
+  assert.equal(share.h.vm().locationDecided, true);
+  share.h.vm().propertyCreation.updateField('propertyType', 'condominium'); share.h.flush(); await share.h.settle(); share.h.flush();
+  assert.equal(share.h.vm().shareLocationWanted, false, 'the share wish is cleared by the identity change, as before');
+  assert.equal(share.h.vm().locationDecided, false, 'so a share decision no longer stands');
+  assert.equal(share.h.vm().shareLocationNotice, 'Location changed. Confirm sharing again.'); share.h.unmount();
+});
+test('once the location is confirmed the property saves, and nothing is left over', async () => {
+  const { h, fields, pinMap, events } = unifiedHarness(); await h.settle(); fields(); await pinMap(); h.vm().setShareLocationWanted(false); h.flush();
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.deepEqual(events.slice(0, 1), ['property'], 'it saves once the location is confirmed');
+  assert.ok(h.vm().workspacePropertyId); h.flush();
+  assert.equal(h.vm().shareLocationWanted, false); h.unmount();
+});
+
+// ---- Stage 1 follow-up: the consent decision belongs to a NEW unsaved property only
+test('a saved property never needs a fresh location decision: Continue works, and the map and address are closed to edits', async () => {
+  const { h, fields, confirmMap } = unifiedHarness(); await h.settle(); fields(); await confirmMap();
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.ok(h.vm().workspacePropertyId);
+  while (h.vm().screen !== 'listingComposer') { h.vm().goBack(); h.flush(); await h.settle(); }
+  assert.equal(h.vm().editorMode, 'draft'); assert.equal(h.vm().propertyRoutineState.status, 'ready');
+  assert.equal(h.vm().locationDecided, false, 'there is no decision in this session, and none is needed');
+  assert.equal(h.vm().propertyNextDisabled, false, 'Continue is enabled without asking again');
+  h.vm().openPropertyLocation(); await h.settle(); h.flush();
+  assert.equal(h.vm().locationState.stage, 'closed', 'the pin cannot be moved on a saved property');
+  const addressBefore = JSON.stringify(h.vm().propertyState.draft);
+  h.vm().propertyCreation.updateField('barangay', 'Edited after saving'); h.flush();
+  assert.equal(JSON.stringify(h.vm().propertyState.draft), addressBefore, 'the address cannot be edited on a saved property');
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'listingDetails', 'Continue proceeds'); h.unmount();
+});
+test('the consent gate is written for a new property only', () => {
+  const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
+  assert.match(vm, /\|\|\(postingWizard&&!workspace\.propertyId&&!locationDecided\);/, 'the disabled state');
+  const next = vm.match(/nextListingDetails: async \(\) => \{[\s\S]*?\n    \},/)![0];
+  assert.ok(next.indexOf('if(postingWizard&&!locationDecided)return;') > next.indexOf('if(!workspaceRef.current.propertyId){'), 'inside the new-property branch');
+  assert.ok(next.indexOf('if(postingWizard&&!locationDecided)return;') < next.indexOf('propertyCreation.submit(true)'), 'before anything is saved');
+});
+
+// ---- Stage 2: the Listing step layout (wireframe pages 2a to 2c)
+const topLines = (h: any) => {
+  const tree = h.detailsView();
+  return { check: findAll(tree, n => n.type === 'ListingCheckLine')[0], saved: findAll(tree, n => n.type === 'ListingSavedLine')[0], tree };
+};
+test('2a after the first save: one slim "Property saved ✓" line, not a card, and the button reads Continue to Price', async () => {
+  const { h } = await arriveAtListing();
+  assert.equal(h.vm().composerNotice, 'Property saved');
+  const { check, saved, tree } = topLines(h);
+  assert.ok(saved, 'the slim line is there'); assert.equal(saved.props.text, 'Property saved ✓');
+  assert.equal(check.props.state, 'ok', 'and the check line stays out of the way');
+  assert.equal(findAll(tree, n => n.type === 'FeedbackNotice' && n.props.message === 'Property saved').length, 0, 'not repeated as a card');
+  assert.equal(findAll(tree, n => n.type === 'ComposerRecoveryFeedback')[0].props.slimSaved, true);
+  assert.equal(footerAction(h).label, 'Continue to Price'); assert.equal(footerAction(h).disabled, false);
+  assert.equal(findAll(tree, n => n.props?.accessibilityLiveRegion === 'polite' && n.type === 'Text' && /keep typing/.test(String(n.props.children))).length, 0, 'no waiting hint when nothing waits'); h.unmount();
+});
+test('2c while the check runs: the quiet checking line replaces the saved line, the button says it waits, and one hint says typing is fine', async () => {
+  const { h } = await arriveAtListing({ publication: { restore: () => new Promise(() => {}) } });
+  const { check, saved, tree } = topLines(h);
+  assert.equal(check.props.state, 'checking'); assert.equal(saved, undefined, 'one line at a time');
+  assert.equal(footerAction(h).label, 'Continue to Price · waiting for check'); assert.equal(footerAction(h).disabled, true);
+  const hints = findAll(tree, n => n.type === 'Text' && /keep typing/.test(String(n.props.children)));
+  assert.deepEqual(hints.map(n => n.props.children), ['You can keep typing. Only saving waits.']); h.unmount();
+});
+test('2b after a failed check: the amber line with Retry, a waiting button, and a hint that points at Retry', async () => {
+  let fail = true;
+  const { h } = await arriveAtListing({ publication: { restore: async () => { if (fail) throw new Error('offline'); return null; } } });
+  const { check, saved, tree } = topLines(h);
+  assert.equal(check.props.state, 'failed'); assert.equal(saved, undefined);
+  assert.equal(footerAction(h).label, 'Continue to Price · waiting for check'); assert.equal(footerAction(h).disabled, true);
+  assert.deepEqual(findAll(tree, n => n.type === 'Text' && /Retry the check/.test(String(n.props.children))).map(n => n.props.children), ['Retry the check above to continue. You can keep typing.']);
+  assert.equal(titleField(h).props.editable, true, 'typing keeps working');
+  fail = false; check.props.onRetry(); await h.settle(); h.flush(); await h.settle(); h.flush();
+  assert.equal(topLines(h).check.props.state, 'ok'); assert.equal(footerAction(h).label, 'Continue to Price'); assert.equal(footerAction(h).disabled, false); h.unmount();
+});
+
+test('the description placeholder is the wireframe sentence, and the title has no invented counter (there is no enforced maximum)', async () => {
+  const { h } = await arriveAtListing();
+  assert.equal(findAll(h.detailsView(), n => n.props?.label === 'Description')[0].props.placeholder, 'Describe the place, the neighborhood and what is included.');
+  const title = titleField(h);
+  assert.equal(title.props.maxLength, undefined, 'the title field enforces no maximum, so none is shown');
+  const view = readFileSync('src/features/property-listing/views/ListingDetailsView.tsx', 'utf8');
+  assert.ok(!/ of 80|of \$\{|maxLength/.test(view), 'no counter and no limit in the view');
+  h.unmount();
+});
+
+// ---- Step 1 v6: the address is looked up on the page, one Confirm location button and a switch
+const hasPin = (h: any) => typeof h.vm().propertyState.draft.publicLatitude === 'number';
+const pause = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+const geocoded = (placeTypes?: string[]) => ({ id: 'geo-1', label: 'Matched place', longitude: 120.91, latitude: 14.41, ...(placeTypes ? { placeTypes } : {}) });
+/** Lets the debounce pass and the lookup finish, as it would while the person reads the page. */
+const afterLookup = async (h: any) => { h.flush(); await pause(800); await h.settle(); h.flush(); };
+test('v6: the address is looked up once the person stops typing, never while it is incomplete, and nothing is confirmed by the lookup', async () => {
+  const calls: string[] = [];
+  const { h, fields } = unifiedHarness('none', { searchAddress: async (q: string) => { calls.push(q); return [geocoded(['address'])]; } }); await h.settle();
+  const flow = h.vm().propertyCreation; flow.updateField('city', 'imus'); flow.updateField('barangay', 'Anabu'); await afterLookup(h);
+  assert.equal(calls.length, 0, 'no street yet: nothing is looked up'); assert.equal(h.vm().locationPreview.status, 'idle');
+  flow.updateField('addressLine1', '1'); flow.updateField('addressLine1', '12'); flow.updateField('addressLine1', '12 Mabini St'); h.flush();
+  assert.equal(calls.length, 0, 'while the person is still typing nothing is sent');
+  await afterLookup(h);
+  assert.equal(calls.length, 1, 'one lookup for the finished address'); assert.match(calls[0]!, /12 Mabini St/);
+  const p = h.vm().locationPreview;
+  assert.equal(p.status, 'ready'); assert.equal(p.precise, true);
+  assert.equal(h.vm().propertyState.draft.publicLatitude, null, 'the lookup only previews: no pin is in the draft'); assert.equal(h.vm().locationDecided, false); assert.equal(h.vm().propertyNextDisabled, true);
+  fields(); h.unmount();
+});
+test('v6: an edited address clears the preview at once and looks it up again', async () => {
+  let n = 0; const { h, fields } = unifiedHarness('none', { searchAddress: async () => { n++; return [geocoded(['address'])]; } }); await h.settle(); fields(); await afterLookup(h);
+  assert.equal(h.vm().locationPreview.status, 'ready'); const before = n;
+  h.vm().propertyCreation.updateField('addressLine1', 'Another street'); h.flush();
+  assert.equal(h.vm().locationPreview.status, 'idle', 'the old match is not kept for a different address');
+  assert.equal(h.vm().confirmLocation(true), false, 'and cannot be confirmed');
+  await afterLookup(h); assert.equal(n, before + 1); assert.equal(h.vm().locationPreview.status, 'ready'); h.unmount();
+});
+test('v6: switch ON then Confirm location shares the approximate area, through the same wish and the same two approval calls', async () => {
+  const s = shareService(); const { h, fields } = unifiedHarness('none', { locationShare: s.service, searchAddress: async () => [geocoded(['address'])] }); await h.settle(); fields(); await afterLookup(h);
+  assert.equal(h.vm().confirmLocation(true), true); h.flush();
+  assert.equal(h.vm().locationDecided, true); assert.equal(h.vm().locationShared, true); assert.equal(h.vm().shareLocationWanted, true);
+  assert.equal(hasPin(h), true, 'the previewed match is now the confirmed pin'); assert.equal(h.vm().propertyNextDisabled, false);
+  assert.equal(h.vm().locationState.confirmedPrecise, true);
+  await h.vm().nextListingDetails(); await h.settle();
+  assert.deepEqual(s.calls.map((c: any) => c[0]), ['load', 'save'], 'saved once, consent recorded once'); h.unmount();
+});
+test('v6: switch OFF then Confirm location confirms without sharing: no wish, no approval call', async () => {
+  const s = shareService(); const { h, fields } = unifiedHarness('none', { locationShare: s.service, searchAddress: async () => [geocoded(['address'])] }); await h.settle(); fields(); await afterLookup(h);
+  assert.equal(h.vm().confirmLocation(false), true); h.flush();
+  assert.equal(h.vm().locationDecided, true); assert.equal(h.vm().locationShared, false); assert.equal(h.vm().shareLocationWanted, false); assert.equal(hasPin(h), true);
+  await h.vm().nextListingDetails(); await h.settle(); assert.deepEqual(s.calls, [], 'nothing shared'); assert.ok(h.vm().workspacePropertyId); h.unmount();
+});
+test('v6: a pin that is only a fallback centre cannot be shared, whatever the switch says, and Confirm location records "not shared"', async () => {
+  for (const types of [['municipality'], ['neighbourhood'], ['place'], ['region']]) {
+    const s = shareService(); const { h, fields } = unifiedHarness('none', { locationShare: s.service, searchAddress: async () => [geocoded(types)] }); await h.settle(); fields(); await afterLookup(h);
+    assert.equal(h.vm().locationPreview.status, 'ready'); assert.equal(h.vm().locationPreview.precise, false, types.join());
+    assert.equal(h.vm().confirmLocation(true), true); h.flush();
+    assert.equal(h.vm().locationDecided, true, types.join()); assert.equal(h.vm().locationShared, false, 'recorded as not shared'); assert.equal(h.vm().shareLocationWanted, false); assert.equal(h.vm().locationPinPrecise, false);
+    await h.vm().nextListingDetails(); await h.settle(); assert.deepEqual(s.calls, [], 'no approval call for a fallback pin'); h.unmount();
+  }
+});
+test('v6: the best match for the address is used: an address result beats a place-level one that came first', async () => {
+  const { h, fields } = unifiedHarness('none', { searchAddress: async () => [{ ...geocoded(['municipality']), id: 'city-centre', longitude: 120.9, latitude: 14.4 }, { ...geocoded(['address']), id: 'the-address' }] }); await h.settle(); fields(); await afterLookup(h);
+  assert.equal(h.vm().locationPreview.candidate!.id, 'the-address'); assert.equal(h.vm().locationPreview.precise, true); h.unmount();
+});
+test('v6: a result that says nothing about its type is not called a fallback', async () => {
+  const { h, fields } = unifiedHarness('none', { searchAddress: async () => [geocoded()] }); await h.settle(); fields(); await afterLookup(h);
+  assert.equal(h.vm().locationPreview.precise, true); h.unmount();
+});
+test('v6: no match, or a failed lookup: nothing to confirm, and the map tool is still the way to place a pin', async () => {
+  for (const search of [async () => [], async () => { throw new Error('offline'); }]) {
+    const { h, fields } = unifiedHarness('none', { searchAddress: search as any }); await h.settle(); fields(); await afterLookup(h);
+    assert.ok(['none', 'failed'].includes(h.vm().locationPreview.status)); assert.equal(h.vm().confirmLocation(true), false); assert.equal(h.vm().locationDecided, false); assert.equal(hasPin(h), false);
+    h.unmount();
+  }
+});
+test('v6: a pin placed in the map tool is confirmed by the same button; a fallback pin the owner did not move is not shareable, one they moved is', async () => {
+  const fallback = [{ id: 'real-candidate', label: 'Chosen address', longitude: 120.9, latitude: 14.4, placeTypes: ['municipality'] }];
+  const a = unifiedHarness('none', { searchAddress: async () => fallback }); await a.h.settle(); a.fields();
+  a.h.vm().openPropertyLocation(); await a.h.settle(); const map = a.h.vm().propertyLocation; map.chooseCandidate('real-candidate'); map.mapLoaded(); assert.equal(map.confirmExact(), true); a.h.flush();
+  assert.equal(a.h.vm().locationState.confirmedPrecise, false, 'the geocoder centre, untouched'); assert.equal(a.h.vm().confirmLocation(true), true); a.h.flush();
+  assert.equal(a.h.vm().locationShared, false); a.h.unmount();
+  const b = unifiedHarness('none', { searchAddress: async () => fallback }); await b.h.settle(); b.fields();
+  b.h.vm().openPropertyLocation(); await b.h.settle(); const m2 = b.h.vm().propertyLocation; m2.chooseCandidate('real-candidate'); m2.mapLoaded(); m2.movePoint([120.91, 14.41]); assert.equal(m2.confirmExact(), true); b.h.flush();
+  assert.equal(b.h.vm().locationState.confirmedPrecise, true, 'the owner put it there'); assert.equal(b.h.vm().confirmLocation(true), true); b.h.flush();
+  assert.equal(b.h.vm().locationShared, true); b.h.unmount();
+});
+test('v6: Change asks again: the decision clears, the pin stays, and the same button can confirm it the other way', async () => {
+  const { h, fields } = unifiedHarness('none', { searchAddress: async () => [geocoded(['address'])] }); await h.settle(); fields(); await afterLookup(h);
+  h.vm().confirmLocation(false); h.flush(); assert.equal(h.vm().locationShared, false);
+  h.vm().changeLocationChoice(); h.flush();
+  assert.equal(h.vm().locationDecided, false); assert.equal(h.vm().propertyNextDisabled, true); assert.equal(hasPin(h), true);
+  assert.equal(h.vm().confirmLocation(true), true); h.flush(); assert.equal(h.vm().locationShared, true); assert.equal(h.vm().shareLocationWanted, true); h.unmount();
+});
+test('v6: an "Add:" chip only moves the screen: it never marks the form as attempted, so no error appears', async () => {
+  const { h } = unifiedHarness(); await h.settle();
+  const before = h.vm().propertyValidationTarget?.requestId ?? 0;
+  h.vm().focusRangeDetail('parkingSpaces', 'Parking'); h.flush();
+  const t = h.vm().propertyValidationTarget!;
+  assert.equal(t.field, 'parkingSpaces'); assert.equal(t.section, 'detail:parkingSpaces'); assert.equal(t.message, 'Add parking'); assert.ok(t.requestId > before);
+  assert.deepEqual(h.vm().propertyVisibleValidationIssues, [], 'no red anywhere'); assert.equal(h.vm().propertyState.validationAttempted, false);
+  h.vm().focusRangeDetail('floorAreaSqm', 'Floor area'); h.flush(); assert.ok(h.vm().propertyValidationTarget!.requestId > t.requestId, 'every tap is a new request, so the same chip works twice'); h.unmount();
+});
+test('v6: the footer names what is missing first, then the location, then the range count', async () => {
+  const { h, fields } = unifiedHarness('none', { searchAddress: async () => [geocoded(['address'])] }); await h.settle();
+  assert.equal(h.vm().propertyNextStatus, 'Choose a property type');
+  fields(); await afterLookup(h);
+  assert.equal(h.vm().propertyNextStatus, 'Confirm the location to continue', 'a preview alone is not the confirmation');
+  h.vm().confirmLocation(false); h.flush();
+  const { filled, total } = h.vm().estimateDetails;
+  assert.equal(h.vm().propertyNextStatus, `${filled} of ${total} range details · saves your property`); assert.equal(total, 8); h.unmount();
+});
+test('v6: a saved property is not looked up again and never needs the new card', async () => {
+  let n = 0; const { h, fields, confirmMap } = unifiedHarness('none', { searchAddress: async () => { n++; return [{ ...geocoded(['address']), id: 'real-candidate' }]; } }); await h.settle(); fields(); await confirmMap();
+  await h.vm().nextListingDetails(); await h.settle(); h.flush(); const afterSave = n;
+  while (h.vm().screen !== 'listingComposer') { h.vm().goBack(); h.flush(); await h.settle(); }
+  await afterLookup(h); assert.equal(n, afterSave, 'no lookup for a saved property'); assert.equal(h.vm().locationPreview.status, 'idle'); assert.equal(h.vm().propertyNextDisabled, false); h.unmount();
+});
+test('v6: no lookup is made for an address whose pin is already confirmed', async () => {
+  let n = 0; const { h, fields, confirmMap } = unifiedHarness('none', { searchAddress: async () => { n++; return [{ ...geocoded(['address']), id: 'real-candidate' }]; } }); await h.settle(); fields(); await confirmMap();
+  assert.equal(hasPin(h), true); const afterTool = n;
+  await afterLookup(h); await afterLookup(h);
+  assert.equal(n, afterTool, 'the map tool made its own search; the page makes none once a pin is confirmed'); assert.equal(h.vm().locationPreview.status, 'idle'); h.unmount();
+});
+
+// ---- Part B: the draft is loaded after the first save, so Continue to Review never needs a retry
+// On a device the effects run while the first save is still waiting on the property read (arriveAtListing emulates that), so the workspace effect skips its loads.
+const toPrice = async (opts: any = {}) => {
+  const fixture = await arriveAtListing(opts); const { h } = fixture;
+  h.vm().continuePostingEstimate(); h.flush(); await h.settle(); h.flush();
+  return fixture;
+};
+test('part B: create a property, fill Listing and Price, press Continue to Review: the draft saves, Review opens, no notice and no retry', async () => {
+  const { h, events } = await toPrice();
+  assert.equal(h.vm().screen, 'postingEstimate'); h.vm().typeAskingRent('15000'); h.flush();
+  await h.vm().continuePostingReview(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'postingReview', 'Review opens'); assert.deepEqual(events.filter(e => e === 'draft'), ['draft'], 'the draft was saved once');
+  const d = h.vm().listingDraftState;
+  assert.equal(d.loaded, true); assert.equal(d.error, null); assert.equal(h.vm().composerNotice, null, 'no "retained" notice');
+  assert.equal(h.vm().listingCheck.state, 'ok'); assert.equal(h.vm().listingWriteBlockedReason, null); h.unmount();
+});
+
+test('part B: a draft that never loaded, then Continue: it is loaded first, then saved, and Review opens', async () => {
+  const { h, events, backend } = await toPrice();
+  h.vm().typeAskingRent('15000');
+  h.vm().listingDraftPersistence.setProperty(null); h.vm().listingDraftPersistence.setProperty(backend.propertyId);   // as if its load never ran; nothing renders before the press
+  assert.equal(h.vm().listingDraftPersistence.getSnapshot().loaded, false);
+  await h.vm().continuePostingReview(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'postingReview'); assert.equal(events.filter(e => e === 'draft').length, 1, 'saved once, after the load');
+  assert.equal(h.vm().listingDraftState.error, null); assert.equal(h.vm().composerNotice, null); h.unmount();
+});
+test('part B: the draft load right after the first save does not hold Back or navigation, and a save waits for it instead of being refused', async () => {
+  let release!: () => void; const gate = new Promise<void>(r => { release = r; }); let reads = 0;
+  const { h } = await arriveAtListing({ draftRead: async () => { reads++; await gate; return null; } });
+  assert.equal(h.vm().screen, 'listingDetails', 'the load is still running and navigation was not held');
+  assert.equal(h.vm().listingDraftPersistence.getSnapshot().busy, true); assert.equal(h.vm().listingDraftPersistence.getSnapshot().checking, true);
+  assert.equal(h.vm().listingCheck.state, 'checking'); assert.ok(h.vm().listingWriteBlockedReason, 'writes wait, with a reason');
+  h.vm().goBack(); h.flush(); assert.notEqual(h.vm().screen, 'listingDetails', 'Back works while it loads');
+  release(); await h.settle(); h.flush(); assert.equal(reads, 1, 'one read, shared'); h.unmount();
+});
+test('part B: when the automatic load truly fails: one amber state with Retry, nothing red, and no loop', async () => {
+  let reads = 0, fail = true;
+  const { h } = await arriveAtListing({ draftRead: async () => { reads++; if (fail) throw new Error('offline'); return null; } });
+  const atFailure = reads;
+  for (let i = 0; i < 20; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  assert.equal(reads, atFailure, 'no automatic retry, however many renders');
+  const c = h.vm().listingCheck; assert.equal(c.state, 'failed'); assert.equal(c.message, "Couldn't load your draft");
+  assert.equal(h.vm().listingWriteBlockedReason, "Couldn't load your draft");
+  assert.equal(h.vm().composerNotice === null || h.vm().composerNotice === 'Property saved', true, 'no "retained" notice');
+  // Retry works, once, and the person reaches Review
+  fail = false; const before = reads; await h.vm().retryListingCheck(); await h.settle(); h.flush();
+  assert.equal(reads, before + 1, 'Retry loads once'); assert.equal(h.vm().listingCheck.state, 'ok'); assert.equal(h.vm().listingWriteBlockedReason, null);
+  h.vm().continuePostingEstimate(); h.flush(); await h.settle(); h.flush(); assert.equal(h.vm().screen, 'postingEstimate'); h.unmount();
+});
+test('part B: Continue pressed while the draft cannot load saves nothing and shows no retained-draft notice', async () => {
+  let fail = true; const { h, events } = await toPrice({ draftRead: async () => { if (fail) throw new Error('offline'); return null; } });
+  h.vm().typeAskingRent('15000');
+  await h.vm().continuePostingReview(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'postingEstimate'); assert.deepEqual(events.filter(e => e === 'draft'), [], 'nothing was saved');
+  assert.notEqual(h.vm().composerNotice, 'Property and confirmed photos are retained. Check the listing draft details or save status before continuing.');
+  fail = false; await h.vm().retryListingCheck(); await h.settle(); h.flush();
+  await h.vm().continuePostingReview(); await h.settle(); h.flush(); assert.equal(h.vm().screen, 'postingReview'); assert.equal(events.filter(e => e === 'draft').length, 1); h.unmount();
+});
+test('part B: a real uncertain save still needs its own explicit recovery, and a draft with a pending marker is not loaded over', async () => {
+  const { h, events } = await toPrice({ draftPending: async () => true });
+  assert.equal(h.vm().listingDraftState.uncertain, true, 'an unresolved earlier save is uncertain, not "not loaded"');
+  h.vm().typeAskingRent('15000'); await h.vm().continuePostingReview(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'postingEstimate'); assert.deepEqual(events.filter(e => e === 'draft'), [], 'it does not save over an unknown outcome'); h.unmount();
+});
+test('part B: the load is shared, started once after the first save, and the heal effect only runs when nothing else can', () => {
+  const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
+  assert.match(vm, /void publication\.restore\(null\);[\s\S]{0,260}void listingDraftPersistence\.load\(false,null\);/, 'right after the first save, next to the publication check');
+  assert.match(vm, /if \(listingDraftState\.loaded \|\| listingDraftState\.busy \|\| listingDraftState\.error \|\| listingDraftState\.uncertain \|\| listingDraftState\.conflict\) return;/, 'never while loaded, running, failed, uncertain or in conflict');
+  assert.match(vm, /\(listingDraftPersistence\.getSnapshot\(\)\.busy && !listingDraftPersistence\.getSnapshot\(\)\.checking\)/, 'a plain load does not hold navigation');
+  assert.equal((vm.match(/listingDraftPersistence\.save\(/g) ?? []).length, 1, 'one place saves, and it loads first');
+});
+test('part B: the draft is not loaded while the first save is still running (the heal waits for nothing to be saving)', async () => {
+  let reads = 0; let release!: () => void; const gate = new Promise<void>(r => { release = r; });
+  const fixture = unifiedHarness('none', { routineGate: gate, draftRead: async () => { reads++; return null; } }); const { h, fields, confirmMap } = fixture; await h.settle(); fields(); await confirmMap();
+  let done = false; const p = h.vm().nextListingDetails().then(() => { done = true; });
+  for (let i = 0; i < 8; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  const during = reads;
+  release(); while (!done) { await new Promise<void>(r => setImmediate(r)); h.flush(); } await p; await h.settle(); h.flush(); await h.settle(); h.flush();
+  assert.equal(during, 1, 'only the one load the first save itself starts; the effect added none while saving');
+  assert.equal(h.vm().listingDraftState.loaded, true); h.unmount();
+});
+
+// ---- Part C: the type split and photos on Step 2
+test('Part C: a type without a range says so in the footer and asks for no floor area; switching back brings the range count back', async () => {
+  const { h, fields, confirmMap } = unifiedHarness(); await h.settle(); fields(); await confirmMap();
+  const flow = () => h.vm().propertyCreation;
+  assert.equal(h.vm().rangeSupport, 'range'); flow().updateField('floorAreaSqm', ''); h.flush();
+  assert.equal(h.vm().floorAreaMissing, true, 'an apartment needs its floor area for the range'); assert.equal(h.vm().propertyNextStatus, 'Add floor area');
+  flow().updateField('propertyType', 'boarding_house'); h.flush();
+  assert.equal(h.vm().rangeSupport, 'type'); assert.equal(h.vm().floorAreaMissing, false, 'floor area is required only when a range is available');
+  assert.equal(h.vm().propertyNextStatus, 'No range for this type · saves your property'); assert.doesNotMatch(h.vm().propertyNextStatus, /of 8/);
+  assert.equal(h.vm().propertyNextDisabled, false, 'Continue is open without a floor area');
+  flow().updateField('propertyType', 'apartment'); h.flush();
+  assert.equal(h.vm().rangeSupport, 'range'); assert.equal(h.vm().floorAreaMissing, true);
+  flow().updateField('floorAreaSqm', '42'); h.flush(); assert.match(h.vm().propertyNextStatus, /^\d of 8 range details · saves your property$/);
+  h.unmount();
+});
+test('Part C: a hidden range-only value never blocks Continue and survives switching the type away and back', async () => {
+  const { h, fields, confirmMap } = unifiedHarness(); await h.settle(); fields(); await confirmMap();
+  const flow = () => h.vm().propertyCreation;
+  flow().updateField('floorNumber', '9'); flow().updateField('totalFloors', '4'); h.flush(); // the unit floor is higher than the building: invalid for an apartment
+  assert.equal(h.vm().propertyNextDisabled, true, 'an apartment shows Unit floor, so the mismatch is real');
+  flow().updateField('propertyType', 'room'); h.flush();
+  assert.equal(h.vm().propertyNextDisabled, false, 'the unit floor is hidden for a room, so it cannot block');
+  assert.equal(flow().getSnapshot().draft.floorNumber, '9', 'the value is kept in the form');
+  flow().updateField('propertyType', 'apartment'); h.flush();
+  assert.equal(flow().getSnapshot().draft.floorNumber, '9', 'and is back when the type is'); assert.equal(h.vm().propertyNextDisabled, true);
+  h.unmount();
+});
+test('Part C: Step 1 saves the property only: no photo is loaded or uploaded by Continue, and Step 2 loads the photos on arrival', async () => {
+  const { h, events } = await arriveAtListing();
+  assert.equal(h.vm().screen, 'listingDetails'); assert.deepEqual(events, ['property'], 'only the property was written by Step 1');
+  assert.equal(h.vm().photoState.loaded, true, 'Step 2 loaded the photos on arrival'); assert.equal(h.vm().mediaItems.length, 0);
+  h.unmount();
+});
+test('Part C: photos picked on Step 2 upload at once; Continue to Price waits with a reason, typing never waits, and it opens when they are saved', async () => {
+  let release!: () => void; const photoGate = new Promise<void>(r => { release = r; });
+  const { h, events } = await arriveAtListing({ photoGate });
+  const adding = h.vm().propertyPhotos.addPhotos(); for (let i = 0; i < 4; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  assert.equal(h.vm().photoState.busy, true, 'uploads started without another tap');
+  assert.equal(h.vm().listingWriteBlockedReason, 'Uploading your photos…');
+  assert.equal(titleField(h).props.editable, true, 'typing stays open while photos upload');
+  h.vm().updateDraft('title', 'Typed during the upload'); h.flush(); assert.equal(h.vm().draft.title, 'Typed during the upload');
+  h.vm().continuePostingEstimate(); h.flush(); assert.equal(h.vm().screen, 'listingDetails', 'only the step change waits');
+  release(); await adding; await h.settle(); h.flush();
+  assert.equal(h.vm().listingWriteBlockedReason, null); assert.equal(h.vm().photoState.pendingSelections.length, 0); assert.equal(h.vm().mediaItems.length, 3);
+  assert.equal(events.filter(e => e.startsWith('photo:')).length, 3);
+  h.vm().continuePostingEstimate(); h.flush(); assert.equal(h.vm().screen, 'postingEstimate'); h.unmount();
+});
+test('Part C: a photo outcome nobody knows holds Continue with its own reason until the photos are checked', async () => {
+  const { h } = await arriveAtListing({ failure: 'photo' });
+  await h.vm().propertyPhotos.addPhotos(); await h.settle(); h.flush();
+  assert.equal(h.vm().photoState.needsReconcile, true, 'the second upload outcome is unknown');
+  assert.equal(h.vm().listingWriteBlockedReason, 'Some photos need a retry');
+  assert.equal(titleField(h).props.editable, true); h.unmount();
+});
+
+// ---- Meter: counts what the person set, not the pre-selected default
+test('range meter: a fresh form shows 0 of 8; each detail the person sets counts; the saved property counts what was stored', async () => {
+  const { h, fields, confirmMap } = unifiedHarness(); await h.settle();
+  const count = () => h.vm().estimateDetails.filled, flow = () => h.vm().propertyCreation;
+  assert.equal(count(), 0, 'Unfurnished is pre-selected but untouched: 0 of 8'); assert.equal(h.vm().estimateDetails.total, 8);
+  flow().updateField('floorAreaSqm', '42'); flow().updateField('bedrooms', '2'); flow().updateField('bathrooms', '1'); h.flush(); assert.equal(count(), 3);
+  flow().updateField('furnishingStatus', 'unfurnished'); h.flush(); assert.equal(count(), 4, 'tapping the default chip is a choice');
+  fields(); await confirmMap(); await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.ok(count() >= 4, 'after the save every stored value counts'); h.unmount();
+});
+
+// ---- Continue on Step 1 opens Step 2 for a type with a range, with the share applied or not, at device timing (effects run while the save waits)
+for (const wish of [true, false]) test(`Continue on Step 1 opens Step 2 for an apartment in a supported city (share switch ${wish ? 'ON' : 'OFF'})`, async () => {
+  const s = shareService(); let release!: () => void; const gate = new Promise<void>(r => { release = r; });
+  const { h, fields, confirmMap } = unifiedHarness('none', { routineGate: gate, locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  assert.equal(h.vm().rangeSupport, 'range'); h.vm().setShareLocationWanted(wish); h.flush();
+  let done = false; const p = h.vm().nextListingDetails().then(() => { done = true; });
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  release(); while (!done) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  await p; await h.settle(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'listingDetails', 'Step 2 opened'); assert.equal(h.vm().composerNotice, 'Property saved' === h.vm().composerNotice ? 'Property saved' : h.vm().composerNotice);
+  assert.deepEqual(s.calls.map(c => c[0]), wish ? ['load', 'save'] : [], wish ? 'the share was applied once' : 'no consent call when the switch is off'); h.unmount();
+});
+for (const wish of [true, false]) test(`Continue again from Step 1 after coming Back from Step 2 opens Step 2 (share switch ${wish ? 'ON' : 'OFF'})`, async () => {
+  const s = shareService(); let release!: () => void; const gate = new Promise<void>(r => { release = r; });
+  const { h, fields, confirmMap } = unifiedHarness('none', { routineGate: gate, locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(wish); h.flush();
+  let done = false; const p = h.vm().nextListingDetails().then(() => { done = true; });
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  release(); while (!done) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  await p; await h.settle(); await h.settle(); h.flush(); assert.equal(h.vm().screen, 'listingDetails');
+  h.vm().goBack(); h.flush(); await h.settle(); h.flush(); assert.equal(h.vm().screen, 'listingComposer');
+  for (let i = 0; i < 4; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  assert.equal(h.vm().propertyRoutineState.status, 'ready', 'the saved editor is loaded'); assert.equal(h.vm().propertyNextDisabled, false);
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'listingDetails', 'Step 2 opened the second time too'); h.unmount();
+});
+
+// ---- Continue never does nothing after the first save: it waits for what is still finishing, then opens Step 2 by itself
+// The first save starts an unfinished-post inspection that holds navigation while it runs; here it is slow, and effects run while the save waits (as on a device).
+const slowInspection = () => { let release!: () => void, openRoutine!: () => void; const slow = new Promise<void>(r => { release = r; }), routineGate = new Promise<void>(r => { openRoutine = r; }); return { release, openRoutine, routineGate, deletion: { inspect: async (id: string) => { await slow; return { propertyId: id, state: 'live', eligible: false, reason: null }; }, pending: async () => [], remove: async () => { throw Error('not used'); } } }; };
+const pressContinueSlowly = async (h: any, fields: () => void, confirmMap: () => Promise<void>, s: ReturnType<typeof slowInspection>) => {
+  fields(); await confirmMap();
+  let saved = false; const p = h.vm().nextListingDetails().then(() => { saved = true; });
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); } // effects run while the first save waits, as on a device: the inspection starts
+  s.openRoutine(); while (!saved) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  return p;
+};
+const tick = async (h: any, ms: number) => { await new Promise<void>(r => setTimeout(r, ms)); h.flush(); };
+test('first save, then a slow background operation: Step 2 opens by itself, the button says it is finishing up, and typing is open meanwhile', async () => {
+  const s = slowInspection(), { h, fields, confirmMap } = unifiedHarness('none', { deletion: s.deletion, routineGate: s.routineGate }); await h.settle();
+  const pressed = pressContinueSlowly(h, fields, confirmMap, s);
+  await tick(h, 250); h.flush();
+  assert.equal(h.vm().screen, 'listingComposer', 'still held by the slow operation'); assert.equal(h.vm().continueWait, 'waiting');
+  h.vm().propertyRoutine.update?.('bedrooms', '2'); // typing is not held (a saved-editor field takes input)
+  assert.equal(h.vm().propertyNextDisabled, true, 'the button is disabled while it waits');
+  s.release(); await pressed; await tick(h, 250); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'listingDetails', 'Step 2 opened without another press'); assert.equal(h.vm().continueWait, 'idle'); h.unmount();
+});
+test('still busy after 8 seconds: one amber line with a Continue retry, not a silent no-op; the retry opens Step 2; there is no retry loop', async () => {
+  const realNow = Date.now; let skew = 0; Date.now = () => realNow() + skew;
+  try {
+    const s = slowInspection(), { h, fields, confirmMap } = unifiedHarness('none', { deletion: s.deletion, routineGate: s.routineGate }); await h.settle();
+    const pressed = pressContinueSlowly(h, fields, confirmMap, s); await tick(h, 250);
+    assert.equal(h.vm().continueWait, 'waiting'); skew = 9000; await tick(h, 350); await pressed;
+    assert.equal(h.vm().continueWait, 'stalled', 'after the wait it says so'); assert.equal(h.vm().screen, 'listingComposer');
+    for (let i = 0; i < 3; i++) await tick(h, 300);
+    assert.equal(h.vm().continueWait, 'stalled', 'no automatic retry: it stays stalled until the person presses Continue'); assert.equal(h.vm().screen, 'listingComposer');
+    s.release(); await tick(h, 150); assert.equal(h.vm().screen, 'listingComposer', 'even when the operation ends, nothing retries by itself');
+    await h.vm().nextListingDetails(); await tick(h, 250); await h.settle(); h.flush();
+    assert.equal(h.vm().screen, 'listingDetails', 'the Continue retry opens Step 2'); assert.equal(h.vm().continueWait, 'idle'); h.unmount();
+  } finally { Date.now = realNow; }
+});
+test('Back never waits: it cancels a pending Continue, and Step 2 does not open behind it', async () => {
+  const s = slowInspection(), { h, fields, confirmMap } = unifiedHarness('none', { deletion: s.deletion, routineGate: s.routineGate }); await h.settle();
+  const pressed = pressContinueSlowly(h, fields, confirmMap, s); await tick(h, 250);
+  assert.equal(h.vm().continueWait, 'waiting'); h.vm().goBack(); h.flush();
+  assert.equal(h.vm().continueWait, 'idle'); s.release(); await pressed; await tick(h, 250); await h.settle(); h.flush();
+  assert.notEqual(h.vm().screen, 'listingDetails', 'the pending Continue was cancelled'); h.unmount();
+});
+test('the Continue wait view: the label and hint while waiting, one amber line with a 48dp Continue when stalled', () => {
+  const src = readFileSync('src/features/property-listing/views/ListingComposerView.tsx', 'utf8');
+  assert.match(src, /vm\.continueWait==='waiting'\?"Continue to Listing"\+CONTINUE_WAIT_SUFFIX/); assert.match(src, /vm\.continueWait==='stalled'\?<ContinueStalledLine/);
+  const line = readFileSync('src/features/property-listing/components/ContinueStalledLine.tsx', 'utf8');
+  assert.match(line, /minHeight:48/); assert.match(line, /CONTINUE_STALLED_MESSAGE/);
 });

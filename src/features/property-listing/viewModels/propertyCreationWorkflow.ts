@@ -1,14 +1,22 @@
 import { PropertyCreationError } from '../models/PropertyCreationError';
 import { propertyFloorIssues, draftPropertyError, emptyDraftProperty, hasConfirmedPropertyLocation, propertyCreationInput, type PropertyValidationField, type PropertyValidationSection, type DraftProperty, type PropertyLocationInput } from '../models/DraftProperty';
-import type { PropertyCreationService } from '../services/propertyCreationService';
+import type { PropertyCreationService, UncertainDetail } from '../services/propertyCreationService';
+import { withoutRangeOnlyValues } from '../models/PostingEstimate';
+import { newestFirst, recoveryMessage } from '../models/RecentProperty';
 type Step = 'details' | 'address' | 'review' | 'created';
 interface State {
   touchedFields:Partial<Record<PropertyValidationField,true>>; validationAttempted:boolean;
+  /** Fields the person has set in this session; the range meter counts a detail only when it is set (a default does not count). */
+  edited:Partial<Record<string,true>>;
   draft: DraftProperty; step: Step; busy: boolean; loaded: boolean; propertyId: string | null;
   error: string | null; uncertain: boolean; locationRevision: number;
+  /** Recovery: the time on the pending marker (null for an older marker without one), and whether the recent properties were looked up. */
+  uncertainSince: number | null; recentChecked: boolean;
+  /** Recovery with a young marker and nothing found yet: a calm "still confirming" state with Retry. */
+  confirming: boolean;
   recent: Awaited<ReturnType<PropertyCreationService['recentOwned']>>;
 }
-const initial = (): State => ({ touchedFields:{}, validationAttempted:false, draft: emptyDraftProperty(), step: 'details', busy: false, loaded: false, propertyId: null, error: null, uncertain: false, locationRevision: 0, recent: [] });
+const initial = (): State => ({ touchedFields:{}, edited:{}, validationAttempted:false, draft: emptyDraftProperty(), step: 'details', busy: false, loaded: false, propertyId: null, error: null, uncertain: false, locationRevision: 0, recent: [], uncertainSince: null, recentChecked: false, confirming: false });
 export function createPropertyCreationWorkflow(service: PropertyCreationService) {
   let state = initial(), epoch = 0, disposed = false, owner: string | null = null;
   const listeners = new Set<() => void>();
@@ -20,7 +28,12 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
   };
   const fail = (error: unknown, fallback: string) => {
     if ((error as { code?: string })?.code === 'property_identity_changed') { epoch++; owner = null; update({ ...initial(), error: 'Your account changed. Reopen property setup.' }); }
-    else { const uncertain = (error as { code?: string })?.code === 'property_creation_uncertain'; update({ error: uncertain ? 'Creation could not be confirmed. A property may already exist. Check recent owned properties before continuing; do not create another blindly.' : error instanceof PropertyCreationError ? error.message : fallback, ...(uncertain ? { uncertain: true, step: 'review' as const } : {}) }); }
+    else if ((error as { code?: string })?.code === 'property_creation_uncertain') {
+      // One state, one message. Properties found for the pending marker arrive with the error and are shown right away, newest first.
+      const detail = error as UncertainDetail, recent = newestFirst(detail.recent ?? []), uncertainSince = detail.since ?? null, recentChecked = !!detail.recent, confirming = !!detail.confirming;
+      update({ uncertain: true, step: 'review', uncertainSince, recent, recentChecked, confirming, error: recoveryMessage({ recent, uncertainSince, recentChecked, confirming }) });
+    }
+    else update({ error: error instanceof PropertyCreationError ? error.message : fallback });
   };
   const initialize = async () => {
     if (disposed || state.busy) return;
@@ -49,14 +62,14 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
       if (disposed || state.busy) return;
       // Local discard never clears the durable receipt/uncertain-operation journal.
       epoch++;
-      if (state.propertyId) update({ touchedFields:{}, validationAttempted:false, draft: emptyDraftProperty(), error: null });
+      if (state.propertyId) update({ touchedFields:{}, edited:{}, validationAttempted:false, draft: emptyDraftProperty(), error: null });
       else { owner = null; update({...initial(),locationRevision:state.locationRevision+1}); }
     },
     dirty: () => !state.propertyId && JSON.stringify(state.draft) !== JSON.stringify(emptyDraftProperty()),
     updateField<K extends Exclude<keyof DraftProperty, keyof PropertyLocationInput>>(field: K, value: DraftProperty[K]) {
       if (state.busy || state.propertyId || state.uncertain) return;
       const addressChanged = ['city', 'barangay', 'addressLine1', 'addressLine2', 'postalCode'].includes(field) && String(state.draft[field]??'').trim()!==String(value??'').trim();
-      update({ touchedFields:{...state.touchedFields,[field]:true}, draft: { ...state.draft, [field]: value, ...(addressChanged ? { exactLatitude: null, exactLongitude: null, publicLatitude: null, publicLongitude: null } : {}) }, ...(addressChanged ? { locationRevision: state.locationRevision + 1 } : {}), error: null });
+      update({ edited: { ...state.edited, [field]: true }, draft: { ...state.draft, [field]: value, ...(addressChanged ? { exactLatitude: null, exactLongitude: null, publicLatitude: null, publicLongitude: null } : {}) }, ...(addressChanged ? { locationRevision: state.locationRevision + 1 } : {}), error: null });
     },
     next() {
       if (!state.loaded || state.busy || state.propertyId || state.uncertain) return;
@@ -83,24 +96,44 @@ export function createPropertyCreationWorkflow(service: PropertyCreationService)
       if (disposed || state.busy || !state.loaded || state.propertyId || state.uncertain || (!fromComposer && state.step !== 'review')) return;
       if (!fromComposer && !hasConfirmedPropertyLocation(state.draft)) return;
       update({validationAttempted:true});
-      const error = draftPropertyError(state.draft); if (error) { update({ error }); return; }
+      // Details only the range reads are hidden for a type or city without a range: they are left out of the save (the form still holds them until now).
+      const saving = withoutRangeOnlyValues(state.draft);
+      const error = draftPropertyError(saving); if (error) { update({ error }); return; }
       const attempt = epoch; update({ busy: true, error: null });
-      try { const id = await identity(attempt); const receipt = await service.create(id, propertyCreationInput(state.draft)); await identity(attempt); update({ propertyId: receipt.propertyId, step: 'created' }); }
+      try { const id = await identity(attempt); const receipt = await service.create(id, propertyCreationInput(saving)); await identity(attempt); update({ propertyId: receipt.propertyId, step: 'created' }); }
       catch (error) { if (alive(attempt)) fail(error, 'Property could not be saved. Check your details and account, then try again.'); }
       finally { if (alive(attempt)) update({ busy: false }); }
     },
     async checkRecent() {
       if (disposed || state.busy || !state.uncertain) return;
       const attempt = epoch; update({ busy: true, error: null });
-      try { const id = await identity(attempt); const recent = await service.recentOwned(id); await identity(attempt); update({ recent, error: recent.length ? 'Only select a property you recognize as this setup. Older records may also be listed.' : 'No recent property could be confirmed. Do not retry creation until its backend outcome is checked.' }); }
+      try {
+        const id = await identity(attempt), since = state.uncertainSince, found = await service.recentOwned(id, since); await identity(attempt);
+        if (since !== null && !found.length && service.markerIsYoung(since)) {
+          // Too soon to say: the save may still be landing. Stay calm and let the person check again.
+          update({ confirming: true, recent: [], recentChecked: true, error: recoveryMessage({ recent: [], uncertainSince: since, recentChecked: true, confirming: true }) });
+        } else if (since !== null && !found.length) {
+          // The marker has a time, is old enough, and nothing was created since: the interrupted save never reached the server. Forget it and keep the person's details.
+          await service.discardMarker(id); await identity(attempt);
+          update({ loaded: true, step: 'details', uncertain: false, error: null, recent: [], recentChecked: false, uncertainSince: null, confirming: false });
+        } else { const recent = newestFirst(found); update({ recent, recentChecked: true, confirming: false, error: recoveryMessage({ recent, uncertainSince: since, recentChecked: true }) }); }
+      }
       catch (error) { if (alive(attempt)) fail(error, 'Could not check owned properties. Try checking again.'); }
       finally { if (alive(attempt)) update({ busy: false }); }
     },
     async confirmExisting(propertyId: string) {
       if (disposed || state.busy || !state.uncertain || !state.recent.some(row => row.id === propertyId)) return;
       const attempt = epoch; update({ busy: true });
-      try { const id = await identity(attempt); const receipt = await service.confirmOwned(id, propertyId); await identity(attempt); update({ propertyId: receipt.propertyId, step: 'created', uncertain: false, error: null, recent: [] }); }
+      try { const id = await identity(attempt); const receipt = await service.confirmOwned(id, propertyId); await identity(attempt); update({ propertyId: receipt.propertyId, step: 'created', uncertain: false, error: null, recent: [], uncertainSince: null, recentChecked: false, confirming: false }); }
       catch (error) { if (alive(attempt)) fail(error, 'Could not confirm this property.'); }
+      finally { if (alive(attempt)) update({ busy: false }); }
+    },
+    /** "None of these, start fresh" (the person confirmed it): forget the unconfirmed save and keep the details they typed. Never creates anything. */
+    async startFresh() {
+      if (disposed || state.busy || !state.uncertain) return;
+      const attempt = epoch; update({ busy: true });
+      try { const id = await identity(attempt); await service.discardMarker(id); await identity(attempt); update({ loaded: true, step: 'details', uncertain: false, error: null, recent: [], uncertainSince: null, recentChecked: false, confirming: false }); }
+      catch (error) { if (alive(attempt)) fail(error, 'Could not start fresh. Try again.'); }
       finally { if (alive(attempt)) update({ busy: false }); }
     },
     async startNew() {

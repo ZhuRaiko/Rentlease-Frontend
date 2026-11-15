@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RentLease - range-only pricing and one editor</title>
+<style>
+:root{--pa:#32743C;--p:#469C53;--pp:#EDF8EE;--canvas:#F7F9F5;--ink:#172C27;--out:#DCE5DD;--cb:#7D9383;--ts:#606A63;--warn:#9A6414;--warns:#FFF7E8;--warnb:#E7C98F;--bad:#9B2C2C}
+*{box-sizing:border-box}
+html{background:#E7ECE5}
+body{margin:0;color:var(--ink);font-family:Roboto,"Helvetica Neue",Arial,system-ui,sans-serif;line-height:1.4;-webkit-font-smoothing:antialiased}
+.page{max-width:1280px;margin:0 auto;padding:40px 32px 72px}
+h1{font-size:34px;line-height:1.15;margin:0 0 10px;font-weight:700;letter-spacing:-.01em}
+.lede{font-size:17px;color:var(--ts);max-width:760px;margin:0 0 8px}
+.story{margin-top:56px}
+.story h2{font-size:24px;margin:0 0 6px;font-weight:700;letter-spacing:-.005em}
+.story>p{font-size:16px;color:var(--ts);max-width:760px;margin:0 0 22px}
+.row{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+figure{margin:0;width:360px}
+figcaption{font-size:14.5px;color:var(--ts);margin-top:12px;max-width:340px}
+figcaption b{color:var(--ink)}
+/* phone */
+.phone{width:360px;height:870px;background:var(--canvas);border-radius:34px;border:9px solid #1B2420;position:relative;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 18px 40px rgba(23,44,39,.18)}
+.sb{height:30px;flex:none;display:flex;justify-content:space-between;align-items:center;padding:0 20px;font-size:12.5px;font-weight:600;background:var(--canvas)}
+.sb i{display:inline-block;width:46px;height:9px;border-radius:5px;background:var(--ink);opacity:.8}
+.scr{flex:1;overflow:hidden;padding:6px 16px 0}
+.foot{flex:none;background:#fff;border-top:1.5px solid var(--out);padding:12px 16px 8px}
+.foot .hint{font-size:13.5px;color:var(--ts);text-align:center;margin-top:8px}
+.nav3{height:26px;flex:none;background:var(--canvas);display:flex;justify-content:center;align-items:center}
+.nav3 i{width:110px;height:5px;border-radius:3px;background:#1B2420;opacity:.75}
+.tabs{flex:none;height:62px;background:#fff;border-top:1.5px solid var(--out);display:flex;justify-content:space-around;align-items:center;font-size:12px;color:var(--ts)}
+.tabs span{text-align:center}.tabs b{display:block;width:22px;height:22px;border-radius:7px;background:var(--out);margin:0 auto 3px}
+.tabs .on{color:var(--pa);font-weight:700}.tabs .on b{background:var(--pa)}
+/* type */
+.title{font-size:27px;font-weight:700;line-height:1.15;margin:8px 0 4px;letter-spacing:-.01em}
+.sub{font-size:15px;color:var(--ts);margin:0 0 12px}
+.h{font-size:18px;font-weight:700;margin:0 0 8px}
+.s{font-size:14px;color:var(--ts)}
+/* parts */
+.card{background:#fff;border:1.5px solid var(--out);border-radius:20px;padding:16px;margin-bottom:12px}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;border-radius:14px;border:1.5px solid var(--cb);background:#fff;font:600 16px Roboto,Arial,sans-serif;color:var(--ink);padding:10px 14px;text-align:center}
+.btn.pri{background:var(--pa);border-color:var(--pa);color:#fff}
+.btn.off{background:#E3E6E2;border-color:#E3E6E2;color:#6D746E}
+.btn.sm{min-height:48px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:44px;padding:10px 16px;border-radius:24px;border:1.5px solid var(--out);background:#fff;font-size:15px;display:flex;align-items:center}
+.chip.on{background:var(--pa);border-color:var(--pa);color:#fff;font-weight:600}
+.field{display:flex;align-items:center;min-height:52px;border:1.5px solid var(--cb);border-radius:14px;background:#fff;padding:0 14px;font-size:16px;color:var(--ts)}
+.field.v{color:var(--ink)}
+.lab{display:flex;justify-content:space-between;align-items:center;font-size:15px;font-weight:600;margin:14px 0 8px}
+.lab:first-child{margin-top:0}
+.tag{font-size:12px;font-weight:700;color:var(--pa);background:var(--pp);border-radius:9px;padding:3px 8px}
+.note{background:#EFF2ED;border-radius:14px;padding:12px 14px;font-size:14.5px;margin-bottom:12px}
+.warn{background:var(--warns);border:1.5px solid var(--warnb);border-radius:18px;padding:14px;color:var(--warn);font-size:14.5px;margin-bottom:12px}
+.warn b{display:block;font-size:16px;margin-bottom:2px}
+.map{height:80px;border-radius:14px;background:linear-gradient(135deg,#D9E7D8,#EEF4EB);border:1.5px solid var(--out);position:relative;margin-bottom:10px}
+.map:before{content:"";position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(70,156,83,.2);border:2px solid var(--p)}
+.map i{position:absolute;left:50%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--pa)}
+.steps{display:flex;gap:6px;margin:4px 0 10px}
+.steps span{flex:1;height:6px;border-radius:3px;background:var(--out)}.steps .d{background:var(--p)}.steps .c{background:var(--pa)}
+.stepname{font-size:14px;color:var(--ts);margin:0 0 2px}
+/* range */
+.ends{display:flex;justify-content:space-between;font-size:17px;font-weight:700}
+.rg{position:relative;height:72px;margin:14px 14px 0}
+.trk{position:absolute;left:0;right:0;top:42px;height:12px;border-radius:7px;background:linear-gradient(90deg,#D6EBD9,#9BD3A4 50%,#D6EBD9)}
+.ball{position:absolute;top:32px;width:32px;height:32px;margin-left:-16px;border-radius:50%;background:var(--pa);border:4px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.bub{position:absolute;top:-2px;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:10px;padding:4px 10px;font-size:14px;font-weight:700;white-space:nowrap}
+.rel{font-size:15px;font-weight:700;margin-top:2px}.rel.ok{color:var(--pa)}.rel.hi{color:var(--warn)}
+.plusminus{display:flex;gap:8px;margin-top:12px}.plusminus .btn:first-child,.plusminus .btn:last-child{flex:0 0 52px;padding:0;font-size:22px}
+.plusminus .btn:nth-child(2){flex:1}
+/* cards in list */
+.rc{background:#fff;border:1.5px solid var(--out);border-radius:20px;overflow:hidden;margin-bottom:12px}
+.rc .ph{height:64px;background:linear-gradient(135deg,#DDE6DB,#EDF1EA);display:flex;align-items:flex-start;justify-content:space-between;padding:10px}
+.pill{display:inline-block;font-size:12.5px;font-weight:700;border-radius:12px;padding:4px 10px;background:#fff;color:var(--ts)}
+.pill.g{background:var(--pp);color:var(--pa)}.pill.w{background:var(--warns);color:var(--warn)}
+.dots{width:40px;height:40px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;letter-spacing:2px}
+.rc .b{padding:12px 14px 14px}.rc .t{font-size:17px;font-weight:700}.rc .l{font-size:14px;color:var(--ts);margin:2px 0 10px}
+table{border-collapse:collapse;background:#fff;font-size:15px;width:100%;max-width:880px;border-radius:14px;overflow:hidden}
+th,td{border:1px solid var(--out);padding:10px 14px;text-align:left;vertical-align:top}th{background:var(--pp);font-weight:700}
+td.no{color:var(--bad);font-weight:700}
+details{margin-top:48px;max-width:880px}summary{font-size:18px;font-weight:700;cursor:pointer;padding:6px 0}
+details ul{font-size:15px;color:var(--ts);padding-left:20px}details li{margin:6px 0}
+</style></head><body><div class="page">
+<h1>Range-only pricing and one editor</h1>
+<p class="lede">Nobody sees the model's point number. Landlords slide along the typical range and apply the price they pick. Tenants see the same range as a read-only bar. Every card opens the same four-step wizard.</p>
+
+<section class="story"><h2>One button per card, one editor behind it</h2>
+<p>The button names the state. Pause, archive and "Edit property details" live in the three-dot menu, so there is no second Edit button to compare against Create.</p>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:01</span><i></i></div><div class="scr">
+<div class="title">My Rentals</div>
+<div class="rc"><div class="ph"><span class="pill">Not listed</span><span class="dots">···</span></div><div class="b"><div class="t">Apartment in Imus</div><div class="l">Barangay Anabu, Imus</div><div class="btn pri sm">Continue posting</div></div></div>
+<div class="rc"><div class="ph"><span class="pill g">Published</span><span class="dots">···</span></div><div class="b"><div class="t">2BR condo, Dasmariñas</div><div class="l">₱13,000 per month</div><div class="btn pri sm">Edit listing</div></div></div>
+<div class="rc"><div class="ph"><span class="pill w">Ended</span><span class="dots">···</span></div><div class="b"><div class="t">House in Tagaytay</div><div class="l">This listing has ended. Create a new one to rent this place again.</div><div class="btn pri sm">Create a new listing</div></div></div>
+</div><div class="tabs"><span><b></b>Discover</span><span class="on"><b></b>Listings</span><span><b></b>Post</span><span><b></b>Tenancy</span><span><b></b>Chat</span></div><div class="nav3"><i></i></div></div>
+<figcaption>Cards in My Rentals. <b>Published</b> listings open the full wizard in edit mode, with the price on its own step.</figcaption></figure>
+
+<figure style="width:420px"><table>
+<tr><th>Card state</th><th>Button</th></tr>
+<tr><td>Property saved, no listing</td><td>Continue posting</td></tr>
+<tr><td>Draft</td><td>Continue editing</td></tr>
+<tr><td>Published or paused</td><td>Edit listing</td></tr>
+<tr><td>Archived</td><td>Create a new listing</td></tr></table>
+<figcaption style="max-width:420px;margin-top:14px">Menu on every card: <b>Edit property details</b> (opens Step 1), Pause or reactivate, Archive, Delete unfinished post (drafts only). The old property-only screen goes away.</figcaption></figure>
+</div></section>
+
+<section class="story"><h2>Step 1: the estimate inputs come first</h2>
+<p>Size and rooms sit at the top and say which fields feed the model. The location confirm is one sentence and one button. Amenities get their own card instead of hiding at the bottom.</p>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:03</span><i></i></div><div class="scr">
+<div class="stepname">Step 1 of 4 · Property</div><div class="steps"><span class="c"></span><span></span><span></span><span></span></div>
+<div class="card"><div class="h">Property type</div><div class="chips"><span class="chip on">Apartment</span><span class="chip">House</span><span class="chip">Condominium</span></div></div>
+<div class="card"><div class="h">Size and rooms</div>
+<div class="lab">Floor area (sqm) <span class="tag">Used in the range</span></div><div class="field v">18</div>
+<div class="lab">Bedrooms <span class="tag">Used in the range</span></div><div class="chips"><span class="chip on">1</span><span class="chip">2</span><span class="chip">3</span><span class="chip">4+</span></div>
+<div class="lab">Furnishing <span class="tag">Used in the range</span></div><div class="chips"><span class="chip">Unfurnished</span><span class="chip on">Semi</span><span class="chip">Fully</span></div></div>
+</div><div class="foot"><div class="btn pri">Continue to Listing</div></div><div class="nav3"><i></i></div></div>
+<figcaption>Top of Step 1. Each tag tells the owner which answers move the range.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:03</span><i></i></div><div class="scr">
+<div class="card"><div class="h">Location</div><div class="map"><i></i></div><div class="note" style="margin-bottom:10px">Sharing this approximate point (never your exact address) makes the range more accurate. You can withdraw it anytime.</div>
+<div class="btn pri sm">Confirm location and share it</div><div class="s" style="margin-top:8px">Skipping is fine. The range then uses the city only.</div></div>
+<div class="card"><div class="lab" style="margin:0 0 10px"><span class="h" style="margin:0">Amenities</span><span class="tag">4 selected</span></div>
+<div class="chips"><span class="chip on">Wi-Fi</span><span class="chip on">Aircon</span><span class="chip">Parking</span><span class="chip on">Kitchen</span><span class="chip on">Water heater</span><span class="chip">Show all</span></div></div>
+<div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px"><div class="h" style="margin:0">More details (optional)</div><span class="s">Show</span></div>
+</div><div class="foot"><div class="btn pri">Continue to Listing</div></div><div class="nav3"><i></i></div></div>
+<figcaption>Rest of Step 1. The confirm button is the consent, so the long pop-up is gone.</figcaption></figure>
+</div></section>
+
+<section class="story"><h2>Price: the range is the product</h2>
+<p>The ball is hidden until the first touch, so where it starts cannot reveal the middle of the range. It moves in ₱500 steps, with − and + for precision and screen readers.</p>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:05</span><i></i></div><div class="scr">
+<div class="stepname">Step 3 of 4 · Price</div><div class="steps"><span class="d"></span><span class="d"></span><span class="c"></span><span></span></div>
+<div class="card"><div class="h">Typical rent for similar places</div><div class="ends"><span>₱8,500</span><span>₱16,000</span></div><div class="rg"><div class="trk"></div></div>
+<div class="s">Slide along the range to try a price. It is an illustrative range from a model, not an appraisal.</div><div class="s" style="margin-top:10px">Based on apartment, 18 sqm, 1 bedroom, Imus, semi-furnished. <b style="color:var(--pa)">Edit details</b></div><div class="s" style="margin-top:8px;text-decoration:underline">How is this estimated?</div></div>
+<div class="card"><div class="h">Your monthly asking rent</div><div class="field">₱ Enter amount</div></div>
+</div><div class="foot"><div class="btn off">Continue to Review</div><div class="hint">Enter your asking rent to continue</div></div><div class="nav3"><i></i></div></div>
+<figcaption>Before touching. No ball and no number to anchor on.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:05</span><i></i></div><div class="scr">
+<div class="stepname">Step 3 of 4 · Price</div><div class="steps"><span class="d"></span><span class="d"></span><span class="c"></span><span></span></div>
+<div class="card"><div class="h">Typical rent for similar places</div><div class="ends"><span>₱8,500</span><span>₱16,000</span></div><div class="rg"><div class="trk"></div><div class="ball" style="left:64%"></div><div class="bub" style="left:64%">₱13,000</div></div>
+<div class="rel ok">Within the typical range</div>
+<div class="plusminus"><div class="btn">−</div><div class="btn pri">Use ₱13,000</div><div class="btn">+</div></div></div>
+<div class="card"><div class="h">Your monthly asking rent</div><div class="field v">₱ 13,000</div><div class="s" style="margin-top:8px">Or type your own price. Any amount is allowed.</div></div>
+</div><div class="foot"><div class="btn pri">Continue to Review</div></div><div class="nav3"><i></i></div></div>
+<figcaption>Sliding. The bubble shows the rent at the ball. "Use ₱13,000" fills the asking rent.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:06</span><i></i></div><div class="scr">
+<div class="stepname">Step 3 of 4 · Price</div><div class="steps"><span class="d"></span><span class="d"></span><span class="c"></span><span></span></div>
+<div class="card"><div class="h">Typical rent for similar places</div><div class="ends"><span>₱8,500</span><span>₱16,000</span></div><div class="rg"><div class="trk"></div><div class="ball" style="left:100%;background:var(--warn)"></div><div class="bub" style="left:90%;background:var(--warn)">₱19,500</div></div>
+<div class="rel hi">Above the typical range</div><div class="s" style="margin-top:4px">You can ask for more. Listings above the range may take longer to rent.</div></div>
+<div class="card"><div class="h">Your monthly asking rent</div><div class="field v">₱ 19,500</div></div>
+</div><div class="foot"><div class="btn pri">Continue to Review</div></div><div class="nav3"><i></i></div></div>
+<figcaption>Typed price outside the range. A warning color, never an error, and the owner keeps control.</figcaption></figure>
+</div></section>
+
+<section class="story"><h2>Review and the tenant view</h2>
+<p>Review shows one saved notice, an amber verification card and a readable price line. Tenants get the same range as a read-only bar with the listing's rent marked.</p>
+<div class="row">
+<figure><div class="phone"><div class="sb"><span>9:08</span><i></i></div><div class="scr">
+<div class="stepname">Step 4 of 4 · Review</div><div class="steps"><span class="d"></span><span class="d"></span><span class="d"></span><span class="c"></span></div>
+<div class="note">Draft saved. It is not published yet.</div>
+<div class="warn"><b>Property verification (Tier 3)</b>Required to publish, not to save a draft.<div class="btn sm" style="margin-top:10px;background:#fff;border-color:var(--warnb);color:var(--warn)">Verify this property</div></div>
+<div class="card"><div class="lab" style="margin-top:0"><b>Property</b><span style="color:var(--pa);font-weight:700">Edit</span></div><div class="s">Apartment · 1 bd · 1 ba · 18 sqm</div>
+<div class="lab"><b>Price</b><span style="color:var(--pa);font-weight:700">Edit</span></div><div class="s">₱13,000 per month, within the typical range</div></div>
+</div><div class="foot"><div class="btn off">Publish listing</div><div class="btn" style="margin-top:8px">Save and exit</div><div class="hint">Publish unlocks when every item is checked</div></div><div class="nav3"><i></i></div></div>
+<figcaption>Landlord Review. The estimate figure and the duplicate notice are gone.</figcaption></figure>
+
+<figure><div class="phone"><div class="sb"><span>9:10</span><i></i></div><div class="scr">
+<div class="rc" style="margin-top:6px"><div class="ph" style="height:150px"></div></div>
+<div class="title" style="font-size:25px">2BR condo, Dasmariñas</div><div class="sub">Imus, Cavite</div>
+<div class="card"><div class="h" style="font-size:22px">₱13,000 per month</div><div class="s" style="margin-bottom:8px">Typical rent for similar places</div>
+<div class="ends" style="font-size:15px"><span>₱8,500</span><span>₱16,000</span></div><div class="rg" style="height:50px"><div class="trk" style="top:26px;height:10px"></div><div class="ball" style="left:64%;top:17px;width:24px;height:24px;margin-left:-12px;border-width:3px"></div></div>
+<div class="rel ok">This listing is within the typical range</div><div class="s" style="margin-top:6px">An illustrative range from a model, not an appraisal or a guarantee.</div></div>
+</div><div class="nav3"><i></i></div></div>
+<figcaption>Tenant listing detail. Read-only, no point value, hidden when no range exists.</figcaption></figure>
+</div></section>
+
+<section class="story"><h2>Where the point estimate goes away</h2>
+<table><tr><th>Place</th><th>Today</th><th>After</th></tr>
+<tr><td>Price step headline</td><td>₱12,227 per month, model estimate</td><td>Range with the slider</td></tr>
+<tr><td>Use estimate button</td><td>Applies the model number</td><td class="no">Removed. "Use ₱X" applies the ball</td></tr>
+<tr><td>Review price line</td><td>PHP 11373.65, estimate PHP 11,373.65</td><td>₱13,000 per month, relation to the range</td></tr>
+<tr><td>XGBoost chip, model estimate copy</td><td>Prominent</td><td>Behind "How is this estimated?"</td></tr>
+<tr><td>Standalone estimate flow</td><td>Shows the point number</td><td>Range only, same wording</td></tr>
+<tr><td>Comparison text</td><td>"8% above the estimate"</td><td>Within, above or below the typical range</td></tr>
+<tr><td>Tenant detail page</td><td>Not built</td><td>Read-only range bar</td></tr></table></section>
+
+<details><summary>Build notes</summary><ul>
+<li>The UI model drops the point estimate where the response is parsed, so no screen can render it.</li>
+<li>Range ends round outward to ₱500. The ±30% half-width lives in one named constant.</li>
+<li>The slider is plain React Native with the adjustable role and increment and decrement actions. No native dependency, because the dev client builds locally.</li>
+<li>Amenities keep saving through the existing property-details call. Only their placement changes.</li>
+<li>Subtype chips only offer values valid for the chosen type.</li>
+<li>Published and paused listings save through the existing published-update path, including rent.</li>
+</ul></details>
+</div></body></html>

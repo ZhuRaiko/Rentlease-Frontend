@@ -3,8 +3,8 @@ import { isPropertyUuid } from '../models/DraftProperty';
 import type { ListingDraftFields } from '../models/PersistedListingDraft';
 import { isPublishedListing, PublicationError, publicationEligibility, publicationMessage, type PublicationListing } from '../models/ListingPublication';
 import type { ListingPublicationService, PublicationContext } from '../services/listingPublicationService';
-interface State { propertyId: string | null; listingId: string | null; loaded: boolean; busy: boolean; error: string | null; uncertain: boolean; status: PublicationListing['status'] | null; publishedListingId: string | null; completenessScore: number | null; publishedAt: string | null; lastConfirmed: PublicationListing | null }
-const initial = (propertyId: string | null = null): State => ({ propertyId, listingId: null, loaded: false, busy: false, error: null, uncertain: false, status: null, publishedListingId: null, completenessScore: null, publishedAt: null, lastConfirmed: null });
+interface State { propertyId: string | null; listingId: string | null; loaded: boolean; busy: boolean; /** busy because of a plain saved-listing check (not a publish or a status reconcile) */ checking: boolean; error: string | null; uncertain: boolean; status: PublicationListing['status'] | null; publishedListingId: string | null; completenessScore: number | null; publishedAt: string | null; lastConfirmed: PublicationListing | null }
+const initial = (propertyId: string | null = null): State => ({ propertyId, listingId: null, loaded: false, busy: false, checking: false, error: null, uncertain: false, status: null, publishedListingId: null, completenessScore: null, publishedAt: null, lastConfirmed: null });
 export function createListingPublicationWorkflow(service: ListingPublicationService, onResolved: (row: PublicationListing) => void, canWrite = () => true) {
   let state = initial(), generation = 0, disposed = false;
   const listeners = new Set<() => void>();
@@ -23,14 +23,14 @@ export function createListingPublicationWorkflow(service: ListingPublicationServ
   };
   const restore = async (selectedListingId: string | null = null) => {
     if (disposed || state.busy || !state.propertyId) return false;
-    const g = generation; update({ busy: true, error: null });
+    const g = generation; update({ busy: true, checking: true, error: null });
     try {
       const result = await service.restore(state.propertyId, selectedListingId ?? undefined); if (!alive(g)) return false;
       if (!result) { update({ loaded: true }); return true; }
       if (result.pending) { update({ loaded: true, listingId: result.row.id, status: result.row.status, uncertain: true, error: 'A previous publication needs checking before further changes.' }); return false; }
       accept(result.row); return true;
     } catch (error) { fail(g, error); return false; }
-    finally { if (alive(g)) update({ busy: false }); }
+    finally { if (alive(g)) update({ busy: false, checking: false }); }
   };
   return {
     getSnapshot: () => state, subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
@@ -40,6 +40,8 @@ export function createListingPublicationWorkflow(service: ListingPublicationServ
     adoptLifecycle(row: PublicationListing) { if (!disposed && !state.busy && !state.uncertain && row.property_id === state.propertyId) accept(row); },
     report(message: string) { if (!state.busy) update({ error: message }); },
     restore,
+    /** Re-run the check even if an earlier call is still running: the stuck call is abandoned (its late result is ignored) and a new one starts. */
+    async recheck(selectedListingId: string | null = null) { if (disposed || !state.propertyId) return false; generation++; update({ busy: false, checking: false, error: null }); return restore(selectedListingId); },
     async publish(row: PublicationListing | null, form: ListingDraftFields, uncertainSave: boolean) {
       if (disposed || state.busy || state.uncertain || (!!state.status && state.status !== 'draft') || !canWrite()) return false;
       const error = publicationEligibility(state.propertyId, row, form, uncertainSave);

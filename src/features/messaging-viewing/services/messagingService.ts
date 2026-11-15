@@ -7,7 +7,7 @@ const record=(v:unknown):Record<string,unknown>=>{if(!v||typeof v!=='object'||Ar
 const string=(v:unknown):string=>{if(typeof v!=='string')throw new MessagingError('The messaging response could not be read.');return v;};
 const nullable=(v:unknown)=>v===null?null:string(v);
 export function messagingFailure(error:unknown,write=false):MessagingError{const e=error&&typeof error==='object'?error as Record<string,unknown>:{};
- if(e.code==='PGRST202'||e.code==='42883')return new MessagingError('Messaging needs the backend update before it can be used.');
+ if(e.code==='PGRST202'||e.code==='42883')return new MessagingError('This feature is not available right now. Try again later.');
  if(e.code==='42501'&&e.message==='Conversation is not open')return new MessagingError('This conversation is closed. Reopen it to view its current status.');
  if(e.code==='42501'||e.code==='28000')return new MessagingError('This conversation is unavailable or your account is no longer eligible.',true);
  if(e.code==='22023')return new MessagingError('This inquiry or message is not available. Check the listing and message.');

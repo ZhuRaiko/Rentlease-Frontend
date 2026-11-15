@@ -1,6 +1,6 @@
-import { filterPortfolio, portfolioStats, PortfolioError, type LandlordPortfolioItem } from '../models/LandlordPortfolio';
+import { filterPortfolio, filterPortfolioByStatus, portfolioFilterCounts, PortfolioError, type LandlordPortfolioItem, type PortfolioFilter } from '../models/LandlordPortfolio';
 import type { LandlordPortfolioService } from '../services/landlordPortfolioService';
-const initial = () => ({ items: [] as LandlordPortfolioItem[], loaded: false, busy: false, refreshing: false, error: null as string | null, query: '', selectedPropertyId: null as string | null, selectedListingId: null as string | null });
+const initial = () => ({ items: [] as LandlordPortfolioItem[], loaded: false, busy: false, refreshing: false, error: null as string | null, query: '', filter: 'all' as PortfolioFilter, selectedPropertyId: null as string | null, selectedListingId: null as string | null });
 export function createLandlordPortfolioWorkflow(service: LandlordPortfolioService) {
   let state = initial(), generation = 0, disposed = false, owner: string | null = null;
   const listeners = new Set<() => void>();
@@ -11,8 +11,9 @@ export function createLandlordPortfolioWorkflow(service: LandlordPortfolioServic
     activate() { disposed = false; }, dispose() { disposed = true; generation++; state = initial(); owner = null; listeners.clear(); },
     invalidate() { generation++; owner = null; update(initial()); },
     setQuery(query: string) { update({ query }); },
+    setFilter(filter: PortfolioFilter) { update({ filter }); },
     select(propertyId: string) { const item = state.items.find(i => i.propertyId === propertyId); if (item) update({ selectedPropertyId: propertyId, selectedListingId: item.currentListing?.id ?? null }); return item ?? null; },
-    filtered: () => filterPortfolio(state.items, state.query), stats: () => portfolioStats(state.items),
+    filtered: () => filterPortfolio(filterPortfolioByStatus(state.items, state.filter), state.query), filterCounts: () => portfolioFilterCounts(state.items),
     async load() {
       if (disposed || state.busy) return;
       const g = generation; update({ busy: true, refreshing: state.loaded, error: null });

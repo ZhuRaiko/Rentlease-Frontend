@@ -36,6 +36,8 @@ export function listingFieldIssue(form:ListingDraftFields) {
   const field=message.includes('title')?'title':message.includes('description')?'description':message.includes('rent greater')?'askingRent':message.includes('rental term')?'rentalTerm':message.includes('Security deposit')?'securityDepositMonths':message.includes('Advance rent')?'advanceRentMonths':message.includes('Minimum stay')?'minimumStayMonths':'availableDate';
   return {field,message};
 }
+/** Listing-step validation: every listing rule except the monthly rent, which the Price step checks with listingFieldIssue itself. */
+export const listingDetailsIssue=(form:ListingDraftFields)=>listingFieldIssue({...form,askingRent:'1'});
 export function listingDraftPayload(propertyId: string, form: ListingDraftFields): SaveListingDraftArgs {
   const error = listingDraftValidation(propertyId, form); if (error) throw new ListingDraftError(error);
   return { p_property_id: propertyId, p_title: form.title.trim(), p_description: form.description.trim(), p_asking_rent_monthly: listingNumber(form.askingRent), p_rental_term: form.rentalTerm, p_security_deposit_months: listingNumber(form.securityDepositMonths), p_advance_rent_months: listingNumber(form.advanceRentMonths), ...(form.minimumStayMonths ? { p_minimum_stay_months: listingNumber(form.minimumStayMonths) } : {}), ...(form.availableDate ? { p_available_from: form.availableDate } : {}), ...(form.houseRules.trim() ? { p_house_rules: form.houseRules.trim() } : {}) };

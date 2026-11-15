@@ -17,6 +17,10 @@ import { ChoiceChip, ListingField } from '../components/ListingControls';
 import { ListingButton } from '../components/ListingButton';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
 import { rentalTermOptions } from '../models/PersistedListingDraft';
+import { ListingPhotosCard } from '../components/ListingPhotosCard';
+import { ListingCheckLine } from '../components/ListingCheckLine';
+import { ListingSavedLine } from '../components/ListingSavedLine';
+import { savedLineText, waitingView } from '../models/ListingCheck';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
 
 // Page 2: rental offering only; persistence is coordinated by the ViewModel.
@@ -28,23 +32,30 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     <ListingButton label="Back to My Rentals" tone="outline" onPress={vm.goBack}/>
   </ListingWizardScaffold>;
   const draft = vm.draft, property = vm.propertySummary;
+  // Rent is entered on the Price step in the posting wizard; published editing still shows it here.
+  const issueNow = vm.listingStepIssue;
   const editable = !vm.listingDraftReadOnly && !vm.composerPhase && !(vm.publishedEditing && vm.listingDraftState.busy);
+  const waiting = vm.listingWriteBlockedReason;
+  const savedLine = vm.postingWizard ? savedLineText(vm.composerNotice) : null;
   const saveLabel = vm.publishedEditing&&vm.listingDraftState.busy?'Saving changes...':vm.composerPhase ? (vm.composerPhase === 'property' ? 'Saving property...' : vm.composerPhase === 'photos' ? 'Saving photos...' : 'Saving listing draft...') : vm.publishedEditing?'Save Changes':'Save Draft';
-  const footer = <PropertyProgressFooter compact={vm.postingWizard} viewModel={vm} action={vm.postingWizard?{label:"Continue to Estimate",disabled:!editable,onPress:vm.continuePostingEstimate}:{label:saveLabel,disabled:vm.composerSaveDisabled,onPress:()=>void vm.saveComposerDraft()}} guidance={<>
+  const wait = waitingView(waiting, vm.returnTo ? 'Save and return' : 'Continue to Price');
+  const footer = <PropertyProgressFooter compact={vm.postingWizard} viewModel={vm} action={vm.postingWizard?{label:wait.label,disabled:!editable||!!waiting,onPress:vm.continuePostingEstimate}:{label:saveLabel,disabled:vm.composerSaveDisabled,onPress:()=>void vm.saveComposerDraft()}} guidance={<>
     {vm.propertyValidationIssues?.length ? <PropertyReadinessNotice viewModel={vm}/> : null}
     <ListingWorkspaceFeedback viewModel={vm} scope="draft" />
     {vm.composerPhase && !vm.listingDraftState.busy ? <FeedbackNotice message="Saving your progress. Keep this screen open until saving finishes." /> : null}
-    {!vm.composerPhase && !vm.listingDraftState.error && vm.listingValidationIssue ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{vm.listingValidationIssue.message}</Text> : null}
+    {wait.hint ? <Text accessibilityLiveRegion="polite" style={styles.hint}>{wait.hint}</Text> : null}
+    {!vm.composerPhase && !vm.listingDraftState.error && issueNow ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{issueNow.message}</Text> : null}
   </>} />;
-  return <ListingWizardScaffold progress={vm.postingWizard?<PostingProgress step={2}/>:undefined} title={vm.postingWizard?"Rental Listing":vm.listingDraftState.lastConfirmed?"Edit Listing":"Listing Details"} onBack={vm.goBack} onClose={onClose} footer={footer}>
+  return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} progress={vm.postingWizard?<PostingProgress step={2} onSelect={vm.goToPostingStep}/>:undefined} title={vm.postingWizard?"Rental Listing":vm.listingDraftState.lastConfirmed?"Edit Listing":"Listing Details"} onBack={vm.goBack} onClose={onClose} footer={footer}>
+    <ListingCheckLine state={vm.listingCheck.state} message={vm.listingCheck.message} onRetry={() => void vm.retryListingCheck()} />
+    {vm.listingCheck.state === 'ok' && savedLine ? <ListingSavedLine text={savedLine} /> : null}
     {vm.publishedEditing?<Text accessibilityLiveRegion="polite" style={styles.copy}>Editing {vm.listingDraftState.lastConfirmed?.status==='paused'?'Paused':'Published'} listing. Saving changes preserves this status.</Text>:null}
     <Text style={styles.copy}>{vm.publishedEditing?'* Required to save changes':'* Required to save a listing draft'}</Text>
     {!vm.postingWizard?<><View style={styles.summary}>
       <Text accessibilityRole="header" style={styles.heading}>Property Details</Text>
       <Text style={styles.body}>{property.type}</Text>
-      <Text style={styles.copy}>{property.bedrooms} bedrooms ? {property.bathrooms} bathrooms</Text>
+      <Text style={styles.copy}>{property.bedrooms} bedrooms / {property.bathrooms} bathrooms</Text>
       <Text style={styles.copy}>{property.location || 'Location not entered'}</Text>
-      {vm.propertyEditAvailable?<ListingButton label="Edit Property" tone="outline" disabled={!editable} onPress={vm.openPropertyDetails}/>:null}
       {!vm.workspacePropertyId?<ListingButton label="Edit property" tone="outline" onPress={vm.editComposerProperty}/>:null}
     </View>
     {vm.workspacePropertyId?<View style={styles.section}>
@@ -54,26 +65,27 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     </View>:null}
     </>:null}
     {!vm.postingWizard?<Text accessibilityRole="header" style={styles.heading}>Listing Details</Text>:null}
+    {vm.postingWizard?<ListingPhotosCard viewModel={vm}/>:null}
     {vm.listingEditExplanation ? <FeedbackNotice message={vm.listingEditExplanation} /> : null}
     {!vm.postingWizard&&!vm.publishedEditing?<PropertyVerificationAction viewModel={vm} />:null}
-    <ComposerRecoveryFeedback viewModel={vm} />
-    <View style={styles.section}><ListingField editable={editable} required error={vm.listingValidationIssue?.field==='title'?vm.listingValidationIssue.message:null} helper={<CompletenessHint value={vm.completeness} factor="title" hidden={vm.postingWizard} />} label="Listing title" placeholder="e.g. Bright 1-bedroom apartment in Imus" value={draft.title} onChangeText={v => vm.updateDraft('title', v)} />
-    <ListingField editable={editable} required error={vm.listingValidationIssue?.field==='askingRent'?vm.listingValidationIssue.message:null} helper={<CompletenessHint value={vm.completeness} factor="rent" hidden={vm.postingWizard} />} label="Monthly asking rent" prefix="₱" keyboardType="numeric" placeholder="Enter monthly rent" value={draft.askingRent} onChangeText={v => vm.updateDraft('askingRent', v)} />
+    <ComposerRecoveryFeedback viewModel={vm} slimSaved />
+    <View style={styles.section}>{vm.postingWizard?<Text accessibilityRole="header" style={styles.heading}>Listing details</Text>:null}<ListingField editable={editable} required error={issueNow?.field==='title'?issueNow.message:null} helper={<CompletenessHint value={vm.completeness} factor="title" hidden={vm.postingWizard} />} label="Listing title" placeholder="e.g. Bright 1-bedroom apartment in Imus" value={draft.title} onChangeText={v => vm.updateDraft('title', v)} />
+    {!vm.postingWizard?<ListingField editable={editable} required error={issueNow?.field==='askingRent'?issueNow.message:null} helper={<CompletenessHint value={vm.completeness} factor="rent" hidden={vm.postingWizard} />} label="Monthly asking rent" prefix="₱" keyboardType="numeric" placeholder="Enter monthly rent" value={draft.askingRent} onChangeText={v => vm.updateDraft('askingRent', v)} />:null}
     {!vm.postingWizard?priceGuidance:null}
-    <ListingField editable={editable} required helper={<CompletenessHint value={vm.completeness} factor="description" hidden={vm.postingWizard} />} error={vm.listingValidationIssue?.field==='description'?vm.listingValidationIssue.message:null} label="Description" multiline placeholder="Describe the space and what tenants should know." value={draft.description} onChangeText={v => vm.updateDraft('description', v)} />
+    <ListingField editable={editable} required helper={<CompletenessHint value={vm.completeness} factor="description" hidden={vm.postingWizard} />} error={issueNow?.field==='description'?issueNow.message:null} label="Description" multiline placeholder="Describe the place, the neighborhood and what is included." value={draft.description} onChangeText={v => vm.updateDraft('description', v)} />
     </View>
     <View style={[styles.section,vm.postingWizard&&styles.terms]}><Text accessibilityRole="header" style={styles.heading}>Rental terms</Text>
-      <FeedbackNotice message={vm.listingValidationIssue?.field==='rentalTerm'?vm.listingValidationIssue.message:null} tone="error" />
+      <FeedbackNotice message={issueNow?.field==='rentalTerm'?issueNow.message:null} tone="error" />
       {vm.postingWizard?<PostingChoices label="Rental term" options={rentalTermOptions} value={draft.rentalTerm} disabled={!editable} onChange={v=>vm.updateDraft('rentalTerm',v)}/>:<View style={styles.chips}>{rentalTermOptions.map(option => <ChoiceChip disabled={!editable} key={option.value} label={option.label} selected={draft.rentalTerm === option.value} onPress={() => vm.updateDraft('rentalTerm', option.value)} />)}</View>}
-      <ListingField editable={editable} error={vm.listingValidationIssue?.field==='securityDepositMonths'?vm.listingValidationIssue.message:null} label="Security deposit (months)" placeholder="1" keyboardType="numeric" value={draft.securityDepositMonths} onChangeText={v => vm.updateDraft('securityDepositMonths', v)} />
-      <ListingField editable={editable} error={vm.listingValidationIssue?.field==='advanceRentMonths'?vm.listingValidationIssue.message:null} label="Advance rent (months)" placeholder="1" keyboardType="numeric" value={draft.advanceRentMonths} onChangeText={v => vm.updateDraft('advanceRentMonths', v)} />
-      <ListingField editable={editable} error={vm.listingValidationIssue?.field==='minimumStayMonths'?vm.listingValidationIssue.message:null} label="Minimum stay (months, optional)" placeholder="Leave blank if not specified" keyboardType="numeric" value={draft.minimumStayMonths} onChangeText={v => vm.updateDraft('minimumStayMonths', v)} />
+      <ListingField editable={editable} error={issueNow?.field==='securityDepositMonths'?issueNow.message:null} label="Security deposit (months)" placeholder="1" keyboardType="numeric" value={draft.securityDepositMonths} onChangeText={v => vm.updateDraft('securityDepositMonths', v)} />
+      <ListingField editable={editable} error={issueNow?.field==='advanceRentMonths'?issueNow.message:null} label="Advance rent (months)" placeholder="1" keyboardType="numeric" value={draft.advanceRentMonths} onChangeText={v => vm.updateDraft('advanceRentMonths', v)} />
+      <ListingField editable={editable} error={issueNow?.field==='minimumStayMonths'?issueNow.message:null} label="Minimum stay (months, optional)" placeholder="Leave blank if not specified" keyboardType="numeric" value={draft.minimumStayMonths} onChangeText={v => vm.updateDraft('minimumStayMonths', v)} />
     <AvailabilityDateField disabled={!editable} value={draft.availableDate} onChange={v => vm.updateDraft('availableDate', v)} />
     <CompletenessHint value={vm.completeness} factor="availableDate" hidden={vm.postingWizard} />
-    <FeedbackNotice message={vm.listingValidationIssue?.field==='availableDate'?vm.listingValidationIssue.message:null} tone="error" />
+    <FeedbackNotice message={issueNow?.field==='availableDate'?issueNow.message:null} tone="error" />
     </View>
     {vm.postingWizard?<PostingSection title="House rules" summary={draft.houseRules.trim()?'Rules added - optional':'Optional'}><ListingField editable={editable} label="House rules (optional)" multiline placeholder="Include any rules tenants need to know." value={draft.houseRules} onChangeText={v => vm.updateDraft('houseRules', v)} /></PostingSection>:<ListingField editable={editable} label="House rules (optional)" multiline placeholder="Include any rules tenants need to know." value={draft.houseRules} onChangeText={v => vm.updateDraft('houseRules', v)} />}
-    <Text style={styles.copy}>{vm.postingWizard?'Continue keeps your listing details in this session. Save Draft on Review saves them to your account.':vm.publishedEditing?'Save changes updates this listing without changing its publication status.':vm.listingDraftState.lastConfirmed?.status==='draft'?'Save draft updates this existing listing. It does not publish it.':'Save draft keeps confirmed property and photo progress. Nothing is published automatically.'}</Text>
+    <Text style={styles.copy}>{vm.postingWizard?(vm.publishedEditing?'Continue keeps your listing details in this session. Save Changes on Review saves them.':'Your listing details are saved to your account when you continue from the Price step.'):vm.publishedEditing?'Save changes updates this listing without changing its publication status.':vm.listingDraftState.lastConfirmed?.status==='draft'?'Save draft updates this existing listing. It does not publish it.':'Save draft keeps confirmed property and photo progress. Nothing is published automatically.'}</Text>
     {!vm.postingWizard&&vm.publicationReview?.visible ? <>
       <Text accessibilityLiveRegion="polite" style={styles.copy}>{vm.publicationReview.state}. {vm.publicationReview.message}</Text>
       <ListingButton label="Review Publication" tone="outline" disabled={vm.publicationReviewDisabled} onPress={vm.requestPublish} />
@@ -81,4 +93,4 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     {!vm.postingWizard&&!vm.publishedEditing?<ListingButton label="Preview listing" tone="outline" disabled={vm.photoState.busy || !!vm.composerPhase} onPress={vm.openComposerPreview} />:null}
   </ListingWizardScaffold>;
 }
-const styles = StyleSheet.create({ terms:{borderTopWidth:1,borderTopColor:colors.outline,paddingTop:16}, heading: { ...ui.sectionTitle }, body: { ...ui.body }, copy: { ...ui.supporting }, section: { gap: spacing.sm }, summary: { gap: spacing.xs, paddingVertical: spacing.sm }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs } });
+const styles = StyleSheet.create({ terms:{borderTopWidth:1,borderTopColor:colors.outline,paddingTop:16}, heading: { ...ui.sectionTitle }, body: { ...ui.body }, copy: { ...ui.supporting }, hint: { ...ui.supporting, textAlign: 'center' }, section: { gap: spacing.sm }, summary: { gap: spacing.xs, paddingVertical: spacing.sm }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs } });

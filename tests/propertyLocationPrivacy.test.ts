@@ -110,7 +110,7 @@ test('Property Setup/Review readiness follows accepted four-coordinate state wit
   if(name.endsWith('/PropertyProgressFooter'))return {PropertyProgressFooter:'PropertyProgressFooter',PropertyReadinessNotice:'PropertyReadinessNotice'};
   if(name.endsWith('/usePropertyFormFocus'))return {usePropertyFormFocus:()=>({scrollRef:{current:null},contentRef:{current:null},section:()=>()=>{},field:()=>()=>{}})};
   if (name === 'react-native') return { View: 'View', Text: 'Text', StyleSheet: { create: (styles: any) => styles } };
-  const component = ['PropertyValidationSummary', 'PropertyFloorFields', 'FieldLabel', 'PropertyLocationToolView', 'PropertyLocationMapView', 'FeedbackNotice', 'ListingWizardScaffold', 'ListingButton'].find(value => name.endsWith('/' + value));
+  const component = ['PropertyValidationSummary', 'PropertyFloorFields', 'FieldLabel', 'PropertyLocationToolView', 'PropertyLocationMapView', 'FeedbackNotice', 'ListingWizardScaffold', 'ListingButton', 'PropertyRecoveryCard'].find(value => name.endsWith('/' + value));
   if (component) return { [component]: component };
   if (name.endsWith('/ListingControls')) return { ListingField: 'ListingField', ChoiceChip: 'ChoiceChip' };
   return actualRequire(name);

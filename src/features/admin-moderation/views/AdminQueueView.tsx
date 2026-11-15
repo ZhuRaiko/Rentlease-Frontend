@@ -1,127 +1,118 @@
-import {ReportQueueSummary} from '../../../shared/components/Reporting';
-import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
-import { AppButton } from '../../../shared/components/AppButton';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { AppButton } from '../../../shared/components/AppButton';
+import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
 import { colors } from '../../../shared/theme/colors';
-import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
-import { typography } from '../../../shared/theme/typography';
-import {
-  AdminHeading,
-  ReportQueueCard,
-  VerificationQueueCard,
-} from '../components/AdminCards';
+import { ui } from '../../../shared/theme/ui';
+import { AdminEmptyState, AdminPills, AdminQueueCard, AdminTabs } from '../components/AdminCards';
 import { AdminScaffold } from '../components/AdminScaffold';
+import { documentTypeLabel, verificationStatusLabel, verificationTierLabel } from '../models/AdminVerification';
+import { formatAdminAge, reportQueueFilters, reportReasonLabel, reportStatusLabel, reportStatusTone, reportTypeLabel, reviewKindLabel, reviewQueueFilters, reviewStatusLabel, reviewStatusTone, reviewTypeLabel } from '../models/AdminQueuePresentation';
+import type { AdminQueueTab } from '../models/AdminModeration';
 import type { AdminModerationViewModel } from '../viewModels/useAdminModerationViewModel';
 
-export function AdminQueueView({ viewModel,accountId }: { viewModel: AdminModerationViewModel;accountId?:string|undefined }) {
-  if (viewModel.screen === 'reviewQueues') {
-    return (
-      <AdminScaffold onBack={viewModel.goBack} title="Admin Review Queues">
-        <AdminHeading
-          body="Prioritize verification and safety work by age, risk, and required action."
-          eyebrow="QUEUE OVERVIEW"
-          title="Work requiring review"
-        />
-        <View style={styles.overviewList}>
-          <QueueOverview
-            count={viewModel.verification.status === 'success' ? viewModel.verification.queue.length : '--'}
-            label="Verification"
-            meta="Pending and under review; oldest first"
-            onPress={() => viewModel.navigate('verificationQueue')}
-            tone="warning"
-          />
-          <ReportQueueSummary accountId={accountId} onOpen={()=>viewModel.navigate('reportsQueue')}/>
-        </View>
-        <View style={styles.guidanceCard}>
-          <Text style={styles.guidanceTitle}>Queue handling guidance</Text>
-          <Text style={styles.guidanceBody}>Review urgent safety reports first, then age-sensitive verification requests. Tier 2 decisions use the backend review workflow; other moderation actions remain local previews.</Text>
-        </View>
-      </AdminScaffold>
-    );
-  }
+const verificationFilters = [{ id: 'All', label: 'All' }, { id: 'Tier 2', label: 'Tier 2' }, { id: 'Tier 3', label: 'Tier 3' }] as const;
 
-  if (viewModel.screen === 'verificationQueue') {
-    return (
-      <AdminScaffold onBack={viewModel.goBack} title="Verification Queue" onRefresh={() => void viewModel.refreshVerification()} refreshing={viewModel.queueRefreshing} refreshEnabled={!viewModel.verification.reviewBusy}>
-        <AdminHeading
-          body="Review submitted identity and property-authorization materials."
-          eyebrow={viewModel.verification.status === 'success' ? `${viewModel.verification.queue.length} WAITING FOR REVIEW` : 'VERIFICATION QUEUE'}
-          title="Verification submissions"
-        />
-        <FilterRow accessibleSelection labels={['All', 'Tier 2', 'Tier 3']} selected={viewModel.verificationFilter} onSelect={viewModel.setVerificationFilter} />
-        {viewModel.queueRefreshing ? <Text accessibilityLiveRegion="polite" style={styles.guidanceBody}>Loading verification submissions...</Text> : <Text style={styles.guidanceBody}>Pull down to refresh.</Text>}
-        {viewModel.dashboardNeedsRecovery ? <AppButton disabled={viewModel.queueRefreshing} label="Retry verification queue" onPress={() => void viewModel.refreshVerification()} variant="secondary" /> : null}
-        <FeedbackNotice tone="error" message={viewModel.verification.error} />
-        <FeedbackNotice tone="error" message={viewModel.verification.reviewError} />
-        <FeedbackNotice tone="success" message={viewModel.verification.reviewNotice} />
-        {viewModel.verification.status === 'success' && viewModel.verificationSubmissions.length === 0 ? <Text style={styles.guidanceBody}>No verification submissions are waiting for review.</Text> : null}
-        <View style={styles.queueList}>
-          {viewModel.verificationSubmissions.map((item) => (
-            <VerificationQueueCard item={item} key={item.submissionId} onPress={() => viewModel.openVerification(item.submissionId)} />
-          ))}
-        </View>
-      </AdminScaffold>
-    );
-  }
-
+export function AdminQueueView({ viewModel }: { viewModel: AdminModerationViewModel }) {
+  const tabs: { id: AdminQueueTab; label: string; count: number | null; lowerBound?: boolean }[] = [
+    { id: 'verification', label: 'Verification', count: viewModel.verificationCount },
+    { id: 'reports', label: 'Reports', count: viewModel.reportCount },
+    { id: 'reviews', label: 'Reviews', count: viewModel.reviewCount, lowerBound: viewModel.reviewCountIsLowerBound },
+  ];
   return (
-    <AdminScaffold onBack={viewModel.goBack} title="Reports queue">
-      <AdminHeading
-        body="Review reported users, listings, and conversations using the available context."
-        eyebrow={`${viewModel.openReportCount} OPEN REPORTS`}
-        title="Safety reports"
-      />
-      <FilterRow labels={['All', 'Urgent', 'Users', 'Listings', 'Messages']} />
-      <View style={styles.queueList}>
-        {viewModel.reports.map((item) => (
-          <ReportQueueCard item={item} key={item.id} onPress={() => viewModel.openReport(item.id)} />
-        ))}
-      </View>
+    <AdminScaffold title="Review queue" onRefresh={() => void viewModel.refreshActiveQueue()} refreshing={viewModel.queueRefreshing} refreshEnabled={!viewModel.verification.reviewBusy}>
+      <AdminTabs onSelect={viewModel.setQueueTab} selected={viewModel.queueTab} tabs={tabs} />
+      {viewModel.queueTab === 'verification' ? <VerificationTab viewModel={viewModel} /> : null}
+      {viewModel.queueTab === 'reports' ? <ReportsTab viewModel={viewModel} /> : null}
+      {viewModel.queueTab === 'reviews' ? <ReviewsTab viewModel={viewModel} /> : null}
     </AdminScaffold>
   );
 }
 
-function FilterRow({ labels, selected, onSelect, accessibleSelection = false }: { labels: readonly string[]; selected?: string; onSelect?: (label: string) => void; accessibleSelection?: boolean }) {
+function VerificationTab({ viewModel }: { viewModel: AdminModerationViewModel }) {
+  const { verification } = viewModel;
   return (
-    <View style={styles.filters}>
-      {labels.map((label, index) => (
-        <Pressable accessibilityRole="button" accessibilityState={{ selected: selected === label }} key={label} onPress={() => onSelect?.(label)} style={[styles.filter, accessibleSelection && { minHeight: 48, justifyContent: 'center' }, (selected ? selected === label : index === 0) && styles.filterActive]}>
-          <Text style={[styles.filterLabel, (selected ? selected === label : index === 0) && styles.filterLabelActive]}>{label}</Text>
-        </Pressable>
+    <View style={styles.tab}>
+      <AdminPills onSelect={viewModel.setVerificationFilter} options={verificationFilters} selected={viewModel.verificationFilter} />
+      {viewModel.queueRefreshing ? <Text accessibilityLiveRegion="polite" style={ui.supporting}>Loading verification submissions...</Text> : <Text style={ui.supporting}>Pull down to refresh.</Text>}
+      {viewModel.dashboardNeedsRecovery ? <AppButton disabled={viewModel.queueRefreshing} label="Retry verification queue" onPress={() => void viewModel.refreshVerification()} variant="secondary" /> : null}
+      <FeedbackNotice tone="error" message={verification.error} />
+      <FeedbackNotice tone="error" message={verification.reviewError} />
+      <FeedbackNotice tone="success" message={verification.reviewNotice} />
+      {verification.status === 'success' && viewModel.verificationSubmissions.length === 0 ? <AdminEmptyState title="Nothing waiting" body="No verification submissions are waiting for review." /> : null}
+      {viewModel.verificationSubmissions.map((item) => (
+        <AdminQueueCard
+          age={formatAdminAge(item.submittedAt)}
+          key={item.submissionId}
+          onPress={() => viewModel.openVerification(item.submissionId)}
+          statusLabel={verificationStatusLabel(item.status)}
+          statusTone={item.status === 'under_review' ? 'info' : 'warning'}
+          title={item.displayName}
+          type={`${verificationTierLabel(item.tier)} · ${documentTypeLabel(item.documentType)}`}
+        />
       ))}
     </View>
   );
 }
 
-function QueueOverview({ label, count, meta, tone, onPress }: { label: string; count: number | string; meta: string; tone: 'warning' | 'danger'; onPress: () => void }) {
+function ReportsTab({ viewModel }: { viewModel: AdminModerationViewModel }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={styles.overviewCard}>
-      <Text style={[styles.overviewCount, tone === 'danger' ? styles.danger : styles.warning]}>{count}</Text>
-      <Text style={styles.overviewLabel}>{label}</Text>
-      <Text style={styles.overviewMeta}>{meta}</Text>
-      <Text style={styles.openQueue}>Open queue ›</Text>
-    </Pressable>
+    <View style={styles.tab}>
+      <AdminPills disabled={viewModel.reportsLocked} onSelect={viewModel.setReportFilter} options={reportQueueFilters} selected={viewModel.reportFilter} />
+      {viewModel.reportsBusy ? <ActivityIndicator accessibilityLabel="Loading reports" color={colors.primaryAction} /> : <Text style={ui.supporting}>Pull down to refresh.</Text>}
+      <FeedbackNotice tone="error" message={viewModel.reportsError} />
+      <FeedbackNotice tone="success" message={viewModel.reportsNotice} />
+      {viewModel.reportsPending ? <>
+        <FeedbackNotice tone="warning" message="A report action needs reconciliation. Retry the same saved operation; do not clear app data." />
+        <AppButton disabled={!viewModel.reportsReady || viewModel.reportsBusy || viewModel.reportsSaving} label="Retry pending report action" onPress={() => void viewModel.retryReports()} />
+      </> : null}
+      {viewModel.reportsLoaded && viewModel.reportRows.length === 0 ? <AdminEmptyState title="No reports in this view" body={viewModel.reportsHasMore ? 'More reports are available on the next page.' : 'Nothing matches this filter right now.'} /> : null}
+      {viewModel.reportRows.map((row) => (
+        <AdminQueueCard
+          age={formatAdminAge(row.submittedAt)}
+          key={row.id}
+          onPress={() => viewModel.openReport(row.id)}
+          statusLabel={reportStatusLabel(row.status)}
+          statusTone={reportStatusTone(row.status)}
+          title={reportReasonLabel(row)}
+          type={reportTypeLabel(row.kind)}
+        />
+      ))}
+      {viewModel.reportsHasPrevious ? <AppButton disabled={viewModel.reportsLocked} label="Previous reports" onPress={() => void viewModel.previousReports()} variant="secondary" /> : null}
+      {viewModel.reportsHasMore ? <AppButton disabled={viewModel.reportsLocked} label="More reports" onPress={() => void viewModel.moreReports()} variant="secondary" /> : null}
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  overviewList: { flexDirection: 'row', gap: spacing.sm },
-  overviewCard: { borderColor: colors.border, borderRadius: radius.card, borderWidth: 1, flex: 1, padding: spacing.md },
-  overviewCount: { fontFamily: typography.family, fontSize: 32, fontWeight: '900' },
-  warning: { color: colors.warning },
-  danger: { color: colors.restricted },
-  overviewLabel: { color: colors.text, fontFamily: typography.family, fontSize: 14, fontWeight: '900', marginTop: 3 },
-  overviewMeta: { color: colors.textMuted, fontFamily: typography.family, fontSize: 13, marginTop: 3 },
-  openQueue: { color: colors.primaryAction, fontFamily: typography.family, fontSize: 13, fontWeight: '900', marginTop: spacing.md },
-  guidanceCard: { backgroundColor: '#EAF1ED', borderRadius: radius.card, gap: 5, marginTop: spacing.lg, padding: spacing.md },
-  guidanceTitle: { color: '#173C2C', fontFamily: typography.family, fontSize: 12, fontWeight: '900' },
-  guidanceBody: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 14, lineHeight: 21 },
-  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: spacing.md },
-  filter: { backgroundColor: colors.surface, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 7 },
-  filterActive: { backgroundColor: colors.primaryAction },
-  filterLabel: { color: colors.textSecondary, fontFamily: typography.family, fontSize: 13, fontWeight: '800' },
-  filterLabelActive: { color: colors.white },
-  queueList: { gap: spacing.sm },
-});
+function ReviewsTab({ viewModel }: { viewModel: AdminModerationViewModel }) {
+  return (
+    <View style={styles.tab}>
+      <AdminPills disabled={viewModel.reviewsLocked} onSelect={viewModel.setReviewStatus} options={reviewQueueFilters} selected={viewModel.reviewStatus} />
+      {viewModel.reviewsBusy ? <ActivityIndicator accessibilityLabel="Loading reviews" color={colors.primaryAction} /> : <Text style={ui.supporting}>Pull down to refresh. Tap a review to moderate it.</Text>}
+      <FeedbackNotice tone="error" message={viewModel.reviewsError} />
+      <FeedbackNotice tone="success" message={viewModel.reviewsNotice} />
+      {viewModel.reviewsPending ? <>
+        <FeedbackNotice tone="warning" message="A review action needs reconciliation. Retry the same saved operation; keep app data until it is confirmed." />
+        <AppButton disabled={!viewModel.reviewsReady || viewModel.reviewsBusy || viewModel.reviewsSaving} label="Retry pending review action" onPress={() => void viewModel.retryReviews()} />
+      </> : null}
+      {viewModel.reviewsError && !viewModel.reviewsBusy && !viewModel.reviewsPending ? <AppButton label="Retry reviews" onPress={() => void viewModel.refreshReviews()} variant="secondary" /> : null}
+      {viewModel.reviewsLoaded && viewModel.reviewRows.length === 0 ? <AdminEmptyState title="Nothing here" body={viewModel.reviewStatus === 'pending' ? 'No reviews are waiting for moderation.' : 'No reviews in this moderation state.'} /> : null}
+      {viewModel.reviewRows.map((row) => (
+        <AdminQueueCard
+          age={formatAdminAge(row.createdAt)}
+          key={row.id}
+          onPress={() => viewModel.openReview(row.id)}
+          statusLabel={reviewStatusLabel(row.status)}
+          statusTone={reviewStatusTone(row.status)}
+          title={`${reviewKindLabel(row.kind)} · ${row.rating} of 5`}
+          type={reviewTypeLabel(row.kind)}
+        />
+      ))}
+      {viewModel.reviewsHasPrevious ? <AppButton disabled={viewModel.reviewsLocked} label="Previous review page" onPress={() => void viewModel.previousReviews()} variant="secondary" /> : null}
+      {viewModel.reviewsHasMore ? <AppButton disabled={viewModel.reviewsLocked} label="More reviews" onPress={() => void viewModel.moreReviews()} variant="secondary" /> : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({ tab: { gap: spacing.sm } });

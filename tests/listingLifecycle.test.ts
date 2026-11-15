@@ -1,10 +1,14 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
+import ts from 'typescript';
+import { sharedStub } from './support/sharedStubs';
 import { test } from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../src/shared/services/supabase/database.types';
-import { lifecycleActions, lifecycleBackendError, lifecycleReceiptFromRow, lifecycleRpc, lifecycleStatusLabel, lifecycleTarget, type LifecycleListing, type LifecycleOperation, type LifecycleStatus } from '../src/features/property-listing/models/ListingLifecycle';
+import { lifecycleActions, lifecycleBackendError, lifecycleLabel, lifecycleReceiptFromRow, lifecycleRpc, lifecycleStatusLabel, lifecycleTarget, type LifecycleListing, type LifecycleOperation, type LifecycleStatus } from '../src/features/property-listing/models/ListingLifecycle';
 import { createListingLifecycleService } from '../src/features/property-listing/services/listingLifecycleService';
 import { createListingLifecycleWorkflow } from '../src/features/property-listing/viewModels/listingLifecycleWorkflow';
 const propertyId = '10000000-0000-4000-8000-000000000001', listingId = '20000000-0000-4000-8000-000000000001', userId = '30000000-0000-4000-8000-000000000001';
@@ -153,4 +157,37 @@ test('lifecycle presentation has no backend client and service exposes no generi
   const view = readFileSync('src/features/property-listing/views/PublishedListingStatusView.tsx', 'utf8'); assert.doesNotMatch(view, /getSupabaseClient|\.rpc\(|\.from\(|Mark unavailable|from ['"][^'"]*\/services\//);
   assert.deepEqual(Object.values(lifecycleRpc), ['pause_listing', 'reactivate_listing', 'archive_listing']);
   const service = readFileSync('src/features/property-listing/services/listingLifecycleService.ts', 'utf8'); assert.doesNotMatch(service, /\.(insert|update|upsert)\(|mark_rented|mark_unavailable|set_listing_status|geocod|MapTiler|XGBoost|Overpass/);
+});
+
+// Renders PublishedListingStatusView with the shared stubs and returns each Text node as one line.
+function statusLines(vm: Record<string, unknown>): string[] {
+  const absolute = resolve('src/features/property-listing/views/PublishedListingStatusView.tsx'), actual = createRequire(absolute), mod = { exports: {} as any };
+  const jsx = (type: any, props: any) => ({ type, props });
+  const req = (name: string): any => name === 'react/jsx-runtime' ? { jsx, jsxs: jsx } : (sharedStub(absolute, name) ?? actual(name));
+  new Function('require', 'module', 'exports', ts.transpileModule(readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText)(req, mod, mod.exports);
+  const texts = (node: any): string[] => node == null || typeof node === 'boolean' ? [] : typeof node === 'string' || typeof node === 'number' ? [String(node)] : Array.isArray(node) ? node.flatMap(texts) : texts(node.props?.children);
+  const lines: string[] = [];
+  const visit = (node: any) => { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); if (node.type === 'Text') lines.push(texts(node.props.children).join('')); else visit(node.props?.children); };
+  visit(mod.exports.PublishedListingStatusView({ viewModel: vm, onClose() {} }));
+  return lines;
+}
+const statusVm = (row: object, extra: object = {}) => ({ lifecycleState: { confirmation: null, busy: false }, realListing: { ...listing('active'), ...row }, lifecycleStatusLabel, lifecycleLabel, lifecycleActions: [], lifecycleBlocked: false, notice: null, goBack() {}, goDashboard() {}, editManagedListing() {}, lifecycle: {}, ...extra });
+test('Manage Status shows one status label and one date, no listing id and no "?" glyph', () => {
+  const dates = { published_at: '2026-10-20T01:00:00Z', paused_at: '2026-10-25T01:00:00Z', archived_at: '2026-10-26T01:00:00Z', updated_at: '2026-10-27T01:00:00Z', completeness_score: 0.8 };
+  for (const [status, label, dateLabel] of [['active', 'Published', 'Published'], ['paused', 'Paused', 'Paused'], ['archived', 'Archived', 'Archived']] as const) {
+    const lines = statusLines(statusVm({ ...dates, status }));
+    const all = lines.join('\n');
+    assert.doesNotMatch(all, /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-/i, status + ': a UUID is shown');
+    assert.doesNotMatch(all, /\?/, status + ': a "?" glyph is shown');
+    assert.deepEqual(lines.filter(line => line === label), [label], status + ': exactly one status label');
+    assert.equal(lines.filter(line => /^(Published|Paused|Archived|Updated): /.test(line)).length, 1, status + ': exactly one date');
+    assert.ok(lines.some(line => line.startsWith(dateLabel + ': ')), status + ': the date matches the status');
+    assert.ok(!lines.some(line => /^(Status|Listing|Completeness): /.test(line)), status + ': no raw Status, Listing or Completeness line');
+  }
+  // Completeness appears only for a draft.
+  assert.ok(statusLines(statusVm({ ...dates, status: 'draft' })).includes('Completeness: 80%'));
+  // The reactivate confirmation keeps its meaning and the apostrophe is a real one.
+  const confirm = statusLines(statusVm({ ...dates, status: 'paused' }, { lifecycleState: { confirmation: 'reactivate', busy: false } })).join('\n');
+  assert.match(confirm, /RentLease will recheck this property's verification and publication requirements\./);
+  assert.doesNotMatch(confirm, /\w\?\w/);
 });

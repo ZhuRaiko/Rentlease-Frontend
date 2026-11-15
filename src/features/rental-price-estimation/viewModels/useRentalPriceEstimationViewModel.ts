@@ -10,7 +10,6 @@ export function useRentalPriceEstimationViewModel(actor:EstimateActor,accountId:
  const state=useSyncExternalStore(workflow.subscribe,workflow.getSnapshot,workflow.getSnapshot);
  useEffect(()=>{workflow.activate();void workflow.load();return()=>workflow.dispose();},[workflow]);
  const safe=state.owner&&state.owner!==accountId?{...state,properties:[],selected:null,result:null}:state;
- const difference=state.result?.askingRent!==null&&state.result?.askingRent!==undefined?state.result.askingRent-state.result.estimatedMonthlyRent:null;
- return {...safe,workflow,difference,backFromWorkspace:(onClose:()=>void)=>{if(!workflow.back())onClose();}};
+ return {...safe,workflow,backFromWorkspace:(onClose:()=>void)=>{if(!workflow.back())onClose();}};
 }
 export type RentalPriceEstimationViewModel=ReturnType<typeof useRentalPriceEstimationViewModel>;
