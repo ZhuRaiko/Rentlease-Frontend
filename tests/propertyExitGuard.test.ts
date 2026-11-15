@@ -1751,3 +1751,30 @@ test('range meter: a fresh form shows 0 of 8; each detail the person sets counts
   fields(); await confirmMap(); await h.vm().nextListingDetails(); await h.settle(); h.flush();
   assert.ok(count() >= 4, 'after the save every stored value counts'); h.unmount();
 });
+
+// ---- Continue on Step 1 opens Step 2 for a type with a range, with the share applied or not, at device timing (effects run while the save waits)
+for (const wish of [true, false]) test(`Continue on Step 1 opens Step 2 for an apartment in a supported city (share switch ${wish ? 'ON' : 'OFF'})`, async () => {
+  const s = shareService(); let release!: () => void; const gate = new Promise<void>(r => { release = r; });
+  const { h, fields, confirmMap } = unifiedHarness('none', { routineGate: gate, locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  assert.equal(h.vm().rangeSupport, 'range'); h.vm().setShareLocationWanted(wish); h.flush();
+  let done = false; const p = h.vm().nextListingDetails().then(() => { done = true; });
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  release(); while (!done) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  await p; await h.settle(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'listingDetails', 'Step 2 opened'); assert.equal(h.vm().composerNotice, 'Property saved' === h.vm().composerNotice ? 'Property saved' : h.vm().composerNotice);
+  assert.deepEqual(s.calls.map(c => c[0]), wish ? ['load', 'save'] : [], wish ? 'the share was applied once' : 'no consent call when the switch is off'); h.unmount();
+});
+for (const wish of [true, false]) test(`Continue again from Step 1 after coming Back from Step 2 opens Step 2 (share switch ${wish ? 'ON' : 'OFF'})`, async () => {
+  const s = shareService(); let release!: () => void; const gate = new Promise<void>(r => { release = r; });
+  const { h, fields, confirmMap } = unifiedHarness('none', { routineGate: gate, locationShare: s.service }); await h.settle(); fields(); await confirmMap();
+  h.vm().setShareLocationWanted(wish); h.flush();
+  let done = false; const p = h.vm().nextListingDetails().then(() => { done = true; });
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  release(); while (!done) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  await p; await h.settle(); await h.settle(); h.flush(); assert.equal(h.vm().screen, 'listingDetails');
+  h.vm().goBack(); h.flush(); await h.settle(); h.flush(); assert.equal(h.vm().screen, 'listingComposer');
+  for (let i = 0; i < 4; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  assert.equal(h.vm().propertyRoutineState.status, 'ready', 'the saved editor is loaded'); assert.equal(h.vm().propertyNextDisabled, false);
+  await h.vm().nextListingDetails(); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'listingDetails', 'Step 2 opened the second time too'); h.unmount();
+});

@@ -365,8 +365,10 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     portfolio.invalidate();return true;
   }
 
+  /** Development only: names the check that stopped Continue, so a device log shows which one it was. Never reaches a user. */
+  const traceContinue = (reason: string) => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('[STEP1-CONTINUE-DIAG]', reason); };
   const navigate = (nextScreen: ListingScreen) => {
-    if (initialHydrationPending() || operationBusy() || propertyRoutine.getSnapshot().status==='loading') return;
+    if (initialHydrationPending() || operationBusy() || propertyRoutine.getSnapshot().status==='loading') { traceContinue(`navigate(${nextScreen}) held: hydration=${initialHydrationPending()} busy=${operationBusy()} routine=${propertyRoutine.getSnapshot().status}`); return; }
     if(['photoUpload','photoManager','listingComposer','listingDetails'].includes(nextScreen))adoptCreatedProperty();
     if (screen === 'propertySetup' && nextScreen !== 'propertySetup') propertyLocation.close();
     setHistory((current) => [...current, screen]);
@@ -981,7 +983,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     photoState,
     mediaItems: propertyMediaItems(photoState.photos, photoState.pendingSelections, photoState.uncertainSelection, photoState.busy && photoState.batch.status === 'running'),
     nextListingDetails: async () => {
-      if(initialHydrationPending()||operationBusy()||wizardFloorAreaMissing)return;
+      if(initialHydrationPending()||operationBusy()||wizardFloorAreaMissing){traceContinue(`start held: hydration=${initialHydrationPending()} busy=${operationBusy()} floorAreaMissing=${wizardFloorAreaMissing}`);return;}
       let freshlySaved=false;
       // Does the wish still belong to exactly the point and identity about to be saved? Read from the creation state itself, not from a render.
       const creationNow=propertyCreation.getSnapshot();
@@ -996,7 +998,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
         try {
           await propertyCreation.submit(true);
           if(!active.current||token!==workspaceGeneration.current)return;
-          if(!adoptCreatedProperty())return;
+          if(!adoptCreatedProperty()){traceContinue('the saved property could not be adopted');return;}
           token=workspaceGeneration.current;
           // The workspace effect skips its check while this save runs, so the new property is checked here.
           void publication.restore(null);
@@ -1015,9 +1017,9 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
         }
       }
       if(postingWizard&&!freshlySaved&&(workspaceRef.current.item||propertyRoutine.getSnapshot().propertyId===workspaceRef.current.propertyId&&propertyRoutine.getSnapshot().status!=='idle')){
-        if(propertyRoutine.getSnapshot().status!=='ready'||propertyRoutine.getSnapshot().uncertain||propertyRoutine.getSnapshot().conflict)return;
-        if(propertyRoutine.dirty()){if(!await propertyRoutine.save())return;setComposerNotice('Property saved');}
-        if(!active.current||propertyRoutine.getSnapshot().propertyId!==workspaceRef.current.propertyId)return;
+        if(propertyRoutine.getSnapshot().status!=='ready'||propertyRoutine.getSnapshot().uncertain||propertyRoutine.getSnapshot().conflict){traceContinue(`saved editor not ready: status=${propertyRoutine.getSnapshot().status} uncertain=${propertyRoutine.getSnapshot().uncertain} conflict=${propertyRoutine.getSnapshot().conflict}`);return;}
+        if(propertyRoutine.dirty()){if(!await propertyRoutine.save()){traceContinue('the edit to the saved property was not saved');return;}setComposerNotice('Property saved');}
+        if(!active.current||propertyRoutine.getSnapshot().propertyId!==workspaceRef.current.propertyId){traceContinue('the saved editor changed property during the save');return;}
       }
       const back=postingWizard?returnToRef.current:null;
       if(back==='postingReview'){await saveDraftThen('postingReview');return;}
