@@ -18,6 +18,8 @@ import { PostingCard } from '../components/PostingCard';
 import { LOCATION_TAG } from '../models/LocationConsent';
 import { MORE_DETAILS_SUMMARY } from '../models/RangeCard';
 import { ComposerPropertyFields } from '../components/ComposerPropertyFields';
+import { ContinueStalledLine } from '../components/ContinueStalledLine';
+import { CONTINUE_WAIT_SUFFIX, TYPING_HINT } from '../models/ListingCheck';
 import { ComposerRecoveryFeedback } from '../components/ComposerRecoveryFeedback';
 import { PropertyMediaSection } from '../components/PropertyMediaSection';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
@@ -42,7 +44,7 @@ export function ListingComposerView({ viewModel: vm, onClose, estimateSection, a
   const mapOpen = ['searching', 'candidates', 'map'].includes(vm.locationState.stage);
   return <>
     <Modal visible={mapOpen} onRequestClose={vm.propertyLocation.cancel} animationType="slide"><ScreenContainer padded={false}><PropertyLocationToolView viewModel={vm} onClose={vm.propertyLocation.cancel} /></ScreenContainer></Modal>
-    <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} formFocus={focus} footer={<PropertyProgressFooter compact={vm.postingWizard} viewModel={vm} action={vm.postingWizard?{label:vm.composerPhase?"Saving property...":vm.returnTo?"Save and return":"Continue to Listing",disabled:vm.propertyNextDisabled,onPress:()=>void vm.nextListingDetails()}:undefined} guidance={vm.postingWizard&&vm.propertyNextDisabled&&!vm.composerPhase?<PropertyReadinessNotice viewModel={vm}/>:undefined}/>} progress={vm.postingWizard?<PostingProgress step={1} onSelect={vm.goToPostingStep}/>:undefined} title={vm.postingWizard?"Property Details":"Property"} description={vm.postingWizard?"Tell us about your place and confirm its location.":""} onBack={vm.goBack} onClose={onClose}>
+    <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} formFocus={focus} footer={<PropertyProgressFooter compact={vm.postingWizard} viewModel={vm} action={vm.postingWizard?{label:vm.composerPhase?"Saving property...":vm.continueWait==='waiting'?"Continue to Listing"+CONTINUE_WAIT_SUFFIX:vm.returnTo?"Save and return":"Continue to Listing",disabled:vm.propertyNextDisabled||vm.continueWait==='waiting',onPress:()=>void vm.nextListingDetails()}:undefined} guidance={vm.continueWait==='stalled'?<ContinueStalledLine onContinue={()=>void vm.nextListingDetails()}/>:vm.continueWait==='waiting'?<Text accessibilityLiveRegion="polite" style={styles.hint}>{TYPING_HINT}</Text>:vm.postingWizard&&vm.propertyNextDisabled&&!vm.composerPhase?<PropertyReadinessNotice viewModel={vm}/>:undefined}/>} progress={vm.postingWizard?<PostingProgress step={1} onSelect={vm.goToPostingStep}/>:undefined} title={vm.postingWizard?"Property Details":"Property"} description={vm.postingWizard?"Tell us about your place and confirm its location.":""} onBack={vm.goBack} onClose={onClose}>
       {!vm.postingWizard?<><Text style={styles.copy}>* Required to save the property</Text><PropertyMediaSection viewModel={vm}/></>:null}
       {vm.postingWizard?<InfoNote message="To publish, this property must be verified (Tier 3). You can start that after saving."/>:null}
       <ComposerRecoveryFeedback viewModel={vm} />
@@ -53,4 +55,4 @@ export function ListingComposerView({ viewModel: vm, onClose, estimateSection, a
     </ListingWizardScaffold>
   </>;
 }
-const styles = StyleSheet.create({ section: { gap: spacing.sm }, heading: { ...ui.sectionTitle }, copy: { ...ui.supporting }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs } });
+const styles = StyleSheet.create({ hint: { ...ui.supporting, textAlign: 'center' }, section: { gap: spacing.sm }, heading: { ...ui.sectionTitle }, copy: { ...ui.supporting }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs } });

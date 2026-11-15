@@ -423,13 +423,13 @@ test('Post detaches an in-flight lifecycle operation without replaying it into t
 });
 
 
-function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any; routineGate?: Promise<void>; publication?: any; searchAddress?: (query: string, signal: AbortSignal) => Promise<any[]>; draftRead?: (...a: any[]) => Promise<any>; draftPending?: () => Promise<boolean>; photoGate?: Promise<void> } = {}) {
+function unifiedHarness(failure: 'none' | 'property' | 'uncertain-property' | 'photo' | 'draft' = 'none', opts: { routineFails?: boolean; areaMissing?: boolean; score?: number; locationShare?: any; routineGate?: Promise<void>; publication?: any; searchAddress?: (query: string, signal: AbortSignal) => Promise<any[]>; draftRead?: (...a: any[]) => Promise<any>; draftPending?: () => Promise<boolean>; photoGate?: Promise<void>; deletion?: any } = {}) {
   const backend = backendDraftService(), events: string[] = [], rows: any[] = [];
   const files = Array.from({ length: 3 }, (_, i) => ({ uri: `file:///cache/composer-${i}.jpg`, fileName: `${i}.jpg`, mimeType: 'image/jpeg', size: 100 }));
   let uncertainPhoto = false, pickerCalls = 0;
   const candidate = { id: 'real-candidate', label: 'Chosen address', longitude: 120.9, latitude: 14.4 };
   const h = mountProperty(null, { ...backend.service, ...(opts.draftRead ? { read: opts.draftRead } : {}), ...(opts.draftPending ? { hasPending: opts.draftPending } : {}), save: async (c: any, form: any) => { events.push('draft'); if (failure === 'draft') throw h.draftError('Check draft status.'); const saved = await backend.service.save(c, form); return opts.score === undefined ? saved : { ...saved, completeness_score: opts.score }; } }, opts.publication, undefined, { getMapStyleUrl: () => 'fixture-style', searchAddress: opts.searchAddress ?? (async () => [candidate]) }, {
-    initialScreen: 'postingType', locationShare: opts.locationShare, pickImages: async () => { pickerCalls++; return files; },
+    initialScreen: 'postingType', locationShare: opts.locationShare, ...(opts.deletion ? { deletion: opts.deletion } : {}), pickImages: async () => { pickerCalls++; return files; },
     // The saved-property editor reads back the property that was just created (as the real service does).
     routine: { load: async (id: string) => { if (opts.routineGate) await opts.routineGate; if (opts.routineFails) throw Error('Routine read failed'); const d = h.vm().propertyState.draft, n = (v: string) => v.trim() === '' ? null : Number(v); return { owner_id: 'test-owner', property_id: id, edit_version: '60000000-0000-4000-8000-000000000002', property_type: d.propertyType, city: d.city, barangay: d.barangay, floor_number: n(d.floorNumber), bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: opts.areaMissing ? null : n(d.floorAreaSqm), max_occupants: n(d.maxOccupants), total_floors: n(d.totalFloors), furnishing_status: d.furnishingStatus, access_instructions: null, amenity_ids: [], catalog: [], open_tenancy: false, property_subtype: d.propertySubtype || null, lot_area_sqm: n(d.lotAreaSqm ?? ''), parking_spaces: n(d.parkingSpaces ?? ''), model_attributes_version: 2 }; }, hasPending: async () => false, save: async (c: any, d: any) => ({ ...c, bedrooms: Number(d.bedrooms), bathrooms: Number(d.bathrooms), floor_area_sqm: d.floorAreaSqm.trim() ? Number(d.floorAreaSqm) : null, edit_version: '60000000-0000-4000-8000-000000000003' }), reconcile: async () => null },
     creation: { create: async () => { events.push('property'); if (failure === 'property' || failure === 'uncertain-property') throw Object.assign(Error('rejected or unknown'), { code: failure === 'property' ? 'property_creation_rejected' : 'property_creation_uncertain' }); return { propertyId: backend.propertyId, status: 'created' }; } },
@@ -1777,4 +1777,53 @@ for (const wish of [true, false]) test(`Continue again from Step 1 after coming 
   assert.equal(h.vm().propertyRoutineState.status, 'ready', 'the saved editor is loaded'); assert.equal(h.vm().propertyNextDisabled, false);
   await h.vm().nextListingDetails(); await h.settle(); h.flush();
   assert.equal(h.vm().screen, 'listingDetails', 'Step 2 opened the second time too'); h.unmount();
+});
+
+// ---- Continue never does nothing after the first save: it waits for what is still finishing, then opens Step 2 by itself
+// The first save starts an unfinished-post inspection that holds navigation while it runs; here it is slow, and effects run while the save waits (as on a device).
+const slowInspection = () => { let release!: () => void, openRoutine!: () => void; const slow = new Promise<void>(r => { release = r; }), routineGate = new Promise<void>(r => { openRoutine = r; }); return { release, openRoutine, routineGate, deletion: { inspect: async (id: string) => { await slow; return { propertyId: id, state: 'live', eligible: false, reason: null }; }, pending: async () => [], remove: async () => { throw Error('not used'); } } }; };
+const pressContinueSlowly = async (h: any, fields: () => void, confirmMap: () => Promise<void>, s: ReturnType<typeof slowInspection>) => {
+  fields(); await confirmMap();
+  let saved = false; const p = h.vm().nextListingDetails().then(() => { saved = true; });
+  for (let i = 0; i < 6; i++) { await new Promise<void>(r => setImmediate(r)); h.flush(); } // effects run while the first save waits, as on a device: the inspection starts
+  s.openRoutine(); while (!saved) { await new Promise<void>(r => setImmediate(r)); h.flush(); }
+  return p;
+};
+const tick = async (h: any, ms: number) => { await new Promise<void>(r => setTimeout(r, ms)); h.flush(); };
+test('first save, then a slow background operation: Step 2 opens by itself, the button says it is finishing up, and typing is open meanwhile', async () => {
+  const s = slowInspection(), { h, fields, confirmMap } = unifiedHarness('none', { deletion: s.deletion, routineGate: s.routineGate }); await h.settle();
+  const pressed = pressContinueSlowly(h, fields, confirmMap, s);
+  await tick(h, 250); h.flush();
+  assert.equal(h.vm().screen, 'listingComposer', 'still held by the slow operation'); assert.equal(h.vm().continueWait, 'waiting');
+  h.vm().propertyRoutine.update?.('bedrooms', '2'); // typing is not held (a saved-editor field takes input)
+  assert.equal(h.vm().propertyNextDisabled, true, 'the button is disabled while it waits');
+  s.release(); await pressed; await tick(h, 250); await h.settle(); h.flush();
+  assert.equal(h.vm().screen, 'listingDetails', 'Step 2 opened without another press'); assert.equal(h.vm().continueWait, 'idle'); h.unmount();
+});
+test('still busy after 8 seconds: one amber line with a Continue retry, not a silent no-op; the retry opens Step 2; there is no retry loop', async () => {
+  const realNow = Date.now; let skew = 0; Date.now = () => realNow() + skew;
+  try {
+    const s = slowInspection(), { h, fields, confirmMap } = unifiedHarness('none', { deletion: s.deletion, routineGate: s.routineGate }); await h.settle();
+    const pressed = pressContinueSlowly(h, fields, confirmMap, s); await tick(h, 250);
+    assert.equal(h.vm().continueWait, 'waiting'); skew = 9000; await tick(h, 350); await pressed;
+    assert.equal(h.vm().continueWait, 'stalled', 'after the wait it says so'); assert.equal(h.vm().screen, 'listingComposer');
+    for (let i = 0; i < 3; i++) await tick(h, 300);
+    assert.equal(h.vm().continueWait, 'stalled', 'no automatic retry: it stays stalled until the person presses Continue'); assert.equal(h.vm().screen, 'listingComposer');
+    s.release(); await tick(h, 150); assert.equal(h.vm().screen, 'listingComposer', 'even when the operation ends, nothing retries by itself');
+    await h.vm().nextListingDetails(); await tick(h, 250); await h.settle(); h.flush();
+    assert.equal(h.vm().screen, 'listingDetails', 'the Continue retry opens Step 2'); assert.equal(h.vm().continueWait, 'idle'); h.unmount();
+  } finally { Date.now = realNow; }
+});
+test('Back never waits: it cancels a pending Continue, and Step 2 does not open behind it', async () => {
+  const s = slowInspection(), { h, fields, confirmMap } = unifiedHarness('none', { deletion: s.deletion, routineGate: s.routineGate }); await h.settle();
+  const pressed = pressContinueSlowly(h, fields, confirmMap, s); await tick(h, 250);
+  assert.equal(h.vm().continueWait, 'waiting'); h.vm().goBack(); h.flush();
+  assert.equal(h.vm().continueWait, 'idle'); s.release(); await pressed; await tick(h, 250); await h.settle(); h.flush();
+  assert.notEqual(h.vm().screen, 'listingDetails', 'the pending Continue was cancelled'); h.unmount();
+});
+test('the Continue wait view: the label and hint while waiting, one amber line with a 48dp Continue when stalled', () => {
+  const src = readFileSync('src/features/property-listing/views/ListingComposerView.tsx', 'utf8');
+  assert.match(src, /vm\.continueWait==='waiting'\?"Continue to Listing"\+CONTINUE_WAIT_SUFFIX/); assert.match(src, /vm\.continueWait==='stalled'\?<ContinueStalledLine/);
+  const line = readFileSync('src/features/property-listing/components/ContinueStalledLine.tsx', 'utf8');
+  assert.match(line, /minHeight:48/); assert.match(line, /CONTINUE_STALLED_MESSAGE/);
 });

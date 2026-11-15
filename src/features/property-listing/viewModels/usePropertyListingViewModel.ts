@@ -20,6 +20,7 @@ import { propertyAmenityService } from '../services/propertyAmenityDependencies'
 import { togglePropertyAmenity } from '../models/PropertyAmenity';
 import { listingCompleteness } from '../models/ListingCompleteness';
 import { availabilityDateToLocal } from '../models/AvailabilityDate';
+import { CONTINUE_WAIT_MS } from '../models/ListingCheck';
 import { propertyMediaItems, photoWait, PHOTOS_ATTENTION_MESSAGE, PHOTOS_UPLOADING_MESSAGE } from '../models/PropertyMedia';
 import { createLandlordPortfolioWorkflow } from './landlordPortfolioWorkflow';
 import { landlordPortfolioService } from '../services/landlordPortfolioDependencies';
@@ -112,6 +113,11 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const composerSaving = useRef(false);
   const savedConfirmation = useRef<{propertyId:string;listingId:string;generation:number}|null>(null);
   const [composerPhase, setComposerPhase] = useState<'property' | 'photos' | 'draft' | null>(null);
+  /** Continue after the first save: 'waiting' while another operation finishes, 'stalled' when it is still busy after CONTINUE_WAIT_MS. */
+  const [continueWait, setContinueWaitState] = useState<'idle' | 'waiting' | 'stalled'>('idle');
+  const continueWaitRef = useRef<'idle' | 'waiting' | 'stalled'>('idle'), continueRun = useRef(0);
+  const setContinueWait = (next: 'idle' | 'waiting' | 'stalled') => { continueWaitRef.current = next; setContinueWaitState(next); };
+  const cancelContinueWait = () => { continueRun.current++; if (continueWaitRef.current !== 'idle') setContinueWait('idle'); };
   const [composerNotice, setComposerNotice] = useState<string | null>(null);
   const [propertyVerification] = useState<ReturnType<typeof createPropertyVerificationEntry>>(()=>createPropertyVerificationEntry(propertyVerificationService,()=>!operationBusy()));
   const propertyVerificationState=useSyncExternalStore(propertyVerification.subscribe,propertyVerification.getSnapshot);
@@ -367,8 +373,10 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
 
   /** Development only: names the check that stopped Continue, so a device log shows which one it was. Never reaches a user. */
   const traceContinue = (reason: string) => { if (typeof __DEV__ !== 'undefined' && __DEV__) console.info('[STEP1-CONTINUE-DIAG]', reason); };
+  const navigationHeld = () => initialHydrationPending() || operationBusy() || propertyRoutine.getSnapshot().status==='loading';
   const navigate = (nextScreen: ListingScreen) => {
-    if (initialHydrationPending() || operationBusy() || propertyRoutine.getSnapshot().status==='loading') { traceContinue(`navigate(${nextScreen}) held: hydration=${initialHydrationPending()} busy=${operationBusy()} routine=${propertyRoutine.getSnapshot().status}`); return; }
+    if (navigationHeld()) { traceContinue(`navigate(${nextScreen}) held: hydration=${initialHydrationPending()} busy=${operationBusy()} routine=${propertyRoutine.getSnapshot().status}`); return; }
+    cancelContinueWait();
     if(['photoUpload','photoManager','listingComposer','listingDetails'].includes(nextScreen))adoptCreatedProperty();
     if (screen === 'propertySetup' && nextScreen !== 'propertySetup') propertyLocation.close();
     setHistory((current) => [...current, screen]);
@@ -376,7 +384,25 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     setNotice(null);
   };
 
+  /**
+   * Opens Step 2 once whatever else is still finishing is done. After the first save this must never do nothing: it waits (up to CONTINUE_WAIT_MS) for the
+   * hold to clear, then navigates; if it is still held, it says so ('stalled') and waits for the person's Continue. It never retries by itself.
+   */
+  const openListingStep = async () => {
+    const run = ++continueRun.current, started = Date.now();
+    if (!navigationHeld()) { navigate('listingDetails'); return; }
+    setContinueWait('waiting'); traceContinue(`waiting to open Step 2: hydration=${initialHydrationPending()} busy=${operationBusy()} routine=${propertyRoutine.getSnapshot().status}`);
+    while (navigationHeld()) {
+      if (!active.current || run !== continueRun.current) return;
+      if (Date.now() - started >= CONTINUE_WAIT_MS) { setContinueWait('stalled'); traceContinue('still held after the wait: the person can press Continue again'); return; }
+      await new Promise<void>(resolve => setTimeout(resolve, 100));
+    }
+    if (!active.current || run !== continueRun.current) return;
+    navigate('listingDetails');
+  };
+
   const goBack = () => {
+    cancelContinueWait(); // Back never waits, and a pending Continue must not open Step 2 behind it
     if(unfinishedPost.getSnapshot().confirming){unfinishedPost.cancel();return;}
     if(leaveInitialHydration())return;
     if (propertyPhotos.getSnapshot().mediaViewerOpen) { propertyPhotos.closeMedia(); return; }
@@ -419,7 +445,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   };
 
   const detachWorkspace = () => {
-    savedConfirmation.current = null;
+    savedConfirmation.current = null; cancelContinueWait();
     setPropertyValidationTarget(null);
     composerSaving.current = false; setComposerPhase(null); setComposerNotice(null);
     selectWorkspace({ propertyId: null, listingId: null, mode: 'create', item: null });
@@ -903,7 +929,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     reloadPropertyDetails:()=>{const id=propertyRoutine.getSnapshot().propertyId;if(id)requestPropertyNavigation(()=>void propertyRoutine.open(id));},
     propertyValidationIssues:propertyIssues,propertyVisibleValidationIssues:propertyVisibleIssues,
     propertyMeasurementWarnings:propertyMeasurementWarnings({floor_area_sqm:propertyState.draft.floorAreaSqm.trim()?Number(propertyState.draft.floorAreaSqm):null,bedrooms:propertyState.draft.bedrooms.trim()?Number(propertyState.draft.bedrooms):null,bathrooms:propertyState.draft.bathrooms.trim()?Number(propertyState.draft.bathrooms):null}),
-    propertyFormReady,propertyNextDisabled,propertyNextStatus,
+    propertyFormReady,propertyNextDisabled,propertyNextStatus,continueWait,
     /**
      * An "Add:" chip on the range card: scroll to that detail and focus it. It only moves the screen; it never marks the form as attempted, so no error appears.
      */
@@ -983,6 +1009,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     photoState,
     mediaItems: propertyMediaItems(photoState.photos, photoState.pendingSelections, photoState.uncertainSelection, photoState.busy && photoState.batch.status === 'running'),
     nextListingDetails: async () => {
+      if(continueWaitRef.current==='stalled'&&workspaceRef.current.propertyId){await openListingStep();return;} // the Continue retry: wait again, once, for the press
       if(initialHydrationPending()||operationBusy()||wizardFloorAreaMissing){traceContinue(`start held: hydration=${initialHydrationPending()} busy=${operationBusy()} floorAreaMissing=${wizardFloorAreaMissing}`);return;}
       let freshlySaved=false;
       // Does the wish still belong to exactly the point and identity about to be saved? Read from the creation state itself, not from a render.
@@ -1024,7 +1051,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       const back=postingWizard?returnToRef.current:null;
       if(back==='postingReview'){await saveDraftThen('postingReview');return;}
       if(back){setReturnTo(null);navigate(back);return;}
-      navigate('listingDetails');
+      await openListingStep();
     },
     editComposerProperty: () => { if (screen === 'listingDetails') goBack(); else navigate('listingComposer'); },
     propertySummary: physical ? {

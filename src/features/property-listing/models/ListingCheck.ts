@@ -35,3 +35,8 @@ export function waitingView(reason: string | null, label: string): { label: stri
   if (reason === DRAFT_LOAD_FAILED_MESSAGE) return { label: label + WAITING_SUFFIX, hint: DRAFT_RETRY_HINT };
   return { label, hint: `${reason} ${TYPING_HINT}` };   // an unresolved status or access problem keeps its own reason
 }
+
+/** After the first save, Continue waits (up to this long) for any other operation still finishing, then opens Step 2 by itself. */
+export const CONTINUE_WAIT_MS = 8000;
+export const CONTINUE_WAIT_SUFFIX = ' · finishing up';
+export const CONTINUE_STALLED_MESSAGE = 'Still finishing up your last change';
