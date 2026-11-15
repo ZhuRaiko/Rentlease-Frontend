@@ -127,21 +127,27 @@ test('spotlight (tenant): read-only range card for the listing, one protected ac
   assert.deepEqual(card.props.range,range);assert.equal(card.props.rent,9999);assert.equal(card.props.subject,'listing');assert.equal(card.props.onUseRent,undefined);
   assert.doesNotMatch(JSON.stringify(result),/point estimate|Not requested|XGBoost/);
   const noRange=nodes(renderInline({workflow,result:receipt},undefined,undefined,{variant:'spotlight'}));assert.ok(!noRange.some(n=>n.type==='RangeCard'));
-  const denied=nodes(renderInline({workflow,eligibility:{eligible:false,reason:'Unsupported property'}},undefined,undefined,{variant:'spotlight'}));assert.equal(denied.filter(n=>n.type==='Pressable').length,0);assert.match(JSON.stringify(denied),/Unsupported property/);
+  assert.equal(renderInline({workflow,eligibility:{eligible:false,reason:'Unsupported property'}},undefined,undefined,{variant:'spotlight'}),null,'a tenant sees nothing when eligibility says no');
   for(const state of [{busy:true},{error:'Network unavailable',retryable:true}]){let c=0;const tree=nodes(renderInline({...state,workflow:{predict(){c++;}}},undefined,undefined,{variant:'spotlight'}));assert.ok(!tree.some(n=>n.type==='RangeCard'));const action=tree.find(n=>n.type==='Pressable');if('busy' in state)assert.equal(action.props.disabled,true);else{action.props.onPress();assert.equal(c,1);}}
 });
 
-// Tenant view: a property type the estimator does not accept shows nothing at all in the estimate area.
-test('spotlight (tenant): only apartment, house and condominium show the estimate area; every other type renders nothing',()=>{
+// Tenant view: whenever eligibility says no range can be shown, the estimate area renders nothing at all.
+test('spotlight (tenant): only apartment, house and condominium with a floor area show the estimate area; every other case renders nothing',()=>{
   const shown:string[]=[];
   for(const {value} of propertyTypeOptions){
     const property={property_type:value,city:'imus',furnishing_status:'unfurnished',bedrooms:1,bathrooms:1,floor_area_sqm:30};
-    const vm={workflow:{predict(){}},eligibility:sharedEligibility(property)};
-    const out=renderInline(vm,undefined,undefined,{variant:'spotlight',property});
+    const out=renderInline({workflow:{predict(){}},eligibility:sharedEligibility(property)},undefined,undefined,{variant:'spotlight',property});
     if(RANGE_PROPERTY_TYPES.includes(value)){shown.push(value);assert.ok(nodes(out).some(n=>n.type==='Pressable'),value);}
     else assert.equal(out,null,`${value}: no reason text, no button, no empty card`);
   }
   assert.deepEqual(shown.sort(),[...RANGE_PROPERTY_TYPES].sort()); assert.equal(propertyTypeOptions.length,9);
+  const noArea={property_type:'apartment',city:'imus',furnishing_status:'unfurnished',bedrooms:1,bathrooms:1,floor_area_sqm:null};
+  assert.equal(sharedEligibility(noArea).eligible,false);
+  assert.equal(renderInline({workflow:{predict(){}},eligibility:sharedEligibility(noArea)},undefined,undefined,{variant:'spotlight',property:noArea}),null,'a missing floor area is not the tenant to fix, so no reason text');
+});
+test('spotlight (tenant): a real error from a request the tenant started still shows',()=>{
+  const out=JSON.stringify(renderInline({workflow:{predict(){}},eligibility:{eligible:true,reason:null},error:'Network unavailable',retryable:true},undefined,undefined,{variant:'spotlight'}));
+  assert.match(out,/Network unavailable/);
 });
 test('owner and posting views keep their reason text and review link for an ineligible property',()=>{
   const property={property_type:'studio',city:'imus'};
