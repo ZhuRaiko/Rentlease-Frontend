@@ -35,3 +35,14 @@ Use American English (en-US) for new or modified user-facing text, accessibility
 ## Git
 
 Commit, push, merge, and reset only when asked. Leave `.vscode/` alone.
+
+## Testing policy
+- While working, run only the test files for the code you changed, plus tsc. Do not run the
+  full suite after every edit.
+- Run the full suite once per part, right before the commit. Report only NEW failures; tests
+  listed in tests/known-failures.json are not new.
+- Do not run mutation testing unless I say "run the mutation pass". Never run it for layout,
+  wording, styling or navigation work.
+- Add tests for new behavior, one per rule. Avoid wiring or source-text regex tests unless
+  there is no other way, and say so when you skip one.
+- Do not rewrite existing tests beyond what the change forces.
