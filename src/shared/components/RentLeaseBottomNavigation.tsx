@@ -75,10 +75,11 @@ export function RentLeaseBottomNavigation({
   onTenancy,
 }: RentLeaseBottomNavigationProps) {
   const insets = useSafeAreaInsets();
-  const { width, fontScale } = useWindowDimensions();
+  const { fontScale } = useWindowDimensions();
   const keyboardVisible=useKeyboardVisibility();
   if(keyboardVisible)return null;
-  const largeText = width / fontScale < 280;
+  // The label is capped at 1.2x, but a fixed line height still grows with the full font scale. Pre-dividing keeps the line at 16dp x min(scale, 1.2), so the bar keeps its height.
+  const labelLine = 16 / Math.max(1, fontScale) * Math.min(Math.max(1, fontScale), 1.2);
   const items = [
     { key: 'discover' as const, label: 'Discover', icon: 'home' as const, onPress: onDiscover },
     { key: 'listing' as const, label: 'Listings', icon: 'listing' as const, onPress: onListing },
@@ -91,7 +92,6 @@ export function RentLeaseBottomNavigation({
     <View
       style={[
         styles.navigation,
-        largeText && styles.wrappedNavigation,
         {
           minHeight: 64 + insets.bottom,
           paddingBottom: Math.max(8, insets.bottom),
@@ -107,7 +107,7 @@ export function RentLeaseBottomNavigation({
             disabled={disabled}
             key={item.key}
             onPress={item.onPress}
-            style={[styles.item, largeText && styles.wrappedItem]}
+            style={styles.item}
           >
             <View style={item.primary && selected ? styles.primaryIcon : styles.standardIcon}>
               <NavigationIcon
@@ -115,9 +115,13 @@ export function RentLeaseBottomNavigation({
                 name={item.icon}
               />
             </View>
+            {/* One line, and text scaling is capped at 1.2 so five labels always fit the bar: the bar's height never changes. */}
             <Text
+              maxFontSizeMultiplier={1.2}
+              numberOfLines={1}
               style={[
                 styles.label,
+                { lineHeight: labelLine },
                 selected && styles.activeLabel,
               ]}
             >
@@ -131,8 +135,6 @@ export function RentLeaseBottomNavigation({
 }
 
 const styles = StyleSheet.create({
-  wrappedNavigation: { flexWrap: 'wrap', rowGap: 8 },
-  wrappedItem: { flexBasis: '30%', flexGrow: 1, flexShrink: 1 },
   navigation: {
     alignItems: 'flex-start',
     backgroundColor: colors.background,
@@ -141,7 +143,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingTop: 8,
   },
-  item: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 48 },
+  item: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 48, minWidth: 0 },
   standardIcon: { alignItems: 'center', height: 26, justifyContent: 'center' },
   primaryIcon: {
     alignItems: 'center',
