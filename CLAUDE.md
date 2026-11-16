@@ -46,3 +46,4 @@ Commit, push, merge, and reset only when asked. Leave `.vscode/` alone.
 - Add tests for new behavior, one per rule. Avoid wiring or source-text regex tests unless
   there is no other way, and say so when you skip one.
 - Do not rewrite existing tests beyond what the change forces.
+- After UI changes, verify on the running emulator with adb screenshots at 411dp/100% and 320dp/150% (320dp = 1080px at density 540), and report what could not be run.
