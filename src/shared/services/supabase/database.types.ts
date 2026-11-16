@@ -2276,6 +2276,8 @@ export type Database = {
       // Applied 20261116140000_review_tags: a 6-argument form (p_tags) plus the 5-argument wrapper; one optional argument types both.
       submit_tenancy_review: {Args:{p_tenancy_id:string;p_operation_id:string;p_kind:string;p_rating:number;p_text:string|null;p_tags?:string[]};Returns:Json}
       get_review_summary: {Args:{p_kind:string;p_target_id:string};Returns:Json}
+      // Applied 20261116150000_public_profiles: a whitelist-only profile read (42501 = refused or missing).
+      get_public_profile: {Args:{p_user_id:string};Returns:Json}
       get_published_rental_reviews: {Args:{p_kind:string;p_target_id:string;p_offset?:number};Returns:Json}
       get_review_moderation: {Args:{p_status?:string;p_offset?:number};Returns:Json}
       moderate_rental_review: {Args:{p_review_id:string;p_operation_id:string;p_revision:string;p_status:string;p_note:string};Returns:Json}

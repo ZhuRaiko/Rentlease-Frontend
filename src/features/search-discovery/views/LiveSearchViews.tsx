@@ -1,7 +1,7 @@
 import {ReportAction} from '../../../shared/components/Reporting';
 import {SaveListingButton,SavedListingsFeedback} from '../components/SaveListingButton';
 import {RentalFeedbackSection} from '../../../shared/components/RentalFeedbackSection';
-import {LandlordRatingLine} from '../../../shared/components/LandlordRatingLine';
+import {ListingOwnerRow} from '../../../shared/components/ProfileSurfaces';
 import {PublicLocationMap} from '../../../shared/components/PublicLocationMap';
 import {InlineRentalEstimate} from '../../../shared/components/InlineRentalEstimate';
 import {PublicAvatar} from '../../../shared/components/PublicIdentityBadge';
@@ -77,10 +77,7 @@ export function LivePropertyDetailView({viewModel:vm,accountId,onOpenPriceEstima
       <View style={styles.spotlight}><InlineRentalEstimate variant="spotlight" askingRent={d.rent} key={`${accountId}:${d.listingId}`} accountId={accountId} target={{listingId:d.listingId}} property={{property_type:d.propertyType,city:d.city,furnishing_status:d.furnishing,bedrooms:d.bedrooms,bathrooms:d.bathrooms,floor_area_sqm:d.floorArea}}/></View>
       <View style={styles.detailSection}>
         <Text style={styles.small}>Listed by</Text>
-        <View style={styles.ownerRow}>
-          <PublicAvatar url={vm.listingOwnerIdentity?.avatarUrl} name={vm.listingOwnerIdentity?.nickname}/>
-          <View style={{flex:1,minWidth:0}}><Text style={styles.ownerName}>{vm.listingOwnerLabel}</Text><LandlordRatingLine key={`${accountId}:${d.ownerId}`} accountId={accountId} landlordId={d.ownerId}/></View>
-        </View>
+        <ListingOwnerRow accountId={accountId} ownerId={d.ownerId} label={vm.listingOwnerLabel} identity={vm.listingOwnerIdentity}/>
         {vm.isOwnListing?<Text style={styles.copy}>This is your listing.</Text>:null}
       </View>
       <View style={styles.spotlight}><RentalFeedbackSection key={`${accountId}:${d.listingId}`} accountId={accountId} propertyId={d.propertyId}/></View>

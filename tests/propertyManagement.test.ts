@@ -110,6 +110,7 @@ function harness() {
       if (name === 'react-native-safe-area-context') return { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) };
       if (name.endsWith('ManagePriceCheck')) return { ManagePriceCheck: 'PriceCheck' };
       if (name.endsWith('PublicIdentityBadge')) return { PublicIdentityBadge: 'Badge' };
+      if (name.endsWith('ProfileSurfaces')) return { ApplicantLine: 'ApplicantLine' };
       if (name.startsWith('.')) { const target = resolve(dirname(absolute), name); if (existsSync(target + '.tsx')) return load(target + '.tsx'); }
       return actual(name);
     };

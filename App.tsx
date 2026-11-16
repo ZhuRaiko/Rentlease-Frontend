@@ -10,10 +10,15 @@ import {useListingDetailViewModel} from './src/features/search-discovery/viewMod
 import { useMarketplaceExitConfirmation } from './src/shared/viewModels/useMarketplaceExitConfirmation';
 import { profileAfterDismissal, profileBackTarget, resolveProfileReturn, type ProfileReturnTarget } from './src/shared/models/profileReturn';
 import { RentLeaseBottomNavigation } from './src/shared/components/RentLeaseBottomNavigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Modal, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { traceAuthBoot } from './src/shared/utils/authBootTrace';
+import { ScreenContainer } from './src/shared/components/ScreenContainer';
+import { colors } from './src/shared/theme/colors';
+import { PublicProfileView } from './src/features/public-profiles/views/PublicProfileView';
+import { ProfileNavigationContext, type ProfileNavigation } from './src/shared/viewModels/useProfileNavigation';
+import type { ProfileRole } from './src/shared/models/PublicProfile';
 
 import type { UserRole } from './src/features/authentication/models/AuthProfile';
 import { getWorkspaceDestination } from './src/features/authentication/models/accountRouting';
@@ -31,8 +36,17 @@ import { SearchDiscoveryFlowView } from './src/features/search-discovery/views/S
 
 traceAuthBoot('APP_MODULE_READY');
 
+/** Screens opened on top of the current workspace (a profile, a listing opened from a profile). Back removes the top one and returns to where it was opened. */
+type Overlay = { owner: string; kind: 'profile'; userId: string; prefer: ProfileRole } | { owner: string; kind: 'listing'; id: string };
+
 export default function App() {
   const auth = useAuthProfilesViewModel();
+  const [overlays, setOverlays] = useState<Overlay[]>([]);
+  const accountIdForOverlays = auth.account?.user.id;
+  const profileNavigation = useMemo<ProfileNavigation>(() => ({
+    open: (userId, prefer) => { if (accountIdForOverlays) setOverlays(list => { const top = list[list.length - 1]; return top?.kind === 'profile' && top.userId === userId && top.prefer === prefer ? list : [...list, { owner: accountIdForOverlays, kind: 'profile', userId, prefer }]; }); },
+  }), [accountIdForOverlays]);
+  const popOverlay = useCallback(() => setOverlays(list => list.slice(0, -1)), []);
   const discoveryHomeAction=useRef<(()=>void)|null>(null);
   const [tenancyConversation,setTenancyConversation]=useState<{owner:string;id:string;startRequest?:boolean}|null>(null);
   const [inquiryConversation,setInquiryConversation]=useState<{userId:string;id:string}|null>(null);
@@ -63,6 +77,7 @@ export default function App() {
       accountPresent: auth.account !== null, destination: workspaceDestination, workspace: workspace?.type ?? null,
       modalVisible: workspace !== null && (workspace.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace) });
   }, [auth.screen, auth.asyncState, auth.account, workspaceDestination, workspace, canEnterAdmin, canEnterMarketplace]);
+  useEffect(() => { setOverlays([]); }, [workspace?.type, auth.account?.user.id]);
   useEffect(()=>{if(workspace?.type!=='tenancy'||tenancyConversation?.owner!==auth.account?.user.id)setTenancyConversation(null);},[workspace?.type,auth.account?.user.id]);
   useEffect(()=>{if(workspace?.type!=='discovery'||inquiryConversation?.userId!==auth.account?.user.id)setInquiryConversation(null);},[workspace?.type,auth.account?.user.id]);
   const validProfileReturn = resolveProfileReturn(profileReturnTarget, auth.account?.user.id ?? null, access);
@@ -154,6 +169,7 @@ export default function App() {
     <UserVerificationFlowView initialPropertyId={propertyId} tierOneVerified={!!auth.account?.profile.tier1_verified_at} onClose={onReturn} registerBackAction={registerBack}/>
   );
   return (
+    <ProfileNavigationContext.Provider value={profileNavigation}>
     <SafeAreaProvider>
       <AuthProfilesFlowView
         viewModel={auth}
@@ -174,6 +190,7 @@ export default function App() {
         key={auth.account?.user.id ?? 'signed-out'}
         animationType="slide"
         onRequestClose={() => {
+          if (overlays.some(o => o.owner === auth.account?.user.id)) { popOverlay(); return; }
           const registered = workspaceBackAction.current;
           if (registered?.workspace === workspace && registered?.userId === auth.account?.user.id) registered.action();
           // Every mounted workspace registers its own Back action; never bypass its guard.
@@ -324,9 +341,17 @@ export default function App() {
             }}
           />
         ) : null}
+        {overlays.filter(o => o.owner === auth.account?.user.id).map((o, index) => <View key={`${index}:${o.kind}`} style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.background }}>
+          <ScreenContainer padded={false}>
+            {o.kind === 'profile'
+              ? <PublicProfileView accountId={auth.account?.user.id} userId={o.userId} prefer={o.prefer} onBack={popOverlay} onOpenListing={id => { if (auth.account) setOverlays(list => [...list, { owner: auth.account!.user.id, kind: 'listing', id }]); }} />
+              : <ChatListingDetails key={`${auth.account?.user.id}:${o.id}`} owner={auth.account?.user.id} id={o.id} onBack={popOverlay} />}
+          </ScreenContainer>
+        </View>)}
       </Modal>
 
     </SafeAreaProvider>
+    </ProfileNavigationContext.Provider>
   );
 }
 

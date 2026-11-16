@@ -125,3 +125,7 @@ Entry F5-M1. Design and decisions: [f5-profiles-backend-design.md](../../design/
 | Security/RLS | Private schemas closed to client roles; no policy added; checks ran as `authenticated`, `anon` and `service_role` JWT roles |
 | Source-controlled backend file | `supabase/migrations/20261116150000_public_profiles.sql`, `20261116150100_revoke_public_execute.sql` |
 | Android/client runtime | Not applicable (no client change) |
+
+## Feature 5 Step 2: frontend - November 17, 2026
+
+Entry F5-F1. No migration, SQL, schema or data change was made. The app now calls `get_public_profile` (one call per profile, cached for 60 seconds). The emulator session read the test account's own relationships through the app; nothing was written.

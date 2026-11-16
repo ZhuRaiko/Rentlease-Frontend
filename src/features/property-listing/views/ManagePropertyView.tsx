@@ -12,6 +12,7 @@ import { CHIP_COLORS } from '../../../shared/theme/statusColors';
 import { dueLabel, manilaToday, pesos, shortDate } from '../../../shared/utils/rentalDates';
 import { portfolioLocation, portfolioType } from '../models/LandlordPortfolio';
 import { editPropertyDetailsPlan } from '../models/PortfolioCardPresentation';
+import { ApplicantLine } from '../../../shared/components/ProfileSurfaces';
 import { emptyFacts, itemFor, lifecycleSegments, managementPill, needsYou, PAUSED_HINT, stayDates, type ManagedReservation, type PropertyManagementPort } from '../models/PropertyManagement';
 import { ManagePriceCheck } from '../components/ManagePriceCheck';
 import type { PropertyListingViewModel } from '../viewModels/usePropertyListingViewModel';
@@ -118,7 +119,7 @@ export function ManagePropertyView({ viewModel: vm, management, accountId, onBac
       {!occupied && waiting ? <View style={styles.alert}>
         <Text accessibilityRole="header" style={styles.alertHead}>{facts.reservations.length === 1 ? '1 reservation request is waiting' : `${facts.reservations.length} reservation requests are waiting`}</Text>
         <View style={styles.headRow}><View style={styles.avatar}><Text style={styles.avatarText}>{(waiting.applicantName || 'R').slice(0, 1).toUpperCase()}</Text></View>
-          <View style={styles.grow}><Text style={ui.sectionTitle}>{waiting.applicantName || 'Renter'}</Text><Text style={ui.supporting}>{stayDates({ tenancyId: '', tenantId: '', tenantName: null, startDate: waiting.moveInDate, endDate: waiting.endDate, rent: null, nextDue: null, conversationId: null })}</Text></View></View>
+          <View style={styles.grow}>{waiting.applicantId ? <ApplicantLine accountId={accountId} tenantId={waiting.applicantId} name={waiting.applicantName} /> : <Text style={ui.sectionTitle}>{waiting.applicantName || 'Renter'}</Text>}<Text style={ui.supporting}>{stayDates({ tenancyId: '', tenantId: '', tenantName: null, startDate: waiting.moveInDate, endDate: waiting.endDate, rent: null, nextDue: null, conversationId: null })}</Text></View></View>
         {declining ? <View style={styles.confirm}>
           <Text style={ui.body}>Decline this request? {waiting.applicantName || 'The renter'} will be told it was declined.</Text>
           <FeedbackNotice message={declineError} tone="error" />

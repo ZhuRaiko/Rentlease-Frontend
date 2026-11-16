@@ -25,7 +25,7 @@ function loadDetail(){
   if(key.endsWith('/FullscreenDocumentImage'))return{FullscreenDocumentImage:'Gallery'};
   if(key.endsWith('/InterfaceIcon'))return{InterfaceIcon:'Icon'};
   if(key.endsWith('/SaveListingButton'))return{SaveListingButton:'SaveListingButton',SavedListingsFeedback:'SavedListingsFeedback'};
-  if(key.endsWith('/LandlordRatingLine'))return{LandlordRatingLine:'LandlordRatingLine'};
+  if(key.endsWith('/ProfileSurfaces'))return{ListingOwnerRow:'ListingOwnerRow'};
   if(key.endsWith('/RentalFeedbackSection'))return{RentalFeedbackSection:'RentalFeedbackSection'};
   if(key.endsWith('/PublicLocationMap'))return{PublicLocationMap:'PublicLocationMap'};
   if(key.endsWith('/InlineRentalEstimate'))return{InlineRentalEstimate:'InlineRentalEstimate'};
@@ -46,7 +46,7 @@ test('shared listing details render only Text children for Contact Owner, self, 
   const detail={photos:[],rent:5000,title:'Rental',barangay:'Public area',city:'imus',bedrooms:1,bathrooms:1,floorArea:null,propertyType:'room',furnishing:'unfurnished',description:'Description',amenities:[],rentalTerm:'monthly',depositMonths:1,advanceMonths:1,minimumStay:null};
   const tree=render({viewModel:{manualState:{detail,detailBusy:false,inquiryError:error,placesPhase:'error',placesError:'Unavailable',placesRows:[]},isOwnListing:own,listingOwnerLabel:'Property Owner',manual:{}}});
   const text:string[]=[];visit(tree,(node,parent)=>{if(typeof node==='string'||typeof node==='number'){assert.equal(parent,'Text',`Invalid native text child ${JSON.stringify(node)} under ${parent}`);text.push(String(node));}});
-  assert.ok(text.includes('Property Owner'));assert.ok(text.includes('Listed by'));
+  assert.ok(JSON.stringify(tree).includes('"label":"Property Owner"'));assert.ok(text.includes('Listed by'));
  }
 });
 test('inbox ignores unconsented profile names for both participants',()=>{

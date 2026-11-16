@@ -20,9 +20,9 @@ export function accountVerificationSummary(profile: Pick<AccountProfile, 'tier1_
     ? { label: 'Verified', tone: 'success' }
     : applicable ? { label: 'Not Verified', tone: 'info' } : { label: 'Not Applicable', tone: 'info' };
   return [
-    { tier: 1 as const, label: 'Tier 1 · Account', status: status(profile?.tier1_verified_at, !roles.includes('admin')), detail: roles.includes('admin') ? 'Admin access bypasses ordinary onboarding.' : 'Email and mobile verification.' },
-    { tier: 2 as const, label: 'Tier 2 · Identity', status: status(profile?.tier2_verified_at, true), detail: 'Open Verification for current submission details.' },
-    { tier: 3 as const, label: 'Tier 3 · Property', status: { label: 'Checked per Property', tone: 'info' as const }, detail: 'Check each individual property in Verification. Account preferences do not verify a property.' },
+    { tier: 1 as const, label: 'Account verified', status: status(profile?.tier1_verified_at, !roles.includes('admin')), detail: roles.includes('admin') ? 'Admin access bypasses ordinary onboarding.' : 'Email and mobile verification.' },
+    { tier: 2 as const, label: 'ID verified', status: status(profile?.tier2_verified_at, true), detail: 'Open Verification for current submission details.' },
+    { tier: 3 as const, label: 'Property verified', status: { label: 'Checked per Property', tone: 'info' as const }, detail: 'Check each individual property in Verification. Account preferences do not verify a property.' },
   ];
 }
 

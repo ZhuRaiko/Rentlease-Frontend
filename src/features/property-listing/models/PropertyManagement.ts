@@ -11,7 +11,7 @@ import { ago, dateRange, shortDate } from '../../../shared/utils/rentalDates';
 export interface ManagedStay { tenancyId: string; tenantId: string; tenantName: string | null; startDate: string; endDate: string | null; rent: number | null; nextDue: string | null; conversationId: string | null }
 export interface ManagedMaintenance { open: number; urgent: { id: string; title: string; createdAt: string }[] }
 export interface ManagedEndRequest { tenancyId: string; fromTenant: boolean }
-export interface ManagedReservation { id: string; conversationId: string; applicantName: string | null; moveInDate: string; endDate: string; applicantTier1: boolean }
+export interface ManagedReservation { id: string; conversationId: string; /** The applicant's user id, for the profile line (the tenant_id of the request). */ applicantId?: string | undefined; applicantName: string | null; moveInDate: string; endDate: string; applicantTier1: boolean }
 export interface ManagedFacts {
   stay: ManagedStay | null;
   setup: { tenancyId: string } | null;

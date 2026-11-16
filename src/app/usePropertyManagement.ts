@@ -73,7 +73,7 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
         f.rentAwaiting = ledger?.awaiting && waiting ? { tenancyId: t.id, dueDate: ledger.awaiting.dueDate, revision: ledger.awaiting.revision, paidAt: waiting.tenantMarkedPaidAt } : null;
       } else if (t.status !== 'active' && !f.setup) f.setup = { tenancyId: t.id };
     }
-    for (const r of reservations) of(r.propertyId).reservations.push({ id: r.id, conversationId: r.conversationId, applicantName: identities[r.tenantId]?.nickname ?? null, moveInDate: r.moveInDate, endDate: r.endDate, applicantTier1: r.applicantTier1 });
+    for (const r of reservations) of(r.propertyId).reservations.push({ id: r.id, conversationId: r.conversationId, applicantId: r.tenantId, applicantName: identities[r.tenantId]?.nickname ?? null, moveInDate: r.moveInDate, endDate: r.endDate, applicantTier1: r.applicantTier1 });
     if (reviews.owner === accountId) for (const [propertyId, value] of Object.entries(reviews.byProperty)) of(propertyId).reviews = value;
     return out;
   }, [current, reservations, identities, reviews, accountId]);

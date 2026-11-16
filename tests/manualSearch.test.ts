@@ -81,7 +81,7 @@ function renderSource(path:string,name:string,state?:{value:any;tab?:string}) {
   const full=resolve(path),actual=createRequire(full),mod={exports:{} as any};
   const requireMock=(key:string):any=>{
     if(key.endsWith('/Reporting'))return{ReportAction:'ReportAction'};
-    if(key.endsWith('/LandlordRatingLine'))return{LandlordRatingLine:'LandlordRatingLine'};
+    if(key.endsWith('/ProfileSurfaces'))return{ListingOwnerRow:'ListingOwnerRow'};
     if(key.endsWith('/RentalFeedbackSection'))return{RentalFeedbackSection:'RentalFeedbackSection'};if(key.endsWith('/PublicLocationMap'))return{PublicLocationMap:'PublicLocationMap'};
     if(key.endsWith('/RentalReviews'))return{PublishedRentalReviews:'PublishedRentalReviews'};
     if(key.endsWith('/InlineRentalEstimate'))return {InlineRentalEstimate:'InlineRentalEstimate'};

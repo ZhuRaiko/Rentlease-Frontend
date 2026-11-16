@@ -1,7 +1,7 @@
 import {Image,StyleSheet,Text,View} from 'react-native';
 import {useState} from 'react';
 import type {PublicPropertyPhoto} from '../../../shared/models/PropertyMediaPath';
-import {PublicIdentityBadge} from '../../../shared/components/PublicIdentityBadge';
+import {PersonProfileRow} from '../../../shared/components/ProfileSurfaces';
 import {colors} from '../../../shared/theme/colors';
 import {radius} from '../../../shared/theme/radius';
 import {spacing} from '../../../shared/theme/spacing';
@@ -10,7 +10,7 @@ import {StatusChip} from '../../../shared/components/StatusParts';
 import type {Chip} from '../../../shared/models/StatusChip';
 import type {Person} from '../models/TenancyWorkspaceScreen';
 
-export function PersonRow({person,showRelation=true}:{person:Person;showRelation?:boolean}){return <View style={styles.person}><PublicIdentityBadge identity={person.identity} relationship={person.relation==='Landlord'?'owner':'renter'}/>{showRelation?<Text style={ui.supporting}>{person.relation}</Text>:null}</View>;}
+export function PersonRow({accountId,person,showRelation=true}:{accountId:string|undefined;person:Person;showRelation?:boolean}){return <PersonProfileRow accountId={accountId} personId={person.id} name={person.label} relation={person.relation} identity={person.identity} showRelation={showRelation}/>;}
 /** Wide photo for the stay hero; falls back to a plain block. */
 export function HeroPhoto({photos,chip,muted=false}:{photos:readonly PublicPropertyPhoto[];chip:Chip;muted?:boolean}){
   const [failed,setFailed]=useState<string[]>([]),photo=photos.find(p=>!failed.includes(p.url));

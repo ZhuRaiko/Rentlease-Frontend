@@ -258,17 +258,6 @@ test('listing ratings: a failed summary read keeps the reviews and offers Retry;
   assert.ok(text(t1).includes('Ratings are not available right now.') && text(t1).includes('Still here'));
   assert.ok(nodes(t1).some(n => n.type === 'Button' && n.props.label === 'Retry'));
 });
-test('owner row: the landlord rating shows from the summary only and is hidden when the read fails or there are no reviews', () => {
-  const render = (vm: any) => harness(() => vm).render('src/shared/components/LandlordRatingLine.tsx', 'LandlordRatingLine', { accountId: TENANT, landlordId: LANDLORD });
-  const ok = parseReviewSummary(summary({ kind: 'landlord', targetId: LANDLORD, average: 4.8 }), 'landlord', LANDLORD);
-  assert.ok(text(render({ ...idle, data: { type: 'summary', value: ok } })).includes('★ 4.8 landlord'));
-  assert.equal(render({ ...idle, data: null, error: 'Reviews could not load. Retry.' }), null);
-  assert.equal(render({ ...idle, data: null, busy: true }), null);
-  assert.equal(render({ ...idle, data: { type: 'summary', value: parseReviewSummary(summary({ kind: 'landlord', targetId: LANDLORD, count: 0, average: null, distribution: [0, 0, 0, 0, 0], tags: [] }), 'landlord', LANDLORD) } }), null);
-  const source = readFileSync('src/features/search-discovery/views/LiveSearchViews.tsx', 'utf8');
-  assert.match(source, /<LandlordRatingLine /); assert.doesNotMatch(source, /View profile|ID verified/);
-  assert.match(readFileSync('src/shared/components/LandlordRatingLine.tsx', 'utf8'), /kind: 'landlord'/);
-});
 test('large text: stars, tags and tabs are at least 48dp, wrap instead of clipping, and nothing has a fixed height', () => {
   const panelTree = harness(() => ({ ...idle, data: { type: 'context', value: parseReviewContext(context(), TENANT, TEN) } })).render('src/shared/components/TenancyReviewPanel.tsx', 'TenancyReviewPanel', { accountId: TENANT, tenancyId: TEN, otherName: 'Samuel' });
   for (const n of nodes(panelTree).filter(n => n.type === 'Pressable')) assert.ok((styleOf(n).minHeight ?? 0) >= 48, `${n.props.accessibilityLabel} is at least 48dp tall`);

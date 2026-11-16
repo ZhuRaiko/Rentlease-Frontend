@@ -47,7 +47,7 @@ export function TenancyWorkspaceView({accountId,onBack,onDiscover,onListings,onP
  const goTile=(kind:TileKind)=>{const y=at.current[kind];if(y!==undefined)scroll.current?.scrollTo({y:Math.max(0,y-8),animated:true});};
  const section=(kind:TileKind)=>({onLayout:(e:{nativeEvent:{layout:{y:number}}})=>{at.current[kind]=e.nativeEvent.layout.y;}});
  const stay=(s:StayCard)=><View key={s.id} style={styles.card}><HeroPhoto photos={s.photos} chip={s.chip}/>
-   <View style={{gap:2}}><Text accessibilityRole="header" style={ui.sectionTitle}>{s.title}</Text><Text style={ui.supporting}>{s.place}</Text></View><PersonRow person={s.other}/>
+   <View style={{gap:2}}><Text accessibilityRole="header" style={ui.sectionTitle}>{s.title}</Text><Text style={ui.supporting}>{s.place}</Text></View><PersonRow accountId={accountId} person={s.other}/>
    <CellRow><Cell label="Rent" value={s.rent}/><Cell label="Next rent due" value={s.nextDue}/></CellRow>
    <ButtonRow><Slot><StatusButton tone="primary" label={s.primary.label} onPress={()=>s.primary.kind==='report'?open(s.id,'care'):onOpenProperty?.(s.propertyId)}/></Slot><Slot><StatusButton label={s.secondary.label} accessibilityLabel={`Details: ${s.title}`} onPress={()=>open(s.id)}/></Slot></ButtonRow></View>;
  const upcoming=(u:UpcomingCard)=><View key={u.id} style={styles.card}><View style={styles.head}><Thumb photos={u.photos}/><View style={styles.grow}><Text style={ui.body}>{u.title}</Text>{u.place?<Text style={ui.supporting}>{u.place}</Text>:null}{stacked?<StatusChip chip={u.chip}/>:null}</View>{stacked?null:<StatusChip chip={u.chip}/>}</View>

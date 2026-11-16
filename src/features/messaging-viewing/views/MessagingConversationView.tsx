@@ -1,6 +1,7 @@
 import {ReportAction} from '../../../shared/components/Reporting';
 import {ConversationPropertySummary} from '../components/ConversationPropertySummary';
 import {PublicAvatar} from '../../../shared/components/PublicIdentityBadge';
+import {ChatPersonTitle} from '../../../shared/components/ProfileSurfaces';
 import {publicIdentityLabel} from '../../../shared/models/PublicIdentity';
 import {useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,FlatList,KeyboardAvoidingView,Platform,Pressable,StyleSheet,Text,TextInput,View} from 'react-native';
@@ -18,7 +19,7 @@ export function MessagingConversationView({viewModel:vm,onBack,onViewings,onRese
  const [menuOpen,setMenuOpen]=useState(false),tenant=!!conversation&&vm.owner===conversation.tenantId,context=conversation?vm.propertyContexts?.[conversation.listingId]:undefined;
  useEffect(()=>{follow.current=true;},[vm.selectedId]);
  useEffect(()=>setMenuOpen(false),[vm.selectedId]);
- return <View style={styles.screen}><ScreenHeader title={conversation?publicIdentityLabel(identity,relationship):'Conversation'} onBack={onBack} action={conversation?<PublicAvatar url={identity?.avatarUrl} name={identity?.nickname}/>:undefined}/><KeyboardAvoidingView style={styles.screen} behavior={Platform.OS==='ios'?'padding':undefined}>
+ return <View style={styles.screen}><ScreenHeader title={conversation?publicIdentityLabel(identity,relationship):'Conversation'} titleContent={conversation&&otherId?<ChatPersonTitle accountId={vm.owner??undefined} personId={otherId} role={vm.owner===conversation.tenantId?'landlord':'tenant'} name={publicIdentityLabel(identity,relationship)} propertyTitle={conversation.listingTitle}/>:undefined} onBack={onBack} action={conversation?<PublicAvatar url={identity?.avatarUrl} name={identity?.nickname}/>:undefined}/><KeyboardAvoidingView style={styles.screen} behavior={Platform.OS==='ios'?'padding':undefined}>
  {conversation?<View style={styles.context}>
   <View style={styles.contextRow}><View style={styles.summary}><ConversationPropertySummary key={`${vm.owner}:${conversation.id}`} defaultCollapsed compact={!!vm.keyboardOpen} context={context} title={conversation.listingTitle??'Listing unavailable'} loading={vm.propertyContextLoading??false} error={vm.propertyContextError??null} onRetry={vm.refreshPropertyContext} onViewListing={onViewListing}/></View>
    <Pressable accessibilityRole="button" accessibilityLabel="More options" accessibilityState={{expanded:menuOpen}} onPress={()=>setMenuOpen(open=>!open)} style={styles.more}><Text style={styles.moreGlyph}>{'⋯'}</Text></Pressable></View>
