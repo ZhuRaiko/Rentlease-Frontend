@@ -100,7 +100,7 @@ test('portfolio refresh account invalidation clears previous owner rows and safe
 test('read-only portfolio loads two active listings and a draft without the undeployed edit schema or RPC',async()=>{
  const h=serviceHarness();h.rows.properties=[p,{...p,id:'20000000-0000-4000-8000-000000000002'},{...p,id:'20000000-0000-4000-8000-000000000003'}];
  h.rows.listings=[listing('active'),{...listing('active','40000000-0000-4000-8000-000000000002'),property_id:h.rows.properties[1]!.id},{...listing('draft','40000000-0000-4000-8000-000000000003'),property_id:h.rows.properties[2]!.id}];h.legacy();
- const flow=createLandlordPortfolioWorkflow(h.service);await flow.load();const state=flow.getSnapshot();assert.equal(state.error,null);assert.equal(state.loaded,true);assert.equal(state.items.length,3);assert.deepEqual(flow.filterCounts(),{all:3,published:2,drafts:1,rented:0});
+ const flow=createLandlordPortfolioWorkflow(h.service);await flow.load();const state=flow.getSnapshot();assert.equal(state.error,null);assert.equal(state.loaded,true);assert.equal(state.items.length,3);assert.deepEqual(flow.filterCounts(),{all:3,published:2,drafts:1,rented:0,unlisted:0});
  assert.deepEqual(state.items.flatMap(i=>i.listings.map(l=>l.id)),h.rows.listings.map(l=>l.id));assert.equal(state.items[0]?.tier3.status,'pending');assert.ok(state.items[0]?.coverPhoto);assert.ok(h.calls.every(c=>!c.columns.split(',').includes('edit_version')));
  // The mock client has no RPC method: loading cannot depend on update_listing_draft.
 });

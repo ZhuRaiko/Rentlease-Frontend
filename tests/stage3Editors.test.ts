@@ -16,7 +16,7 @@ const states: [string, string | null][] = [['no listing', null], ['draft', 'draf
 const EDITORS: PortfolioActionKey[] = ['continuePosting', 'continueEditing', 'editListing', 'createListing', 'editPropertyDetails'];
 
 test('every card state has one button, named for the state', () => {
-  const expected: Record<string, string> = { 'no listing': 'Continue posting', draft: 'Continue editing', published: 'Manage', paused: 'Manage', archived: 'Create a new listing', rented: 'Manage', removed: 'Manage' };
+  const expected: Record<string, string> = { 'no listing': 'Create listing', draft: 'Continue editing', published: 'Manage', paused: 'Manage', archived: 'Create a new listing', rented: 'Manage', removed: 'Manage' };
   for (const [name, status] of states) {
     const a = portfolioCardActions(item(status));
     assert.equal(a.primary.label, expected[name], name); assert.equal(a.secondary, null, `${name}: no second button`);

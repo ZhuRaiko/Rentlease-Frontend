@@ -36,7 +36,7 @@ test('one button per state: paused, active, rented and removed Manage, draft Con
   assert.equal(portfolioCardActions(makeItem('p', 'paused')).primary.label, 'Manage');
   assert.equal(portfolioCardActions(makeItem('p', 'active')).primary.label, 'Manage');
   assert.equal(portfolioCardActions(makeItem('p', 'draft')).primary.label, 'Continue editing');
-  assert.equal(portfolioCardActions(makeItem('p', null)).primary.label, 'Continue posting');
+  assert.equal(portfolioCardActions(makeItem('p', null)).primary.label, 'Create listing');
   assert.equal(portfolioCardActions(makeItem('p', 'removed')).primary.label, 'Manage');
   assert.equal(portfolioCardActions(makeItem('p', 'rented')).primary.label, 'Manage');
   for (const status of ['draft', 'active', 'paused', 'rented', 'removed', null]) assert.notEqual(portfolioCardActions(makeItem('p', status)).primary.key, 'createListing', String(status));

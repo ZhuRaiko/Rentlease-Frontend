@@ -114,16 +114,18 @@ export function managementPill(item: LandlordPortfolioItem): { label: string; to
     case 'archived': return { label: 'Archived', tone: 'neutral' };
     case 'removed': return { label: 'Removed', tone: 'danger' };
     case 'draft': return { label: 'Draft', tone: 'neutral' };
-    default: return { label: 'Not listed', tone: 'neutral' };
+    default: return { label: 'No listing yet', tone: 'neutral' };
   }
 }
-/** "Draft · 85% complete" from the listing's own completeness score; null when there is no draft. */
+/** "Draft · 85% complete" from the listing's own completeness score; null unless the current listing is a draft. */
 export function draftLine(item: LandlordPortfolioItem): string | null {
   const listing = item.currentListing;
-  if (listing && listing.status !== 'draft') return null;
-  return listing ? `Draft · ${Math.round((listing.completeness_score ?? 0) * 100)}% complete` : 'Draft · not saved as a listing yet';
+  return listing?.status === 'draft' ? `Draft · ${Math.round((listing.completeness_score ?? 0) * 100)}% complete` : null;
 }
-export const isDraftCard = (item: LandlordPortfolioItem): boolean => !item.currentListing || item.currentListing.status === 'draft';
+/** A saved draft listing. A property with no listing at all is not a draft: it shows "No listing yet" and Create listing. */
+export const isDraftCard = (item: LandlordPortfolioItem): boolean => item.currentListing?.status === 'draft';
+export const isUnlisted = (item: LandlordPortfolioItem): boolean => !item.currentListing;
+export const NO_LISTING_LINE = 'Add a listing to start renting this place.';
 
 /**
  * Everything the root composes for the management screens. The feature never imports messaging or tenancy ViewModels; App supplies this.

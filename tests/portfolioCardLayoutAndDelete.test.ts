@@ -76,8 +76,8 @@ test('there is one button per card: no second button, every other action is in t
   const paused = l(makeItem('5', 'paused', 'approved', { tier3: {} }));
   assert.deepEqual([paused.primary.label, paused.secondary], ['Manage', null]);
 });
-test('the primary label is named for the state: Continue posting only when there is no listing', () => {
-  assert.equal(portfolioCardLayout(makeItem('1', null)).primary.label, 'Continue posting');
+test('the primary label is named for the state: Create listing only when there is no listing', () => {
+  assert.equal(portfolioCardLayout(makeItem('1', null)).primary.label, 'Create listing');
   assert.equal(portfolioCardLayout(makeItem('2', 'draft')).primary.label, 'Continue editing');
   assert.equal(portfolioCardLayout(makeItem('3', 'active')).primary.label, 'Manage');
   assert.equal(portfolioCardLayout(makeItem('4', 'removed')).primary.label, 'Manage');
@@ -246,7 +246,7 @@ test('dashboard: only never-published cards offer delete; it passes that card id
   const calls: string[] = [];
   const items = [makeItem('draft1', 'draft'), makeItem('live1', 'active')];
   const vm: any = {
-    portfolioState: { loaded: true, items, query: '', filter: 'all', refreshing: false, busy: false, error: null }, portfolioItems: items, portfolioFilterCounts: { all: 2, published: 1, drafts: 1, rented: 0 },
+    portfolioState: { loaded: true, items, query: '', filter: 'all', refreshing: false, busy: false, error: null }, portfolioItems: items, portfolioFilterCounts: { all: 2, published: 1, drafts: 1, rented: 0, unlisted: 0 },
     portfolio: { load() {} }, portfolioActionsDisabled: false, notice: null, propertyVerificationState: null, setPortfolioFilter() {}, setListingQuery() {},
     requestPortfolioDeletion: async (id: string) => { calls.push(`delete:${id}`); }, resumeUnfinishedPostCleanup: (id: string) => calls.push(`cleanup:${id}`),
     unfinishedPostState: { propertyId: 'draft1', status: { propertyId: 'draft1', state: 'live', eligible: false, reason: 'Has a viewing.' }, busy: false, confirming: false, error: null, pending: [{ propertyId: 'live1', state: 'cleanup_pending', eligible: false, reason: null }] },

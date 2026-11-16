@@ -29,7 +29,7 @@ test('summary counts occupied, vacant and what needs the landlord, and tiles use
   assert.deepEqual(s, { occupied: 1, vacant: 1, needYou: 3 });
   assert.equal(filterPortfolioByStatus(items, 'rented').length, s.occupied, 'Occupied tile and chip agree');
   assert.equal(filterPortfolioByStatus(items, 'published').length, s.vacant, 'Vacant tile and Listed chip agree');
-  assert.deepEqual(portfolioFilterCounts(items), { all: 4, published: 1, drafts: 1, rented: 1 });
+  assert.deepEqual(portfolioFilterCounts(items), { all: 4, published: 1, drafts: 1, rented: 1, unlisted: 0 });
   assert.deepEqual(onlyNeedingYou(items, id => facts[id], NOW).map(i => i.propertyId), ['a', 'b']);
 });
 
@@ -69,7 +69,7 @@ test('card line and chips appear only for data that was read', () => {
   assert.deepEqual(cardChips(occupied, stayFacts()), []);
   assert.deepEqual(cardChips(makeItem('b', 'active'), stayFacts({ maintenance: { open: 4, urgent: [] } })), [], 'maintenance chip is for occupied cards only');
   assert.equal(managementPill(occupied).label, 'Occupied');
-  assert.deepEqual([managementPill(makeItem('b', 'active')), managementPill(makeItem('c', 'paused')), managementPill(makeItem('d', null))].map(p => `${p.label}:${p.tone}`), ['Listed:info', 'Paused:attention', 'Not listed:neutral']);
+  assert.deepEqual([managementPill(makeItem('b', 'active')), managementPill(makeItem('c', 'paused')), managementPill(makeItem('d', null))].map(p => `${p.label}:${p.tone}`), ['Listed:info', 'Paused:attention', 'No listing yet:neutral']);
   assert.equal(draftLine(makeItem('c', 'draft')), 'Draft · 80% complete');
   assert.equal(draftLine(makeItem('b', 'active')), null);
 });
@@ -230,4 +230,39 @@ test('new management files use theme tokens, no hardcoded colors, and never call
     assert.doesNotMatch(source, /#[0-9a-fA-F]{3,8}\b|rgba?\(/, file);
     assert.doesNotMatch(source, /getSupabaseClient|\.rpc\(|\.from\(/, file);
   }
+});
+
+// ---- Properties with no listing are not drafts
+import { portfolioFilters, portfolioFilterEmptyText } from '../src/features/property-listing/models/LandlordPortfolio';
+import { portfolioCardLayout } from '../src/features/property-listing/models/PortfolioCardPresentation';
+import { isDraftCard, isUnlisted } from '../src/features/property-listing/models/PropertyManagement';
+
+test('a property with no listing has its own filter and count and is never counted under Drafts', () => {
+  const items = [makeItem('a', 'draft'), makeItem('b', null), makeItem('c', null), makeItem('d', 'active'), makeItem('e', 'archived')];
+  assert.deepEqual(portfolioFilterCounts(items), { all: 5, published: 1, drafts: 1, rented: 0, unlisted: 2 });
+  assert.deepEqual(filterPortfolioByStatus(items, 'unlisted').map(i => i.propertyId), ['b', 'c']);
+  assert.deepEqual(filterPortfolioByStatus(items, 'drafts').map(i => i.propertyId), ['a']);
+  assert.deepEqual(portfolioFilters.map(f => f.label), ['All', 'Occupied', 'Listed', 'Drafts', 'No listing']);
+  assert.equal(portfolioFilterEmptyText.unlisted, 'Every property has a listing.');
+  assert.deepEqual(portfolioFilterCounts([]), { all: 0, published: 0, drafts: 0, rented: 0, unlisted: 0 });
+});
+
+test('no-listing card model: chip "No listing yet", primary "Create listing" on the existing posting flow, and not a draft card', () => {
+  const none = makeItem('b', null), draft = makeItem('a', 'draft');
+  assert.deepEqual([isUnlisted(none), isDraftCard(none), isUnlisted(draft), isDraftCard(draft)], [true, false, false, true]);
+  assert.deepEqual(managementPill(none), { label: 'No listing yet', tone: 'neutral' });
+  const layout = portfolioCardLayout(none);
+  assert.deepEqual([layout.primary.key, layout.primary.label], ['continuePosting', 'Create listing']);
+  assert.equal(draftLine(none), null, 'no draft percentage for a property without a listing');
+});
+
+test('no-listing card renders the chip, the Create listing button and no Draft wording; a draft still renders as a draft', () => {
+  const calls: string[] = [], h = harness(), card = 'src/features/property-listing/components/PortfolioRentalCard.tsx';
+  const render = (item: LandlordPortfolioItem) => h.render(card, 'PortfolioRentalCard', { item, disabled: false, onAction: (k: string) => calls.push(k) });
+  const tree = render(makeItem('b', null)), t = text(tree);
+  assert.match(t, /No listing yet/); assert.match(t, /Create listing/); assert.doesNotMatch(t, /Draft|Continue posting/);
+  assert.ok(nodes(tree).some(labelled('Status: No listing yet')));
+  press(tree, byText('Create listing')); assert.deepEqual(calls, ['continuePosting']);
+  const draft = text(render(makeItem('a', 'draft')));
+  assert.match(draft, /Draft/); assert.match(draft, /Continue posting/); assert.doesNotMatch(draft, /No listing yet|Create listing/);
 });

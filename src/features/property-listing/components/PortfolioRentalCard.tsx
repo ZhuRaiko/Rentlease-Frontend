@@ -9,7 +9,7 @@ import { ui } from '../../../shared/theme/ui';
 import type { LandlordPortfolioItem } from '../models/LandlordPortfolio';
 import { portfolioLocation, portfolioType } from '../models/LandlordPortfolio';
 import { portfolioArchivedNote, portfolioAvailability, portfolioCardLayout, type PortfolioActionKey, type PortfolioRequestActivity } from '../models/PortfolioCardPresentation';
-import { cardChips, cardLine, draftLine, emptyFacts, isDraftCard, managementPill, needsYou, type ManagedFacts, type PillTone } from '../models/PropertyManagement';
+import { cardChips, cardLine, draftLine, emptyFacts, isDraftCard, isUnlisted, managementPill, needsYou, NO_LISTING_LINE, type ManagedFacts, type PillTone } from '../models/PropertyManagement';
 import { deleteCardMenuLabel } from '../models/UnfinishedPostMenu';
 import { ListingButton } from './ListingButton';
 
@@ -79,6 +79,7 @@ export function PortfolioRentalCard({ item, disabled, onAction, request, verific
         {badge > 0 ? <View accessible accessibilityLabel={`${badge} waiting for you`} style={styles.badge}><Text style={styles.badgeText}>{badge}</Text></View> : null}
       </View>
       {line ? <Text style={ui.supporting}>{line}</Text> : null}
+      {isUnlisted(item) ? <Text style={ui.supporting}>{NO_LISTING_LINE}</Text> : null}
       {availability ? <Pressable accessibilityRole="button" accessibilityLabel={`${availability}. Change`} accessibilityState={{ disabled }} disabled={disabled} onPress={() => onAction('editListing')} style={styles.availability}><Text style={styles.availabilityText}>{availability}</Text><Text style={styles.availabilityText}>Change</Text></Pressable> : null}
       {archivedNote ? <Text style={ui.supporting}>{archivedNote}</Text> : null}
       {!item.property.is_active ? <Text style={ui.supporting}>Property inactive. Listing changes may be unavailable.</Text> : null}

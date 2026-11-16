@@ -40,7 +40,7 @@ export function portfolioCardActions(item: LandlordPortfolioItem): { primary: Po
   const relist = !!listing && status === 'archived' && active;
   const live = status === 'active' || status === 'paused';
   const primary: PortfolioAction = relist ? { key: 'createListing', label: 'Create a new listing' }
-    : !listing ? { key: 'continuePosting', label: 'Continue posting' }
+    : !listing ? { key: 'continuePosting', label: 'Create listing' }
     : status === 'draft' ? { key: 'continueEditing', label: 'Continue editing' }
     : status === 'rented' || live || status === 'removed' ? { key: 'open', label: 'Manage' }
     : { key: 'open', label: 'View listing' };

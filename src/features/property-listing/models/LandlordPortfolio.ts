@@ -35,19 +35,20 @@ export function portfolioStats(items: LandlordPortfolioItem[]) {
   return { properties: items.length, published: listings.filter(l => l.status === 'active').length, drafts: listings.filter(l => l.status === 'draft').length, rented: listings.filter(l => l.status === 'rented').length };
 }
 /** Status tabs act on each property's current listing, the same row its card shows, so tab counts always match the cards. */
-export type PortfolioFilter = 'all' | 'published' | 'drafts' | 'rented';
+export type PortfolioFilter = 'all' | 'published' | 'drafts' | 'rented' | 'unlisted';
 export const portfolioFilters: readonly { key: PortfolioFilter; label: string }[] = [
-  { key: 'all', label: 'All' }, { key: 'rented', label: 'Occupied' }, { key: 'published', label: 'Listed' }, { key: 'drafts', label: 'Drafts' },
+  { key: 'all', label: 'All' }, { key: 'rented', label: 'Occupied' }, { key: 'published', label: 'Listed' }, { key: 'drafts', label: 'Drafts' }, { key: 'unlisted', label: 'No listing' },
 ];
-export const portfolioFilterEmptyText: Record<Exclude<PortfolioFilter, 'all'>, string> = { published: 'No listed properties yet.', drafts: 'No drafts.', rented: 'No occupied properties yet.' };
-const filterStatus: Record<Exclude<PortfolioFilter, 'all'>, Enums<'listing_status'>> = { published: 'active', drafts: 'draft', rented: 'rented' };
+export const portfolioFilterEmptyText: Record<Exclude<PortfolioFilter, 'all'>, string> = { published: 'No listed properties yet.', drafts: 'No drafts.', rented: 'No occupied properties yet.', unlisted: 'Every property has a listing.' };
+const filterStatus: Record<Exclude<PortfolioFilter, 'all' | 'unlisted'>, Enums<'listing_status'>> = { published: 'active', drafts: 'draft', rented: 'rented' };
 export function portfolioFilterMatches(item: LandlordPortfolioItem, filter: PortfolioFilter) {
+  if (filter === 'unlisted') return !item.currentListing;
   return filter === 'all' || item.currentListing?.status === filterStatus[filter];
 }
 export function filterPortfolioByStatus(items: LandlordPortfolioItem[], filter: PortfolioFilter) {
   return items.filter(item => portfolioFilterMatches(item, filter));
 }
 export function portfolioFilterCounts(items: LandlordPortfolioItem[]): Record<PortfolioFilter, number> {
-  return { all: items.length, published: filterPortfolioByStatus(items, 'published').length, drafts: filterPortfolioByStatus(items, 'drafts').length, rented: filterPortfolioByStatus(items, 'rented').length };
+  return { all: items.length, published: filterPortfolioByStatus(items, 'published').length, drafts: filterPortfolioByStatus(items, 'drafts').length, rented: filterPortfolioByStatus(items, 'rented').length, unlisted: filterPortfolioByStatus(items, 'unlisted').length };
 }
 export class PortfolioError extends Error { constructor(message: string, public readonly identity = false) { super(message); } }

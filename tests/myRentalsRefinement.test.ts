@@ -74,14 +74,16 @@ const byText = (label: string) => (n: Node) => typeof n.props?.onPress === 'func
 
 // ---- Model: filtering and counts share one definition
 test('filter tabs act on the current listing so counts always equal the cards a tab shows', () => {
-  assert.deepEqual(portfolioFilterCounts(items), { all: 5, published: 2, drafts: 1, rented: 1 });
-  for (const f of ['all', 'published', 'drafts', 'rented'] as const) assert.equal(filterPortfolioByStatus(items, f).length, portfolioFilterCounts(items)[f]);
+  assert.deepEqual(portfolioFilterCounts(items), { all: 5, published: 2, drafts: 1, rented: 1, unlisted: 1 });
+  for (const f of ['all', 'published', 'drafts', 'rented', 'unlisted'] as const) assert.equal(filterPortfolioByStatus(items, f).length, portfolioFilterCounts(items)[f]);
   assert.deepEqual(filterPortfolioByStatus(items, 'drafts').map(i => i.propertyId), ['a']);
   // A property with a published listing and an older draft is one Published card, not also a Draft.
   const both = makeItem('f', 'active'); both.listings = [...both.listings, { ...both.currentListing!, id: 'older-draft', status: 'draft' }];
-  assert.deepEqual(portfolioFilterCounts([both]), { all: 1, published: 1, drafts: 0, rented: 0 });
-  // Properties without a listing belong only to All.
-  assert.deepEqual(portfolioFilterCounts([makeItem('g', null)]), { all: 1, published: 0, drafts: 0, rented: 0 });
+  assert.deepEqual(portfolioFilterCounts([both]), { all: 1, published: 1, drafts: 0, rented: 0, unlisted: 0 });
+  // A property without a listing is not a draft: it counts under No listing (and All), never under Drafts.
+  assert.deepEqual(portfolioFilterCounts([makeItem('g', null)]), { all: 1, published: 0, drafts: 0, rented: 0, unlisted: 1 });
+  assert.deepEqual(filterPortfolioByStatus(items, 'unlisted').map(i => i.propertyId), ['e']);
+  assert.ok(!filterPortfolioByStatus(items, 'drafts').some(i => !i.currentListing));
 });
 
 test('workflow owns the active filter: intersects with search, counts ignore the query, invalidation resets it', async () => {
@@ -90,7 +92,7 @@ test('workflow owns the active filter: intersects with search, counts ignore the
   assert.equal(flow.getSnapshot().filter, 'all'); assert.equal(flow.filtered().length, 5);
   flow.setFilter('published'); assert.deepEqual(flow.filtered().map(i => i.propertyId), ['b', 'c']);
   flow.setQuery('Rental b'); assert.deepEqual(flow.filtered().map(i => i.propertyId), ['b']);
-  assert.deepEqual(flow.filterCounts(), { all: 5, published: 2, drafts: 1, rented: 1 });
+  assert.deepEqual(flow.filterCounts(), { all: 5, published: 2, drafts: 1, rented: 1, unlisted: 1 });
   flow.invalidate(); assert.equal(flow.getSnapshot().filter, 'all'); assert.equal(flow.getSnapshot().query, '');
 });
 
@@ -114,8 +116,8 @@ test('dashboard has no Post a Rental button; posting stays in the navbar and emp
 test('filter tabs show ViewModel counts, mark the active tab and report taps; the list is the ViewModel-filtered list', () => {
   const { vm, calls } = viewModel({ filter: 'drafts' }); const tree = harness().render(dashboard, 'PropertyDashboardView', { viewModel: vm });
   const tabs = nodes(tree).filter(n => n.props?.accessibilityRole === 'tab');
-  assert.deepEqual(tabs.map(t => t.props.accessibilityLabel), ['All, 5', 'Occupied, 1', 'Listed, 2', 'Drafts, 1']);
-  assert.deepEqual(tabs.map(t => t.props.accessibilityState.selected), [false, false, false, true]);
+  assert.deepEqual(tabs.map(t => t.props.accessibilityLabel), ['All, 5', 'Occupied, 1', 'Listed, 2', 'Drafts, 1', 'No listing, 1']);
+  assert.deepEqual(tabs.map(t => t.props.accessibilityState.selected), [false, false, false, true, false]);
   assert.ok(tabs.every(t => t.props.hitSlop.top + t.props.hitSlop.bottom + 40 >= 48), 'tab hit area is at least 48dp tall');
   assert.equal(nodes(tree).filter(byText('Continue posting')).length, 1, 'one card rendered for the single draft');
   tabs[2].props.onPress(); assert.deepEqual(calls, ['filter:published']);
@@ -142,7 +144,7 @@ test('one button per card named for the state; every other action is in the menu
   assert.deepEqual(actionLabels(makeItem('1', 'draft', 'not_submitted')), ['Continue editing', null, ['Edit property details', 'Verify This Property']]);
   assert.deepEqual(actionLabels(makeItem('2', 'active', 'approved')), ['Manage', null, ['Edit listing', 'Edit property details']]);
   assert.deepEqual(actionLabels(makeItem('3', 'paused', 'pending')), ['Manage', null, ['Edit listing', 'Edit property details', 'View Verification Status']]);
-  assert.deepEqual(actionLabels(makeItem('4', null, 'not_submitted')), ['Continue posting', null, ['Edit property details', 'Verify This Property']]);
+  assert.deepEqual(actionLabels(makeItem('4', null, 'not_submitted')), ['Create listing', null, ['Edit property details', 'Verify This Property']]);
   assert.deepEqual(actionLabels(makeItem('5', 'rented', 'rejected')), ['Manage', null, ['View Verification Feedback']]);
   assert.deepEqual(actionLabels(makeItem('6', 'draft', 'approved', { completeness: 0.9 })), ['Continue editing', null, ['Edit property details', 'Review Publication']]);
   assert.deepEqual(actionLabels(makeItem('7', 'draft', 'approved', { completeness: 0.5 })), ['Continue editing', null, ['Edit property details']]);
@@ -167,7 +169,7 @@ test('card buttons and menu entries reach the ViewModel handlers with the proper
   };
   assert.deepEqual(run(makeItem('p1', 'draft', 'not_submitted'), 'Continue posting', 'Verify This Property'), ['open:p1', 'verify:p1']);
   assert.deepEqual(run(makeItem('p2', 'active', 'approved'), 'Edit listing'), ['editListing:p2']);
-  assert.deepEqual(run(makeItem('p3', null, 'approved'), 'Continue posting'), ['continue:p3']);
+  assert.deepEqual(run(makeItem('p3', null, 'approved'), 'Create listing'), ['continue:p3']);
   assert.deepEqual(run(makeItem('p4', 'active', 'approved'), 'Edit property details'), ['editDetails:p4']);
   assert.deepEqual(run(makeItem('p5', 'paused', 'approved'), 'Manage'), ['open:p5']);
   assert.deepEqual(run(makeItem('p6', 'archived', 'approved'), 'Create a new listing'), ['create:p6']);
