@@ -9,7 +9,7 @@ import { ui } from '../../../shared/theme/ui';
 import { ButtonRow, Cell, CellRow, Slot, StatusButton, StatusChip } from '../../../shared/components/StatusParts';
 import { DashboardIcon } from '../../../shared/components/DashboardIcon';
 import { CHIP_COLORS } from '../../../shared/theme/statusColors';
-import { dueLabel, pesos, shortDate } from '../../../shared/utils/rentalDates';
+import { dueLabel, manilaToday, pesos, shortDate } from '../../../shared/utils/rentalDates';
 import { portfolioLocation, portfolioType } from '../models/LandlordPortfolio';
 import { editPropertyDetailsPlan } from '../models/PortfolioCardPresentation';
 import { emptyFacts, itemFor, lifecycleSegments, managementPill, needsYou, PAUSED_HINT, stayDates, type ManagedReservation, type PropertyManagementPort } from '../models/PropertyManagement';
@@ -33,6 +33,7 @@ function Tile({ label, note, icon, tone = 'positive', onPress }: { label: string
  */
 export function ManagePropertyView({ viewModel: vm, management, accountId, onBack }: { viewModel: PropertyListingViewModel; management?: PropertyManagementPort | undefined; accountId?: string | undefined; /** Back to the screen Manage was opened from; defaults to the ViewModel's own Back. */ onBack?: (() => void) | undefined }) {
   const item = itemFor(vm.portfolioState.items, vm.workspacePropertyId), row = vm.realListing, state = vm.lifecycleState, operation = state.confirmation;
+  const [rentBusy, setRentBusy] = useState(false), [rentError, setRentError] = useState<string | null>(null);
   const [declining, setDeclining] = useState<ManagedReservation | null>(null), [declineError, setDeclineError] = useState<string | null>(null), [declineBusy, setDeclineBusy] = useState(false);
   const loadedFor = vm.workspacePropertyId;
   useEffect(() => { if (loadedFor) management?.loadReviews(loadedFor); }, [loadedFor]);
@@ -44,6 +45,14 @@ export function ManagePropertyView({ viewModel: vm, management, accountId, onBac
   const detailsPlan = editPropertyDetailsPlan(item), canEditListing = ['active', 'paused'].includes(row.status) && item.property.is_active;
   const go = (target: Parameters<PropertyManagementPort['openTarget']>[1]) => target.kind === 'requests' ? management?.reviewRequests(item) : management?.openTarget(item.propertyId, target);
   const waiting = facts.reservations[0] ?? null;
+  const acknowledgeRent = async () => {
+    const a = facts.rentAwaiting;
+    if (!a || !management || rentBusy) return;
+    setRentBusy(true); setRentError(null);
+    const error = await management.acknowledgeRent(a.tenancyId, a.dueDate, a.revision);
+    setRentBusy(false);
+    if (error) setRentError(error);
+  };
   const decline = async () => {
     if (!declining || !management) return;
     setDeclineBusy(true); setDeclineError(null);
@@ -87,8 +96,16 @@ export function ManagePropertyView({ viewModel: vm, management, accountId, onBac
         </View></View>
         <View style={styles.card}><View style={styles.cardBody}>
           <View style={styles.headRow}><Text accessibilityRole="header" style={[ui.sectionTitle, styles.grow]}>Rent</Text>{stay.nextDue ? <StatusChip chip={{ label: `Next ${shortDate(stay.nextDue)}`, tone: 'info' }} /> : null}</View>
-          <Text style={ui.body}>{stay.nextDue ? `Next rent due ${dueLabel(stay.nextDue, Date.now())}` : 'No upcoming rent date is recorded.'}</Text>
-          <Text style={ui.supporting}>Rent dates come from the tenancy schedule. Payments are not tracked yet.</Text>
+          {facts.rentAwaiting ? <View accessibilityLabel="Rent waiting for your answer" style={styles.rentWaiting}>
+            <Text style={[ui.body, styles.rentWaitingText]}>{`${stay.tenantName || 'The tenant'} says rent for ${shortDate(facts.rentAwaiting.dueDate).split(' ')[0]} was paid${facts.rentAwaiting.paidAt ? ` on ${shortDate(manilaToday(Date.parse(facts.rentAwaiting.paidAt)))}` : ''}`}</Text>
+            <FeedbackNotice message={rentError} tone="error" />
+            <ButtonRow><Slot><StatusButton tone="primary" label={rentBusy ? 'Saving...' : 'Mark received'} disabled={rentBusy} onPress={() => void acknowledgeRent()} /></Slot>
+              <Slot><StatusButton label="View ledger" onPress={() => management?.openTenancy(stay.tenancyId, 'rent')} /></Slot></ButtonRow>
+          </View> : <>
+            <Text style={ui.body}>{stay.nextDue ? `Next rent due ${dueLabel(stay.nextDue, Date.now())}` : 'No upcoming rent date is recorded.'}</Text>
+            <StatusButton label="View ledger" onPress={() => management?.openTenancy(stay.tenancyId, 'rent')} />
+          </>}
+          <Text style={ui.supporting}>The ledger records what each person says. It does not move money.</Text>
         </View></View>
         <View style={styles.grid}>
           <Tile label="Maintenance" note={facts.maintenance.open ? `${facts.maintenance.open} open` : 'None open'} icon={<DashboardIcon kind="maintenance" />} tone={facts.maintenance.open ? 'warning' : 'positive'} onPress={() => management?.openTenancy(stay.tenancyId, 'care')} />
@@ -157,6 +174,8 @@ const styles = StyleSheet.create({
   avatarText: { ...ui.body, color: colors.white, fontWeight: '700' },
   messageSlot: { minWidth: 110 },
   confirm: { gap: spacing.xs },
+  rentWaiting: { padding: spacing.sm, gap: spacing.xs, borderRadius: radius.control, borderWidth: 1, borderColor: colors.warning, backgroundColor: colors.warningSurface },
+  rentWaitingText: { color: colors.warning, fontWeight: '700' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   tile: { ...ui.panel, flexGrow: 1, flexBasis: 150, minHeight: 76, padding: spacing.sm, gap: 4 },
   glyph: { ...ui.sectionTitle, color: colors.primaryAction },

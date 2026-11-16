@@ -19,11 +19,13 @@ export interface ManagedFacts {
   endRequest: ManagedEndRequest | null;
   reviews: { average: number; count: number } | null;
   reservations: ManagedReservation[];
+  /** The newest month the tenant says was paid and the landlord has not answered (from the rent ledger); null when none or the read failed. */
+  rentAwaiting: { tenancyId: string; dueDate: string; revision: string; paidAt: string | null } | null;
 }
-export const emptyFacts = (): ManagedFacts => ({ stay: null, setup: null, maintenance: { open: 0, urgent: [] }, endRequest: null, reviews: null, reservations: [] });
+export const emptyFacts = (): ManagedFacts => ({ stay: null, setup: null, maintenance: { open: 0, urgent: [] }, endRequest: null, reviews: null, reservations: [], rentAwaiting: null });
 
 export type NeedsTone = 'danger' | 'attention';
-export type NeedsTarget = { kind: 'care'; tenancyId: string } | { kind: 'lifecycle'; tenancyId: string } | { kind: 'setup'; tenancyId: string } | { kind: 'requests' };
+export type NeedsTarget = { kind: 'care'; tenancyId: string } | { kind: 'lifecycle'; tenancyId: string } | { kind: 'setup'; tenancyId: string } | { kind: 'rent'; tenancyId: string } | { kind: 'requests' };
 export interface NeedsItem { key: string; chip: string; tone: NeedsTone; text: string; target: NeedsTarget }
 
 const name = (value: string | null) => value || 'The renter';
@@ -39,6 +41,7 @@ export function needsYou(facts: ManagedFacts, now = Date.now()): NeedsItem[] {
   const tenancyId = facts.stay?.tenancyId;
   if (tenancyId) for (const request of facts.maintenance.urgent) items.push({ key: `urgent:${request.id}`, chip: 'Urgent', tone: 'danger', text: `${request.title} reported ${ageText(request.createdAt, now)}`, target: { kind: 'care', tenancyId } });
   if (facts.endRequest?.fromTenant) items.push({ key: `end:${facts.endRequest.tenancyId}`, chip: 'Reply', tone: 'attention', text: `${name(facts.stay?.tenantName ?? null)}'s early-end request`, target: { kind: 'lifecycle', tenancyId: facts.endRequest.tenancyId } });
+  if (facts.rentAwaiting && facts.stay) items.push({ key: `rent:${facts.rentAwaiting.tenancyId}:${facts.rentAwaiting.dueDate}`, chip: 'Confirm', tone: 'attention', text: `${name(facts.stay.tenantName)} says rent for ${shortDate(facts.rentAwaiting.dueDate).split(' ')[0]} was paid`, target: { kind: 'rent', tenancyId: facts.rentAwaiting.tenancyId } });
   if (facts.setup) items.push({ key: `setup:${facts.setup.tenancyId}`, chip: 'Setup', tone: 'attention', text: 'Tenancy setup is waiting for confirmation', target: { kind: 'setup', tenancyId: facts.setup.tenancyId } });
   for (const r of facts.reservations) items.push({ key: `reservation:${r.id}`, chip: 'Request', tone: 'attention', text: `${name(r.applicantName)} asked to reserve`, target: { kind: 'requests' } });
   return items;
@@ -138,7 +141,9 @@ export interface PropertyManagementPort {
   refresh: () => void;
   /** Opens the existing screen a "Needs you" row points at (care and lifecycle panels, tenancy setup, the property's requests). */
   openTarget: (propertyId: string, target: NeedsTarget) => void;
-  openTenancy: (tenancyId: string, panel?: 'care' | 'lifecycle' | 'reviews') => void;
+  openTenancy: (tenancyId: string, panel?: 'care' | 'lifecycle' | 'reviews' | 'rent') => void;
+  /** "Mark received" for the month the tenant says was paid. Resolves null on success, otherwise one sentence. */
+  acknowledgeRent: (tenancyId: string, dueDate: string, revision: string) => Promise<string | null>;
   message: (conversationId: string) => void;
   reviewRequests: (item: LandlordPortfolioItem) => void;
   /** Starts the one review read for a property; the result appears through reviewsFor. Safe to call repeatedly. */

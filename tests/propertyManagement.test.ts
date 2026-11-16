@@ -132,7 +132,7 @@ const byText = (label: string) => (n: any) => typeof n.props?.onPress === 'funct
 const labelled = (label: string) => (n: any) => n.props?.accessibilityLabel === label;
 const MANAGE = 'src/features/property-listing/views/ManagePropertyView.tsx';
 
-function manage(status: string, facts: ManagedFacts, over: { reviews?: { average: number; count: number } | null; decline?: PropertyManagementPort['decline'] } = {}) {
+function manage(status: string, facts: ManagedFacts, over: { reviews?: { average: number; count: number } | null; decline?: PropertyManagementPort['decline']; acknowledge?: PropertyManagementPort['acknowledgeRent'] } = {}) {
   const item = makeItem('p1', status, { title: 'Garcia Apartment' }), calls: any[] = [];
   const vm: any = {
     portfolioState: { items: [item] }, workspacePropertyId: 'p1', realListing: item.currentListing, notice: null,
@@ -143,7 +143,7 @@ function manage(status: string, facts: ManagedFacts, over: { reviews?: { average
   const management: PropertyManagementPort = {
     factsOf: () => facts, loading: false, error: null, refresh: () => calls.push('refresh'),
     openTarget: (id, target) => calls.push(`target:${target.kind}`), openTenancy: (id, panel) => calls.push(`tenancy:${id}:${panel ?? ''}`), message: id => calls.push(`message:${id}`),
-    reviewRequests: i => calls.push(`requests:${i.propertyId}`), loadReviews() {}, decline: over.decline ?? (async () => null),
+    reviewRequests: i => calls.push(`requests:${i.propertyId}`), loadReviews() {}, decline: over.decline ?? (async () => null), acknowledgeRent: async (t, d, r) => { calls.push(`ack:${t}:${d}:${r}`); return over.acknowledge ? over.acknowledge(t, d, r) : null; },
     reviewsFor: () => over.reviews ?? null,
   };
   const h = harness();
@@ -290,7 +290,7 @@ test('Back from Manage returns to Tenancy only for a Manage opened from Tenancy,
 test('the Manage header Back uses the given origin Back, and falls back to the ViewModel Back', () => {
   const item = makeItem('p1', 'active', { title: 'Garcia Apartment' }); const calls: string[] = [];
   const vm: any = { portfolioState: { items: [item] }, workspacePropertyId: 'p1', realListing: item.currentListing, notice: null, lifecycleState: { confirmation: null, error: null, busy: false }, lifecycleBlocked: false, lifecycleLabel: {}, lifecycle: {}, goBack: () => calls.push('vmBack'), goDashboard() {}, editManagedListing() {}, editPortfolioPropertyDetails() {}, estimationProperty: null };
-  const management: PropertyManagementPort = { factsOf: () => emptyFacts(), loading: false, error: null, refresh() {}, openTarget() {}, openTenancy() {}, message() {}, reviewRequests() {}, loadReviews() {}, decline: async () => null, reviewsFor: () => null };
+  const management: PropertyManagementPort = { factsOf: () => emptyFacts(), loading: false, error: null, refresh() {}, openTarget() {}, openTenancy() {}, message() {}, reviewRequests() {}, loadReviews() {}, decline: async () => null, acknowledgeRent: async () => null, reviewsFor: () => null };
   const render = (onBack?: () => void) => harness().render(MANAGE, 'ManagePropertyView', { viewModel: vm, management, accountId: owner, onBack });
   press(render(() => calls.push('toTenancy')), labelled('Back')); press(render(), labelled('Back'));
   assert.deepEqual(calls, ['toTenancy', 'vmBack']);
@@ -323,4 +323,47 @@ test('shared parts hold no tenancy imports, and the models hold no theme colors'
   for (const file of ['src/features/tenancy/models/TenancyPresentation.ts', 'src/features/property-listing/models/PropertyManagement.ts']) assert.doesNotMatch(readFileSync(file, 'utf8'), /theme\/colors|CHIP_COLORS|TILE_COLORS/, file);
   const manage = readFileSync(MANAGE, 'utf8') + readFileSync('src/features/property-listing/components/ManagePriceCheck.tsx', 'utf8') + readFileSync('src/features/property-listing/models/PropertyManagement.ts', 'utf8');
   assert.doesNotMatch(manage, /features\/tenancy/, 'property-listing imports nothing from the tenancy feature');
+});
+
+// ---- Rent ledger switched on (Feature 3)
+const awaitingFacts = (over: Partial<ManagedFacts> = {}): ManagedFacts => stayFacts({ rentAwaiting: { tenancyId: 't1', dueDate: '2026-11-02', revision: '40000000-0000-4000-8000-000000000001', paidAt: '2026-11-01T02:00:00+00:00' }, ...over });
+
+test('Needs you lists the rent the tenant says was paid, after the early-end request and before setup', () => {
+  const items = needsYou(awaitingFacts({ endRequest: { tenancyId: 't1', fromTenant: true }, setup: { tenancyId: 't2' } }), NOW);
+  assert.deepEqual(items.map(i => [i.chip, i.text, i.target.kind]), [['Reply', "Samuel's early-end request", 'lifecycle'], ['Confirm', 'Samuel says rent for Nov was paid', 'rent'], ['Setup', 'Tenancy setup is waiting for confirmation', 'setup']]);
+  assert.deepEqual(items[1]!.target, { kind: 'rent', tenancyId: 't1' });
+  assert.deepEqual(needsYou(stayFacts(), NOW), [], 'nothing waiting, no item');
+  assert.deepEqual(needsYou({ ...emptyFacts(), rentAwaiting: awaitingFacts().rentAwaiting }, NOW), [], 'no rental read, no item that goes nowhere');
+  assert.equal(portfolioSummary([makeItem('a', 'rented')], () => awaitingFacts(), NOW).needYou, 1);
+});
+
+test('Manage (occupied) rent row: the waiting item with Mark received, otherwise next due and View ledger', async () => {
+  const waiting = manage('rented', awaitingFacts()), tree = waiting.render(), t = text(tree);
+  assert.match(t, /Samuel says rent for Nov was paid on Nov 1/); assert.match(t, /Mark received/); assert.match(t, /View ledger/);
+  assert.doesNotMatch(t, /Payments are not tracked/); assert.match(t, /The ledger records what each person says\. It does not move money\./);
+  assert.ok(!/Next rent due/.test(t), 'the waiting item replaces the next-due line');
+  press(tree, byText('Mark received')); press(tree, byText('View ledger'));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(waiting.calls.filter(c => c.startsWith('ack') || c.startsWith('tenancy')), ['ack:t1:2026-11-02:40000000-0000-4000-8000-000000000001', 'tenancy:t1:rent']);
+  const quiet = manage('rented', stayFacts()), q = quiet.render();
+  assert.match(text(q), /Next rent due Dec 2/); assert.ok(!nodes(q).some(byText('Mark received')), 'nothing waiting, no Mark received');
+  press(q, byText('View ledger')); assert.deepEqual(quiet.calls, ['tenancy:t1:rent']);
+});
+
+test('Manage Mark received shows one sentence when it fails and never writes twice for one tap', async () => {
+  const failing = manage('rented', awaitingFacts(), { acknowledge: async () => "This isn't available right now." });
+  let tree = failing.render(); press(tree, byText('Mark received')); await new Promise(resolve => setTimeout(resolve, 0)); tree = failing.render();
+  assert.match(text(tree), /This isn't available right now\./); assert.equal(failing.calls.filter(c => c.startsWith('ack')).length, 1);
+  // While the write is in flight a second tap is ignored.
+  let release: () => void = () => {}; const slow = manage('rented', awaitingFacts(), { acknowledge: () => new Promise<string | null>(resolve => { release = () => resolve(null); }) });
+  let t2 = slow.render(); press(t2, byText('Mark received')); t2 = slow.render();
+  assert.equal(nodes(t2).find(byText('Saving...'))?.props.disabled, true, 'the button locks while saving'); press(t2, byText('Saving...'));
+  release(); await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(slow.calls.filter(c => c.startsWith('ack')).length, 1);
+});
+
+test('a Needs-you rent row opens the ledger panel through the existing deep link', () => {
+  const m = manage('rented', awaitingFacts()), tree = m.render();
+  press(tree, n => String(n.props?.accessibilityLabel ?? '').startsWith('Confirm: Samuel says rent for Nov was paid'));
+  assert.deepEqual(m.calls.filter(c => c.startsWith('target')), ['target:rent']);
 });

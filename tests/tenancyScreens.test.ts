@@ -131,7 +131,7 @@ test('ended rentals ask for a rating until it is given, then show one line', () 
 // ---- Attention list and Needs your OK
 test('attention for the landlord: urgent maintenance first, then a setup to start, then an end request; nothing waiting means nothing shown', () => {
   const stay=tenancy(),held=reservation({listingTitle:'Garcia Apartment',propertyId:'00000000-0000-4000-8000-0000000000c2'});
-  const activity={care:{[stay.id]:care(stay,[request({priority:'normal',title:'Door sticks',createdAt:'2026-11-15T00:00:00Z'}),request({priority:'urgent'}),request({status:'resolved',title:'Old'})])},lifecycle:{[stay.id]:life(stay,{id:id(),revision:id(),initiatorId:T,date:'2026-11-16',reason:'Need to leave',version:'a'.repeat(32)})},reviews:{}};
+  const activity={care:{[stay.id]:care(stay,[request({priority:'normal',title:'Door sticks',createdAt:'2026-11-15T00:00:00Z'}),request({priority:'urgent'}),request({status:'resolved',title:'Old'})])},lifecycle:{[stay.id]:life(stay,{id:id(),revision:id(),initiatorId:T,date:'2026-11-16',reason:'Need to leave',version:'a'.repeat(32)})},reviews:{},rent:{}};
   const items=attentionItems(input(L,{tenancies:[stay],reservations:[held],contexts:{[stay.id]:ctx()},activity}));
   assert.deepEqual(items.map(x=>[x.kind,x.title,x.chip.label]),[['maintenance','Leaking faucet','Urgent'],['start_setup','Set up tenancy','Do now'],['end_request','Early-end request','Reply'],['maintenance','Door sticks','Open']]);
   assert.equal(items[0]!.subtitle,'Miguel House · Samuel · 2h ago');assert.equal(items[1]!.subtitle,'Garcia Apartment · Samuel approved');
@@ -140,7 +140,7 @@ test('attention for the landlord: urgent maintenance first, then a setup to star
 });
 test('Needs your OK (tenant): the setup waiting for the tenant, an end request from the landlord, a request that needs more information; never other people\'s items', () => {
   const stay=tenancy(),pending=tenancy({status:'pending_confirmation',landlord_confirmed_at:'2026-11-15T00:00:00Z',start_date:'2026-11-25',listingTitle:'Garcia Apartment'}),r=reservation();
-  const activity={care:{[stay.id]:care(stay,[request({status:'needs_information',priority:'normal'}),request({status:'submitted'})])},lifecycle:{[stay.id]:life(stay,{id:id(),revision:id(),initiatorId:L,date:'2026-11-16',reason:'Selling',version:'a'.repeat(32)})},reviews:{}};
+  const activity={care:{[stay.id]:care(stay,[request({status:'needs_information',priority:'normal'}),request({status:'submitted'})])},lifecycle:{[stay.id]:life(stay,{id:id(),revision:id(),initiatorId:L,date:'2026-11-16',reason:'Selling',version:'a'.repeat(32)})},reviews:{},rent:{}};
   const s=workspaceScreen(input(T,{tenancies:[stay,pending],reservations:[r],links:[{reservation_id:r.id,tenancy_id:pending.id}],activity}));
   assert.deepEqual(s.needsOk.map(x=>[x.kind,x.title,x.buttonLabel]),[['confirm_terms','Confirm your tenancy terms','Review terms'],['end_request','Early-end request','Reply'],['maintenance','Leaking faucet','Open']]);
   assert.equal(s.needsOk[0]!.subtitle,'Garcia Apartment · move-in Nov 25. Nightcity shared the terms.');assert.equal(s.needsOk[0]!.chip.label,'Needs your OK');assert.deepEqual(s.needsOk[0]!.action,{kind:'setup',reservationId:r.id});
@@ -160,7 +160,7 @@ test('details, active (tenant): summary, actions, rent schedule only, people, ma
   const stay=tenancy(),res=reservation({history:[]});
   const d=detailsScreen({actor:T,tenancy:stay,context:ctx(),identities:{[L]:ident('Nightcity',L)},care:care(stay,[request({status:'acknowledged',priority:'normal'})]),lifecycle:life(stay),reviews:null,reservation:res,conversationId:C,now:NOW});
   assert.equal(d.chip.label,'Active');assert.equal(d.dates.progress?.label,'Day 5 of 365');assert.deepEqual(d.actions,{primary:{kind:'report',label:'Report an issue'},message:true});
-  assert.deepEqual(d.rent,{dueOn:'Due on the 2nd',rows:['Dec 2 · in 16 days','Jan 2 · in 47 days','Feb 2 · in 78 days'],note:'This is the agreed schedule. Payments are not tracked here yet.'});
+  assert.deepEqual(d.rent,{dueOn:'Due on the 2nd',rows:['Dec 2 · in 16 days','Jan 2 · in 47 days','Feb 2 · in 78 days'],note:'This is the agreed schedule. The rent ledger records what each person says and does not move money.'});
   assert.deepEqual([d.person.relation,d.person.label],['Landlord','Nightcity']);assert.deepEqual(d.maintenance,{chip:'1 open',latest:{title:'Leaking faucet',meta:'Seen by landlord · 2h ago'}});
   assert.deepEqual(d.documents.map(x=>x.label),['Property information','Source reservation','Lifecycle history']);assert.equal(d.endEarly,true);assert.equal(d.ratingPrompt,null);assert.equal(d.timeline,null);
   assert.ok(!JSON.stringify(d).includes(res.id),'the raw reservation id is never shown');assert.ok(!/paid/i.test(JSON.stringify(d.rent)),'no I\'ve-paid action or ledger');
@@ -177,7 +177,7 @@ test('details, ended (landlord): rating prompt first, one reviews card, a timeli
   assert.deepEqual(d.ratingPrompt,{title:'Rate Samuel',body:'One rating per tenancy. It helps other landlords decide.',button:'Rate your tenant'});
   assert.equal(d.summary,'Ended early by mutual agreement. Rent was ₱10,000 / month.');assert.equal(d.endEarly,false);assert.equal(d.actions,null);assert.equal(d.rent,null);assert.equal(d.maintenance,null);assert.equal(d.openConversation,true);
   assert.deepEqual(d.timeline!.map(e=>[e.label,e.date,e.note]),[['Reservation approved','Nov 7',null],['Tenancy confirmed and started','Nov 12',null],['You asked to end early','Nov 13','“I can’t pay anymore”'],['Samuel accepted · tenancy ended','Nov 13','“Ok”']]);
-  assert.deepEqual(d.documents.map(x=>x.label),['Property information','Source reservation']);assert.deepEqual(d.reviews,[]);
+  assert.deepEqual(d.documents.map(x=>x.label),['Property information','Source reservation','Rent ledger']);assert.deepEqual(d.reviews,[]);
   const rated=detailsScreen({actor:L,tenancy:ended,context:ctx(),identities:{[T]:ident('Samuel',T)},care:null,lifecycle:null,reviews:review(ended,[given('user',4)]),reservation:null,conversationId:null,now:NOW});
   assert.equal(rated.ratingPrompt,null);assert.deepEqual(rated.reviews!.map(r=>[r.label,r.status,r.rating]),[['Your review of Samuel','Published',4]]);
 });

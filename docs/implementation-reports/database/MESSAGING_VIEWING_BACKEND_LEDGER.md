@@ -260,3 +260,9 @@ Entry F3-A2. Source: `supabase/migrations/20261116120000_rent_ledger.sql`. Rollb
 | Backup | `C:\RentLease-Backups\rent-ledger-apply-predeploy-20261116-122817` (32 files, 5,118,227 bytes, SHA-256 manifest re-verified, catalog and records unchanged during capture, final migration and entry-point rollback recorded in `reviewed-source`). An earlier scoping backup, `rent-ledger-predeploy-20261116-100558` (5,094,713 bytes), is also retained. |
 
 No other permanent live backend mutation was performed in this step.
+
+## Tenancy Feature 3 (rent ledger): frontend and device observation - November 16, 2026
+
+Entry F3-A3. No backend change in this step; no migration, grant or function was touched. Classification `READ_ONLY_INSPECTION` (and one client read): (1) a read-only count of `public.tenancies` by status through the connector (result: 1 cancelled, 1 ended, 1 pending_confirmation, 0 active); (2) the app's own `get_rent_ledger` call, made on the emulator (agent-observed, not user acceptance) by opening the Rent ledger row of the ended "miguel house" rental as its landlord. It returned a ledger with no due months and wrote nothing. The frontend can issue `write_rent_ledger` but no write was made: no active tenancy exists and none was created. `rent_obligations`, the events table and the receipts table were not queried again. Reservation `d67d5332-39f6-45b7-b4f3-8e81396d490e` was not touched. Android/client runtime for writes: RUNTIME-UNVERIFIED.
+
+No permanent live backend mutation was performed in this step.

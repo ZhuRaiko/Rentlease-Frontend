@@ -5,6 +5,8 @@ import { createRentalReviewService } from '../shared/services/rentalReviewServic
 import { usePublicIdentitiesViewModel } from '../shared/viewModels/usePublicIdentitiesViewModel';
 import { createLandlordTenanciesService } from '../features/tenancy/services/landlordTenanciesService';
 import { createTenancyActivityService, emptyActivity, type TenancyActivity } from '../features/tenancy/services/tenancyActivityService';
+import { createRentLedgerService } from '../features/tenancy/services/rentLedgerService';
+import { rentErrorText } from '../features/tenancy/models/RentLedger';
 import { nextScheduledRentDate } from '../features/tenancy/models/TenancyWorkspace';
 import type { RentalRelationship } from '../features/tenancy/models/TenancyWorkspace';
 import { effectiveReservationStatus } from '../features/messaging-viewing/models/RentalReservation';
@@ -17,11 +19,12 @@ import type { LandlordPortfolioItem } from '../features/property-listing/models/
 
 const activityService = createTenancyActivityService(getSupabaseClient);
 const tenancyService = createLandlordTenanciesService(getSupabaseClient);
+const rentService = createRentLedgerService(getSupabaseClient);
 const reviewService = createRentalReviewService(getSupabaseClient);
 const CLOSED = ['resolved', 'rejected', 'cancelled'];
 
 export interface PropertyManagementNavigation {
-  openTenancy: (open: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' }) => void;
+  openTenancy: (open: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' | 'rent' }) => void;
   message: (conversationId: string) => void;
 }
 
@@ -66,6 +69,8 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
         f.stay = { tenancyId: t.id, tenantId: t.tenant_id, tenantName: identities[t.tenant_id]?.nickname ?? null, startDate: t.start_date, endDate: t.actual_end_date ?? t.expected_end_date, rent: t.agreed_monthly_rent ?? null, nextDue: nextScheduledRentDate(t), conversationId: t.conversation_id };
         f.maintenance = { open: open.length, urgent: open.filter(r => r.priority === 'urgent').map(r => ({ id: r.id, title: r.title, createdAt: r.createdAt })) };
         f.endRequest = lifecycle?.pending ? { tenancyId: t.id, fromTenant: lifecycle.pending.initiatorId === t.tenant_id } : null;
+        const ledger = current.activity.rent[t.id], waiting = ledger?.awaiting ? ledger.rows.find(r => r.dueDate === ledger.awaiting!.dueDate) : undefined;
+        f.rentAwaiting = ledger?.awaiting && waiting ? { tenancyId: t.id, dueDate: ledger.awaiting.dueDate, revision: ledger.awaiting.revision, paidAt: waiting.tenantMarkedPaidAt } : null;
       } else if (t.status !== 'active' && !f.setup) f.setup = { tenancyId: t.id };
     }
     for (const r of reservations) of(r.propertyId).reservations.push({ id: r.id, conversationId: r.conversationId, applicantName: identities[r.tenantId]?.nickname ?? null, moveInDate: r.moveInDate, endDate: r.endDate, applicantTier1: r.applicantTier1 });
@@ -97,16 +102,24 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
       return after.editor || after.error ? (after.error ?? 'The request could not be declined. Try again.') : null;
     } finally { workflow.dispose(); }
   }, [accountId, snapshot.reservations]);
+  // One tap, one operation id. A definite refusal or an unknown outcome is reported in a sentence; the ledger screen holds the full Retry flow.
+  const acknowledgeRent = useCallback(async (tenancyId: string, dueDate: string, revision: string): Promise<string | null> => {
+    if (!accountId) return 'Sign in again to continue.';
+    const c = new AbortController();
+    try { await rentService.write(accountId, { tenancyId, operationId: messageId(), action: 'acknowledge', dueDate, revision }, c.signal); refresh(); return null; }
+    catch (e) { const m = rentErrorText(e); if (m.reload) refresh(); return m.message; }
+  }, [accountId, refresh]);
   const openTarget = useCallback((_propertyId: string, target: NeedsTarget) => {
     if (target.kind === 'care') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'care' });
     else if (target.kind === 'lifecycle') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'lifecycle' });
+    else if (target.kind === 'rent') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'rent' });
     else navigation.openTenancy({});
   }, [navigation.openTenancy]);
   return {
     factsOf: (propertyId: string) => facts[propertyId] ?? emptyFacts(),
     loading: current.busy, error: current.error, refresh, openTarget,
     openTenancy: (tenancyId, panel) => navigation.openTenancy({ tenancyId, ...(panel ? { panel } : {}) }),
-    message: navigation.message, reviewRequests: openRequests, loadReviews, decline,
+    message: navigation.message, reviewRequests: openRequests, loadReviews, decline, acknowledgeRent,
     reviewsFor: (propertyId: string) => reviews.owner === accountId ? reviews.byProperty[propertyId] ?? null : null,
   };
 }

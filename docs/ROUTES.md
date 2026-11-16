@@ -300,3 +300,7 @@ No router and no new bottom tab. The Listings tab is titled "My properties" (`Pr
 - **Needs-you rows and the Maintenance, Reviews and Tenancy tiles** call `onOpenTenancy`, which sets the tenancy workspace with `open`; `TenancyWorkspaceView` opens that rental's details on the panel (`care`, `lifecycle` or `reviews`; no panel opens the details). A tenancy setup row opens the Tenancy tab. Reservation requests open Manage Requests on its Reservations tab (`initialTab`).
 - **Message** opens the existing conversation over the Tenancy tab (`tenancyConversation`).
 - All of this is root-owned workspace state; backend authorization is unchanged. RUNTIME-UNVERIFIED on a device.
+
+## Feature 3: rent ledger panel - November 16, 2026
+
+No router and no new tab. The ledger is the `rent` panel of Tenancy details (`TenancyDetailsPanel` and `AppWorkspace` `tenancy.open.panel` now also accept `'rent'`), opened from the Tenancy details Rent card ("View ledger") or the "Rent ledger" document row of an ended rental, from the care panel ("Open rent ledger"), and from Manage (occupied) through the existing deep link: the Rent card's "View ledger" and a "Confirm" Needs-you row call `onOpenTenancy({ tenancyId, panel: 'rent' })`. The panel's Back is the details Back. Chat is not routed: "Not received" sends one message into the tenancy's existing conversation with the existing chat service and opens nothing. RUNTIME-UNVERIFIED on a device beyond the read-only observation recorded in TENANCY.md.

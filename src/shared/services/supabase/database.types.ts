@@ -2286,6 +2286,8 @@ export type Database = {
       get_tenancy_care: {Args: {p_tenancy_id: string; p_offset?: number}; Returns: Json}
       get_tenancy_maintenance_history: {Args: {p_request_id: string; p_offset?: number}; Returns: Json}
       write_tenancy_care: {Args: {p_tenancy_id: string; p_operation_id: string; p_action: string; p_payload: Json}; Returns: Json}
+      get_rent_ledger: {Args: {p_tenancy_id: string; p_offset?: number}; Returns: Json}
+      write_rent_ledger: {Args: {p_tenancy_id: string; p_operation_id: string; p_action: string; p_due_date: string; p_revision?: string}; Returns: Json}
 
       // Prepared unfinished-post deletion RPCs; deployment is separate.
       get_unfinished_post_deletion: {Args:{p_property_id:string};Returns:Json}

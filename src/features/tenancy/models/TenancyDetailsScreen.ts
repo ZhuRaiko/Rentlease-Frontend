@@ -2,6 +2,7 @@ import {publicIdentityLabel, type PublicIdentity} from '../../../shared/models/P
 import {reviewScreenFor, reviewStatusLabel, type ReviewContext} from '../../../shared/models/RentalReview';
 import type {RentalReservation} from '../../messaging-viewing/models/RentalReservation';
 import {rentSchedule, type CareContext, type CareStatus} from './TenancyCare';
+import {ordinal} from './RentLedger';
 import type {LifecycleContext} from './TenancyLifecycle';
 import type {TenancyCardContext} from './TenancyDetails';
 import {openCountLabel, stayProgress, tenancyChip} from './TenancyPresentation';
@@ -33,7 +34,7 @@ export interface DetailsScreen {
   rent: {dueOn: string; rows: string[]; note: string} | null;
   person: Person;
   maintenance: {chip: string; latest: {title: string; meta: string} | null} | null;
-  documents: {key: 'property' | 'reservation' | 'lifecycle'; label: string}[];
+  documents: {key: 'property' | 'reservation' | 'lifecycle' | 'rent'; label: string}[];
   reviews: {key: string; label: string; status: string; rating: number; text: string | null}[] | null;
   timeline: TimelineEntry[] | null;
   endEarly: boolean;
@@ -41,10 +42,9 @@ export interface DetailsScreen {
   openConversation: boolean;
 }
 export const REVIEWS_NOTE = 'Reviews appear publicly only after they are approved. Reviewer names are never shown.';
-export const RENT_NOTE = 'This is the agreed schedule. Payments are not tracked here yet.';
+export const RENT_NOTE = 'This is the agreed schedule. The rent ledger records what each person says and does not move money.';
 const FINAL: CareStatus[] = ['resolved', 'rejected', 'cancelled'];
 const longDate = (date: string): string => `${shortDate(date)}, ${date.slice(0, 4)}`;
-const ordinal = (n: number): string => { const v = n % 100; return `${n}${v >= 11 && v <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`; };
 export const stars = (n: number): string => '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n));
 export const careStatusLine = (status: CareStatus, role: Role): string => ({
   submitted: role === 'tenant' ? 'Sent, waiting for the landlord' : 'New', acknowledged: role === 'tenant' ? 'Seen by landlord' : 'Seen', needs_information: 'Needs more information',
@@ -98,6 +98,8 @@ export function detailsScreen(i: DetailsInput): DetailsScreen {
       ...(i.context.property ? [{key: 'property' as const, label: 'Property information'}] : []),
       ...(i.reservation ? [{key: 'reservation' as const, label: 'Source reservation'}] : []),
       ...(active ? [{key: 'lifecycle' as const, label: 'Lifecycle history'}] : []),
+      // An ended rental has no rent card, but the landlord can still confirm its last month and both sides can read the record.
+      ...(t.status === 'ended' ? [{key: 'rent' as const, label: 'Rent ledger'}] : []),
     ],
     reviews: ended && review ? [...(review.own ? [review.own] : []), ...review.earlier].map(r => ({
       key: r.id, status: reviewStatusLabel(r.status), rating: r.rating, text: r.text,
