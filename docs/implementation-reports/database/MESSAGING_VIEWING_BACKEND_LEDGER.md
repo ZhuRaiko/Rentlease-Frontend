@@ -289,3 +289,24 @@ Entry F6-A1. Audit and proposal: [f6-maintenance-audit.md](../../design/f6-maint
 | Android/client runtime | Not applicable (no client change) |
 
 No permanent live backend mutation was performed in this step. No migration, SQL file or code was written.
+
+## Feature 6 (maintenance): Step 1 backend migration - November 17, 2026
+
+Entry F6-M1. Transitions and decisions: [f6-maintenance-transitions.md](../../design/f6-maintenance-transitions.md) and [f6-maintenance-audit.md](../../design/f6-maintenance-audit.md).
+
+| Field | Content |
+| --- | --- |
+| Date | 2026-11-17 (clock time not recorded) |
+| Feature/phase | Tenancy maintenance, Feature 6 Step 1, entry F6-M1 |
+| Actor/tool | Claude Code (Claude Sonnet 5.5) with the Supabase CLI (`db query --linked -f`, `migration repair`); the apply command itself was run by the user after Claude Code's permission check blocked it; the repair and the read-only verification were run by Claude Code |
+| Environment/project | Hosted project `cxfsbwbwmwmgtqfonqth` |
+| Classification | `SCHEMA_MIGRATION_APPLIED` (approved by the user after review) |
+| Target | `public.write_tenancy_care` (patched in place: priority on create; actions reply, confirm_resolved, reopen, cancel; submitted to in_progress; closing actions allowed on an ended tenancy), `public.log_maintenance_status_change` (patched: the acting person's note), new `public.get_maintenance_inbox(integer)` and `public.get_maintenance_request(uuid,integer)`, category check widened with internet and pests, new closed table `rentlease_tenancy_care.function_backups` |
+| Action | Predeploy backup `C:\RentLease-Backups\maintenance-care-predeploy-20261116-180718` (32 files, 5,378,526 bytes, hashes verified; forward and rollback SQL recorded), the migration, then `migration repair --status applied 20261117090000`. **A first apply attempt aborted at its own guard** ("Patched write_tenancy_care does not match the reviewed result (e96a2379a299b41e30ff4402ebdcae26)"): nothing changed. Cause: the pinned hash had been learned from a test batch whose multi-line edit text had Windows line endings, while the file applied directly had LF. **Line-ending fix:** the migration now normalizes every multi-line edit to CRLF (the hosted source uses CRLF) before use, so the result is the same whatever the file's line endings; both an LF and a CRLF copy were run once each in a rolled-back hosted batch and passed with the same pin. A second backup was taken after the fix and before the apply that succeeded. Rolled-back hosted checks before apply: 130/130, both rollbacks 6/6 and 3/3. The checks were not re-run after apply. |
+| Purpose | Priority, reply, confirm and reopen, cancel, landlord inbox and request thread, correct logged notes |
+| Result | Applied. md5(prosrc): write_tenancy_care 41848da54df8555e596f8f5045b6b39c; log_maintenance_status_change 043e546a3564b5f5ba16b8dda804433f; get_maintenance_inbox 6e6b30d67a0affc4075a8dc8b22d638c; get_maintenance_request bb0521831c803d963d3b7500edd8040a. get_tenancy_care 624c3bf0ce0f129f504c674330466c72 and get_tenancy_maintenance_history 78ac0cab8cd962a3a687d0501be8eeb0 unchanged. ACLs: write_tenancy_care, get_tenancy_care, get_tenancy_maintenance_history and the two new reads `{postgres, authenticated}` (none for anon); log_maintenance_status_change keeps its default ACL (a trigger function). Category check: plumbing, electrical, appliance, structural, other, internet, pests. Maintenance requests 0, updates 0, function_backups 2 rows. Last migration 20261117090000 (50 history rows). No open transactions. |
+| Durable effect | Schema and function changes above; no request, update, receipt or notification row was written; reservation `d67d5332-39f6-45b7-b4f3-8e81396d490e` untouched |
+| Rollback/cleanup | `supabase/test-support/maintenance_care_rollback.sql` (data-retaining, restores both originals, keeps the wider category check) and `maintenance_care_rollback_full.sql` (only while no internet or pests request exists) |
+| Security/RLS | The maintenance tables stay closed to client roles; no policy change; checks ran as `authenticated`, `anon` and `service_role` JWT roles |
+| Source-controlled backend file | `supabase/migrations/20261117090000_maintenance_care.sql` |
+| Android/client runtime | Not applicable (no client change) |
