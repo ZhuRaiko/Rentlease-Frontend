@@ -24,7 +24,7 @@ const reviewService = createRentalReviewService(getSupabaseClient);
 const CLOSED = ['resolved', 'rejected', 'cancelled'];
 
 export interface PropertyManagementNavigation {
-  openTenancy: (open: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' | 'rent' }) => void;
+  openTenancy: (open: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' | 'rent'; requestId?: string }) => void;
   message: (conversationId: string) => void;
 }
 
@@ -110,7 +110,7 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
     catch (e) { const m = rentErrorText(e); if (m.reload) refresh(); return m.message; }
   }, [accountId, refresh]);
   const openTarget = useCallback((_propertyId: string, target: NeedsTarget) => {
-    if (target.kind === 'care') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'care' });
+    if (target.kind === 'care') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'care', ...(target.requestId ? { requestId: target.requestId } : {}) });
     else if (target.kind === 'lifecycle') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'lifecycle' });
     else if (target.kind === 'rent') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'rent' });
     else navigation.openTenancy({});

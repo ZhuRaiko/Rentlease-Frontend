@@ -36,9 +36,9 @@ for (const [feature, name] of [
 }
 test('Maintenance Requests (the mounted TenancyCareWorkspaceView) registers hardware Back, closes a request before the workspace, and cleans up', () => {
   const view = read('src/features/tenancy/views/TenancyCareWorkspaceView.tsx');
-  assert.match(view, /const back=\(\)=>\{if\(id\)setSelected\(null\);else onBack\(\);\}/);
-  assert.match(view, /useEffect\(\(\)=>\{registerBackAction\(back\);return\(\)=>registerBackAction\(null\);\}\)/);
-  assert.match(view, /<ScreenHeader title="Maintenance Requests" onBack=\{back\}\/>/);
+  assert.match(view, /const back = \(\) => \{if \(current\) \{if \(guard\.current && !guard\.current\(\)\) return; setSelected\(null\);\} else onBack\(\);\};/);
+  assert.match(view, /useEffect\(\(\) => \{registerBackAction\(back\); return \(\) => registerBackAction\(null\);\}\)/);
+  assert.match(view, /<ScreenHeader title=\{current \? title : 'Maintenance'\} onBack=\{back\}\/>/);
   assert.match(read('App.tsx'), /<TenancyCareWorkspaceView [\s\S]*?onBack=\{\(\)=>setWorkspace\(\{type:'tenancy'\}\)\} registerBackAction=\{registerWorkspaceBack\}\/>/);
 });
 test('Modal only dispatches current account/workspace Back, without bypassing feature guards', () => {

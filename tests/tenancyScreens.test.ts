@@ -237,9 +237,9 @@ test('the tab shows Needs your OK first for the tenant and the attention list fi
   const stay=tenancy(),landlord=renderWorkspace(vmFor(L,{tenancies:[stay],activity:{...emptyActivity(),care:{[stay.id]:care(stay,[request()])}}}));
   assert.ok(texts(landlord).includes('Needs your attention'));assert.ok(!texts(renderWorkspace(vmFor(L,{tenancies:[stay]}))).includes('Needs your attention'));
 });
-test('the stand-ins until Features 2 and 6 are named in the view: Report an issue opens the care panel and Open property the property screen', () => {
+test('Report an issue opens the report form in one tap and Open property the property screen', () => {
   const src=readFileSync('src/features/tenancy/views/TenancyWorkspaceView.tsx','utf8');
-  assert.match(src,/s\.primary\.kind==='report'\?open\(s\.id,'care'\):onOpenProperty\?\.\(s\.propertyId\)/);
+  assert.match(src,/s\.primary\.kind==='report'\?open\(s\.id,'report'\):onOpenProperty\?\.\(s\.propertyId\)/);
 });
 
 // ---- Polish pass

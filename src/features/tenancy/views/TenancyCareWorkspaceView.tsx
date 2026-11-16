@@ -1,12 +1,28 @@
-import {useEffect,useState} from 'react';
-import {ActivityIndicator,ScrollView,Text,View} from 'react-native';
+import {useCallback, useEffect, useRef, useState} from 'react';
+import {ActivityIndicator, ScrollView, Text, View} from 'react-native';
 import {ScreenContainer} from '../../../shared/components/ScreenContainer';
 import {ScreenHeader} from '../../../shared/components/ScreenHeader';
 import {AppButton} from '../../../shared/components/AppButton';
-import {KeyboardAwareScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {ui} from '../../../shared/theme/ui';
 import {useTenancyCareListViewModel} from '../viewModels/useTenancyCareListViewModel';
-import {TenancyCarePanel} from './TenancyCarePanel';
-export function TenancyCareWorkspaceView({accountId,onBack,registerBackAction}:{accountId:string|undefined;onBack:()=>void;registerBackAction:((action:(()=>void)|null)=>void)}){const vm=useTenancyCareListViewModel(accountId),[selected,setSelected]=useState<{owner:string|undefined;id:string}|null>(null),id=selected?.owner===accountId?selected?.id:null;
- const back=()=>{if(id)setSelected(null);else onBack();};useEffect(()=>{registerBackAction(back);return()=>registerBackAction(null);});
- return <ScreenContainer padded={false}><ScreenHeader title="Maintenance Requests" onBack={back}/>{id?<KeyboardAwareScrollView contentContainerStyle={{padding:16,gap:14}}><TenancyCarePanel key={`${accountId}:${id}`} accountId={accountId} tenancyId={id} maintenanceOnly/></KeyboardAwareScrollView>:<ScrollView contentContainerStyle={{padding:16,gap:14}}><Text style={ui.body}>Choose a rental to view its maintenance requests. Active rentals support new requests and landlord responses; ended rentals retain read-only history.</Text>{vm.busy?<ActivityIndicator accessibilityLabel="Loading rental relationships"/>:null}{vm.error?<Text accessibilityRole="alert" style={ui.supporting}>{vm.error}</Text>:null}<AppButton label="Refresh rentals" variant="secondary" disabled={vm.busy} onPress={vm.refresh}/>{!vm.busy&&!vm.error&&!vm.rows.length?<Text style={ui.body}>No active or ended tenancies are available. An approved reservation alone does not establish a tenancy.</Text>:null}{vm.rows.map(t=><View key={t.id} style={{...ui.panel,padding:14,gap:8}}><Text style={ui.body}>{accountId===t.landlord_id?'Your property tenancy':'Your rental'} - {t.status}</Text><Text style={ui.supporting}>Started {t.start_date}</Text><Text selectable style={ui.supporting}>Tenancy: {t.id}</Text><AppButton label="Open maintenance requests" variant="secondary" onPress={()=>setSelected({owner:accountId,id:t.id})}/></View>)}</ScrollView>}</ScreenContainer>;}
+import {MaintenanceFlowView} from './MaintenanceFlowView';
+
+/** Maintenance for one rental, chosen from a list. Tenants get their requests and the report form; landlords get the inbox for that property. */
+export function TenancyCareWorkspaceView({accountId, onBack, registerBackAction}: {accountId: string | undefined; onBack: () => void; registerBackAction: ((action: (() => void) | null) => void)}) {
+  const vm = useTenancyCareListViewModel(accountId), [selected, setSelected] = useState<{owner: string | undefined; id: string; propertyId: string; landlord: boolean} | null>(null);
+  const [title, setTitle] = useState('Maintenance'), guard = useRef<(() => boolean) | null>(null), registerGuard = useCallback((g: (() => boolean) | null) => {guard.current = g;}, []);
+  const current = selected?.owner === accountId ? selected : null;
+  const back = () => {if (current) {if (guard.current && !guard.current()) return; setSelected(null);} else onBack();};
+  useEffect(() => {registerBackAction(back); return () => registerBackAction(null);});
+  return <ScreenContainer padded={false}><ScreenHeader title={current ? title : 'Maintenance'} onBack={back}/>
+    {current ? <MaintenanceFlowView key={`${accountId}:${current.id}`} accountId={accountId} role={current.landlord ? 'landlord' : 'tenant'} tenancyId={current.id} propertyId={current.propertyId} propertyTitle="" registerExitGuard={registerGuard} onTitle={setTitle}/>
+      : <ScrollView contentContainerStyle={{padding: 16, gap: 14}}>
+        <Text style={ui.body}>Choose a rental to see its maintenance requests. Ended rentals keep a read-only history.</Text>
+        {vm.busy ? <ActivityIndicator accessibilityLabel="Loading rentals"/> : null}
+        {vm.error ? <Text accessibilityRole="alert" style={ui.supporting}>{vm.error}</Text> : null}
+        {!vm.busy && !vm.error && !vm.rows.length ? <Text style={ui.body}>No active or ended rentals yet.</Text> : null}
+        {vm.rows.map(t => <View key={t.id} style={{gap: 8}}><AppButton label={accountId === t.landlord_id ? `Your property · started ${t.start_date}` : `Your rental · started ${t.start_date}`} variant="secondary" onPress={() => setSelected({owner: accountId, id: t.id, propertyId: t.property_id, landlord: accountId === t.landlord_id})}/></View>)}
+        {vm.error ? <AppButton label="Retry" variant="secondary" disabled={vm.busy} onPress={vm.refresh}/> : null}
+      </ScrollView>}
+  </ScreenContainer>;
+}

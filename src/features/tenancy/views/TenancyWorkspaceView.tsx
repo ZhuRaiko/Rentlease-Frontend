@@ -18,7 +18,7 @@ import {ReleaseSheet} from '../components/ReleaseSheet';
 import {ButtonRow,Cell,CellRow,Slot,StatusButton,StatusChip} from '../../../shared/components/StatusParts';
 import {HeroPhoto,PersonRow,Stars,Thumb} from '../components/TenancyParts';
 import type {TenancyDetailsPanel} from '../viewModels/tenancyDetailsWorkflow';
-type Details={actor:string|undefined;id:string;sourceId:string|null;panel?:TenancyDetailsPanel};
+type Details={actor:string|undefined;id:string;sourceId:string|null;panel?:TenancyDetailsPanel;requestId?:string};
 const ICON={confirm_terms:'upcoming',start_setup:'upcoming',end_request:'history',maintenance:'maintenance'} as const;
 interface Props {
   accountId:string|undefined;onBack:()=>void;onDiscover:()=>void;onListings:()=>void;onPost:()=>void;onChat:()=>void;registerBackAction:(action:(()=>void)|null)=>void;onOpenConversation?:((id:string)=>void)|undefined;
@@ -30,10 +30,10 @@ interface Props {
   onOpenProperty?:((propertyId:string)=>void)|undefined;
   externalPanelOpen?:boolean;
   /** Opens one rental's details straight away (from a property's Manage screen). */
-  initialOpen?:{tenancyId?:string;panel?:TenancyDetailsPanel}|undefined;
+  initialOpen?:{tenancyId?:string;panel?:TenancyDetailsPanel;requestId?:string}|undefined;
 }
 export function TenancyWorkspaceView({accountId,onBack,onDiscover,onListings,onPost,onChat,registerBackAction,onOpenConversation,onStartRequest,onFindSimilar,onOpenProperty,externalPanelOpen=false,initialOpen}:Props){
- const vm=useTenancyWorkspaceViewModel(accountId,onStartRequest),[setup,setSetup]=useState<{actor:string|undefined;reservationId:string}|null>(null),[reload,setReload]=useState(0),[details,setDetails]=useState<Details|null>(initialOpen?.tenancyId?{actor:accountId,id:initialOpen.tenancyId,sourceId:null,...(initialOpen.panel?{panel:initialOpen.panel}:{})}:null);
+ const vm=useTenancyWorkspaceViewModel(accountId,onStartRequest),[setup,setSetup]=useState<{actor:string|undefined;reservationId:string}|null>(null),[reload,setReload]=useState(0),[details,setDetails]=useState<Details|null>(initialOpen?.tenancyId?{actor:accountId,id:initialOpen.tenancyId,sourceId:null,...(initialOpen.panel?{panel:initialOpen.panel}:{}),...(initialOpen.requestId?{requestId:initialOpen.requestId}:{})}:null);
  const activeDetails=details?.actor===accountId?details:null,screen=vm.screen;
  const scroll=useRef<ScrollView|null>(null),at=useRef<Partial<Record<TileKind,number>>>({});
  useEffect(()=>{if((!setup||setup.actor!==accountId)&&!activeDetails&&!externalPanelOpen){registerBackAction(onBack);return()=>registerBackAction(null);}},[registerBackAction,onBack,setup,accountId,activeDetails,externalPanelOpen]);
@@ -49,7 +49,7 @@ export function TenancyWorkspaceView({accountId,onBack,onDiscover,onListings,onP
  const stay=(s:StayCard)=><View key={s.id} style={styles.card}><HeroPhoto photos={s.photos} chip={s.chip}/>
    <View style={{gap:2}}><Text accessibilityRole="header" style={ui.sectionTitle}>{s.title}</Text><Text style={ui.supporting}>{s.place}</Text></View><PersonRow accountId={accountId} person={s.other}/>
    <CellRow><Cell label="Rent" value={s.rent}/><Cell label="Next rent due" value={s.nextDue}/></CellRow>
-   <ButtonRow><Slot><StatusButton tone="primary" label={s.primary.label} onPress={()=>s.primary.kind==='report'?open(s.id,'care'):onOpenProperty?.(s.propertyId)}/></Slot><Slot><StatusButton label={s.secondary.label} accessibilityLabel={`Details: ${s.title}`} onPress={()=>open(s.id)}/></Slot></ButtonRow></View>;
+   <ButtonRow><Slot><StatusButton tone="primary" label={s.primary.label} onPress={()=>s.primary.kind==='report'?open(s.id,'report'):onOpenProperty?.(s.propertyId)}/></Slot><Slot><StatusButton label={s.secondary.label} accessibilityLabel={`Details: ${s.title}`} onPress={()=>open(s.id)}/></Slot></ButtonRow></View>;
  const upcoming=(u:UpcomingCard)=><View key={u.id} style={styles.card}><View style={styles.head}><Thumb photos={u.photos}/><View style={styles.grow}><Text style={ui.body}>{u.title}</Text>{u.place?<Text style={ui.supporting}>{u.place}</Text>:null}{stacked?<StatusChip chip={u.chip}/>:null}</View>{stacked?null:<StatusChip chip={u.chip}/>}</View>
    <CellRow><Cell label="Move-in" value={u.moveIn}/>{u.rent?<Cell label="Rent" value={u.rent}/>:null}</CellRow>
    <StatusButton label={u.buttonLabel} accessibilityLabel={`Open: ${u.title}`} onPress={()=>{if(u.reservationId)setSetup({actor:accountId,reservationId:u.reservationId});else if(u.tenancyId)open(u.tenancyId);}}/></View>;
@@ -75,7 +75,7 @@ export function TenancyWorkspaceView({accountId,onBack,onDiscover,onListings,onP
    <View {...section('upcoming')} style={styles.section}><Text accessibilityRole="header" style={ui.sectionTitle}>Upcoming</Text>{ready?(screen.upcoming.length?screen.upcoming.map(upcoming):<><Text style={ui.supporting}>No approved reservations or tenancy setups waiting to start.</Text><Pressable accessibilityRole="link" onPress={onChat} style={styles.linkRow}><Text style={styles.linkText}>Browse reservations in Chat</Text></Pressable></>):<Text style={ui.supporting}>Upcoming rentals appear after loading succeeds.</Text>}</View></>}
    <View {...section('past')} style={styles.section}><Text accessibilityRole="header" style={ui.sectionTitle}>Past</Text>{ready?(screen.past.length?screen.past.map(past):<Text style={ui.supporting}>Ended and cancelled rentals appear here.</Text>):<Text style={ui.supporting}>Past rentals appear after loading succeeds.</Text>}</View>
   </ScrollView><RentLeaseBottomNavigation active="tenancy" onTenancy={()=>void vm.refresh()} onDiscover={onDiscover} onListing={onListings} onPost={onPost} onChat={onChat}/></View>
-  {activeDetails?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><TenancyDetailsView key={`${accountId}:${activeDetails.id}`} accountId={accountId} tenancyId={activeDetails.id} reservationId={activeDetails.sourceId} initialPanel={activeDetails.panel} externalPanelOpen={externalPanelOpen} registerBackAction={registerBackAction} onBack={()=>{setDetails(null);setReload(v=>v+1);}} onOpenConversation={onOpenConversation} onOpenProperty={onOpenProperty}/></View>:null}
+  {activeDetails?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><TenancyDetailsView key={`${accountId}:${activeDetails.id}`} accountId={accountId} tenancyId={activeDetails.id} reservationId={activeDetails.sourceId} initialPanel={activeDetails.panel} initialRequestId={activeDetails.requestId} externalPanelOpen={externalPanelOpen} registerBackAction={registerBackAction} onBack={()=>{setDetails(null);setReload(v=>v+1);}} onOpenConversation={onOpenConversation} onOpenProperty={onOpenProperty}/></View>:null}
   <ReleaseSheet request={vm.release.request} saving={vm.release.saving} error={vm.release.error} onConfirm={()=>void vm.release.confirm()} onRetry={()=>void vm.release.retry()} onKeep={vm.release.keep}/>
  </ScreenContainer>;
 }

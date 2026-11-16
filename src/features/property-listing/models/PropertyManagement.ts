@@ -25,7 +25,7 @@ export interface ManagedFacts {
 export const emptyFacts = (): ManagedFacts => ({ stay: null, setup: null, maintenance: { open: 0, urgent: [] }, endRequest: null, reviews: null, reservations: [], rentAwaiting: null });
 
 export type NeedsTone = 'danger' | 'attention';
-export type NeedsTarget = { kind: 'care'; tenancyId: string } | { kind: 'lifecycle'; tenancyId: string } | { kind: 'setup'; tenancyId: string } | { kind: 'rent'; tenancyId: string } | { kind: 'requests' };
+export type NeedsTarget = { kind: 'care'; tenancyId: string; requestId?: string } | { kind: 'lifecycle'; tenancyId: string } | { kind: 'setup'; tenancyId: string } | { kind: 'rent'; tenancyId: string } | { kind: 'requests' };
 export interface NeedsItem { key: string; chip: string; tone: NeedsTone; text: string; target: NeedsTarget }
 
 const name = (value: string | null) => value || 'The renter';
@@ -39,7 +39,7 @@ export function ageText(iso: string, now = Date.now()): string {
 export function needsYou(facts: ManagedFacts, now = Date.now()): NeedsItem[] {
   const items: NeedsItem[] = [];
   const tenancyId = facts.stay?.tenancyId;
-  if (tenancyId) for (const request of facts.maintenance.urgent) items.push({ key: `urgent:${request.id}`, chip: 'Urgent', tone: 'danger', text: `${request.title} reported ${ageText(request.createdAt, now)}`, target: { kind: 'care', tenancyId } });
+  if (tenancyId) for (const request of facts.maintenance.urgent) items.push({ key: `urgent:${request.id}`, chip: 'Urgent', tone: 'danger', text: `${request.title} reported ${ageText(request.createdAt, now)}`, target: { kind: 'care', tenancyId, requestId: request.id } });
   if (facts.endRequest?.fromTenant) items.push({ key: `end:${facts.endRequest.tenancyId}`, chip: 'Reply', tone: 'attention', text: `${name(facts.stay?.tenantName ?? null)}'s early-end request`, target: { kind: 'lifecycle', tenancyId: facts.endRequest.tenancyId } });
   if (facts.rentAwaiting && facts.stay) items.push({ key: `rent:${facts.rentAwaiting.tenancyId}:${facts.rentAwaiting.dueDate}`, chip: 'Confirm', tone: 'attention', text: `${name(facts.stay.tenantName)} says rent for ${shortDate(facts.rentAwaiting.dueDate).split(' ')[0]} was paid`, target: { kind: 'rent', tenancyId: facts.rentAwaiting.tenancyId } });
   if (facts.setup) items.push({ key: `setup:${facts.setup.tenancyId}`, chip: 'Setup', tone: 'attention', text: 'Tenancy setup is waiting for confirmation', target: { kind: 'setup', tenancyId: facts.setup.tenancyId } });

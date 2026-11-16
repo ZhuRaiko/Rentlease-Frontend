@@ -310,3 +310,11 @@ Entry F6-M1. Transitions and decisions: [f6-maintenance-transitions.md](../../de
 | Security/RLS | The maintenance tables stay closed to client roles; no policy change; checks ran as `authenticated`, `anon` and `service_role` JWT roles |
 | Source-controlled backend file | `supabase/migrations/20261117090000_maintenance_care.sql` |
 | Android/client runtime | Not applicable (no client change) |
+
+### Feature 6 maintenance frontend - November 17, 2026 (no backend change)
+| Field | Value |
+| --- | --- |
+| Action | Client calls only: `get_tenancy_care`, `get_maintenance_inbox(p_offset)`, `get_maintenance_request(p_request_id, p_offset)` (reads) and `write_tenancy_care` with create, respond, reply, confirm_resolved, reopen, cancel. No migration, no schema, RLS or function change. |
+| Rows written | None by this work. Emulator checks were read-only; no Send, reply, confirm or status action was run on real data. |
+| Gap noted | `get_tenancy_care` omits `tenantConfirmedAt`; the client reads `get_maintenance_request` per resolved request. A backend field would remove those reads. |
+| Types | `get_maintenance_inbox` and `get_maintenance_request` signatures added by hand to `database.types.ts`. |

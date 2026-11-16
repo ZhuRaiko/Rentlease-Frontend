@@ -48,7 +48,7 @@ test('Needs you is assembled in a fixed order from urgent repairs, the tenant ea
     ['Setup', 'attention', 'Tenancy setup is waiting for confirmation', 'setup'],
     ['Request', 'attention', 'Em Cee asked to reserve', 'requests'],
   ]);
-  assert.deepEqual(items[0]!.target, { kind: 'care', tenancyId: 't1' });
+  assert.deepEqual(items[0]!.target, { kind: 'care', tenancyId: 't1', requestId: urgent.id });
 });
 
 test('Needs you leaves out what does not wait on the landlord: normal repairs, an end request the landlord made, and an empty read', () => {
