@@ -20,6 +20,8 @@ interface SearchDiscoveryFlowViewProps {
   accountId?: string | undefined;
   canPostProperty: boolean;
   initialScreen?: 'home' | 'matchingPreferences';
+  /** Opens the results already filtered to a city and property type. */
+  initialSearch?: { city: string; type: string } | undefined;
   introduction?: boolean;
   initialPreferences?: MatchingPreferences | undefined;
   onSavePreferences?: ((value: MatchingPreferences) => void) | undefined;
@@ -50,6 +52,7 @@ export function SearchDiscoveryFlowView({
   notificationUnread=null,accountId,
   canPostProperty,
   initialScreen = 'home',
+  initialSearch,
   introduction = false, initialPreferences, onSavePreferences, onIntroductionComplete, registerBackAction, registerHomeAction,
   onClose,
   onRootBack,
@@ -61,7 +64,7 @@ export function SearchDiscoveryFlowView({
   onStartInquiry, onOpenNotifications,
 }: SearchDiscoveryFlowViewProps) {
   const ownIdentity=usePublicIdentitiesViewModel(accountId,accountId?[accountId]:[]);
-  const viewModel = useSearchDiscoveryViewModel(initialScreen, { accountId, onStartInquiry, introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
+  const viewModel = useSearchDiscoveryViewModel(initialScreen, { initialSearch, accountId, onStartInquiry, introduction, initialPreferences, onSavePreferences, onIntroductionComplete });
   useEffect(()=>{registerHomeAction?.(viewModel.openHome);return()=>registerHomeAction?.(null);});
   const close = () => viewModel.closeFromWorkspace(onClose);
   useEffect(() => {

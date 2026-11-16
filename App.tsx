@@ -34,7 +34,7 @@ traceAuthBoot('APP_MODULE_READY');
 export default function App() {
   const auth = useAuthProfilesViewModel();
   const discoveryHomeAction=useRef<(()=>void)|null>(null);
-  const [tenancyConversation,setTenancyConversation]=useState<{owner:string;id:string}|null>(null);
+  const [tenancyConversation,setTenancyConversation]=useState<{owner:string;id:string;startRequest?:boolean}|null>(null);
   const [inquiryConversation,setInquiryConversation]=useState<{userId:string;id:string}|null>(null);
   const [activityMode, setActivityMode] = useState<UserRole>('tenant');
   const previewActor: UserRole = activityMode;
@@ -185,6 +185,7 @@ export default function App() {
             accountId={auth.account?.user.id}
             onRootBack={requestMarketplaceExit}
             initialScreen={workspace.initialScreen}
+            initialSearch={workspace.initialSearch}
             introduction={workspace.introduction ?? false}
             initialPreferences={savedPreferences && savedPreferences.userId === auth.account?.user.id ? savedPreferences.value : undefined}
             onSavePreferences={(value) => { if (auth.account) setSavedPreferences({ userId: auth.account.user.id, value }); }}
@@ -270,8 +271,8 @@ export default function App() {
             onOpenMaintenance={() => setWorkspace({ type: 'tenancy' })}
           />
         ) : null}
-        {workspace?.type==='tenancy'?<TenancyWorkspaceView externalPanelOpen={tenancyConversation?.owner===auth.account?.user.id&&!!tenancyConversation} onOpenConversation={id=>{if(auth.account)setTenancyConversation({owner:auth.account.user.id,id});}} key={auth.account?.user.id} accountId={auth.account?.user.id} onBack={openDiscovery} registerBackAction={registerWorkspaceBack} onMaintenance={()=>setWorkspace({type:'maintenance'})} onDiscover={openDiscovery} onListings={()=>openProperties('dashboard')} onPost={()=>openProperties('postingType')} onChat={()=>setWorkspace({type:'messages',initialScreen:'inbox'})}/>:null}
-        {workspace?.type==='tenancy'&&tenancyConversation&&tenancyConversation.owner===auth.account?.user.id?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><MessagingViewingFlowView key={`${tenancyConversation.owner}:${tenancyConversation.id}`} accountId={auth.account?.user.id} conversationId={tenancyConversation.id} returnToListing onRootBack={()=>setTenancyConversation(null)} onClose={()=>setTenancyConversation(null)} registerBackAction={registerWorkspaceBack} canPostProperty={canEnterMarketplace} onCreateListing={()=>openProperties('postingType')} onOpenListings={()=>openProperties('dashboard')} onOpenDiscover={openDiscovery} onOpenMaintenance={()=>setTenancyConversation(null)} renderTenancySetup={renderTenancySetup} renderListingDetails={(id,onBack)=><ChatListingDetails key={`${auth.account?.user.id}:${id}`} owner={auth.account?.user.id} id={id} onBack={onBack}/>}/></View>:null}
+        {workspace?.type==='tenancy'?<TenancyWorkspaceView externalPanelOpen={tenancyConversation?.owner===auth.account?.user.id&&!!tenancyConversation} onOpenConversation={id=>{if(auth.account)setTenancyConversation({owner:auth.account.user.id,id});}} key={auth.account?.user.id} accountId={auth.account?.user.id} onBack={openDiscovery} registerBackAction={registerWorkspaceBack} onStartRequest={id=>{if(auth.account)setTenancyConversation({owner:auth.account.user.id,id,startRequest:true});}} onFindSimilar={(city,type)=>setWorkspace({type:'discovery',initialScreen:'home',initialSearch:{city,type}})} onOpenProperty={()=>openProperties('dashboard')} onDiscover={openDiscovery} onListings={()=>openProperties('dashboard')} onPost={()=>openProperties('postingType')} onChat={()=>setWorkspace({type:'messages',initialScreen:'inbox'})}/>:null}
+        {workspace?.type==='tenancy'&&tenancyConversation&&tenancyConversation.owner===auth.account?.user.id?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><MessagingViewingFlowView key={`${tenancyConversation.owner}:${tenancyConversation.id}`} accountId={auth.account?.user.id} conversationId={tenancyConversation.id} startReservationRequest={!!tenancyConversation.startRequest} returnToListing onRootBack={()=>setTenancyConversation(null)} onClose={()=>setTenancyConversation(null)} registerBackAction={registerWorkspaceBack} canPostProperty={canEnterMarketplace} onCreateListing={()=>openProperties('postingType')} onOpenListings={()=>openProperties('dashboard')} onOpenDiscover={openDiscovery} onOpenMaintenance={()=>setTenancyConversation(null)} renderTenancySetup={renderTenancySetup} renderListingDetails={(id,onBack)=><ChatListingDetails key={`${auth.account?.user.id}:${id}`} owner={auth.account?.user.id} id={id} onBack={onBack}/>}/></View>:null}
         {workspace?.type === 'maintenance' ? <TenancyCareWorkspaceView key={auth.account?.user.id} accountId={auth.account?.user.id} onBack={()=>setWorkspace({type:'tenancy'})} registerBackAction={registerWorkspaceBack}/> : null}
         {workspace?.type === 'ratingsReports' ? (
           <RatingsReportsFlowView accountId={auth.account?.user.id}

@@ -5,7 +5,7 @@ export const defaultMarketplaceMode = (preference: unknown): MarketplaceMode => 
 // Compatibility for unfinished Chat/Tenancy previews only; never an access check.
 export const defaultPreviewActor = (legacyRoles: readonly string[]): MarketplaceMode => legacyRoles.includes('landlord') && !legacyRoles.includes('tenant') ? 'landlord' : 'tenant';
 export type AppWorkspace =
-  | { type: 'discovery'; initialScreen: 'home' | 'matchingPreferences'; introduction?: boolean }
+  | { type: 'discovery'; initialScreen: 'home' | 'matchingPreferences'; introduction?: boolean; /** Opens the results already filtered to a city and property type ("Find similar"). */ initialSearch?: { city: string; type: string } }
   | { type: 'properties'; initialScreen: 'dashboard' | 'postingType' }
   | { type: 'priceEstimate'; actor: MarketplaceMode; returnTo: 'discovery' | 'properties' }
   | { type: 'messages'; initialScreen: 'inbox' | 'newInquiry' }

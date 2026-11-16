@@ -119,3 +119,15 @@ Four hosted SQL-role denial checks passed in a READ ONLY transaction with ROLLBA
 ## T7A review integration - November 10, 2026
 
 Ended Tenancy Details now opens a real, caller-scoped property/participant review composer and shows own submission state. Approved counterpart feedback is separately projected; pending counterpart feedback stays private. Eligibility is enforced by the prepared T7A backend, not the ended label alone. No tenancy/Chat lifecycle changes or deployment. See [Ratings and Reviews](RATINGS_REVIEWS.md) for contract, moderation and rollout limits.
+
+## Feature 1: Tenancy screens - November 16, 2026
+
+Frontend only. No migration, RPC, table or Edge Function change. Wireframe: `docs/design/rentlease_f1_tenancy_v8.html`; audit: `docs/audits/tenancy-ratings-management-2026-11-16.md`.
+
+Tenancy tab (`TenancyWorkspaceView`, projection in `models/TenancyWorkspaceScreen.ts`): state-colored summary tiles that scroll to their section; status as a chip everywhere (`models/TenancyPresentation.ts`, existing theme tokens only); a "Needs your OK" card (tenant) and a "Needs your attention" list (landlord) built from reads the tab already makes (pending setups, approved reservations, pending end requests via `get_tenancy_lifecycle`, open maintenance via `get_tenancy_care`); the active stay as a hero card; Upcoming; Past (ended and cancelled, each once). The "What you can do here" panel and the standalone Maintenance card are removed. Open maintenance, end requests and review state load after the list and never hold it (`services/tenancyActivityService.ts`, bounded to 12 rentals).
+
+Cancelled rentals appear once, under Past. "Start a new request" (tenant) and "Release it" (landlord) open a confirmation sheet, then call the existing `respond_rental_reservation(..., 'cancel')` once per tap (`viewModels/tenancyReleaseWorkflow.ts`); a failure is one amber line with Retry that repeats the same operation id, and nothing retries by itself. The tenant then lands on the reservation request for that conversation. "Find similar" opens Discover on the same city and property type.
+
+Tenancy details (`TenancyDetailsView`, projection in `models/TenancyDetailsScreen.ts`): summary with progress, actions, rent (schedule and next due date only), people (nickname and avatar, not tappable), maintenance, documents; ended rentals show the rating prompt, one reviews card and a timeline. "Request to end early" is last, red and active-only.
+
+Stand-ins until later features: "Report an issue" opens the existing Rent and maintenance panel (Feature 6); "Open property" opens My Rentals (Feature 2); the rent card has no "I've paid" (Feature 3); the rating button opens the existing review panel (Feature 4); the people card has no check or rating (Feature 5). Runtime and TalkBack verification on a device remain open.

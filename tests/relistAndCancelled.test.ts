@@ -8,7 +8,6 @@ import ts from 'typescript';
 import type { LandlordPortfolioItem } from '../src/features/property-listing/models/LandlordPortfolio';
 import { ARCHIVED_LISTING_NOTE, newListingTarget, portfolioArchivedNote, portfolioCardActions, portfolioCardLayout } from '../src/features/property-listing/models/PortfolioCardPresentation';
 import { lifecycleActions } from '../src/features/property-listing/models/ListingLifecycle';
-import { cancelledRentalNotice, cancelledRentals, cancelledSetupNotices, OPEN_CONVERSATION_LABEL, REQUEST_AGAIN_LABEL, RENTAL_CANCELLED_LINE } from '../src/features/tenancy/models/CancelledRentals';
 
 const U = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const owner = U(1);
@@ -108,77 +107,4 @@ test('archived card shows the explanation once and a Create a new listing button
   const paused = text(harness({}).render('src/features/property-listing/components/PortfolioRentalCard.tsx', 'PortfolioRentalCard', { item: makeItem('p', 'paused'), disabled: false, onAction() {} }));
   assert.ok(!paused.includes(ARCHIVED_LISTING_NOTE) && !paused.includes('Create a new listing'));
 });
-
-// ---- B. Cancelled rentals
-const tenancy = (id: string, status: string, over: any = {}) => ({ id, property_id: U(40), listing_id: U(41), conversation_id: U(42), tenant_id: U(10), landlord_id: U(11), status, start_date: '2026-12-01', expected_end_date: null, actual_end_date: null, ...over });
-test('cancelled notice: the tenant can request again, the owner can open the conversation, and with no conversation there is no dead button', () => {
-  assert.deepEqual(cancelledRentalNotice(U(10), U(10), U(11), U(42)), { line: 'This rental was cancelled', actionLabel: 'Request again', conversationId: U(42) });
-  assert.deepEqual(cancelledRentalNotice(U(11), U(10), U(11), U(42)), { line: 'This rental was cancelled', actionLabel: 'Open conversation', conversationId: U(42) });
-  assert.deepEqual(cancelledRentalNotice(U(10), U(10), U(11), null), { line: RENTAL_CANCELLED_LINE, actionLabel: null, conversationId: null });
-  assert.equal(cancelledRentalNotice(U(10), U(10), U(11), '').actionLabel, null);
-  assert.equal(cancelledRentalNotice(U(10), U(10), U(10), U(42)).actionLabel, OPEN_CONVERSATION_LABEL, 'never "request again" from your own listing');
-  assert.equal(REQUEST_AGAIN_LABEL, 'Request again');
-});
-test('cancelled rentals: only cancelled tenancies of this person, none of the other states', () => {
-  const all = [tenancy('c1', 'cancelled'), tenancy('a1', 'active'), tenancy('e1', 'ended'), tenancy('p1', 'proposed'), tenancy('pc', 'pending_confirmation'), tenancy('c2', 'cancelled', { tenant_id: U(20), landlord_id: U(21) })] as any[];
-  assert.deepEqual(cancelledRentals(U(10), all).map(c => c.tenancy.id), ['c1'], 'tenant');
-  assert.deepEqual(cancelledRentals(U(11), all).map(c => c.tenancy.id), ['c1'], 'owner');
-  assert.deepEqual(cancelledRentals(U(99), all), [], 'a stranger');
-  assert.equal(cancelledRentals(U(10), all)[0]!.notice.actionLabel, 'Request again');
-  assert.equal(cancelledRentals(U(11), all)[0]!.notice.actionLabel, 'Open conversation');
-});
-const reservation = (id: string, over: any = {}) => ({ id, conversationId: U(60), tenantId: U(10), landlordId: U(11), ...over }) as any;
-test('an approved reservation whose setup was cancelled carries the notice; one with a live tenancy, no link, or no links data does not', () => {
-  const ts = [tenancy('t-cancelled', 'cancelled'), tenancy('t-live', 'pending_confirmation')] as any[];
-  const links = [{ reservation_id: 'r-cancelled', tenancy_id: 't-cancelled' }, { reservation_id: 'r-live', tenancy_id: 't-live' }, { reservation_id: 'r-both', tenancy_id: 't-cancelled' }, { reservation_id: 'r-both', tenancy_id: 't-live' }];
-  const rs = [reservation('r-cancelled'), reservation('r-live'), reservation('r-both'), reservation('r-unlinked')];
-  const tenantView = cancelledSetupNotices(U(10), ts, rs, links);
-  assert.deepEqual(Object.keys(tenantView), ['r-cancelled']);
-  assert.deepEqual(tenantView['r-cancelled'], { line: 'This rental was cancelled', actionLabel: 'Request again', conversationId: U(60) });
-  assert.equal(cancelledSetupNotices(U(11), ts, rs, links)['r-cancelled']!.actionLabel, 'Open conversation');
-  assert.deepEqual(cancelledSetupNotices(U(10), ts, rs, null), {}, 'without link data nothing is inferred');
-  assert.deepEqual(cancelledSetupNotices(U(99), ts, rs, links), {}, 'a stranger');
-});
-
-function workspaceTree(vmOver: any, opened: string[], withHandler = true) {
-  const vm = { busy: false, error: null, contextWarning: null, contexts: {}, identities: {}, links: [], upcoming: [], pending: [], active: [], history: [], cancelled: [], cancelledSetups: {}, refresh() {}, ...vmOver };
-  const stubs = {
-    '/useTenancyWorkspaceViewModel': { useTenancyWorkspaceViewModel: () => vm },
-    '/ScreenContainer': { ScreenContainer: 'Screen' }, '/ScreenHeader': { ScreenHeader: 'Header' }, '/RentLeaseBottomNavigation': { RentLeaseBottomNavigation: 'Nav' },
-    '/PublicIdentityBadge': { PublicIdentityBadge: 'Identity' }, '/PropertyPhotoThumbnail': { PropertyPhotoThumbnail: 'Thumb' }, '/TenancyDashboardIcon': { TenancyDashboardIcon: 'Icon' },
-    '/TenancyDetailsView': { TenancyDetailsView: 'Details' }, '/TenancySetupView': { TenancySetupView: 'Setup' },
-  };
-  return harness(stubs).render('src/features/tenancy/views/TenancyWorkspaceView.tsx', 'TenancyWorkspaceView', { accountId: U(10), onBack() {}, onMaintenance() {}, onDiscover() {}, onListings() {}, onPost() {}, onChat() {}, registerBackAction() {}, ...(withHandler ? { onOpenConversation: (id: string) => opened.push(id) } : {}) });
-}
-test('Tenancy tab: a cancelled rental shows the line and Request again (tenant) that opens its conversation; nothing renders when there is none', () => {
-  const opened: string[] = [];
-  const c = cancelledRentals(U(10), [tenancy('c1', 'cancelled')] as any[]);
-  const tree = workspaceTree({ cancelled: c }, opened), t = text(tree);
-  assert.ok(t.includes('Cancelled Rentals') && t.includes('This rental was cancelled'));
-  nodes(tree).find(byText('Request again'))!.props.onPress();
-  assert.deepEqual(opened, [U(42)]);
-  assert.ok(!text(workspaceTree({}, [])).includes('Cancelled Rentals'));
-  const owner = workspaceTree({ cancelled: cancelledRentals(U(11), [tenancy('c1', 'cancelled')] as any[]) }, opened);
-  assert.ok(nodes(owner).some(byText('Open conversation')) && !nodes(owner).some(byText('Request again')));
-});
-test('Tenancy tab: an approved reservation with a cancelled setup shows the notice instead of the Establish/Review tenancy setup button', () => {
-  const opened: string[] = [];
-  const r = { id: 'r1', listingTitle: 'Garden Flat', tenantId: U(10), landlordId: U(11), moveInDate: '2026-12-01', endDate: '2027-06-01', conversationId: U(60) };
-  const setups = { r1: cancelledRentalNotice(U(10), U(10), U(11), U(60)) };
-  const tree = workspaceTree({ upcoming: [r], cancelledSetups: setups }, opened), t = text(tree);
-  assert.ok(t.includes('This rental was cancelled') && !t.includes('Awaiting explicit tenancy setup'));
-  assert.ok(!nodes(tree).some(byText('Review tenancy setup')) && !nodes(tree).some(byText('Establish tenancy')));
-  nodes(tree).find(byText('Request again'))!.props.onPress(); assert.deepEqual(opened, [U(60)]);
-  const normal = workspaceTree({ upcoming: [r] }, []);
-  assert.ok(nodes(normal).some(byText('Review tenancy setup')) && text(normal).includes('Awaiting explicit tenancy setup'), 'a normal approved reservation is unchanged');
-});
-
-test('without a way to open a conversation the cancelled notice shows no button that would do nothing', () => {
-  const tree = workspaceTree({ cancelled: cancelledRentals(U(10), [tenancy('c1', 'cancelled')] as any[]) }, [], false);
-  assert.ok(text(tree).includes('This rental was cancelled'));
-  assert.ok(!nodes(tree).some(byText('Request again')));
-});
-test('the Tenancy tab ViewModel hands the model\'s cancelled rentals and cancelled setups to the view', () => {
-  const src = readFileSync('src/features/tenancy/viewModels/useTenancyWorkspaceViewModel.ts', 'utf8');
-  assert.match(src, /cancelled:cancelledRentals\(actor\?\?'',safe\.tenancies\),cancelledSetups:cancelledSetupNotices\(actor\?\?'',safe\.tenancies,safe\.reservations,safe\.links\)/);
-});
+// The cancelled-rental behavior (one card under Past, Start a new request / Release it, the confirmation sheet) is covered in tenancyScreens.test.ts.

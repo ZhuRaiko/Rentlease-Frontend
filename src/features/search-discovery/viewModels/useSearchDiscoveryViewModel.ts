@@ -28,7 +28,7 @@ import {
 
 export function useSearchDiscoveryViewModel(
   initialScreen: 'home' | 'matchingPreferences' = 'home',
-  options: { onStartInquiry?:((conversationId:string)=>void)|undefined; accountId?: string | undefined; initialPreferences?: MatchingPreferences | undefined; introduction?: boolean; onSavePreferences?: ((value: MatchingPreferences) => void) | undefined; onIntroductionComplete?: (() => Promise<boolean>) | undefined } = {},
+  options: { initialSearch?: { city: string; type: string } | undefined; onStartInquiry?:((conversationId:string)=>void)|undefined; accountId?: string | undefined; initialPreferences?: MatchingPreferences | undefined; introduction?: boolean; onSavePreferences?: ((value: MatchingPreferences) => void) | undefined; onIntroductionComplete?: (() => Promise<boolean>) | undefined } = {},
 ) {
   const [screen, setScreen] = useState<DiscoveryScreen>(initialScreen);
   const [history, setHistory] = useState<DiscoveryScreen[]>([]);
@@ -160,6 +160,15 @@ export function useSearchDiscoveryViewModel(
 
   const resetFilterDraft = () => setFilterDraft(defaultDiscoveryFilters);
 
+  // "Find similar": one search for the same city and property type, opened on the results.
+  const similarDone = useRef(false);
+  useEffect(() => {
+    const s = options.initialSearch;
+    if (!s || similarDone.current) return;
+    similarDone.current = true;
+    void manual.applyFilters({ ...defaultSearchFilters(), city: s.city as SearchFilters['city'], types: [s.type as SearchFilters['types'][number]] });
+    setHistory(['home']); setScreen('resultsList');
+  }, [manual]);
   const applyFilters = () => { setScreen('resultsList'); setRecommendationSort(null); void manual.search(query); };
   const openLiveFilters = () => { setLiveFilterDraft({ ...manualState.filters, types:[...manualState.filters.types], amenityIds:[...manualState.filters.amenityIds] }); navigate('filters'); void manual.catalogue(); };
   const applyLiveFilters = () => { setRecommendationSort(null); suggestedCity.current = false; setHistory(current => current.slice(0,-1)); setScreen('resultsList'); void manual.applyFilters(liveFilterDraft); };

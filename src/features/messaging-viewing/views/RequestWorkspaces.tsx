@@ -6,9 +6,12 @@ import {usePropertyViewingsViewModel} from '../viewModels/usePropertyViewingsVie
 import {useRentalReservationsViewModel} from '../viewModels/useRentalReservationsViewModel';
 import {PropertyViewingsView} from './PropertyViewingsView';
 import {RentalReservationsView} from './RentalReservationsView';
-export function ReservationsWorkspace({accountId,conversation,onBack,registerBackAction,scope,onOpenConversation,onLocked,renderTenancySetup}:{accountId:string|undefined;conversation:Conversation|null;onBack:()=>void;registerBackAction:((action:(()=>void)|null)=>void)|undefined;scope?:RequestScope|undefined;onLocked?:((locked:boolean)=>void)|undefined;onOpenConversation?:((id:string)=>void)|undefined;renderTenancySetup?:((id:string,onBack:()=>void,onChanged:()=>void)=>ReactNode)|undefined}){
+export function ReservationsWorkspace({startRequest=false,accountId,conversation,onBack,registerBackAction,scope,onOpenConversation,onLocked,renderTenancySetup}:{startRequest?:boolean;accountId:string|undefined;conversation:Conversation|null;onBack:()=>void;registerBackAction:((action:(()=>void)|null)=>void)|undefined;scope?:RequestScope|undefined;onLocked?:((locked:boolean)=>void)|undefined;onOpenConversation?:((id:string)=>void)|undefined;renderTenancySetup?:((id:string,onBack:()=>void,onChanged:()=>void)=>ReactNode)|undefined}){
  const vm=useRentalReservationsViewModel(accountId,conversation,scope);
  const [setup,setSetup]=useState<{actor:string|undefined;id:string}|null>(null);
+ // "Request again": open the request editor once, as soon as the conversation's reservations have loaded.
+ const [started,setStarted]=useState(false);
+ useEffect(()=>{if(startRequest&&!started&&vm.conversation&&!vm.busy&&!vm.editor){setStarted(true);vm.workflow.edit(null,'request');}},[startRequest,started,vm.conversation,vm.busy,vm.editor]);
  const activeSetup=setup?.actor===accountId?setup:null;
  useEffect(()=>{onLocked?.(!!activeSetup||!!vm.editor||vm.saving||vm.uncertain);return()=>onLocked?.(false);},[!!activeSetup,!!vm.editor,vm.saving,vm.uncertain,onLocked]);
  const back=()=>{if(vm.saving)return;if(vm.uncertain){Alert.alert('Reservation outcome not confirmed','Retry the same request to confirm its outcome, or leave and refresh reservations before requesting again.',[{text:'Keep reviewing',style:'cancel'},{text:'Leave reservations',onPress:onBack}]);return;}if(vm.editor){vm.workflow.closeEditor();void vm.workflow.load();}else onBack();};
