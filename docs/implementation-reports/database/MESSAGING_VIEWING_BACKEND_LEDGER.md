@@ -213,3 +213,26 @@ Date/actor/environment: November 10, 2026, backup created 09:27:59 UTC, migratio
 5. RPC_TEST (DENIAL ONLY): BEGIN READ ONLY; SET LOCAL ROLE anon; get_tenancy_lifecycle(dummy UUID) and write_tenancy_lifecycle(dummy tenancy/operation UUID, complete, unreviewed version, null request revision, denial-check reason) must each raise insufficient_privilege. Repeat after SET LOCAL ROLE authenticated with auth.uid() asserted null. RESET ROLE; result reports 2 anonymous + 2 no-identity denials, zero data writes; ROLLBACK. All four passed. No authorized end-user session used, no real caller-JWT or participant-positive simulation, no production account/tenancy/ending fixture. Hosted/native acceptance remains UNVERIFIED.
 
 Recovery/cleanup: protected deployment-verification.json and final manifest retain evidence. No rollback needed/performed. Existing data-retaining guidance supabase/test-support/tenancy_completion_termination_rollback.sql requires separate authorization/client withdrawal/pending reconciliation, retains ended records/evidence/receipts and does not reactivate archived listings. No history repair or local filename reconciliation; historical T6 source must not be replayed. Only the three existing Tenancy records updated, temporary ignored metadata copies removed, frontend local/unreleased, no commit/push/build/device actions. Next T7 Ratings and Reviews; actual manual two-account completion/Chat/Back/retry acceptance remains required.
+
+## Tenancy Feature 3 (rent ledger), Step 0 backend audit - November 16, 2026
+
+Entry F3-A1. The tenancy workspace keeps its backend record in this ledger (see TENANCY.md). Design proposal: [f3-rent-ledger-backend-design.md](../../design/f3-rent-ledger-backend-design.md). Living feature document: [TENANCY.md](../../features/TENANCY.md).
+
+| Field | Content |
+| --- | --- |
+| Date | 2026-11-16 (clock time not recorded); recorded the same day |
+| Feature/phase | Tenancy, Feature 3 Step 0, entry F3-A1 |
+| Actor/tool | Claude Code (Claude Sonnet 5.5) through the claude.ai Supabase connector `execute_sql` (project-level access, not an app end user) |
+| Environment/project | Hosted project `cxfsbwbwmwmgtqfonqth` |
+| Classification | `READ_ONLY_INSPECTION` |
+| Target | `public.rent_obligations` (columns, constraints, indexes, policies, triggers, RLS flag, table privileges for anon/authenticated/service_role); enum `rent_obligation_status`; `public.tenancies` (columns, constraints, indexes, triggers, policies); `public.messages` and `public.conversations` structure and privileges; `pg_proc` for functions referencing `rent_obligations`, participant/messaging/notification functions (signature, owner, search_path, anon/authenticated execute, md5 prefix) and the full definitions of `send_property_message`, `can_access_tenancy`, `validate_message_sender`, `rentlease_notifications.generate`; enums `message_type`, `notification_type`, `conversation_status`, `tenancy_status`; `pg_extension` (pg_cron, pg_net); migration history (last three); a `count(*)` of `rent_obligations`, status counts of `tenancies` and a count of `rent_due`/`rent_overdue` notifications (counts only; no row contents read) |
+| Action | Catalog `select` statements only (system catalogs, `information_schema`, `pg_get_functiondef`, `has_table_privilege`, `has_function_privilege`); exact text is not reproduced here because it was several exploratory queries, all read-only |
+| Purpose | Feature 3 Step 0 audit requested by the user ("read-only SQL via the existing method") |
+| Result | See section 1 of the design document. Key facts: `rent_obligations` has 0 rows; no role has any table privilege; only `get_tenancy_care` references it; no `pg_cron`/`pg_net`; `send_property_message` is the chat write path; `message_type 'system'` exists. |
+| Durable effect | None |
+| Rollback/cleanup | Not applicable: no write, no transaction opened |
+| Security/RLS | Catalog privilege checks only; no end-user JWT call and no owner/non-owner test. Hosted Edge Function source was not read. |
+| Source-controlled backend file | Table and RPC source: `supabase/migrations/20261110072014_tenancy_rent_maintenance.sql` (reads `rent_obligations`); no migration creates `rent_obligations` (it predates the repo migrations, like `public.reviews`) |
+| Android/client runtime | Not applicable (no client change) |
+
+No permanent live backend mutation was performed in this step. No migration, SQL file or code was written; the only artifacts are this entry and the design document.
