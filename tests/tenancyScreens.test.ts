@@ -180,12 +180,12 @@ test('details, ended (landlord): rating prompt first, one reviews card, a timeli
 });
 
 // ---- View: what the tab renders (no Refresh buttons, no removed panels, state-colored tiles)
-function renderWorkspace(vm:any){
+function renderWorkspace(vm:any,scale=1,width=411){
   const file=resolve('src/features/tenancy/views/TenancyWorkspaceView.tsx'),mod={exports:{} as any};
   const mock=(key:string):any=>{
     if(key==='react')return{useEffect:()=>{},useState:(v:any)=>[v,()=>{}],useRef:(v:any)=>({current:v})};
     if(key==='react/jsx-runtime'){const jsx=(type:any,props:any)=>typeof type==='function'?type(props):({type,props});return{jsx,jsxs:jsx};}
-    if(key==='react-native')return new Proxy({StyleSheet:{create:(x:any)=>x}},{get:(x:any,k)=>x[k]??k});
+    if(key==='react-native')return new Proxy({StyleSheet:{create:(x:any)=>x},useWindowDimensions:()=>({width,height:800,fontScale:scale})},{get:(x:any,k)=>x[k]??k});
     if(key.includes('useTenancyWorkspaceViewModel'))return{useTenancyWorkspaceViewModel:()=>vm};
     if(key.includes('models/TenancyPresentation'))return require('../src/features/tenancy/models/TenancyPresentation');
     if(key.endsWith('/colors'))return{colors:{}};if(key.endsWith('/ui'))return{ui:{}};if(key.endsWith('/radius'))return{radius:{}};if(key.endsWith('/spacing'))return{spacing:{}};
@@ -203,7 +203,7 @@ test('the tab shows state tiles, no removed panels and no Refresh button; headin
   assert.ok(!nodes(tree).some(x=>/refresh/i.test(String(x.props?.label??'')+String(x.props?.accessibilityLabel??''))),'no Refresh buttons: pull to refresh instead');
   const headers=nodes(tree).filter(x=>x.props?.accessibilityRole==='header').map(x=>[x.props.children].flat(Infinity).join(''));assert.deepEqual(headers,['Active stay','Miguel House','Upcoming','Past'],'Active, Upcoming, Past in order (the stay card title is the second heading)');
   const tiles=nodes(tree).filter(x=>x.type==='Pressable'&&/rentals: /.test(String(x.props.accessibilityLabel)));assert.equal(tiles.length,3);
-  assert.deepEqual(tiles.map(x=>x.props.style[1].backgroundColor),[TILE_COLORS.upcoming.backgroundColor,TILE_COLORS.active.backgroundColor,TILE_COLORS.past.backgroundColor]);
+  assert.deepEqual(tiles.map(x=>x.props.style.at(-1).backgroundColor),[TILE_COLORS.upcoming.backgroundColor,TILE_COLORS.active.backgroundColor,TILE_COLORS.past.backgroundColor]);
   assert.ok(nodes(tree).some(x=>x.type==='ScrollView'&&x.props.refreshControl),'pull to refresh');
 });
 test('loading or failed: no zero counts are invented and the error has Retry', () => {
@@ -252,4 +252,12 @@ test('spacing uses the theme: 16dp card padding and between sections, 12dp betwe
   assert.match(spacing,/sm: 12/);assert.match(spacing,/md: 16/);
   assert.match(parts,/row:\{flexDirection:'row',flexWrap:'wrap',gap:spacing\.sm\}/);assert.match(parts,/cells:\{flexDirection:'row',flexWrap:'wrap',gap:spacing\.sm\}/);assert.match(parts,/slot:\{flexGrow:1,flexBasis:130\}/);assert.match(parts,/button:\{minHeight:48/);
   assert.match(view,/content:\{padding:spacing\.md,gap:spacing\.md/);assert.match(view,/card:\{\.\.\.ui\.panel,padding:spacing\.md,gap:spacing\.sm/);
+});
+
+test('large text or a narrow screen: the chip moves under the title instead of squeezing it, and the tiles wrap', () => {
+  const gone=tenancy({status:'cancelled'}),held=reservation(),base={tenancies:[gone],reservations:[held],links:[{reservation_id:held.id,tenancy_id:gone.id}],contexts:{[gone.id]:ctx('Dela Cruz Unit')}};
+  const chipPlace=(tree:any)=>{const head=nodes(tree).find(x=>x.type==='View'&&[x.props.children].flat(Infinity).some((c:any)=>c?.type==='Thumb'));const direct=[head.props.children].flat(Infinity).filter(Boolean);return direct.some((c:any)=>c.type==='TenancyChip')?'beside':'under';};
+  assert.equal(chipPlace(renderWorkspace(vmFor(T,base))),'beside','normal text: the chip is beside the title, as drawn');
+  assert.equal(chipPlace(renderWorkspace(vmFor(T,base),1.5,411)),'under','150% font');assert.equal(chipPlace(renderWorkspace(vmFor(T,base),1,320)),'under','320dp wide');
+  const wide=nodes(renderWorkspace(vmFor(T,base),1.5)).filter(x=>x.type==='Pressable'&&/rentals: /.test(String(x.props.accessibilityLabel)));assert.ok(wide.every(x=>x.props.style[1]?.flexBasis===130),'tiles take a wider basis so they wrap');
 });

@@ -27,11 +27,11 @@ export function ButtonRow({children}:{children:ReactNode}){return <View style={s
 export function Slot({children}:{children:ReactNode}){return <View style={styles.slot}>{children}</View>;}
 export function Cell({label,value}:{label:string;value:string}){return <View style={styles.cell}><Text style={ui.supporting}>{label}</Text><Text style={styles.cellValue}>{value}</Text></View>;}
 export function CellRow({children}:{children:ReactNode}){return <View style={styles.cells}>{children}</View>;}
-export function PersonRow({person}:{person:Person}){return <View style={styles.person}><PublicIdentityBadge identity={person.identity} relationship={person.relation==='Landlord'?'owner':'renter'}/><Text style={ui.supporting}>{person.relation}</Text></View>;}
+export function PersonRow({person,showRelation=true}:{person:Person;showRelation?:boolean}){return <View style={styles.person}><PublicIdentityBadge identity={person.identity} relationship={person.relation==='Landlord'?'owner':'renter'}/>{showRelation?<Text style={ui.supporting}>{person.relation}</Text>:null}</View>;}
 /** Wide photo for the stay hero; falls back to a plain block. */
 export function HeroPhoto({photos,chip,muted=false}:{photos:readonly PublicPropertyPhoto[];chip:Chip;muted?:boolean}){
   const [failed,setFailed]=useState<string[]>([]),photo=photos.find(p=>!failed.includes(p.url));
-  return <View style={[styles.hero,muted&&{opacity:.7}]}>{photo?<Image accessibilityLabel={photo.alt??'Property photo'} source={{uri:photo.url}} resizeMode="cover" style={styles.heroImage} onError={()=>setFailed(old=>[...old,photo.url])}/>:null}<View style={styles.heroChip}><TenancyChip chip={chip} onPhoto/></View></View>;
+  return <View style={styles.hero}>{photo?<Image accessibilityLabel={photo.alt??'Property photo'} source={{uri:photo.url}} resizeMode="cover" style={[styles.heroImage,muted&&{opacity:.7}]} onError={()=>setFailed(old=>[...old,photo.url])}/>:null}<View style={styles.heroChip}><TenancyChip chip={chip} onPhoto/></View></View>;
 }
 export function Thumb({photos,size=56}:{photos:readonly PublicPropertyPhoto[];size?:number}){
   const [failed,setFailed]=useState<string[]>([]),photo=photos.find(p=>!failed.includes(p.url));
