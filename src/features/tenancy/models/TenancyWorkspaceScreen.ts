@@ -142,7 +142,7 @@ export function workspaceScreen(i: WorkspaceInput): WorkspaceScreen {
       const target = releaseTarget(t, links, [...i.reservations], i.now), property = ctx?.property;
       const buttons: PastCard['buttons'] = role === 'tenant'
         ? [...(target.conversationId ? [{key: 'start_request' as const, label: 'Start a new request', primary: true}] : []), ...(property ? [{key: 'find_similar' as const, label: 'Find similar', primary: false}] : []), ...(target.conversationId ? [{key: 'message' as const, label: 'Message', primary: false}] : [])]
-        : [...(target.needsRelease ? [{key: 'release' as const, label: 'Release it', primary: false}] : []), ...(target.conversationId ? [{key: 'message' as const, label: 'Message', primary: false}] : [])];
+        : [...(target.needsRelease ? [{key: 'release' as const, label: 'Release it', primary: true}] : []), ...(target.conversationId ? [{key: 'message' as const, label: 'Message', primary: false}] : [])];
       return {...common, subtitle: role === 'tenant' ? `${other} · ${range}` : `${other} · setup cancelled`, note: cancelledLine(role, target.needsRelease, range), prompt: null, buttons,
         conversationId: target.conversationId, reservationId: target.reservation?.id ?? null, similar: property ? {city: property.city, type: property.type} : null};
     }

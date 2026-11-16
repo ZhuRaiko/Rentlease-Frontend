@@ -69,7 +69,7 @@ test('cancelled card: tenant gets Start a new request, Find similar, Message; la
   const gone=tenancy({status:'cancelled'}),held=reservation(),links=[{reservation_id:held.id,tenancy_id:gone.id}],base={tenancies:[gone],reservations:[held],links,contexts:{[gone.id]:ctx('Dela Cruz Unit')}};
   const tenant=workspaceScreen(input(T,base)).past[0]!,landlord=workspaceScreen(input(L,base)).past[0]!;
   assert.deepEqual(tenant.buttons,[{key:'start_request',label:'Start a new request',primary:true},{key:'find_similar',label:'Find similar',primary:false},{key:'message',label:'Message',primary:false}]);
-  assert.deepEqual(landlord.buttons,[{key:'release',label:'Release it',primary:false},{key:'message',label:'Message',primary:false}]);
+  assert.deepEqual(landlord.buttons,[{key:'release',label:'Release it',primary:true},{key:'message',label:'Message',primary:false}]);
   assert.equal(tenant.note,'Setup was cancelled. The reservation is still held, so a new request is blocked.');assert.equal(landlord.note,'The reservation is still held for Nov 12, 2026 – Nov 11, 2027.');
   assert.deepEqual(tenant.similar,{city:'tagaytay',type:'boarding_house'},'Find similar uses the same city and property type');
   const noChat=workspaceScreen(input(T,{...base,tenancies:[{...gone,conversation_id:null}],reservations:[{...held,conversationId:null}]})).past[0]!;
@@ -223,4 +223,33 @@ test('the tab shows Needs your OK first for the tenant and the attention list fi
 test('the stand-ins until Features 2 and 6 are named in the view: Report an issue opens the care panel and Open property the property screen', () => {
   const src=readFileSync('src/features/tenancy/views/TenancyWorkspaceView.tsx','utf8');
   assert.match(src,/s\.primary\.kind==='report'\?open\(s\.id,'care'\):onOpenProperty\?\.\(s\.propertyId\)/);
+});
+
+// ---- Polish pass
+test('empty Active and Upcoming collapse into one muted line with a link-style Chat row; Past stays', () => {
+  const tree=renderWorkspace(vmFor(T,{}));
+  const headers=nodes(tree).filter(x=>x.props?.accessibilityRole==='header').map(x=>[x.props.children].flat(Infinity).join(''));
+  assert.deepEqual(headers,['Past'],'no Active or Upcoming headings when both are empty');
+  assert.equal(texts(tree).filter(s=>s==='No active or upcoming rentals right now.').length,1);
+  const link=nodes(tree).find(x=>x.type==='Pressable'&&x.props.accessibilityRole==='link');assert.ok(link,'Browse reservations in Chat is a link-style row');assert.deepEqual(texts(link),['Browse reservations in Chat']);
+  assert.ok(!nodes(tree).some(x=>x.type==='Text'&&/No approved reservations or tenancy setups/.test(String(x.props.children))),'not the second grey line');
+});
+test('with only one of Active and Upcoming empty, both headings stay (so each tile still has its section)', () => {
+  const stay=tenancy(),tree=renderWorkspace(vmFor(T,{tenancies:[stay],contexts:{[stay.id]:ctx()}}));
+  const headers=nodes(tree).filter(x=>x.props?.accessibilityRole==='header').map(x=>[x.props.children].flat(Infinity).join(''));
+  assert.ok(headers.includes('Active stay')&&headers.includes('Upcoming')&&headers.includes('Past'));assert.ok(texts(tree).includes('No approved reservations or tenancy setups waiting to start.'));
+});
+test('cancelled card: the primary (Start a new request for the tenant, Release it for the landlord) is the one filled green button; Message and Find similar stay outlined', () => {
+  const gone=tenancy({status:'cancelled'}),held=reservation(),links=[{reservation_id:held.id,tenancy_id:gone.id}],base={tenancies:[gone],reservations:[held],links,contexts:{[gone.id]:ctx('Dela Cruz Unit')}};
+  for(const actor of [T,L]){
+    const tree=renderWorkspace(vmFor(actor,base)),buttons=nodes(tree).filter(x=>x.type==='TenancyButton'&&/: Dela Cruz Unit$/.test(String(x.props.accessibilityLabel)));
+    assert.deepEqual(buttons.map(b=>[b.props.label,b.props.tone]),actor===T?[['Start a new request','primary'],['Find similar','secondary'],['Message','secondary']]:[['Release it','primary'],['Message','secondary']]);
+  }
+});
+// Style values live in .tsx files the test runner cannot import, so this one reads the source (a source-text test, kept to the spacing rules only).
+test('spacing uses the theme: 16dp card padding and between sections, 12dp between rows of buttons, 48dp buttons that wrap', () => {
+  const parts=readFileSync('src/features/tenancy/components/TenancyParts.tsx','utf8'),view=readFileSync('src/features/tenancy/views/TenancyWorkspaceView.tsx','utf8'),spacing=readFileSync('src/shared/theme/spacing.ts','utf8');
+  assert.match(spacing,/sm: 12/);assert.match(spacing,/md: 16/);
+  assert.match(parts,/row:\{flexDirection:'row',flexWrap:'wrap',gap:spacing\.sm\}/);assert.match(parts,/cells:\{flexDirection:'row',flexWrap:'wrap',gap:spacing\.sm\}/);assert.match(parts,/slot:\{flexGrow:1,flexBasis:130\}/);assert.match(parts,/button:\{minHeight:48/);
+  assert.match(view,/content:\{padding:spacing\.md,gap:spacing\.md/);assert.match(view,/card:\{\.\.\.ui\.panel,padding:spacing\.md,gap:spacing\.sm/);
 });

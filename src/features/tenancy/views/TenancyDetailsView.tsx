@@ -74,7 +74,7 @@ export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onO
  </>:null}
  </KeyboardAwareScrollView></View>;
 }
-const styles=StyleSheet.create({screen:{flex:1,backgroundColor:colors.background},content:{padding:spacing.md,gap:spacing.sm,paddingBottom:28},
+const styles=StyleSheet.create({screen:{flex:1,backgroundColor:colors.background},content:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.lg},
  card:{...ui.panel,padding:spacing.md,gap:spacing.sm,borderRadius:16},cardHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:spacing.xs},
  datesRow:{flexDirection:'row',justifyContent:'space-between',flexWrap:'wrap',gap:spacing.xs},track:{height:6,borderRadius:3,backgroundColor:colors.primaryPale,overflow:'hidden'},fill:{height:6,backgroundColor:colors.primaryAction},
  rentRow:{minHeight:36,justifyContent:'center'},docRow:{minHeight:48,flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:spacing.sm},chevron:{...ui.sectionTitle,color:colors.textSecondary},
