@@ -2,11 +2,14 @@
 import {AppButton} from './AppButton';
 import {useReviewWordCloud} from '../viewModels/useReviewWordCloud';
 import {highlightSegments,termColors,type ReviewCloudProcessor} from '../models/ReviewWordCloud';
+import {WORD_CLOUD_UNAVAILABLE} from '../models/ReviewPresentation';
 import {ui} from '../theme/ui';
 import {colors} from '../theme/colors';
-export function PropertyReviewWordCloud({accountId,propertyId,processor,compact=false}:{accountId:string|undefined;propertyId:string;processor?:ReviewCloudProcessor;compact?:boolean}){
+export function PropertyReviewWordCloud({accountId,propertyId,processor,compact=false,quiet=false}:{accountId:string|undefined;propertyId:string;processor?:ReviewCloudProcessor;compact?:boolean;quiet?:boolean}){
  const vm=useReviewWordCloud(accountId,propertyId,processor),term=vm.cloud?.terms.find(t=>t.id===vm.selected);
  const rows=vm.corpus?.rows.filter(r=>!term||term.matches.some(m=>m.id===r.id))??[];
+ // Quiet (secondary view): when the service fails or is not connected, say so in one line. Nothing else on the screen depends on it.
+ if(quiet&&accountId&&(vm.error||vm.status==='unavailable'))return <View style={styles.panel}><Text style={ui.supporting}>Written feedback themes</Text><Text accessibilityLiveRegion="polite" style={ui.supporting}>{WORD_CLOUD_UNAVAILABLE}</Text><AppButton label="Try again" variant="secondary" disabled={vm.status==='loading'} onPress={()=>void vm.workflow.load()}/></View>;
  return <View style={styles.panel}><Text style={ui.sectionTitle}>Frequently mentioned</Text>
  <Text style={ui.supporting}>English, Filipino and Taglish review themes. Colors are decorative, not sentiment ratings.</Text>
  {!accountId?<Text style={ui.supporting}>Sign in to view property review themes.</Text>:<>

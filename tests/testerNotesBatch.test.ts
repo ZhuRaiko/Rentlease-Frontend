@@ -101,9 +101,9 @@ test('rating scale renders solid primaryAction with white text for the chosen nu
   buttons[1].props.onPress(); assert.deepEqual(picked, [2]);
   assert.equal(nodes(harness().render('src/shared/components/RatingScale.tsx', 'RatingScale', { value: 2, onChange() {}, disabled: true })).filter(n => n.type === 'Pressable').every(b => b.props.disabled === true), true);
 });
-test('every review screen uses the shared scale and the asterisk is gone', () => {
-  assert.match(readFileSync('src/shared/components/RentalReviews.tsx', 'utf8'), /<RatingScale /);
-  assert.doesNotMatch(readFileSync('src/shared/components/RentalReviews.tsx', 'utf8'), /String\(n\)\+'\*'/);
+test('the rate screen uses the star picker and the old number scale is gone from it', () => {
+  assert.match(readFileSync('src/shared/components/TenancyReviewPanel.tsx', 'utf8'), /<StarPicker /);
+  assert.doesNotMatch(readFileSync('src/shared/components/TenancyReviewPanel.tsx', 'utf8'), /RatingScale/);
   assert.match(readFileSync('src/features/ratings-reports/views/ReviewFlowView.tsx', 'utf8'), /<RatingScale /);
 });
 

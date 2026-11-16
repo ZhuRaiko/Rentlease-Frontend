@@ -1,5 +1,7 @@
 import {publicIdentityLabel, type PublicIdentity} from '../../../shared/models/PublicIdentity';
 import {reviewScreenFor, reviewStatusLabel, type ReviewContext} from '../../../shared/models/RentalReview';
+import {groupOf, receivedLine, type ReviewLine} from '../../../shared/models/ReviewPresentation';
+import {tagLabels} from '../../../shared/models/ReviewTags';
 import type {RentalReservation} from '../../messaging-viewing/models/RentalReservation';
 import {rentSchedule, type CareContext, type CareStatus} from './TenancyCare';
 import {ordinal} from './RentLedger';
@@ -35,7 +37,7 @@ export interface DetailsScreen {
   person: Person;
   maintenance: {chip: string; latest: {title: string; meta: string} | null} | null;
   documents: {key: 'property' | 'reservation' | 'lifecycle' | 'rent'; label: string}[];
-  reviews: {key: string; label: string; status: string; rating: number; text: string | null}[] | null;
+  reviews: ReviewLine[] | null;
   timeline: TimelineEntry[] | null;
   endEarly: boolean;
   /** Ended rentals close with Open conversation; active ones carry Message in the action row instead. */
@@ -101,10 +103,11 @@ export function detailsScreen(i: DetailsInput): DetailsScreen {
       // An ended rental has no rent card, but the landlord can still confirm its last month and both sides can read the record.
       ...(t.status === 'ended' ? [{key: 'rent' as const, label: 'Rent ledger'}] : []),
     ],
-    reviews: ended && review ? [...(review.own ? [review.own] : []), ...review.earlier].map(r => ({
-      key: r.id, status: reviewStatusLabel(r.status), rating: r.rating, text: r.text,
+    // Your own review of this tenancy (a legacy earlier row is not shown), then the other person's approved one. Names come from the tenancy's people. A tenant's review of a landlord (an older row, no longer allowed) is not shown.
+    reviews: ended && review ? [...(review.own ? [review.own] : []).map((r): ReviewLine => ({
+      key: r.id, status: reviewStatusLabel(r.status), rating: r.rating, text: r.text, tags: tagLabels(groupOf(r.kind), r.tags ?? []),
       label: r.kind === 'property' ? 'Your review of this property' : `Your review of ${other}`,
-    })) : null,
+    })), ...(i.reviews?.received ?? []).filter(r => !(r.kind === 'user' && role === 'landlord')).map(r => receivedLine(r, other))] : null,
     timeline,
     endEarly: active,
     openConversation: ended && !!i.conversationId,

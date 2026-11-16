@@ -26,8 +26,8 @@ const input=(actor:string,over:Partial<WorkspaceInput>={}):WorkspaceInput=>({act
 const request=(over:any={}):any=>({id:id(),title:'Leaking faucet',description:'Leaks',category:'plumbing',priority:'urgent',status:'submitted',response:null,revision:id(),createdAt:'2026-11-16T02:00:00Z',updatedAt:'2026-11-16T02:00:00Z',...over});
 const care=(t:any,requests:any[]):any=>({tenancyId:t.id,tenantId:T,landlordId:L,status:'active',today:'2026-11-16',schedule:[],obligations:[],obligationsLimited:false,reminders:[],requests});
 const life=(t:any,pending:any=null,events:any[]=[]):any=>({tenancyId:t.id,tenantId:T,landlordId:L,status:'active',today:'2026-11-16',startDate:t.start_date,expectedEndDate:t.expected_end_date,actualEndDate:null,endedAt:null,version:'a'.repeat(32),pending,events});
-const review=(t:any,own:any[]=[]):any=>({tenancyId:t.id,propertyId:P,tenantId:T,landlordId:L,eligible:true,own,legacyUserReview:false});
-const given=(kind:'property'|'user',rating=5):any=>({id:id(),kind,rating,text:'Nice',revision:id(),createdAt:'2026-11-14T00:00:00Z',status:'approved',propertyId:kind==='property'?P:null,updatedAt:null,moderatedAt:null,history:[]});
+const review=(t:any,own:any[]=[]):any=>({tenancyId:t.id,propertyId:P,tenantId:T,landlordId:L,eligible:true,own,received:[],legacyUserReview:false});
+const given=(kind:'property'|'user',rating=5):any=>({id:id(),kind,rating,text:'Nice',revision:id(),createdAt:'2026-11-14T00:00:00Z',status:'approved',propertyId:kind==='property'?P:null,updatedAt:null,moderatedAt:null,history:[],tags:[]});
 
 // ---- Chips and tiles
 test('status is a chip: each state maps to its label and an existing token tone', () => {
@@ -124,7 +124,7 @@ test('ended rentals ask for a rating until it is given, then show one line', () 
   const landlord=workspaceScreen(input(L,{...base,activity:{...emptyActivity(),reviews:{[ended.id]:review(ended)}}})).past[0]!;
   assert.deepEqual([landlord.prompt?.title,landlord.prompt?.button],['Rate Nightcity'.replace('Nightcity','Samuel'),'Rate your tenant']);
   const rated=workspaceScreen(input(T,{...base,activity:{...emptyActivity(),reviews:{[ended.id]:review(ended,[given('property',5)])}}})).past[0]!;
-  assert.equal(rated.prompt,null);assert.equal(rated.subtitle,'Rated 5.0 · Nov 12 – Nov 13');assert.deepEqual(rated.buttons.map(b=>b.key),['view']);
+  assert.equal(rated.prompt,null);assert.equal(rated.subtitle,'Rated 5.0 · Nov 12 – Nov 13');assert.deepEqual(rated.buttons.map(b=>[b.key,b.label]),[['rate','Your review'],['view','View']],'a rated rental opens the review screen again');
   const unknown=workspaceScreen(input(T,base)).past[0]!;assert.equal(unknown.prompt,null,'review state not read: no prompt');assert.equal(unknown.subtitle,'Nightcity · Nov 12 – Nov 13');
 });
 
@@ -180,6 +180,19 @@ test('details, ended (landlord): rating prompt first, one reviews card, a timeli
   assert.deepEqual(d.documents.map(x=>x.label),['Property information','Source reservation','Rent ledger']);assert.deepEqual(d.reviews,[]);
   const rated=detailsScreen({actor:L,tenancy:ended,context:ctx(),identities:{[T]:ident('Samuel',T)},care:null,lifecycle:null,reviews:review(ended,[given('user',4)]),reservation:null,conversationId:null,now:NOW});
   assert.equal(rated.ratingPrompt,null);assert.deepEqual(rated.reviews!.map(r=>[r.label,r.status,r.rating]),[['Your review of Samuel','Published',4]]);
+});
+
+test('details, ended: your own review with its tags and status, then the other persons approved review, named from the tenancy people', () => {
+  const ended=tenancy({status:'ended',actual_end_date:'2026-11-13',start_date:'2026-11-12'});
+  const mine={...given('user',4),status:'pending',text:'Easy to deal with',tags:['respectful','paid_on_time']};
+  const theirs={id:id(),kind:'property',rating:5,text:'Lovely place',tags:['clean','mystery'],createdAt:'2026-11-14T00:00:00Z',reviewerRole:'tenant'};
+  const landlord=detailsScreen({actor:L,tenancy:ended,context:ctx(),identities:{[T]:ident('Samuel',T)},care:null,lifecycle:null,reviews:{...review(ended,[mine]),received:[theirs,{...theirs,id:id(),kind:'user'}]},reservation:null,conversationId:null,now:NOW});
+  assert.deepEqual(landlord.reviews!.map(r=>[r.label,r.status,r.rating,r.tags]),[['Your review of Samuel','Pending review',4,['Respectful','Paid on time']],["Samuel's review of this property",null,5,['Clean']]],'an older tenant review of the landlord is not shown');
+  const aboutMe={...theirs,kind:'user',tags:['respectful']};
+  const tenant=detailsScreen({actor:T,tenancy:ended,context:ctx(),identities:{[L]:ident('Nightcity',L)},care:null,lifecycle:null,reviews:{...review(ended,[]),received:[aboutMe]},reservation:null,conversationId:null,now:NOW});
+  assert.deepEqual(tenant.reviews!.map(r=>[r.label,r.tags]),[["Nightcity's review of you",['Respectful']]]);
+  const rejected=detailsScreen({actor:L,tenancy:ended,context:ctx(),identities:{[T]:ident('Samuel',T)},care:null,lifecycle:null,reviews:review(ended,[{...mine,status:'rejected'}]),reservation:null,conversationId:null,now:NOW});
+  assert.equal(rejected.reviews![0]!.status,'Not published','a rejected review says only "Not published"');
 });
 
 // ---- View: what the tab renders (no Refresh buttons, no removed panels, state-colored tiles)

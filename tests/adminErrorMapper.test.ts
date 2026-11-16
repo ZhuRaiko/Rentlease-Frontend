@@ -164,7 +164,7 @@ test('reporter paths and uncertain admin outcomes keep their existing non-reveal
 });
 
 const reviewModerate: ReviewOperation = { action: 'moderate', operationId: A, reviewId: L, revision: A, status: 'approved', note: 'Reviewed' };
-const reviewSubmit: ReviewOperation = { action: 'submit', operationId: A, tenancyId: L, kind: 'property', rating: 4, text: 'Tahimik!' };
+const reviewSubmit: ReviewOperation = { action: 'submit', operationId: A, tenancyId: L, kind: 'property', rating: 4, text: 'Tahimik!', tags: [] };
 
 test('review moderation shows plain-language reasons while tenant and landlord review paths are unchanged', async () => {
   const service = createRentalReviewService(rpcClient(postgrest('Access unavailable', '42501')));

@@ -12,13 +12,13 @@ import {
 
 const U = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const TENANT = U(1), LANDLORD = U(2), STRANGER = U(3), TEN = U(4);
-const row = (kind: 'property' | 'user', over: Partial<ReviewRow> = {}): ReviewRow => ({ id: U(50 + (kind === 'user' ? 1 : 0)), kind, rating: 4, text: 'Nice place', revision: U(60), createdAt: '2026-11-10T00:00:00Z', status: 'pending', propertyId: kind === 'property' ? U(5) : null, updatedAt: null, moderatedAt: null, history: [], ...over });
-const ctx = (over: Partial<ReviewContext> = {}): ReviewContext => ({ tenancyId: TEN, propertyId: U(5), tenantId: TENANT, landlordId: LANDLORD, eligible: true, own: [], legacyUserReview: false, ...over });
+const row = (kind: 'property' | 'user', over: Partial<ReviewRow> = {}): ReviewRow => ({ id: U(50 + (kind === 'user' ? 1 : 0)), kind, rating: 4, text: 'Nice place', revision: U(60), createdAt: '2026-11-10T00:00:00Z', status: 'pending', propertyId: kind === 'property' ? U(5) : null, updatedAt: null, moderatedAt: null, history: [], tags: [], ...over });
+const ctx = (over: Partial<ReviewContext> = {}): ReviewContext => ({ tenancyId: TEN, propertyId: U(5), tenantId: TENANT, landlordId: LANDLORD, eligible: true, own: [], received: [], legacyUserReview: false, ...over });
 
 // ---- Who sees which screen
-test('the tenant sees "Review the property" and can only submit a property review', () => {
+test('the tenant sees "Rate your stay" and can only submit a property review', () => {
   const s = reviewScreenFor(ctx(), TENANT)!;
-  assert.deepEqual([s.role, s.kind, s.title, s.state, s.own], ['tenant', 'property', 'Review the property', 'form', null]);
+  assert.deepEqual([s.role, s.kind, s.title, s.state, s.own], ['tenant', 'property', 'Rate your stay', 'form', null]);
 });
 test('the landlord sees "Rate your tenant" and submits a user review', () => {
   const s = reviewScreenFor(ctx(), LANDLORD)!;
@@ -81,7 +81,7 @@ test('after submit the person is told the review will appear once it has been ch
   assert.doesNotMatch(readFileSync('src/shared/viewModels/rentalReviewWorkflow.ts', 'utf8'), /Review submitted for moderation/);
 });
 test('review status wording: pending waits, approved is published, the rest are not published', () => {
-  assert.deepEqual((['pending', 'approved', 'rejected', 'hidden'] as const).map(reviewStatusLabel), ['Waiting to be checked', 'Published', 'Not published', 'Not published']);
+  assert.deepEqual((['pending', 'approved', 'rejected', 'hidden'] as const).map(reviewStatusLabel), ['Pending review', 'Published', 'Not published', 'Not published']);
 });
 test('submit errors: two refusals are plain; anything else keeps the generic message', () => {
   assert.equal(reviewSubmitErrorText({ message: 'Completed tenancy required' }), 'You can review once the tenancy has ended.');
@@ -155,39 +155,56 @@ function harness(vm: any, preset: any[] = [], alerts: any[] = [], scopes: any[] 
 const flat = (n: any): any[] => Array.isArray(n) ? n.flatMap(flat) : n && typeof n === 'object' ? [n, ...flat(n.props?.children)] : typeof n === 'string' ? [n] : [];
 const nodes = (t: any) => flat(t).filter(n => typeof n === 'object');
 const text = (t: any) => flat(t).filter(n => typeof n === 'string').join('|');
-const panel = (context: ReviewContext, actor: string, extra: any = {}, vmOver: any = {}) => {
+const panel = (context: ReviewContext, actor: string, extra: any = {}, vmOver: any = {}, preset: any[] = []) => {
   const vm = { data: { type: 'context', value: context }, ready: true, busy: false, saving: false, pending: null, error: null, notice: null, workflow: {}, ...vmOver };
-  return harness(vm).render('src/shared/components/RentalReviews.tsx', 'TenancyReviewPanel', { accountId: actor, tenancyId: TEN, ...extra });
+  return harness(vm, preset).render('src/shared/components/TenancyReviewPanel.tsx', 'TenancyReviewPanel', { accountId: actor, tenancyId: TEN, otherName: 'Samuel', ...extra });
 };
-test('tenant form: title, helper, rating scale, text box and a disabled Submit review; nothing about rating the landlord', () => {
+const radios = (t: any) => nodes(t).filter(n => n.type === 'Pressable' && n.props.accessibilityRole === 'radio');
+const checks = (t: any) => nodes(t).filter(n => n.type === 'Pressable' && n.props.accessibilityRole === 'checkbox');
+test('tenant form: five stars, the eight property tags, a comment box, the info line and a disabled Submit review; nothing about rating the landlord', () => {
   const tree = panel(ctx(), TENANT), t = text(tree);
-  assert.ok(t.includes('Review the property') && t.includes("Appears on the property's reviews after it has been checked."));
-  assert.equal(nodes(tree).filter(n => n.type === 'Pressable' && n.props.accessibilityRole === 'radio').length, 5);
-  assert.ok(nodes(tree).some(n => n.type === 'TextInput'));
-  assert.equal(nodes(tree).find(n => n.type === 'Button' && n.props.label === 'Submit review')!.props.disabled, true);
-  assert.doesNotMatch(t, /landlord|Tenant feedback|review target/i);
+  for (const s of ['How was your stay?', 'Tap a star to rate', 'What stood out?', 'Pick up to 5', 'Clean', 'Good wifi', 'Quiet', 'Safe area', 'Fair price', 'Well maintained', 'Matches the listing', 'Good location', 'Add a comment', 'Optional', '0 / 2000',
+    "An admin checks every review before it appears. You can't edit it after sending. Don't include contact details."]) assert.ok(t.includes(s), s);
+  assert.equal(radios(tree).length, 5); assert.equal(checks(tree).length, 8);
+  assert.ok(nodes(tree).some(n => n.type === 'TextInput' && n.props.maxLength === 2000));
+  assert.equal(nodes(tree).find(n => n.type === 'Button' && n.props.label === 'Submit review')!.props.disabled, true, 'stars are required');
+  assert.doesNotMatch(t, /landlord|Tenant feedback|review target|Refresh reviews|notify/i);
 });
-test('landlord form: "Rate your tenant", the profile helper and Submit rating', () => {
+test('landlord form: "How was <name> as a tenant?", the six tenant tags, and the profile info line', () => {
   const tree = panel(ctx(), LANDLORD), t = text(tree);
-  assert.ok(t.includes('Rate your tenant') && t.includes("Appears on this tenant's profile."));
-  assert.ok(nodes(tree).some(n => n.type === 'Button' && n.props.label === 'Submit rating'));
-  assert.doesNotMatch(t, /only/i);
+  for (const s of ['How was Samuel as a tenant?', 'Communicated well', 'Respectful', 'Paid on time', 'Kept the place clean', 'Followed house rules', 'Reported issues early', "Shown on Samuel's profile after an admin approves it."]) assert.ok(t.includes(s), s);
+  assert.equal(checks(tree).length, 6); assert.doesNotMatch(t, /Good wifi|Matches the listing/);
+  assert.ok(nodes(tree).some(n => n.type === 'Button' && n.props.label === 'Submit review'));
 });
-test('reviewed: "Your review" read-only with the rating, text and status; no form', () => {
-  const tree = panel(ctx({ own: [row('property', { rating: 5, text: 'Loved it' })] }), TENANT), t = text(tree);
-  assert.ok(t.includes('Your review') && t.includes('Waiting to be checked') && t.includes(' / 5') && nodes(tree).some(n => n.type === 'Text' && [n.props.children].flat().includes(5)) && t.includes('Loved it'));
-  assert.equal(nodes(tree).filter(n => n.type === 'Pressable' && n.props.accessibilityRole === 'radio').length, 0);
-  assert.ok(!nodes(tree).some(n => n.type === 'TextInput') && !nodes(tree).some(n => n.type === 'Button' && /^Submit/.test(n.props.label)));
-  assert.ok(text(panel(ctx({ own: [row('property', { status: 'approved' })] }), TENANT)).includes('Published'));
+test('reviewed and pending: "Review sent" with the stored review, a Pending chip, three steps and Back to tenancy; no form', () => {
+  const own = row('property', { rating: 5, text: 'Loved it', tags: ['clean', 'quiet'] });
+  const tree = panel(ctx({ own: [own] }), TENANT, { onDone() {} }), t = text(tree);
+  for (const s of ['Thanks, your review is in', 'An admin checks it first, usually within a day. It appears once approved.', 'Your review of the property', 'Loved it', 'Clean', 'Quiet', 'Status of your review', 'Sent', 'Admin check', 'Pending', 'Published on the property', 'After approval']) assert.ok(t.includes(s), s);
+  assert.ok(nodes(tree).some(n => n.type === 'Button' && n.props.label === 'Back to tenancy'));
+  assert.equal(radios(tree).length, 0); assert.ok(!nodes(tree).some(n => n.type === 'TextInput') && !nodes(tree).some(n => n.type === 'Button' && /^Submit/.test(n.props.label)));
+  assert.doesNotMatch(t, /notify/i);
+  const landlord = text(panel(ctx({ own: [row('user')] }), LANDLORD, { onDone() {} }));
+  assert.ok(landlord.includes("Thanks, Samuel's review is in") && landlord.includes("Published on Samuel's profile"));
+});
+test('reviewed and approved or rejected: the status comes from the stored review; a rejected review says only "Not published", no reason and no resubmit', () => {
+  const approved = text(panel(ctx({ own: [row('property', { status: 'approved' })] }), TENANT, { onDone() {} }));
+  assert.ok(approved.includes('Your review is published') && approved.includes('Published') && !approved.includes('Pending'));
+  for (const status of ['rejected', 'hidden'] as const) {
+    const tree = panel(ctx({ own: [row('property', { status })] }), TENANT, { onDone() {} }), t = text(tree);
+    assert.ok(t.includes('Not published') && !t.includes('Pending'), status);
+    assert.doesNotMatch(t, /reason|spam|policy|resubmit|try again/i);
+    assert.ok(!nodes(tree).some(n => n.type === 'Button' && /Submit|Retry|Resubmit/.test(n.props.label)));
+  }
 });
 test('not eligible: the date when it is known, the fallback when it is not, and no form', () => {
   const tree = panel(ctx({ eligible: false }), TENANT, { endDate: '2999-01-01' }), t = text(tree);
   assert.ok(t.includes('You can review after Jan 1, 2999.'));
-  assert.ok(!nodes(tree).some(n => n.type === 'TextInput') && nodes(tree).filter(n => n.props?.accessibilityRole === 'radio').length === 0);
+  assert.ok(!nodes(tree).some(n => n.type === 'TextInput') && radios(tree).length === 0);
   assert.ok(text(panel(ctx({ eligible: false }), LANDLORD)).includes('You can review once the tenancy has ended.'));
 });
-test('the thank-you notice shows after a submit', () => {
-  assert.ok(text(panel(ctx({ own: [row('property')] }), TENANT, {}, { notice: REVIEW_SUBMITTED_NOTICE })).includes('Thanks. Your review will appear once it has been checked.'));
+test('the screen has no publish notification promise and no review-target selector', () => {
+  assert.equal(REVIEW_SUBMITTED_NOTICE, 'Thanks. Your review will appear once it has been checked.');
+  for (const file of ['src/shared/components/TenancyReviewPanel.tsx', 'src/shared/models/ReviewPresentation.ts']) assert.doesNotMatch(readFileSync(file, 'utf8'), /notify you|Choose the review target|Refresh reviews/);
 });
 test('profile section renders nothing at zero and the section with rows otherwise; no reviewer names', () => {
   const render = (value: PublishedReviews) => harness({ data: { type: 'public', value } }).render('src/shared/components/LandlordExperienceSection.tsx', 'LandlordExperienceSection', { accountId: TENANT });
@@ -204,27 +221,37 @@ test('the profile uses the new section, and the tenancy screen passes its end da
 });
 
 // ---- Submit wiring, locking, scope and error mapping
-const submitFlow = (actor: string) => {
-  const calls: any[] = [], alerts: any[] = [];
-  const vm = { data: { type: 'context', value: ctx() }, ready: true, busy: false, saving: false, pending: null, error: null, notice: null, workflow: { submit: (d: any) => { calls.push(d); } } };
-  const tree = harness(vm, [4, 'Quiet building'], alerts).render('src/shared/components/RentalReviews.tsx', 'TenancyReviewPanel', { accountId: actor, tenancyId: TEN });
+const submitFlow = (actor: string, extraVm: any = {}) => {
+  const calls: any[] = [];
+  const vm = { data: { type: 'context', value: ctx() }, ready: true, busy: false, saving: false, pending: null, error: null, notice: null, workflow: { submit: (d: any) => { calls.push(d); }, retry: () => { calls.push('retry'); } }, ...extraVm };
+  const tree = harness(vm, [4, ['clean', 'quiet'], 'Quiet building']).render('src/shared/components/TenancyReviewPanel.tsx', 'TenancyReviewPanel', { accountId: actor, tenancyId: TEN, otherName: 'Samuel' });
   const button = nodes(tree).find(n => n.type === 'Button' && /^Submit/.test(n.props.label))!;
-  return { calls, alerts, button };
+  return { calls, button, tree };
 };
-test('submitting asks for confirmation and then sends the role\'s own kind with the rating and text', () => {
-  for (const [actor, kind, label] of [[TENANT, 'property', 'Submit review'], [LANDLORD, 'user', 'Submit rating']] as const) {
+test("Submit sends the role's own kind with the stars, tags and text, with no confirmation dialog", () => {
+  for (const [actor, kind] of [[TENANT, 'property'], [LANDLORD, 'user']] as const) {
     const f = submitFlow(actor);
-    assert.equal(f.button.props.label, label); assert.equal(f.button.props.disabled, false, 'enabled once a rating is chosen');
+    assert.equal(f.button.props.label, 'Submit review'); assert.equal(f.button.props.disabled, false, 'enabled once stars are chosen');
     f.button.props.onPress();
-    assert.equal(f.alerts.length, 1); assert.deepEqual(f.calls, [], 'nothing is sent before the confirmation');
-    f.alerts[0].buttons.find((b: any) => b.text === 'Send').onPress();
-    assert.deepEqual(f.calls, [{ action: 'submit', tenancyId: TEN, kind, rating: 4, text: 'Quiet building' }]);
+    assert.deepEqual(f.calls, [{ action: 'submit', tenancyId: TEN, kind, rating: 4, text: 'Quiet building', tags: ['clean', 'quiet'] }]);
   }
 });
-test('while saving or busy the rating scale and the text box are disabled', () => {
-  const tree = panel(ctx(), TENANT, {}, { saving: true });
-  assert.ok(nodes(tree).filter(n => n.props?.accessibilityRole === 'radio').every(n => n.props.disabled === true));
+test('while saving the stars, tags and comment are disabled and Submit says Sending', () => {
+  const tree = panel(ctx(), TENANT, {}, { saving: true }, [4, ['clean'], 'x']);
+  assert.ok(radios(tree).every(n => n.props.accessibilityState.disabled === true));
+  assert.ok(checks(tree).every(n => n.props.accessibilityState.disabled === true));
   assert.equal(nodes(tree).find(n => n.type === 'TextInput')!.props.editable, false);
+  assert.equal(nodes(tree).find(n => n.type === 'Button' && n.props.label === 'Sending...')!.props.disabled, true);
+});
+test('an unconfirmed send shows the same review and Retry, never the form again', () => {
+  const op = { operationId: U(95), action: 'submit', tenancyId: TEN, kind: 'property', rating: 5, text: 'Great', tags: ['clean'] };
+  const f = submitFlow(TENANT, { pending: op, error: 'Outcome not confirmed. Retry the same operation.' });
+  const t = text(f.tree);
+  assert.ok(t.includes("Your review isn't confirmed yet") && t.includes('Great') && t.includes('Clean'));
+  assert.ok(!nodes(f.tree).some(n => n.type === 'TextInput'));
+  const retry = nodes(f.tree).find(n => n.type === 'Button' && n.props.label === 'Retry')!;
+  retry.props.onPress();
+  assert.deepEqual(f.calls, ['retry'], 'Retry goes through the workflow, which reuses the saved operation id');
 });
 test('the profile section reads the signed-in user\'s published USER reviews', () => {
   const scopes: any[] = [];
@@ -234,7 +261,7 @@ test('the profile section reads the signed-in user\'s published USER reviews', (
 test('the service shows the plain text for the two refused submits', async () => {
   const { createRentalReviewService } = await import('../src/shared/services/rentalReviewService');
   const make = (message: string) => createRentalReviewService(() => ({ auth: { getUser: async () => ({ data: { user: { id: TENANT } }, error: null }) }, rpc: () => ({ abortSignal: async () => ({ data: null, error: { code: '22023', message } }) }) } as any));
-  const op = { operationId: U(90), action: 'submit', tenancyId: TEN, kind: 'property', rating: 4, text: null } as const;
+  const op = { operationId: U(90), action: 'submit', tenancyId: TEN, kind: 'property', rating: 4, text: null, tags: [] as string[] } as const;
   await assert.rejects(make('Completed tenancy required').write(TENANT, op, new AbortController().signal), /You can review once the tenancy has ended\./);
   await assert.rejects(make('Actual tenant required').write(TENANT, { ...op, kind: 'property' }, new AbortController().signal), /Only the tenant can review the property\./);
   await assert.rejects(make('Something else').write(TENANT, op, new AbortController().signal), /Review already exists, changed, or this action is unavailable/);

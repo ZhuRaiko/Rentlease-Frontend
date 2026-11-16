@@ -154,7 +154,7 @@ export function workspaceScreen(i: WorkspaceInput): WorkspaceScreen {
       ? {title: role === 'tenant' ? `Rate ${title}` : `Rate ${other}`, body: role === 'tenant' ? 'Your rating helps the next renter. Takes under a minute.' : 'Your rating helps other landlords. Takes under a minute.', button: role === 'tenant' ? 'Rate your stay' : 'Rate your tenant'}
       : null;
     return {...common, subtitle: rated ?? `${other} · ${range}`, note: null, prompt, conversationId: t.conversation_id || null, reservationId: null, similar: null,
-      buttons: prompt ? [{key: 'rate', label: prompt.button, primary: true}, {key: 'view', label: 'View', primary: false}] : [{key: 'view', label: 'View', primary: false}]};
+      buttons: prompt ? [{key: 'rate', label: prompt.button, primary: true}, {key: 'view', label: 'View', primary: false}] : screen?.own ? [{key: 'rate', label: 'Your review', primary: false}, {key: 'view', label: 'View', primary: false}] : [{key: 'view', label: 'View', primary: false}]};
   });
   const needsOk = items.filter(x => x.role === 'tenant'), attention = items.filter(x => x.role === 'landlord');
   return {

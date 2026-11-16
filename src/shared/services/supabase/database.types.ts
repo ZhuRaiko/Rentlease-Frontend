@@ -2273,7 +2273,9 @@ export type Database = {
       set_saved_listing: { Args: { p_listing_id: string; p_saved: boolean }; Returns: Json }
       // Prepared local T7A review contracts; not deployed.
       get_tenancy_reviews: {Args:{p_tenancy_id:string};Returns:Json}
-      submit_tenancy_review: {Args:{p_tenancy_id:string;p_operation_id:string;p_kind:string;p_rating:number;p_text:string|null};Returns:Json}
+      // Applied 20261116140000_review_tags: a 6-argument form (p_tags) plus the 5-argument wrapper; one optional argument types both.
+      submit_tenancy_review: {Args:{p_tenancy_id:string;p_operation_id:string;p_kind:string;p_rating:number;p_text:string|null;p_tags?:string[]};Returns:Json}
+      get_review_summary: {Args:{p_kind:string;p_target_id:string};Returns:Json}
       get_published_rental_reviews: {Args:{p_kind:string;p_target_id:string;p_offset?:number};Returns:Json}
       get_review_moderation: {Args:{p_status?:string;p_offset?:number};Returns:Json}
       moderate_rental_review: {Args:{p_review_id:string;p_operation_id:string;p_revision:string;p_status:string;p_note:string};Returns:Json}

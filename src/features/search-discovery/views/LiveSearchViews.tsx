@@ -1,6 +1,7 @@
 import {ReportAction} from '../../../shared/components/Reporting';
 import {SaveListingButton,SavedListingsFeedback} from '../components/SaveListingButton';
 import {RentalFeedbackSection} from '../../../shared/components/RentalFeedbackSection';
+import {LandlordRatingLine} from '../../../shared/components/LandlordRatingLine';
 import {PublicLocationMap} from '../../../shared/components/PublicLocationMap';
 import {InlineRentalEstimate} from '../../../shared/components/InlineRentalEstimate';
 import {PublicAvatar} from '../../../shared/components/PublicIdentityBadge';
@@ -78,11 +79,11 @@ export function LivePropertyDetailView({viewModel:vm,accountId,onOpenPriceEstima
         <Text style={styles.small}>Listed by</Text>
         <View style={styles.ownerRow}>
           <PublicAvatar url={vm.listingOwnerIdentity?.avatarUrl} name={vm.listingOwnerIdentity?.nickname}/>
-          <Text style={styles.ownerName}>{vm.listingOwnerLabel}</Text>
+          <View style={{flex:1,minWidth:0}}><Text style={styles.ownerName}>{vm.listingOwnerLabel}</Text><LandlordRatingLine key={`${accountId}:${d.ownerId}`} accountId={accountId} landlordId={d.ownerId}/></View>
         </View>
         {vm.isOwnListing?<Text style={styles.copy}>This is your listing.</Text>:null}
       </View>
-      <View style={styles.spotlight}><RentalFeedbackSection key={`${accountId}:${d.listingId}`} accountId={accountId} propertyId={d.propertyId} ownerId={d.ownerId}/></View>
+      <View style={styles.spotlight}><RentalFeedbackSection key={`${accountId}:${d.listingId}`} accountId={accountId} propertyId={d.propertyId}/></View>
       <View style={styles.spotlight}><View style={{gap:4}}><Text style={styles.kicker}>Explore the neighborhood</Text><Text accessibilityRole="header" style={styles.heading}>Location & Nearby Places</Text><Text style={styles.small}>Understand the area before reaching out.</Text></View><View style={styles.locationCard}>
       <View style={styles.locationSummary}><Text style={styles.locationSymbol} accessible={false}>{'\u2316'}</Text><View style={{flex:1,gap:3}}><Text style={styles.locationName}>{d.barangay}, {cityLabels[d.city]??d.city}</Text><Text style={styles.small}>Public approximate location</Text></View></View>
       <View style={{marginHorizontal:12}}>{d.publicLocation?<PublicLocationMap compact key={`${accountId}:${d.propertyId}`} latitude={d.publicLocation.latitude} longitude={d.publicLocation.longitude}/>:<Text style={styles.copy}>No usable public location is available for this rental.</Text>}</View>

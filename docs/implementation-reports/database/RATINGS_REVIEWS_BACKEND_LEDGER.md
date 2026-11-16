@@ -99,3 +99,7 @@ Entry F4-M1. Design and decisions: [f4-ratings-backend-design.md](../../design/f
 | Security/RLS | Private tables stay closed to client roles; no policy added; checks ran as `authenticated`, `anon` and `service_role` JWT roles |
 | Source-controlled backend file | `supabase/migrations/20261116140000_review_tags.sql` |
 | Android/client runtime | Not applicable (no client change) |
+
+## Feature 4 Step 2: frontend - November 16, 2026
+
+Entry F4-F1. No migration, SQL, schema or data change was made in this step. The app now calls `submit_tenancy_review` with `p_tags`, `get_tenancy_reviews` (tags and `received`), `get_published_rental_reviews` (row tags) and `get_review_summary`. The emulator session read the existing test account's data through the app (own reads only); no review was submitted.

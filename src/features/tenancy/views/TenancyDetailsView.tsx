@@ -1,11 +1,13 @@
-import {TenancyReviewPanel} from '../../../shared/components/RentalReviews';
+import {TenancyReviewPanel,type ReviewSubject} from '../../../shared/components/TenancyReviewPanel';
+import {TagPills} from '../../../shared/components/ReviewParts';
+import {dateRange} from '../../../shared/utils/rentalDates';
 import {TenancyLifecyclePanel} from './TenancyLifecyclePanel';
 import {TenancyCarePanel} from './TenancyCarePanel';
 import {RentLedgerPanel} from './RentLedgerPanel';
 import {payableRow} from '../models/RentLedger';
 import {useRentLedgerViewModel} from '../viewModels/useRentLedgerViewModel';
 import {KeyboardAwareScrollView} from '../../../shared/components/KeyboardAwareScrollView';
-import {useCallback,useEffect,useRef} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Pressable,RefreshControl,StyleSheet,Text,View} from 'react-native';
 import {ScreenHeader} from '../../../shared/components/ScreenHeader';
 import {AppButton} from '../../../shared/components/AppButton';
@@ -30,12 +32,14 @@ interface Props {
   /** Opens the property screen (today's list of properties until a single property's Manage screen exists). */
   onOpenProperty?:((propertyId:string)=>void)|undefined;
 }
+function reviewSubject(screen:DetailsScreen,photos:ReviewSubject['photos'],start:string,end:string|null|undefined):ReviewSubject{const range=dateRange(start,end);return screen.role==='tenant'?{title:screen.title,subtitle:`${screen.place} · ${range}`,photos,initial:null}:{title:screen.person.label,subtitle:`Tenant at ${screen.title} · ${range}`,photos:null,initial:screen.person.label.trim().charAt(0).toUpperCase()};}
 function Row({label,onPress}:{label:string;onPress:()=>void}){return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.docRow}><Text style={ui.body}>{label}</Text><Text accessible={false} style={styles.chevron}>›</Text></Pressable>;}
 function Card({title,right,children}:{title?:string;right?:React.ReactNode;children:React.ReactNode}){return <View style={styles.card}>{title?<View style={styles.cardHead}><Text accessibilityRole="header" style={ui.sectionTitle}>{title}</Text>{right}</View>:null}{children}</View>;}
 function Timeline({items}:{items:NonNullable<DetailsScreen['timeline']>}){return <View>{items.map((e,index)=><View key={e.key} style={styles.timelineRow}><View style={styles.rail}><View style={[styles.dot,index===items.length-1&&{backgroundColor:colors.warning}]}/>{index<items.length-1?<View style={styles.line}/>:null}</View><View style={{flex:1,paddingBottom:spacing.sm}}><Text style={ui.body}>{e.label}</Text><Text style={ui.supporting}>{e.date}{e.note?` · ${e.note}`:''}</Text></View></View>)}</View>;}
 export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onOpenConversation,externalPanelOpen=false,registerBackAction,initialPanel,onOpenProperty}:Props){
  const vm=useTenancyDetailsViewModel(accountId,tenancyId,reservationId,externalPanelOpen),d=vm.data,t=d?.tenancy;
  const care=useTenancyCareViewModel(accountId,tenancyId),life=useTenancyLifecycleViewModel(accountId,tenancyId),reviews=useRentalReviews(accountId,{mode:'tenancy',id:tenancyId});
+ const [reviewTitle,setReviewTitle]=useState('Ratings');
  const exitGuard=useRef<(()=>boolean)|null>(null),registerExitGuard=useCallback((guard:(()=>boolean)|null)=>{exitGuard.current=guard;},[]);
  const back=()=>{if(exitGuard.current&&!exitGuard.current())return;if(!vm.workflow.back())onBack();};
  useEffect(()=>{if(externalPanelOpen)return;registerBackAction(back);return()=>registerBackAction(null);});
@@ -44,13 +48,13 @@ export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onO
  const screen=d&&t&&accountId?detailsScreen({actor:accountId,tenancy:t,context:d.context,identities:vm.identities,care:care.data,lifecycle:life.data,reviews:reviews.data?.type==='context'?reviews.data.value:null,reservation:d.reservation,conversationId:d.conversationId,now:Date.now()}):null;
  const counterpart=screen?.person.label??'the other person',rent=useRentLedgerViewModel(accountId,tenancyId,d?.conversationId??null,counterpart);
  const payable=t?payableRow(rent.rows,accountId===t.tenant_id?'tenant':'landlord',t.status):undefined;
- const title=vm.panel==='rent'?`Rent · ${screen?.title??'Rental'}`:vm.panel==='reviews'?'Tenancy reviews':vm.panel==='lifecycle'?'Tenancy completion':vm.panel==='care'?'Rent and maintenance':vm.panel==='property'?'Property information':vm.panel==='reservation'?'Reservation reference':'Tenancy details';
+ const title=vm.panel==='rent'?`Rent · ${screen?.title??'Rental'}`:vm.panel==='reviews'?reviewTitle:vm.panel==='lifecycle'?'Tenancy completion':vm.panel==='care'?'Rent and maintenance':vm.panel==='property'?'Property information':vm.panel==='reservation'?'Reservation reference':'Tenancy details';
  const message=()=>{if(d?.conversationId)onOpenConversation?.(d.conversationId);};
  return <View style={styles.screen}><ScreenHeader title={title} onBack={back}/><KeyboardAwareScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={vm.phase==='loading'} onRefresh={()=>void vm.workflow.load()}/>}>
  {vm.phase==='loading'||vm.phase==='idle'?<ActivityIndicator accessibilityLabel="Loading tenancy details" color={colors.primaryAction}/>:null}
  {vm.error?<View style={styles.card}><Text accessibilityRole="alert" style={ui.body}>{vm.error}</Text><AppButton label="Retry tenancy details" variant="secondary" onPress={()=>void vm.workflow.load()}/></View>:null}
  {d&&t&&screen?<>
- {vm.panel==='reviews'?<TenancyReviewPanel key={`${accountId}:${t.id}`} accountId={accountId} tenancyId={t.id} endDate={t.actual_end_date??t.expected_end_date} registerExitGuard={registerExitGuard}/>
+ {vm.panel==='reviews'?<TenancyReviewPanel key={`${accountId}:${t.id}`} accountId={accountId} tenancyId={t.id} otherName={screen.person.label} subject={reviewSubject(screen,d.context.photos,t.start_date,t.actual_end_date??t.expected_end_date)} endDate={t.actual_end_date??t.expected_end_date} registerExitGuard={registerExitGuard} onTitle={setReviewTitle} onDone={()=>{void reviews.workflow.load();vm.workflow.back();}}/>
   :vm.panel==='lifecycle'?<TenancyLifecyclePanel key={`${accountId}:${t.id}`} accountId={accountId} tenancyId={t.id} registerExitGuard={registerExitGuard} onChanged={()=>void vm.workflow.load()}/>
   :vm.panel==='rent'?<RentLedgerPanel accountId={accountId} counterpart={counterpart} hasConversation={!!d.conversationId} rent={rent}/>
   :vm.panel==='care'?<TenancyCarePanel key={`${accountId}:${t.id}`} accountId={accountId} tenancyId={t.id} onOpenLedger={()=>vm.workflow.open('rent')}/>
@@ -68,7 +72,7 @@ export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onO
    </Card>
    {screen.actions?<ButtonRow><Slot><StatusButton tone="primary" label={screen.actions.primary.label} onPress={()=>screen.actions!.primary.kind==='report'?vm.workflow.open('care'):onOpenProperty?.(t.property_id)}/></Slot>{screen.actions.message?<Slot><StatusButton label="Message" onPress={message}/></Slot>:null}</ButtonRow>:null}
    {screen.ratingPrompt?<View style={styles.prompt}><View style={styles.promptHead}><Stars/><Text style={styles.promptTitle}>{screen.ratingPrompt.title}</Text></View><Text style={ui.supporting}>{screen.ratingPrompt.body}</Text><StatusButton tone="warning" label={screen.ratingPrompt.button} onPress={()=>vm.workflow.open('reviews')}/></View>:null}
-   {screen.reviews?<Card title="Reviews from this tenancy">{screen.reviews.length?screen.reviews.map(r=><View key={r.key} style={{gap:2}}><Text style={ui.supporting}>{r.label} · {r.status}</Text><Text accessibilityLabel={`${r.rating} out of 5 stars`} style={styles.starsText}>{stars(r.rating)}</Text><Text style={ui.body}>{r.text??'Rating only; no written feedback.'}</Text></View>):<Text style={ui.supporting}>No reviews yet.</Text>}<Text style={ui.supporting}>{REVIEWS_NOTE}</Text></Card>:null}
+   {screen.reviews?<Card title="Reviews from this tenancy">{screen.reviews.length?screen.reviews.map(r=><View key={r.key} style={{gap:2}}><Text style={ui.supporting}>{r.status?`${r.label} · ${r.status}`:r.label}</Text><Text accessibilityLabel={`${r.rating} out of 5 stars`} style={styles.starsText}>{stars(r.rating)}</Text><Text style={ui.body}>{r.text||'Rating only; no written feedback.'}</Text><TagPills labels={r.tags}/></View>):<Text style={ui.supporting}>No reviews yet.</Text>}<Text style={ui.supporting}>{REVIEWS_NOTE}</Text></Card>:null}
    {screen.timeline?<Card title="What happened"><Timeline items={screen.timeline}/></Card>:null}
    {screen.rent?<Card title="Rent" right={<Text style={ui.supporting}>{screen.rent.dueOn}</Text>}>{screen.rent.rows.length?screen.rent.rows.map(row=><View key={row} style={styles.rentRow}><Text style={ui.body}>Due {row}</Text></View>):<Text style={ui.supporting}>No upcoming date is scheduled.</Text>}<Text style={ui.supporting}>{screen.rent.note}</Text>
     {rent.notice?<Text accessibilityLiveRegion="polite" style={styles.rentNotice}>{rent.notice}</Text>:null}{rent.error?<Text accessibilityRole="alert" style={ui.supporting}>{rent.error}</Text>:null}

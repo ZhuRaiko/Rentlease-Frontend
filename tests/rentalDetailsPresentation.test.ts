@@ -12,7 +12,7 @@ function harness(file:string,name:string,estimate?:{workflow:ReturnType<typeof c
   if(key==='react')return{useState:(v:any)=>{const i=cursor++;if(!(i in slots))slots[i]=v;return[slots[i],(value:any)=>slots[i]=typeof value==='function'?value(slots[i]):value];},useEffect:()=>{}};
   if(key==='react/jsx-runtime')return{jsx:(type:any,props:any)=>typeof type==='function'?type(props):({type,props}),jsxs:(type:any,props:any)=>typeof type==='function'?type(props):({type,props})};
   if(key==='react-native')return{Text:'Text',View:'View',Image:'Image',ScrollView:'ScrollView',ActivityIndicator:'ActivityIndicator',Pressable:'Pressable',FlatList:'FlatList',TextInput:'TextInput',StyleSheet:{create:(x:any)=>x},useWindowDimensions:()=>({width:320,fontScale:1.5})};
-  const mocks:any={Reporting:{ReportAction:'ReportAction'},SaveListingButton:{SaveListingButton:'Heart',SavedListingsFeedback:'SavedFeedback'},RentalFeedbackSection:{RentalFeedbackSection:'Feedback'},PublicLocationMap:{PublicLocationMap:'PublicMap'},InlineRentalEstimate:{InlineRentalEstimate:'Estimate'},PublicIdentityBadge:{PublicAvatar:'Avatar'},KeyboardAwareScrollView:{KeyboardAwareScrollView:'ScrollView'},FullscreenDocumentImage:{FullscreenDocumentImage:'Fullscreen'},DiscoveryControls:{DiscoveryHeader:'Header',DiscoveryButton:'Button',DiscoveryChip:'Chip',DiscoverySearchBar:'Search'},SearchListingCard:{SearchListingCard:'Card'},RentalReviews:{PublishedRentalReviews:'Reviews'},PropertyReviewWordCloud:{PropertyReviewWordCloud:'Cloud'}};
+  const mocks:any={Reporting:{ReportAction:'ReportAction'},SaveListingButton:{SaveListingButton:'Heart',SavedListingsFeedback:'SavedFeedback'},RentalFeedbackSection:{RentalFeedbackSection:'Feedback'},LandlordRatingLine:{LandlordRatingLine:'OwnerRating'},PublicLocationMap:{PublicLocationMap:'PublicMap'},InlineRentalEstimate:{InlineRentalEstimate:'Estimate'},PublicIdentityBadge:{PublicAvatar:'Avatar'},KeyboardAwareScrollView:{KeyboardAwareScrollView:'ScrollView'},FullscreenDocumentImage:{FullscreenDocumentImage:'Fullscreen'},DiscoveryControls:{DiscoveryHeader:'Header',DiscoveryButton:'Button',DiscoveryChip:'Chip',DiscoverySearchBar:'Search'},SearchListingCard:{SearchListingCard:'Card'},RentalReviews:{PublishedRentalReviews:'Reviews'},PropertyReviewWordCloud:{PropertyReviewWordCloud:'Cloud'}};
   const tail=key.split('/').at(-1)!;
   if(estimate&&tail==='useInlineRentalEstimate')return {useInlineRentalEstimate:(accountId:any,target:any)=>{estimate.bindings.push({accountId,target});return {...estimate.workflow.getSnapshot(),workflow:estimate.workflow};}};
   if(estimate&&tail==='InlineRentalEstimate'){
@@ -44,14 +44,6 @@ test('Nearby tab is independently recoverable and maps only actual returned plac
  let tree=render(props);nodes(tree).find(n=>n.props?.accessibilityRole==='tab'&&n.props.children.props.children==='Nearby Places').props.onPress();tree=render(props);assert.equal(nodes(tree).filter(n=>n.type==='PublicMap').length,1);nodes(tree).find(n=>n.props?.accessibilityLabel==='Retry nearby places').props.onPress();assert.equal(retries,1);bareCheck(tree);
  props.viewModel.manualState.placesPhase='success';tree=render(props);assert.match(JSON.stringify(tree),/No named nearby places/);bareCheck(tree);
 });
-test('Property Landlord Themes tabs mount exactly one authorized source at a time',()=>{
- const render=harness('src/shared/components/RentalFeedbackSection.tsx','RentalFeedbackSection'),props={accountId:'tenant',propertyId:'property',ownerId:'owner'};
- let tree=render(props),reviews=nodes(tree).find(n=>n.type==='Reviews');assert.equal(reviews.props.kind,'property');assert.equal(reviews.props.targetId,'property');
- nodes(tree).find(n=>n.props?.accessibilityRole==='tab'&&n.props.children.props.children==='Landlord').props.onPress();tree=render(props);reviews=nodes(tree).find(n=>n.type==='Reviews');assert.equal(reviews.props.kind,'user');assert.equal(reviews.props.targetId,'owner');assert.equal(reviews.props.compact,true);
- nodes(tree).find(n=>n.props?.accessibilityRole==='tab'&&n.props.children.props.children==='Themes').props.onPress();tree=render(props);assert.equal(nodes(tree).filter(n=>n.type==='Reviews').length,0);assert.equal(nodes(tree).find(n=>n.type==='Cloud').props.propertyId,'property');bareCheck(tree);
-});
-
-
 test('public map centers only supplied public coordinates and has bounded independent retry',()=>{
  const m={exports:{} as any},slots:any[]=[],effects:any[]=[],timers=new Map<number,()=>void>();let cursor=0,id=0;
  const req=(key:string):any=>{

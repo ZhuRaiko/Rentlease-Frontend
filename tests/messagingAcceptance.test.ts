@@ -25,6 +25,7 @@ function loadDetail(){
   if(key.endsWith('/FullscreenDocumentImage'))return{FullscreenDocumentImage:'Gallery'};
   if(key.endsWith('/InterfaceIcon'))return{InterfaceIcon:'Icon'};
   if(key.endsWith('/SaveListingButton'))return{SaveListingButton:'SaveListingButton',SavedListingsFeedback:'SavedListingsFeedback'};
+  if(key.endsWith('/LandlordRatingLine'))return{LandlordRatingLine:'LandlordRatingLine'};
   if(key.endsWith('/RentalFeedbackSection'))return{RentalFeedbackSection:'RentalFeedbackSection'};
   if(key.endsWith('/PublicLocationMap'))return{PublicLocationMap:'PublicLocationMap'};
   if(key.endsWith('/InlineRentalEstimate'))return{InlineRentalEstimate:'InlineRentalEstimate'};
