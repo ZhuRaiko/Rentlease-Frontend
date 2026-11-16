@@ -149,7 +149,6 @@ export function ManagePropertyView({ viewModel: vm, management, accountId, onBac
       {!occupied ? <View style={styles.grid}>
         {canEditListing ? <Tile label="Edit listing" note="Photos, price, info" icon={<Text style={styles.glyph}>{'✎'}</Text>} onPress={vm.editManagedListing} /> : null}
       </View> : null}
-      {occupied ? <StatusButton label="Back to My properties" onPress={vm.goDashboard} disabled={state.busy} /> : null}
     </ScrollView>
   </View>;
 }

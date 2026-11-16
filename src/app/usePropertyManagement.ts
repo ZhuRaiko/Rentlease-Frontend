@@ -4,6 +4,9 @@ import { getSupabaseClient } from '../shared/services/supabase/client';
 import { createRentalReviewService } from '../shared/services/rentalReviewService';
 import { usePublicIdentitiesViewModel } from '../shared/viewModels/usePublicIdentitiesViewModel';
 import { createLandlordTenanciesService } from '../features/tenancy/services/landlordTenanciesService';
+import { createTenancyCareService } from '../features/tenancy/services/tenancyCareService';
+import type { InboxRow } from '../features/tenancy/models/Maintenance';
+import { propertyMaintenance } from '../features/tenancy/models/MaintenanceInbox';
 import { createTenancyActivityService, emptyActivity, type TenancyActivity } from '../features/tenancy/services/tenancyActivityService';
 import { createRentLedgerService } from '../features/tenancy/services/rentLedgerService';
 import { rentErrorText } from '../features/tenancy/models/RentLedger';
@@ -21,7 +24,18 @@ const activityService = createTenancyActivityService(getSupabaseClient);
 const tenancyService = createLandlordTenanciesService(getSupabaseClient);
 const rentService = createRentLedgerService(getSupabaseClient);
 const reviewService = createRentalReviewService(getSupabaseClient);
-const CLOSED = ['resolved', 'rejected', 'cancelled'];
+const careService = createTenancyCareService(getSupabaseClient);
+/** The landlord's whole maintenance inbox, page by page (20 per page, at most 25 pages), the same read the inbox screen uses. */
+async function readInbox(actor: string, signal: AbortSignal): Promise<InboxRow[]> {
+  let rows: InboxRow[] = [];
+  for (let page = 0; page < 25; page++) {
+    const read = await careService.inbox(actor, page * 20, signal);
+    const seen = new Set(rows.map(r => r.id));
+    rows = [...rows, ...read.rows.filter(r => !seen.has(r.id))];
+    if (!read.hasMore) break;
+  }
+  return rows;
+}
 
 export interface PropertyManagementNavigation {
   openTenancy: (open: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' | 'rent'; requestId?: string }) => void;
@@ -34,28 +48,30 @@ export interface PropertyManagementNavigation {
  * holds. A failed read leaves its fact empty (hidden), never a guessed value. Account-scoped; an account change drops everything.
  */
 export function usePropertyManagement(accountId: string | undefined, snapshot: ReturnType<typeof useRequestSnapshot>, navigation: PropertyManagementNavigation, openRequests: (item: LandlordPortfolioItem) => void): PropertyManagementPort {
-  const [state, setState] = useState<{ owner: string | undefined; tenancies: RentalRelationship[]; activity: TenancyActivity; busy: boolean; error: string | null }>({ owner: undefined, tenancies: [], activity: emptyActivity(), busy: true, error: null });
+  const [state, setState] = useState<{ owner: string | undefined; tenancies: RentalRelationship[]; activity: TenancyActivity; inbox: InboxRow[] | null; busy: boolean; error: string | null }>({ owner: undefined, tenancies: [], activity: emptyActivity(), inbox: null, busy: true, error: null });
   const [reviews, setReviews] = useState<{ owner: string | undefined; byProperty: Record<string, { average: number; count: number } | null> }>({ owner: undefined, byProperty: {} });
   const [revision, setRevision] = useState(0);
   const requested = useRef(new Set<string>());
   useEffect(() => {
     const c = new AbortController();
-    setState({ owner: accountId, tenancies: [], activity: emptyActivity(), busy: !!accountId, error: null });
+    setState({ owner: accountId, tenancies: [], activity: emptyActivity(), inbox: null, busy: !!accountId, error: null });
     requested.current = new Set(); setReviews({ owner: accountId, byProperty: {} });
     if (!accountId) return () => c.abort();
     (async () => {
       try {
         const tenancies = await tenancyService.open(accountId, c.signal);
         const activity = await activityService.read(accountId, tenancies, c.signal);
-        if (!c.signal.aborted) setState({ owner: accountId, tenancies, activity, busy: false, error: null });
+        // A failed inbox read leaves the maintenance facts empty (hidden), never a guess.
+        const inbox = await readInbox(accountId, c.signal).catch(() => null);
+        if (!c.signal.aborted) setState({ owner: accountId, tenancies, activity, inbox, busy: false, error: null });
       } catch {
-        if (!c.signal.aborted) setState({ owner: accountId, tenancies: [], activity: emptyActivity(), busy: false, error: 'Tenant and maintenance details could not load. Pull to refresh to retry.' });
+        if (!c.signal.aborted) setState({ owner: accountId, tenancies: [], activity: emptyActivity(), inbox: null, busy: false, error: 'Tenant and maintenance details could not load. Pull to refresh to retry.' });
       }
     })();
     const sub = AppState.addEventListener('change', s => { if (s === 'active') setRevision(v => v + 1); });
     return () => { c.abort(); sub.remove(); };
   }, [accountId, revision]);
-  const current = state.owner === accountId ? state : { owner: accountId, tenancies: [], activity: emptyActivity(), busy: true, error: null };
+  const current = state.owner === accountId ? state : { owner: accountId, tenancies: [], activity: emptyActivity(), inbox: null, busy: true, error: null };
   const reservations = snapshot.owner === accountId ? snapshot.reservations.filter(r => r.landlordId === accountId && effectiveReservationStatus(r, snapshot.now) === 'pending') : [];
   const identities = usePublicIdentitiesViewModel(accountId, [...current.tenancies.map(t => t.tenant_id), ...reservations.map(r => r.tenantId)]);
   const facts = useMemo(() => {
@@ -64,10 +80,9 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
     for (const t of current.tenancies) {
       const f = of(t.property_id);
       if (t.status === 'active' && !f.stay) {
-        const care = current.activity.care[t.id], lifecycle = current.activity.lifecycle[t.id];
-        const open = (care?.requests ?? []).filter(r => !CLOSED.includes(r.status));
+        const lifecycle = current.activity.lifecycle[t.id];
         f.stay = { tenancyId: t.id, tenantId: t.tenant_id, tenantName: identities[t.tenant_id]?.nickname ?? null, startDate: t.start_date, endDate: t.actual_end_date ?? t.expected_end_date, rent: t.agreed_monthly_rent ?? null, nextDue: nextScheduledRentDate(t), conversationId: t.conversation_id };
-        f.maintenance = { open: open.length, urgent: open.filter(r => r.priority === 'urgent').map(r => ({ id: r.id, title: r.title, createdAt: r.createdAt })) };
+        if (current.inbox) f.maintenance = propertyMaintenance(current.inbox, t.property_id);
         f.endRequest = lifecycle?.pending ? { tenancyId: t.id, fromTenant: lifecycle.pending.initiatorId === t.tenant_id } : null;
         const ledger = current.activity.rent[t.id], waiting = ledger?.awaiting ? ledger.rows.find(r => r.dueDate === ledger.awaiting!.dueDate) : undefined;
         f.rentAwaiting = ledger?.awaiting && waiting ? { tenancyId: t.id, dueDate: ledger.awaiting.dueDate, revision: ledger.awaiting.revision, paidAt: waiting.tenantMarkedPaidAt } : null;

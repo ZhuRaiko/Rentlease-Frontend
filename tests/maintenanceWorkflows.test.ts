@@ -117,3 +117,21 @@ test('a landlord cannot create, and an ended tenancy refuses a new report',async
   const ended=svc({read:async()=>({...ctx([]),status:'ended'}),write:async()=>{writes++;return{};}});
   const t=createTenancyCareWorkflow(ended,createCareJournal(memory()),TENANT,TENANCY,ids());await t.load();await t.submit('create',{title:'x y z',description:'The kitchen faucet leaks badly.',category:'plumbing'});assert.equal(writes,0);t.dispose();
 });
+
+import {propertyMaintenance} from '../src/features/tenancy/models/MaintenanceInbox';
+import {readFileSync} from 'node:fs';
+test('Manage tile count equals the open cards the inbox shows for the same property, and the urgent item comes from the same rows',async()=>{
+  const rows=[inboxRow(1,{priority:'urgent'}),inboxRow(3,{status:'in_progress'}),inboxRow(5,{status:'resolved',tenantConfirmedAt:'2026-11-17T02:00:00Z'}),inboxRow(7,{status:'resolved'}),inboxRow(2),inboxRow(9,{status:'cancelled'})] as any[];   // odd n = PROP, n=2 is another property
+  const s=svc({inbox:async()=>({counts:{open:99,inProgress:0,awaitingConfirmation:0,resolved:0,urgentOpen:0},rows,hasMore:false})});
+  const w=createMaintenanceInboxWorkflow(s,createCareJournal(memory()),LANDLORD,PROP,ids());await w.load();
+  const cards=w.getSnapshot().rows,tile=propertyMaintenance(rows,PROP);
+  const openCards=cards.filter(r=>r.status!=='cancelled'&&r.status!=='rejected'&&!(r.status==='resolved'&&r.tenantConfirmedAt));
+  assert.equal(tile.open,openCards.length);assert.equal(tile.open,w.getSnapshot().counts!.open);assert.equal(tile.open,3);
+  assert.deepEqual(tile.urgent.map(u=>u.id),[rows[0].id]);
+  assert.equal(propertyMaintenance(rows,id(8)).open,1);assert.equal(propertyMaintenance(rows,id(77)).open,0);
+  w.dispose();
+});
+test('the occupied Manage screen no longer has Back to My properties, and Manage counts no longer read get_tenancy_care',()=>{
+  assert.doesNotMatch(readFileSync('src/features/property-listing/views/ManagePropertyView.tsx','utf8'),/Back to My properties/);
+  const hook=readFileSync('src/app/usePropertyManagement.ts','utf8');assert.match(hook,/careService\.inbox/);assert.doesNotMatch(hook,/activity\.care|CLOSED/);
+});

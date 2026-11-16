@@ -297,10 +297,10 @@ test('the Manage header Back uses the given origin Back, and falls back to the V
   assert.deepEqual(calls, ['toTenancy', 'vmBack']);
 });
 
-test('the vacant Manage screen has no Back to My properties button (header Back stays); occupied keeps it', () => {
+test('the vacant Manage screen and the occupied one have no Back to My properties button (header Back stays)', () => {
   assert.ok(!nodes(manage('active', emptyFacts()).render()).some(byText('Back to My properties')));
   assert.ok(nodes(manage('active', emptyFacts()).render()).some(labelled('Back')));
-  assert.ok(nodes(manage('rented', stayFacts()).render()).some(byText('Back to My properties')));
+  assert.ok(!nodes(manage('rented', stayFacts()).render()).some(byText('Back to My properties')));
 });
 
 // ---- Shared helpers moved out of tenancy keep their behavior
