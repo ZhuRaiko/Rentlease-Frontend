@@ -81,3 +81,26 @@ Applied once using Supabase apply_migration(name=public_profiles_security_invoke
 Hosted read-only repeatable-read role-simulation acceptance: **89 checks / 0 failures**, seven existing accounts, 19 allowed and 30 denied identity pairs, six eligible inboxes. Direct view reads self-only; anonymous view/RPC denied; authorized consented nickname/avatar metadata and protected inbox counterpart names preserved; private profile rows remain isolated. No credentials, names or message contents returned in reports. Initial verifier DO syntax error was corrected before successful execution; no production mutation from verification. Reusable source: supabase/tests/verify_public_profiles_invoker_deployment.sql. These are hosted SQL checks, not end-user JWT/HTTP or Android acceptance; avatar image HTTP delivery and physical two-account UI remain pending.
 
 Security Advisor refreshed after deployment: public_profiles security-definer-view warning absent. Unrelated RLS-without-policy, mutable function search_path, executable-definer-function and leaked-password-protection findings remain outside scope, untouched. Backup C:/RentLease-Backups/public-profiles-invoker-predeploy-20261108-070242 retains verified original manifest, reviewed LF SQL, actual submitted CRLF SQL, full pre/post catalogs, aggregate discrepancy receipt and updated manifest. Recovery limitations are unchanged; no application record/full-database backup claim. No rollback indicated by observed compatibility checks; any rollback still requires separate authorization.
+
+## Feature 5 (public profiles): Step 0 backend audit - November 16, 2026
+
+Entry F5-A1. Design proposal: [f5-profiles-backend-design.md](../../design/f5-profiles-backend-design.md).
+
+| Field | Content |
+| --- | --- |
+| Date | 2026-11-16 (clock time not recorded) |
+| Feature/phase | Public profiles, Feature 5 Step 0, entry F5-A1 |
+| Actor/tool | Claude Code (Claude Sonnet 5.5) through the Supabase CLI (`db query --linked`, read-only SELECT files) and the claude.ai Supabase connector (`list_edge_functions`, `get_edge_function`); project-level access, not an app end user |
+| Environment/project | Hosted project `cxfsbwbwmwmgtqfonqth` |
+| Classification | `READ_ONLY_INSPECTION` |
+| Target | `can_read_public_identity`, `get_public_identities`, `get_own_public_identity`, the `public_profiles` view, `profiles` and `user_roles` (columns, policies, privileges), `is_tier1_verified`, `can_access_tenancy`, every anon-executable function in `public`, the policies, views, functions and triggers that depend on the first two (`pg_depend` and a source search), the default ACLs, `rentlease_reservations.project`, `rentlease_property_identity.verified`, and row counts for tenancies, listings, properties, reservations and conversations; hosted Edge Function sources `send-sms` and `estimate-rental-price` |
+| Action | Catalog `select` statements, `has_function_privilege` / `has_table_privilege` checks and the two Edge Function read calls; no write, no transaction opened, no function was executed as `anon` |
+| Purpose | Feature 5 Step 0 audit requested by the user |
+| Result | See the summary and sections 1-5 of the design document. Key facts: the EXECUTE grant on `is_tier1_verified` and `can_access_tenancy` is to PUBLIC, so revoking from `anon` alone does nothing; all dependent policies are `TO authenticated` and no dependent runs as `anon`; nine non-trigger functions in `public` are anon-callable; `public_profiles` is `security_invoker` and returns only the caller's own row; "ID verified" is `profiles.tier2_verified_at` with two different rules in use; no public read exists for property verification; 34 properties of which 10 ever had a published listing; 3 users hold more than one role |
+| Durable effect | None |
+| Rollback/cleanup | Not applicable |
+| Security/RLS | Catalog privilege checks only; no end-user JWT call and no owner/non-owner test. No profile, review or message content was read. |
+| Source-controlled backend file | `supabase/migrations/20261107134047_public_identity_nicknames_avatars.sql`, `20261108071009_public_profiles_security_invoker.sql`, `20261110055859_tenancy_establishment.sql` (hosted function bodies were read; repo copies were not byte-compared) |
+| Android/client runtime | Not applicable (no client change) |
+
+No permanent live backend mutation was performed in this step. No migration, SQL file or code was written.
