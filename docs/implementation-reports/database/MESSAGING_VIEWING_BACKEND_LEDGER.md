@@ -236,3 +236,27 @@ Entry F3-A1. The tenancy workspace keeps its backend record in this ledger (see 
 | Android/client runtime | Not applicable (no client change) |
 
 No permanent live backend mutation was performed in this step. No migration, SQL file or code was written; the only artifacts are this entry and the design document.
+
+## Tenancy Feature 3 (rent ledger): migration applied - November 16, 2026
+
+Entry F3-A2. Source: `supabase/migrations/20261116120000_rent_ledger.sql`. Rollback: `supabase/test-support/rent_ledger_rollback.sql` (entry points only, data retained) and `rent_ledger_rollback_full.sql` (empty tables only). Checks: `supabase/test-support/rent_ledger_checks.sql`. Design: [f3-rent-ledger-backend-design.md](../../design/f3-rent-ledger-backend-design.md). Authorization: explicit user approval after review ("Rent ledger migration approved after review").
+
+| Field | Content |
+| --- | --- |
+| Date | 2026-11-16, after the 12:28 local backup; the apply ran immediately afterwards (exact clock time not recorded) |
+| Feature/phase | Tenancy, Feature 3 backend, entry F3-A2 |
+| Actor/tool | Claude Code (Claude Sonnet 5.5) with the Supabase CLI `db query --linked -f`, then `migration repair --status applied 20261116120000 --linked`; verification through the connector `execute_sql` (read-only). `db push` was not used. |
+| Environment/project | Hosted project `cxfsbwbwmwmgtqfonqth` |
+| Classification | `SCHEMA_CHANGE`, `FUNCTION_CHANGE`, `PRIVILEGE_CHANGE` (new function grants), plus `READ_ONLY_INSPECTION` for verification |
+| Target | `public.rent_obligations` (column `ledger_revision`, constraint `rent_obligations_status_timestamps`, trigger `rent_ledger_revision`); new schema `rentlease_rent_ledger` (tables `receipts`, `events`; functions `rotate_revision`, `immutable`, `relationship`, `due_dates`, `display_status`); new `public.get_rent_ledger(uuid,integer)` and `public.write_rent_ledger(uuid,uuid,text,date,uuid)` |
+| Action | The exact file `supabase/migrations/20261116120000_rent_ledger.sql` (225+ lines, wrapped in begin/commit, baseline guards first, post-condition checks last) applied once; no guard aborted. History row `20261116120000` (`rent_ledger`) registered with `migration repair`. No existing function, policy, grant or trigger was replaced. |
+| Purpose | Backend for the rent ledger (month-by-month record of what each party says; no money moves) |
+| Result | Success, exit 0. Verified read-only afterwards: `md5(prosrc)` get_rent_ledger `9222f65775d38442049de604f52d135d`, write_rent_ledger `47bce52490337d7eb6c08fb812b3490e` (both as expected); EXECUTE: anon false, authenticated true, service_role false for both; private functions executable by no client role; `rent_obligations`, `events`, `receipts` have no table privilege for anon/authenticated/service_role and no schema USAGE; RLS on for all three; `rent_obligations` 0 rows, `events` 0, `receipts` 0; dependencies unchanged (`get_tenancy_care` `624c3bf0ce0f129f504c674330466c72`, `is_tier1_verified` `ddd2c8ed28b61e30e23e4f3ddefe4590`); migration history 46 rows, latest `20261116120000`. |
+| Durable effect | The schema objects above exist permanently. No application rows were created or changed. |
+| Rollback/cleanup | Rollback scripts retained (not run). Nothing to clean up. |
+| Security/RLS | Same SQL passed the 66 pre-apply rollback-only checks earlier the same day (wrong user, stranger, no Tier 1, anon, direct table access, stale revisions, immutability). The two checks added after review (amount_due at first action and after a rent change) were added to the checks file but **not executed** against the project (not run on the hosted database by instruction); they were only compile-checked locally. The checks file was not run after apply (it creates a fixture). No end-user JWT test was made. |
+| Source-controlled backend file | `supabase/migrations/20261116120000_rent_ledger.sql` |
+| Android/client runtime | Not applicable yet: no frontend uses these RPCs. RUNTIME-UNVERIFIED. |
+| Backup | `C:\RentLease-Backups\rent-ledger-apply-predeploy-20261116-122817` (32 files, 5,118,227 bytes, SHA-256 manifest re-verified, catalog and records unchanged during capture, final migration and entry-point rollback recorded in `reviewed-source`). An earlier scoping backup, `rent-ledger-predeploy-20261116-100558` (5,094,713 bytes), is also retained. |
+
+No other permanent live backend mutation was performed in this step.

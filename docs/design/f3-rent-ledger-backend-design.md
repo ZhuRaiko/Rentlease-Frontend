@@ -212,3 +212,13 @@ Rough plan: migration + SQL checks + rollback 1.5 days, apply + re-verification 
 3. Allow the landlord to confirm a month the tenant never marked (cash)? Recommended yes.
 4. Allow the tenant to revise after a dispute? Recommended yes.
 5. Keep the events table and notifications in v1, or cut them first?
+
+## 6. Known limit: admin edits to a tenancy's rent show mixed amounts
+`rent_obligations.amount_due` is copied from `tenancies.agreed_monthly_rent` when a month is first acted on (`write_rent_ledger`, the insert) and is never updated afterwards. A month nobody has acted on has no row, so `get_rent_ledger` shows `coalesce(amount_due, tenancies.agreed_monthly_rent)`, that is, the tenancy's **current** rent.
+
+Today clients cannot change a tenancy's rent (no update grant, and the terms are fixed at setup). If an administrator edits `agreed_monthly_rent` later:
+- months already acted on keep the **old** amount (frozen in the row and in the events);
+- months with no row, including past months nobody acted on, show the **new** amount;
+- the header `monthlyRent` shows the new amount.
+
+This is accepted for v1. A rent history (effective-dated rent) would be the fix and is out of scope. Checks 1b and 17a-17d in `supabase/test-support/rent_ledger_checks.sql` document the behavior.
