@@ -1,0 +1,258 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tenancy screens Wireframes</title><style>
+:root{--pg:#EEF2EE;--pgink:#172C27;--pgsub:#4F5B54;--card:#fff;--line:#D4DDD5;--accent:#32743C}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--pg:#101815;--pgink:#E6EEE8;--pgsub:#A9B8AE;--card:#18221D;--line:#2B3A32;--accent:#7CC587}}
+:root[data-theme="dark"]{--pg:#101815;--pgink:#E6EEE8;--pgsub:#A9B8AE;--card:#18221D;--line:#2B3A32;--accent:#7CC587}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pg);color:var(--pgink);font-family:Roboto,"Helvetica Neue",Arial,sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:28px 16px 80px}
+h1{font-size:28px;font-weight:500;margin:0 0 6px}
+.lead{max-width:760px;color:var(--pgsub);font-size:15px;line-height:1.55;margin:0 0 18px}
+h2{font-size:22px;font-weight:500;margin:46px 0 4px;padding-top:10px}
+.h2sub{max-width:760px;color:var(--pgsub);font-size:14.5px;line-height:1.55;margin:0 0 18px}
+nav.jump{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 6px}
+nav.jump a{padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--pgink);text-decoration:none;font-size:14px}
+.grid{display:flex;flex-wrap:wrap;gap:30px 28px;align-items:flex-start}
+.col{width:360px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:12px 0;font-size:14px;line-height:1.55}
+.panel h3{margin:0 0 8px;font-size:16px;font-weight:500}
+.panel ul{margin:6px 0 0;padding-left:18px}
+.panel li{margin:4px 0}
+table.t{border-collapse:collapse;width:100%;font-size:13.5px}
+table.t th,table.t td{border-bottom:1px solid var(--line);padding:8px 8px;text-align:left;vertical-align:top}
+table.t th{font-weight:500;color:var(--pgsub)}
+.note{margin-top:10px;font-size:13px;line-height:1.5;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;color:var(--pgink)}
+.note h4{margin:0 0 6px;font-size:14px;font-weight:500}
+.note ul{margin:0;padding-left:17px}.note li{margin:3px 0}
+.tg{display:inline-block;font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:9px;margin:2px 4px 2px 0}
+.tg.fe{background:#EDF8EE;color:#256030;border:1px solid #BFE0C4}
+.tg.bs{background:#FFF7E8;color:#8A5A10;border:1px solid #F0D9A8}
+.tg.bn{background:#FBEEEE;color:#9B2C2C;border:1px solid #EBC4C4}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tg.fe{background:#1B3322;color:#A8DDB0;border-color:#2F5A39}:root:not([data-theme="light"]) .tg.bs{background:#3A2D12;color:#F0CC86;border-color:#6B5320}:root:not([data-theme="light"]) .tg.bn{background:#3A1B1B;color:#F0A8A8;border-color:#6B2C2C}}
+
+/* ---------- phone (app) ---------- */
+.phone{position:relative;width:360px;background:#F7F9F5;border:1px solid #C3CEC5;border-radius:30px;overflow:hidden;display:flex;flex-direction:column;color:#172C27;font-size:14px;line-height:1.35}
+.sb{height:26px;padding:6px 20px 0;display:flex;justify-content:space-between;font-size:12px;background:#fff;color:#172C27}
+.hd{height:52px;background:#fff;border-bottom:1px solid #DCE5DD;display:flex;align-items:center;gap:14px;padding:0 16px}
+.hd .bk{color:#32743C;font-size:22px;line-height:1;width:20px}
+.hd b{font-size:18px;font-weight:500;flex:1}
+.hd .act{color:#32743C;font-size:14px;font-weight:500}
+.scr{flex:1;padding:14px;display:flex;flex-direction:column;gap:12px}
+.pin{background:#fff;border-top:1px solid #DCE5DD;padding:10px 14px;display:flex;flex-direction:column;gap:6px}
+.nav{height:58px;background:#fff;border-top:1px solid #DCE5DD;display:flex}
+.nav div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;color:#606A63}
+.nav i{width:18px;height:18px;border-radius:5px;border:2px solid #7D9383;display:block}
+.nav .on{color:#32743C;font-weight:500}.nav .on i{border-color:#32743C;background:#EDF8EE}
+.card{background:#fff;border:1px solid #DCE5DD;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card.flush{padding:0;overflow:hidden;gap:0}.card .pad{padding:14px;display:flex;flex-direction:column;gap:10px}
+.card.mute{background:#FAFBF9}
+.t1{font-size:17px;font-weight:500}.t2{font-size:15px;font-weight:500}
+.sub{color:#606A63;font-size:13px}.xs{font-size:12px;color:#606A63}
+.sec{font-size:15px;font-weight:500;margin:6px 2px -2px;display:flex;justify-content:space-between;align-items:baseline}
+.sec a{font-size:13px;color:#32743C;font-weight:500}
+.photo{background:linear-gradient(135deg,#2f463a 0%,#5f8a6a 60%,#9bb99f 100%);position:relative}
+.photo .chip{position:absolute;left:10px;top:10px}
+.chip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:500;white-space:nowrap}
+.chip.active{background:#32743C;color:#fff}
+.chip.upcoming{background:#EAF2FB;color:#1F5FA8;border:1px solid #C5DAF0}
+.chip.pending{background:#FFF7E8;color:#9A6414;border:1px solid #F0D9A8}
+.chip.ended{background:#EEF1EE;color:#4F5B54;border:1px solid #DCE5DD}
+.chip.cancelled{background:#FBEEEE;color:#9B2C2C;border:1px solid #EBC4C4}
+.chip.urgent{background:#9B2C2C;color:#fff}
+.chip.ok{background:#EDF8EE;color:#32743C;border:1px solid #BFE0C4}
+.chip.vacant{background:#EAF2FB;color:#1F5FA8;border:1px solid #C5DAF0}
+.btn{height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:15px;border:1.5px solid #7D9383;background:#fff;color:#172C27;text-align:center;padding:0 12px}
+.btn.pri{background:#32743C;border-color:#32743C;color:#fff}
+.btn.dng{border-color:#9B2C2C;color:#9B2C2C}
+.btn.warn{background:#9A6414;border-color:#9A6414;color:#fff}
+.btn.dis{background:#E3EAE4;border-color:#E3EAE4;color:#7D8A81}
+.btn.link{border:none;background:none;color:#32743C;height:40px}
+.btnrow{display:flex;gap:10px}.btnrow .btn{flex:1}
+.sum{display:flex;gap:10px}
+.tile{flex:1;border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;min-height:66px}
+.tile b{font-size:26px;font-weight:500;line-height:1.1}.tile span{font-size:13px}
+.tile.up{background:#EAF2FB;color:#1F5FA8}.tile.act{background:#32743C;color:#fff}.tile.past{background:#EEF1EE;color:#4F5B54}
+.tile.warn{background:#FFF7E8;color:#9A6414;border:1px solid #F0D9A8}
+.alert{background:#FFF7E8;border:1px solid #F0D9A8;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.alert .h{font-weight:500;color:#7A4F0E}
+.alert.red{background:#FBEEEE;border-color:#EBC4C4}.alert.red .h{color:#9B2C2C}
+.alert.blue{background:#EAF2FB;border-color:#C5DAF0}.alert.blue .h{color:#1F5FA8}
+.who{display:flex;align-items:center;gap:8px;font-size:14px}
+.av{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:500;flex:none}
+.av.lg{width:64px;height:64px;font-size:22px}.av.md{width:40px;height:40px;font-size:14px}
+.a1{background:#6B7FB8}.a2{background:#C27A4A}.a3{background:#5E9C77}.a4{background:#8E6BB0}
+.vb{vertical-align:-3px;flex:none}
+.vpill{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px 0 6px;border-radius:13px;background:#EAF2FB;color:#1F5FA8;font-size:12.5px;font-weight:500;border:1px solid #C5DAF0}
+.ppill{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px 0 6px;border-radius:13px;background:#EDF8EE;color:#32743C;font-size:12.5px;font-weight:500;border:1px solid #BFE0C4}
+.facts{display:flex;gap:8px}.facts>div{flex:1;background:#F4F7F3;border-radius:10px;padding:8px 10px}
+.facts span{display:block;font-size:12px;color:#606A63}.facts b{font-weight:500;font-size:14px}
+.facts.blue>div{background:#EAF2FB}.facts.warn>div{background:#FFF7E8}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:14px}.kv span:first-child{color:#606A63}
+.hr{height:1px;background:#E6ECE7}
+.bar{height:8px;border-radius:4px;background:#E3EAE4}.bar i{display:block;height:100%;background:#469C53;border-radius:4px}
+.stars{color:#E0A12B;letter-spacing:2px;font-size:15px}.stars .e{color:#D2D9D3}
+.stars.xl{font-size:38px;letter-spacing:6px;text-align:center}
+.tag{display:inline-flex;height:36px;align-items:center;padding:0 14px;border:1.5px solid #7D9383;border-radius:18px;font-size:14px;background:#fff}
+.tag.on{background:#EDF8EE;border-color:#32743C;color:#256030;font-weight:500}
+.tag.sm{height:28px;font-size:12.5px;padding:0 10px;border-color:#DCE5DD;color:#172C27}
+.tag.sm b{color:#32743C;font-weight:500;margin-left:5px}
+.tags{display:flex;flex-wrap:wrap;gap:8px}
+.seg{display:flex;border:1.5px solid #7D9383;border-radius:12px;overflow:hidden;background:#fff}
+.seg div{flex:1;height:44px;display:flex;align-items:center;justify-content:center;font-size:14px;border-left:1px solid #DCE5DD}
+.seg div:first-child{border-left:none}.seg .on{background:#EDF8EE;color:#256030;font-weight:500}
+.seg .onr{background:#FBEEEE;color:#9B2C2C;font-weight:500}.seg .onw{background:#FFF7E8;color:#7A4F0E;font-weight:500}
+.tl{display:flex;flex-direction:column}
+.tl .s{display:flex;gap:12px;position:relative;padding-bottom:12px}
+.tl .s:last-child{padding-bottom:0}
+.tl .s:before{content:"";position:absolute;left:5px;top:14px;bottom:-2px;width:2px;background:#DCE5DD}
+.tl .s:last-child:before{display:none}
+.tl .d{width:12px;height:12px;border-radius:50%;background:#32743C;margin-top:3px;flex:none;z-index:1}
+.tl .d.o{background:#fff;border:2px solid #7D9383}.tl .d.w{background:#C98A1B}.tl .d.r{background:#9B2C2C}
+.tl .tx{font-size:13.5px}.tl .tx small{display:block;color:#606A63;font-size:12px}
+.field{border:1.5px solid #7D9383;border-radius:12px;background:#fff;padding:10px 12px;color:#606A63;min-height:92px;font-size:14px}
+.field.one{min-height:48px;display:flex;align-items:center}
+.lbl{font-size:14px;font-weight:500}
+.dash{border:2px dashed #7D9383;border-radius:12px;height:76px;display:flex;align-items:center;justify-content:center;flex-direction:column;color:#32743C;font-weight:500;font-size:14px;background:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.qa{background:#fff;border:1px solid #DCE5DD;border-radius:14px;padding:12px;min-height:76px;display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:500}
+.qa i{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:#EDF8EE}
+.qa small{font-weight:400;color:#606A63;font-size:12px}
+.qa.w i{background:#FFF7E8}.qa.b i{background:#EAF2FB}.qa.r i{background:#FBEEEE}
+.badge{min-width:20px;height:20px;border-radius:10px;background:#9A6414;color:#fff;font-size:12px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
+.badge.r{background:#9B2C2C}.badge.g{background:#32743C}.badge.b{background:#1F5FA8}
+.row{display:flex;gap:10px;align-items:center}
+.row .grow{flex:1;min-width:0}
+.thumb{width:56px;height:56px;border-radius:10px;flex:none}
+.cat{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#EDF8EE;flex:none}
+.catg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.catg div{border:1.5px solid #DCE5DD;background:#fff;border-radius:12px;height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:13px}
+.catg .on{border-color:#32743C;background:#EDF8EE;color:#256030;font-weight:500}
+.bubble{background:#EDF8EE;border-radius:12px;padding:10px 12px;font-size:13.5px}
+.bubble.me{background:#F1F3F1}
+.dim{position:absolute;inset:0;background:rgba(10,20,15,.45)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;padding:18px 16px 18px;display:flex;flex-direction:column;gap:12px}
+.sheet .grab{width:40px;height:4px;border-radius:2px;background:#C9D3CB;margin:-6px auto 2px}
+.big{font-size:44px;font-weight:500;line-height:1}
+.dist{display:flex;align-items:center;gap:8px;font-size:12px;color:#606A63}
+.dist .bar{flex:1;height:7px}.dist .bar i{background:#E0A12B}
+.cloud{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;justify-content:center;padding:6px 4px}
+.cloud span{color:#32743C}
+.ledger .r{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #E6ECE7}
+.ledger .r:last-child{border-bottom:none}
+.ledger .m{width:46px;font-weight:500}
+.ledger .amt{margin-left:auto;text-align:right}
+.spec{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;width:100%;max-width:1136px}
+.spec .rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px;margin-top:10px}
+.spec .mini{background:#F7F9F5;border:1px solid #DCE5DD;border-radius:12px;padding:10px 12px;color:#172C27;font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+.spec .mini small{color:#606A63;font-size:12px}
+</style></head><body><div class="wrap">
+<h1>Feature 1 · Tenancy screens</h1><p class="lead">Tenancy tab and tenancy details, tenant and landlord, with the cancelled-rental fix. Same screens as v8, split out so this feature can be built on its own.</p>
+<div class="panel"><h3>What this feature needs</h3><ul><li><b>Backend:</b> none. Frontend only.</li><li><b>Stand-ins until later features land:</b> Report an issue opens today's rent and maintenance screen (Feature 6 replaces it). Open property opens today's property screen (Feature 2 replaces it). The landlord row is not tappable and shows no check (Feature 5). The rent card shows the schedule and next due date only, without I've paid (Feature 3).</li><li><b>Cancelled fix:</b> calls the existing <code>respond_rental_reservation(..., 'cancel')</code>, then opens the request screen.</li></ul></div>
+<div class="grid"><div class="col"><div class="phone"><div class="sb"><span>9:41</span><span>● ▲ ▮</span></div><div class="hd"><span class="bk">‹</span><b>Tenancy</b></div><div class="scr">
+<div class="sum"><div class="tile up"><b>1</b><span>Upcoming</span></div><div class="tile act"><b>1</b><span>Active</span></div><div class="tile past"><b>2</b><span>Past</span></div></div>
+<div class="alert"><div class="row"><span class="chip pending">Needs your OK</span></div>
+ <div class="h">Confirm your tenancy terms</div>
+ <div class="sub" style="color:#7A4F0E">Garcia Apartment · move-in Nov 25. Nightcity updated the terms.</div>
+ <div class="btn warn">Review terms</div></div>
+<div class="sec">Active stay</div>
+<div class="card flush">
+  <div class="photo" style="height:92px"><span class="chip active">● Active</span></div>
+  <div class="pad">
+    <div><div class="t1">Miguel House</div><div class="sub">Bayan Luma, Tagaytay · Boarding house</div></div>
+    <div class="who"><span class="av a2 ">N</span> <b style="font-weight:500">Nightcity</b> <svg class="vb" viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="8" fill="#1F5FA8"/><path d="M4.6 8.3l2.2 2.2 4.6-4.8" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg> <span class="sub">Landlord</span></div>
+    <div class="facts"><div><span>Rent</span><b>₱10,000 / mo</b></div><div><span>Next rent due</span><b>Dec 2 · in 16 days</b></div></div>
+    <div class="btnrow"><div class="btn pri">Report an issue</div><div class="btn">Details</div></div>
+  </div></div>
+<div class="sec">Upcoming</div>
+<div class="card"><div class="row"><div class="photo thumb"></div><div class="grow"><div class="t2">Garcia Apartment</div><div class="sub">Imus, Cavite</div></div><span class="chip upcoming">Upcoming</span></div>
+ <div class="facts blue"><div><span>Move-in</span><b>Nov 25 · in 9 days</b></div><div><span>Rent</span><b>₱14,500 / mo</b></div></div>
+ <div class="btn">Open</div></div>
+</div><div class="nav"><div class=""><i></i>Discover</div><div class=""><i></i>Listings</div><div class=""><i></i>Post</div><div class="on"><i></i>Tenancy</div><div class=""><i></i>Chat</div></div></div><div class="note"><h4>Tenancy tab · tenant</h4><ul><li>Tiles carry the state color: Upcoming blue, Active filled green, Past grey. Each tile scrolls to its section. Today all three are the same pale green.</li><li>A <b>Needs your OK</b> card sits first and holds the one action waiting on you. It appears only when something is waiting.</li><li>The active stay is the hero. Its primary button is <b>Report an issue</b>, which makes maintenance a first-class action. Details is secondary.</li><li>Status is a chip, not grey text. The landlord's <b>blue check</b> shows ID verification.</li><li>Removed: the "What you can do here" panel and the standalone Maintenance card. Maintenance now lives on the stay.</li></ul><div style="margin-top:8px"><span class="tg fe">Frontend only</span></div></div></div><div class="col"><div class="phone"><div class="sb"><span>9:41</span><span>● ▲ ▮</span></div><div class="hd"><span class="bk">‹</span><b>Tenancy</b></div><div class="scr">
+<div class="sec">Past</div>
+<div class="card mute"><div class="row"><div class="photo thumb"></div><div class="grow"><div class="t2">Dela Cruz Unit</div><div class="sub">Em Cee · Nov 14 – Dec 14</div></div><span class="chip cancelled">Cancelled</span></div>
+ <div class="sub">Setup was cancelled. The reservation is still held, so a new request is blocked.</div>
+ <div class="btn pri">Start a new request</div>
+ <div class="btnrow"><div class="btn">Find similar</div><div class="btn">Message</div></div></div>
+<div class="card"><div class="row"><div class="photo thumb"></div><div class="grow"><div class="t2">Miguel House</div><div class="sub">Samuel · Nov 12 – Nov 13</div></div><span class="chip ended">Ended</span></div>
+ <div class="alert" style="padding:10px 12px"><div class="row"><span class="stars">★★★★★</span><span class="h" style="font-size:13.5px">Rate Miguel House</span></div>
+  <div class="sub" style="color:#7A4F0E">Your rating helps the next renter. Takes under a minute.</div></div>
+ <div class="btnrow"><div class="btn pri">Rate your stay</div><div class="btn">View</div></div></div>
+<div class="card"><div class="row"><div class="photo thumb"></div><div class="grow"><div class="t2">Sunrise Room</div><div class="sub">Rated 5.0 · Aug – Oct 2026</div></div><span class="chip ended">Ended</span></div>
+ <div class="btn">View</div></div>
+</div><div class="nav"><div class=""><i></i>Discover</div><div class=""><i></i>Listings</div><div class=""><i></i>Post</div><div class="on"><i></i>Tenancy</div><div class=""><i></i>Chat</div></div></div><div class="note"><h4>Tenancy tab · Past section</h4><ul><li>The cancelled rental now appears <b>once</b>. Today it is listed under Upcoming and Cancelled Rentals.</li><li><b>Start a new request</b> is the way out of the dead end. It releases the held reservation, then reopens the request to the same landlord (next screen).</li><li><b>Find similar</b> opens Discover filtered to the same city and type. <b>Message</b> replaces "Open conversation".</li><li>Ended rentals show the rating prompt until the stay is rated. After that, a one-line "You rated 5.0" replaces it.</li><li>A cancelled setup cannot be removed from the list, because that needs backend storage. This version keeps it but quiet.</li></ul><div style="margin-top:8px"><span class="tg fe">Frontend only</span></div></div></div><div class="col"><div class="phone"><div class="sb"><span>9:41</span><span>● ▲ ▮</span></div><div class="hd"><span class="bk">‹</span><b>Tenancy</b></div><div class="scr">
+<div class="sec">Past</div>
+<div class="card mute"><div class="row"><div class="photo thumb"></div><div class="grow"><div class="t2">Dela Cruz Unit</div><div class="sub">Em Cee · Nov 14 – Dec 14</div></div><span class="chip cancelled">Cancelled</span></div>
+ <div class="btn pri">Start a new request</div></div>
+<div class="card"><div class="row"><div class="photo thumb"></div><div class="grow"><div class="t2">Miguel House</div></div></div></div>
+</div><div class="nav"><div class=""><i></i>Discover</div><div class=""><i></i>Listings</div><div class=""><i></i>Post</div><div class="on"><i></i>Tenancy</div><div class=""><i></i>Chat</div></div><div class="dim"></div>
+<div class="sheet"><div class="grab"></div>
+ <div class="t1">Release the old reservation?</div>
+ <div class="sub">Your approved reservation for Dela Cruz Unit (Nov 14 – Dec 14) is still held, even though the setup was cancelled. To ask again, we release it first.</div>
+ <div class="alert blue" style="padding:10px 12px"><div class="sub" style="color:#1F5FA8">After this, a new request opens to Em Cee. Nothing is deleted. Your chat history stays.</div></div>
+ <div class="btn pri">Release and request again</div>
+ <div class="btn">Keep it for now</div></div></div><div class="note"><h4>Confirmation before the dead end is fixed</h4><ul><li>One plain sentence says why the new request was blocked. Today the app says "An active reservation request already exists. Refresh to review it."</li><li>The primary action calls the existing <code>respond_rental_reservation(…,'cancel')</code>, then opens the request screen.</li><li>Landlord sees the same sheet worded as "Release the reservation held for Em Cee?"</li></ul><div style="margin-top:8px"><span class="tg fe">Frontend only</span></div></div></div><div class="col"><div class="phone"><div class="sb"><span>9:41</span><span>● ▲ ▮</span></div><div class="hd"><span class="bk">‹</span><b>Tenancy</b></div><div class="scr">
+<div class="sum"><div class="tile up"><b>1</b><span>Upcoming</span></div><div class="tile act"><b>1</b><span>Active</span></div><div class="tile past"><b>3</b><span>Past</span></div></div>
+<div class="sec">Needs your attention <span class="badge">3</span></div>
+<div class="card" style="gap:0;padding:0 14px">
+ <div class="row" style="padding:12px 0;border-bottom:1px solid #E6ECE7"><span class="cat" style="background:#FFF7E8"><svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="#9A6414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 1.8a3.6 3.6 0 00-3.3 4.9L2 11.9 4.1 14l5.2-5.2a3.6 3.6 0 004.9-3.3l-2.2 2.2-1.8-.5-.5-1.8z"/></svg></span><div class="grow"><div class="t2" style="font-size:14px">Leaking faucet</div><div class="xs">Miguel House · Samuel · 2h ago</div></div><span class="chip urgent">Urgent</span></div>
+ <div class="row" style="padding:12px 0;border-bottom:1px solid #E6ECE7"><span class="cat" style="background:#EAF2FB"><svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="#1F5FA8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3.5h10v10H3zM3 6.5h10M5.5 2v3M10.5 2v3"/></svg></span><div class="grow"><div class="t2" style="font-size:14px">Set up tenancy</div><div class="xs">Garcia Apartment · Em Cee approved</div></div><span class="chip pending">Do now</span></div>
+ <div class="row" style="padding:12px 0"><span class="cat" style="background:#FFF7E8"><svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="#9A6414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3h11v8H7l-3 2.5V11H2.5z"/></svg></span><div class="grow"><div class="t2" style="font-size:14px">Early-end request</div><div class="xs">Sunrise Room · reply by Nov 18</div></div><span class="chip pending">Reply</span></div>
+</div>
+<div class="sec">Active stays</div>
+<div class="card flush">
+  <div class="photo" style="height:92px"><span class="chip active">● Active</span></div>
+  <div class="pad">
+    <div><div class="t1">Miguel House</div><div class="sub">Bayan Luma, Tagaytay · Boarding house</div></div>
+    <div class="who"><span class="av a3 ">S</span> <b style="font-weight:500">Samuel</b> <svg class="vb" viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="8" fill="#1F5FA8"/><path d="M4.6 8.3l2.2 2.2 4.6-4.8" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg> <span class="sub">Tenant</span></div>
+    <div class="facts"><div><span>Rent</span><b>₱10,000 / mo</b></div><div><span>Next rent due</span><b>Dec 2 · in 16 days</b></div></div>
+    <div class="btnrow"><div class="btn pri">Open property</div><div class="btn">Details</div></div>
+  </div></div>
+<div class="sec">Past</div>
+<div class="card mute"><div class="row"><div class="photo thumb"></div><div class="grow"><div class="t2">Dela Cruz Unit</div><div class="sub">Em Cee · setup cancelled</div></div><span class="chip cancelled">Cancelled</span></div>
+ <div class="sub">The reservation is still held for Nov 14 – Dec 14.</div>
+ <div class="btnrow"><div class="btn">Release it</div><div class="btn">Message</div></div></div>
+</div><div class="nav"><div class=""><i></i>Discover</div><div class=""><i></i>Listings</div><div class=""><i></i>Post</div><div class="on"><i></i>Tenancy</div><div class=""><i></i>Chat</div></div></div><div class="note"><h4>Tenancy tab · landlord</h4><ul><li>A single <b>Needs your attention</b> list pulls open maintenance, tenancy setups, and early-end requests across all properties.</li><li>The active card's primary button is <b>Open property</b>, which goes to the Manage screen (section C). This links Tenancy to management.</li><li>Same cancelled fix as the tenant: <b>Release it</b> cancels the held reservation, so the unit is free again.</li><li>Attention rows come from existing reads (<code>get_tenancy_care</code>, reservation list, end-requests). No new tables.</li></ul><div style="margin-top:8px"><span class="tg fe">Frontend only</span></div></div></div><div class="col"><div class="phone"><div class="sb"><span>9:41</span><span>● ▲ ▮</span></div><div class="hd"><span class="bk">‹</span><b>Tenancy details</b></div><div class="scr">
+<div class="card flush"><div class="photo" style="height:110px"><span class="chip active">● Active</span></div>
+ <div class="pad"><div><div class="t1">Miguel House</div><div class="sub">Bayan Luma, Tagaytay · Boarding house</div></div>
+  <div><div class="kv"><span>Nov 12, 2026</span><span>Nov 11, 2027</span></div><div class="bar" style="margin:6px 0 4px"><i style="width:2%"></i></div><div class="xs">Day 5 of 365 · agreed rent ₱10,000 / month</div></div></div></div>
+<div class="btnrow"><div class="btn pri">Report an issue</div><div class="btn">Message</div></div>
+<div class="card"><div class="row"><span class="t2 grow">Rent</span><span class="xs">Due on the 2nd</span></div>
+ <div class="ledger">
+  <div class="r"><span class="m">Dec</span><div><div>Due Dec 2</div><div class="xs">in 16 days</div></div><span class="amt"><span class="chip upcoming">Upcoming</span></span></div>
+  <div class="r"><span class="m">Nov</span><div><div>Due Nov 2</div><div class="xs">Marked paid Nov 1</div></div><span class="amt"><span class="chip ok">Paid</span></span></div>
+ </div>
+ <div class="btn">I've paid this month</div></div>
+<div class="card"><div class="row"><div class="t2 grow">Landlord</div></div>
+ <div class="row"><span class="av a2 md">N</span><div class="grow"><div class="t2">Nightcity <svg class="vb" viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="8" fill="#1F5FA8"/><path d="M4.6 8.3l2.2 2.2 4.6-4.8" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="xs">ID verified · ★ 4.8 (12 reviews)</div></div><span style="color:#32743C">›</span></div></div>
+<div class="card"><div class="row"><div class="t2 grow">Maintenance</div><span class="chip pending">1 open</span></div>
+ <div class="row"><span class="cat" style="background:#FFF7E8"><svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="#9A6414" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5C8 1.5 3.5 6.6 3.5 9.7a4.5 4.5 0 009 0C12.5 6.6 8 1.5 8 1.5z"/></svg></span><div class="grow"><div style="font-size:14px">Leaking faucet</div><div class="xs">Seen by landlord · 2h ago</div></div><span style="color:#32743C">›</span></div></div>
+<div class="card"><div class="t2">Tenancy documents</div>
+ <div class="row"><div class="grow">Property information</div><span style="color:#32743C">›</span></div><div class="hr"></div>
+ <div class="row"><div class="grow">Source reservation</div><span style="color:#32743C">›</span></div><div class="hr"></div>
+ <div class="row"><div class="grow">Lifecycle history</div><span style="color:#32743C">›</span></div></div>
+<div class="btn dng">Request to end early</div>
+</div></div><div class="note"><h4>Tenancy details · active (tenant)</h4><ul><li>Today: 3 grey cards, 3 outline buttons, 1 green button (<i>Open existing conversation</i>). Nothing says what matters. Now the order is: <b>stay summary → actions → rent → people → maintenance → documents</b>.</li><li>Progress bar for the stay replaces four lines of date text.</li><li>Rent is a short ledger with chips. <b>I've paid this month</b> and the landlord's <b>Mark received</b> need <code>rent_obligations</code> writers (table and status enum already exist, no RPC does). If this is cut, show only next due date and dates.</li><li>Landlord row opens their public profile (section B) and shows the blue check and rating.</li><li>Documents hold the screens that are now separate pages (property info, reservation reference, lifecycle). The raw reservation UUID is hidden. "Request to end early" is red and last on purpose.</li></ul><div style="margin-top:8px"><span class="tg fe">Frontend only</span><span class="tg bn">New backend</span></div></div></div><div class="col"><div class="phone"><div class="sb"><span>9:41</span><span>● ▲ ▮</span></div><div class="hd"><span class="bk">‹</span><b>Tenancy details</b></div><div class="scr">
+<div class="card flush"><div class="photo" style="height:92px;filter:grayscale(.85)"><span class="chip ended">Ended</span></div>
+ <div class="pad"><div><div class="t1">Miguel House</div><div class="sub">Samuel · Nov 12 – Nov 13, 2026</div></div>
+  <div class="sub">Ended early by mutual agreement. Rent was ₱10,000 / month.</div></div></div>
+<div class="alert"><div class="row"><span class="stars">★★★★★</span><span class="h">Rate Samuel</span></div>
+ <div class="sub" style="color:#7A4F0E">One rating per tenancy. It helps other landlords decide.</div>
+ <div class="btn warn">Rate your tenant</div></div>
+<div class="card"><div class="t2">Reviews from this tenancy</div>
+ <div><div class="xs">Your review of Samuel · <span style="color:#32743C">Published</span></div><span class="stars ">★★★★★<span class="e"></span></span><div style="font-size:13.5px">Tenant was easy to communicate with.</div></div>
+ <div class="hr"></div>
+ <div><div class="xs">Samuel's review of this property · <span style="color:#32743C">Published</span></div><span class="stars ">★★★★★<span class="e"></span></span><div style="font-size:13.5px">Nice property, the wifi was good.</div></div>
+ <div class="xs">Only approved reviews are shown. Reviewer names are not.</div></div>
+<div class="card"><div class="t2">What happened</div>
+ <div class="tl">
+  <div class="s"><span class="d"></span><div class="tx">Reservation approved<small>Nov 7</small></div></div>
+  <div class="s"><span class="d"></span><div class="tx">Tenancy confirmed and started<small>Nov 12</small></div></div>
+  <div class="s"><span class="d w"></span><div class="tx">You asked to end early<small>Nov 13 · “I can’t pay anymore, can I end it today”</small></div></div>
+  <div class="s"><span class="d"></span><div class="tx">Samuel accepted · tenancy ended<small>Nov 13 · “Ok”</small></div></div>
+ </div></div>
+<div class="card"><div class="row"><div class="grow">Property information</div><span style="color:#32743C">›</span></div><div class="hr"></div>
+ <div class="row"><div class="grow">Source reservation</div><span style="color:#32743C">›</span></div></div>
+<div class="btn">Open conversation</div>
+</div></div><div class="note"><h4>Tenancy details · ended (landlord)</h4><ul><li>The rating prompt is the first card after the summary, in amber, until done. Today it is a button labelled <i>Leave a Review / Review Submitted</i>.</li><li>The page showed "Participant ratings and reviews" twice with different content. Now one <b>Reviews from this tenancy</b> card holds both reviews, each labelled by who wrote it.</li><li>Lifecycle history becomes a timeline on the page. The separate "Completion and ending" screen and its Refresh button go away.</li><li>Muted photo and grey chip show the stay is over. Everything is read-only except rating and messaging.</li></ul><div style="margin-top:8px"><span class="tg fe">Frontend only</span></div></div></div></div>
+
+</div></body></html>
