@@ -78,3 +78,24 @@ Entry F4-A1. Design proposal: [f4-ratings-backend-design.md](../../design/f4-rat
 | Android/client runtime | Not applicable (no client change) |
 
 No permanent live backend mutation was performed in this step. No migration, SQL file or code was written.
+
+## Feature 4 (ratings with tags): Step 1 backend migration - November 16, 2026
+
+Entry F4-M1. Design and decisions: [f4-ratings-backend-design.md](../../design/f4-ratings-backend-design.md).
+
+| Field | Content |
+| --- | --- |
+| Date | 2026-11-16 (clock time not recorded) |
+| Feature/phase | Ratings and reviews, Feature 4 Step 1, entry F4-M1 |
+| Actor/tool | Claude Code (Claude Sonnet 5.5) with the Supabase CLI (`db query --linked -f`, `migration repair`); project-level access |
+| Environment/project | Hosted project `cxfsbwbwmwmgtqfonqth` |
+| Classification | `SCHEMA_MIGRATION_APPLIED` (approved by the user after review) |
+| Target | `rentlease_reviews.entries.tags` plus CHECK `entries_tags_valid`; `rentlease_reviews.valid_tags`, `function_backups`, `can_read_published`; `public.submit_tenancy_review` (6-argument form plus 5-argument wrapper), `get_tenancy_reviews` (patched), `get_published_rental_reviews` (patched), `get_review_summary` (new) |
+| Action | Predeploy backup `C:\RentLease-Backups\review-tags-predeploy-20261116-135513` (32 files, 5,331,441 bytes, hashes verified), then the migration, then `migration repair --status applied 20261116140000`. Rolled-back hosted runs before apply: 92 checks passed (tags, stars, direction, one review per kind, pending hidden, landlord average, access, reservations and tenancies of any status, grants). Rollback paths tested rolled back. |
+| Purpose | Tags, tenant to landlord rejection (42501) on both submit entry points, `received` list, summaries for property, tenant and landlord |
+| Result | Applied. 3 entries, 0 tagged rows, 3 function_backups rows, last migration 20261116140000 (47 history rows). md5(prosrc): 6-arg submit 5eb717892a71a93ace91213a1b9a87c8; wrapper d37974b4e233803b78983a975ab67e03; get_review_summary 78f27537f0afaa46caf35cc96dfb8922; get_tenancy_reviews a05eacbf77b776d5d349cbba9b2245df; get_published_rental_reviews 29c849ef9a845fdfc622b42c7fa94fce; can_read_published cb1557227dac289543f2260ed0babe68. EXECUTE: authenticated only on the five public functions; none on the private helper; anon and service_role none. |
+| Durable effect | Schema and function changes above; no existing review row changed; no notification; the one approved tenant to landlord review untouched |
+| Rollback/cleanup | `supabase/test-support/review_tags_rollback.sql` (data-retaining, restores the stored originals) and `review_tags_rollback_full.sql` (only while no tag is stored) |
+| Security/RLS | Private tables stay closed to client roles; no policy added; checks ran as `authenticated`, `anon` and `service_role` JWT roles |
+| Source-controlled backend file | `supabase/migrations/20261116140000_review_tags.sql` |
+| Android/client runtime | Not applicable (no client change) |
