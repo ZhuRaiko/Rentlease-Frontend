@@ -16,7 +16,7 @@ const states: [string, string | null][] = [['no listing', null], ['draft', 'draf
 const EDITORS: PortfolioActionKey[] = ['continuePosting', 'continueEditing', 'editListing', 'createListing', 'editPropertyDetails'];
 
 test('every card state has one button, named for the state', () => {
-  const expected: Record<string, string> = { 'no listing': 'Continue posting', draft: 'Continue editing', published: 'Edit listing', paused: 'Edit listing', archived: 'Create a new listing', rented: 'View listing', removed: 'View status' };
+  const expected: Record<string, string> = { 'no listing': 'Continue posting', draft: 'Continue editing', published: 'Manage', paused: 'Manage', archived: 'Create a new listing', rented: 'Manage', removed: 'Manage' };
   for (const [name, status] of states) {
     const a = portfolioCardActions(item(status));
     assert.equal(a.primary.label, expected[name], name); assert.equal(a.secondary, null, `${name}: no second button`);
@@ -37,8 +37,8 @@ test('every state resolves to exactly one editor: the primary button is the only
     const a = portfolioCardActions(item(status)), opening = [a.primary, ...a.menu].filter(x => EDITORS.includes(x.key));
     const primaryOpens = EDITORS.includes(a.primary.key);
     const others = opening.filter(x => x !== a.primary);
-    assert.ok(others.every(x => x.key === 'editPropertyDetails'), `${name}: nothing else opens an editor`);
-    assert.ok(others.length <= 1, `${name}: at most the one menu entry`);
+    assert.ok(others.every(x => x.key === 'editPropertyDetails' || x.key === 'editListing'), `${name}: nothing else opens an editor`);
+    assert.ok(others.length <= 2, `${name}: at most Edit listing and Edit property details in the menu`);
     if (status && status !== 'archived' && ['removed', 'rented'].includes(status)) assert.equal(primaryOpens, false, `${name}: not editable, so no editor button`);
     assert.equal(new Set([a.primary, ...a.menu].map(x => x.key)).size, [a.primary, ...a.menu].length, `${name}: no repeated action`);
   }
@@ -53,12 +53,13 @@ test('Edit property details: where it opens the wizard, per state', () => {
   for (const status of [null, 'draft', 'active', 'paused', 'archived']) assert.equal(editPropertyDetailsPlan(item(status, { active: false })), null, `inactive property, ${status}`);
   assert.equal(editPropertyDetailsPlan(null), null); assert.equal(editPropertyDetailsPlan(undefined), null);
 });
-test('Manage status stays reachable for published and paused listings, and is not offered twice', () => {
+test('Manage is the primary button for published and paused listings (it holds the status control), and is not repeated in the menu', () => {
   for (const status of ['active', 'paused']) {
-    const a = portfolioCardActions(item(status)); assert.deepEqual(a.menu.map(x => x.label).filter(l => /status/i.test(l)), ['Manage status']);
+    const a = portfolioCardActions(item(status)); assert.deepEqual([a.primary.key, a.primary.label], ['open', 'Manage']);
+    assert.ok(!a.menu.some(x => x.key === 'manageStatus' || /status/i.test(x.label)), 'not repeated in the menu');
     const inactive = portfolioCardActions(item(status, { active: false }));
-    assert.deepEqual([inactive.primary.key, inactive.primary.label], ['open', 'Manage status']);
-    assert.ok(!inactive.menu.some(x => x.key === 'manageStatus'), 'not repeated when it is already the button');
+    assert.deepEqual([inactive.primary.key, inactive.primary.label], ['open', 'Manage']);
+    assert.ok(!inactive.menu.some(x => x.key === 'editListing'), 'an inactive property cannot be edited from its card');
   }
 });
 test('Continue posting resumes at the first incomplete step', () => {

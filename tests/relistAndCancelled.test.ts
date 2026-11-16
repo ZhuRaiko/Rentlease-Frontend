@@ -32,13 +32,13 @@ test('archived: one-line explanation, only where the new-listing action is offer
 test('archived on an inactive property keeps the old primary action (nothing to create)', () => {
   assert.equal(portfolioCardActions(makeItem('p', 'archived', false)).primary.label, 'View listing');
 });
-test('one button per state: paused and active Edit listing, draft Continue editing, none Continue posting, removed View status', () => {
-  assert.equal(portfolioCardActions(makeItem('p', 'paused')).primary.label, 'Edit listing');
-  assert.equal(portfolioCardActions(makeItem('p', 'active')).primary.label, 'Edit listing');
+test('one button per state: paused, active, rented and removed Manage, draft Continue editing, none Continue posting', () => {
+  assert.equal(portfolioCardActions(makeItem('p', 'paused')).primary.label, 'Manage');
+  assert.equal(portfolioCardActions(makeItem('p', 'active')).primary.label, 'Manage');
   assert.equal(portfolioCardActions(makeItem('p', 'draft')).primary.label, 'Continue editing');
   assert.equal(portfolioCardActions(makeItem('p', null)).primary.label, 'Continue posting');
-  assert.equal(portfolioCardActions(makeItem('p', 'removed')).primary.label, 'View status');
-  assert.equal(portfolioCardActions(makeItem('p', 'rented')).primary.label, 'View listing');
+  assert.equal(portfolioCardActions(makeItem('p', 'removed')).primary.label, 'Manage');
+  assert.equal(portfolioCardActions(makeItem('p', 'rented')).primary.label, 'Manage');
   for (const status of ['draft', 'active', 'paused', 'rented', 'removed', null]) assert.notEqual(portfolioCardActions(makeItem('p', status)).primary.key, 'createListing', String(status));
 });
 test('Reactivate stays for paused only: an archived listing has no lifecycle action to reactivate', () => {

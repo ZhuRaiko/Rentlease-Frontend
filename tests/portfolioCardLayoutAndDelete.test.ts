@@ -59,27 +59,28 @@ const render = (props: any, viewport?: any) => harness(viewport).render(card, 'P
 const ellipsis = '…';
 
 // ---- Card decisions: which action is a button, the verification row, or a menu entry
-test('verification is never a second button or a menu entry: it is the status row', () => {
+test('verification is never a second button: it is one menu entry while the owner can act, and none when approved', () => {
   for (const tier of ['not_submitted', 'pending', 'under_review', 'rejected']) for (const status of ['draft', 'active', 'paused', 'rented', null]) {
     const layout = portfolioCardLayout(makeItem('x', status, tier));
-    assert.ok(layout.secondary === null && !layout.menu.some(a => a.key === 'verification'), `${tier}/${status}`);
+    assert.ok(layout.secondary === null && layout.menu.filter(a => a.key === 'verification').length === 1 && layout.primary.key !== 'verification', `${tier}/${status}`);
   }
+  assert.ok(!portfolioCardLayout(makeItem('x', 'active', 'approved')).menu.some(a => a.key === 'verification'));
 });
 test('there is one button per card: no second button, every other action is in the menu', () => {
   const l = (item: any) => portfolioCardLayout(item);
   for (const item of [makeItem('1', 'draft', 'approved', { completeness: 0.9 }), makeItem('2', 'active', 'approved'), makeItem('3', null, 'approved'), makeItem('4', 'draft', 'not_submitted'), makeItem('5', 'paused', 'approved', { tier3: {} })]) assert.equal(l(item).secondary, null, 'never a second button');
   assert.deepEqual(l(makeItem('1', 'draft', 'approved', { completeness: 0.9 })).menu.map(a => a.label), ['Edit property details', 'Review Publication']);
-  assert.deepEqual(l(makeItem('2', 'active', 'approved')).menu.map(a => a.label), ['Edit property details', 'Manage status']);
+  assert.deepEqual(l(makeItem('2', 'active', 'approved')).menu.map(a => a.label), ['Edit listing', 'Edit property details']);
   assert.deepEqual(l(makeItem('3', null, 'approved')).menu.map(a => a.label), ['Edit property details']);
-  assert.deepEqual(l(makeItem('4', 'draft', 'not_submitted')).menu.map(a => a.label), ['Edit property details'], 'verification stays on its own row, never in the menu');
+  assert.deepEqual(l(makeItem('4', 'draft', 'not_submitted')).menu.map(a => a.label), ['Edit property details', 'Verify This Property']);
   const paused = l(makeItem('5', 'paused', 'approved', { tier3: {} }));
-  assert.deepEqual([paused.primary.label, paused.secondary], ['Edit listing', null]);
+  assert.deepEqual([paused.primary.label, paused.secondary], ['Manage', null]);
 });
 test('the primary label is named for the state: Continue posting only when there is no listing', () => {
   assert.equal(portfolioCardLayout(makeItem('1', null)).primary.label, 'Continue posting');
   assert.equal(portfolioCardLayout(makeItem('2', 'draft')).primary.label, 'Continue editing');
-  assert.equal(portfolioCardLayout(makeItem('3', 'active')).primary.label, 'Edit listing');
-  assert.equal(portfolioCardLayout(makeItem('4', 'removed')).primary.label, 'View status');
+  assert.equal(portfolioCardLayout(makeItem('3', 'active')).primary.label, 'Manage');
+  assert.equal(portfolioCardLayout(makeItem('4', 'removed')).primary.label, 'Manage');
 });
 test('status pill tone: draft neutral, active green, paused amber, rented blue, removed red; labels unchanged', () => {
   const pill = (s: string | null) => portfolioStatusPill(makeItem('p', s));
@@ -99,35 +100,35 @@ test('verification row: label and action for every tier 3 status and for repair'
 });
 
 // ---- Card rendering
-test('card: pill and 48dp round overflow button sit on the cover; the verification row is one tappable row', () => {
+test('card: status chip sits on an 84dp cover, the 48dp overflow button sits beside Manage, and verification is in the menu', () => {
   const calls: string[] = [];
-  const tree = render({ item: makeItem('c1', 'paused', 'not_submitted', { cover: true }), onAction: (k: string) => calls.push(k), request: { text: null, pending: false, error: null, onManage() {} } });
-  assert.ok(nodes(tree).some(n => n.type === 'Image' && n.props.style.height === 150 && n.props.style.width === '100%'), 'full-width 150dp cover');
+  const h = harness(); const r = () => h.render(card, 'PortfolioRentalCard', { disabled: false, item: makeItem('c1', 'paused', 'not_submitted', { cover: true }), onAction: (k: string) => calls.push(k), request: { text: null, pending: false, error: null, onManage() {} } });
+  const tree = r();
+  assert.ok(nodes(tree).some(n => n.type === 'Image' && n.props.style.height === 84 && n.props.style.width === '100%'), 'full-width 84dp cover');
   assert.match(text(tree), /Paused/);
   const more = nodes(tree).find(n => n.props?.accessibilityLabel?.startsWith('More actions for'))!;
-  assert.deepEqual([more.props.style.width, more.props.style.height, more.props.style.borderRadius], [48, 48, 24]);
-  nodes(tree).find(byText('Verify This Property'))!.props.onPress();
+  assert.deepEqual([more.props.style.width, more.props.style.height], [48, 48]);
+  assert.ok(!nodes(tree).some(byText('Verify This Property')), 'no verification row on the card');
+  more.props.onPress(); nodes(r()).find(byText('Verify This Property'))!.props.onPress();
   assert.deepEqual(calls, ['verification']);
-  assert.equal(nodes(tree).filter(n => n.type === 'Pressable' && flat(n.props.children).includes('Verify This Property')).length, 1, 'one verification control, not chip plus button');
-  assert.ok(nodes(tree).find(byText('Verify This Property'))!.props.style.some((s: any) => s?.minHeight === 44));
 });
-test('card: no photo shows Add photos, which runs the same action as the primary button', () => {
+test('card: a draft is a compact card with one outlined Continue posting and no Add photos control', () => {
   const calls: string[] = [];
   const tree = render({ item: makeItem('c2', 'draft', 'approved'), onAction: (k: string) => calls.push(k) });
-  assert.doesNotMatch(text(render({ item: makeItem('c3', 'draft', 'approved', { cover: true }) })), /Add photos/);
-  nodes(tree).find(byText('Add photos'))!.props.onPress(); nodes(tree).find(byText('Continue editing'))!.props.onPress();
-  assert.deepEqual(calls, ['continueEditing', 'continueEditing']);
+  assert.doesNotMatch(text(tree), /Add photos/);
+  nodes(tree).find(byText('Continue posting'))!.props.onPress();
+  assert.deepEqual(calls, ['continueEditing']);
+  assert.match(text(tree), /Draft · 50% complete/);
 });
-test('card: price only with a listing; one button, no secondary beside it', () => {
+test('card: price only with a listing; Manage is the one button and every other action is behind the menu', () => {
   assert.match(text(render({ item: makeItem('c4', 'active') })), /9,999/);
-  assert.doesNotMatch(text(render({ item: makeItem('c5', null) })), /month/);
+  assert.doesNotMatch(text(render({ item: makeItem('c5', null) })), /month|₱/);
   const tree = render({ item: makeItem('c6', 'active') });
-  assert.deepEqual(['Edit listing', 'Manage Status', 'Edit Rental', 'Edit Property'].map(l => !!nodes(tree).find(byText(l))), [true, false, false, false]);
+  assert.deepEqual(['Manage', 'Edit listing', 'Manage Status', 'Edit Rental', 'Edit Property'].map(l => !!nodes(tree).find(byText(l))), [true, false, false, false, false]);
 });
-test('card: row stacks buttons at narrow widths and large text only', () => {
-  const rowOf = (viewport: any) => nodes(render({ item: makeItem('c7', 'active') }, viewport)).find(n => Array.isArray(n.props?.style) && n.props.style.some((s: any) => s?.flexDirection === 'row' && s?.gap === 12))!;
-  assert.ok(rowOf({ width: 411, height: 900, fontScale: 1 }).props.style.every((s: any) => s?.flexDirection !== 'column'));
-  assert.ok(rowOf({ width: 320, height: 640, fontScale: 1.5 }).props.style.some((s: any) => s?.flexDirection === 'column'));
+test('card: Manage and the menu stay on one row at narrow widths and large text', () => {
+  const rowOf = (viewport: any) => nodes(render({ item: makeItem('c7', 'active') }, viewport)).find(n => n.props?.style?.flexDirection === 'row' && n.props.style.gap === 12 && n.props.style.alignItems === 'center');
+  assert.ok(rowOf({ width: 411, height: 900, fontScale: 1 })); assert.ok(rowOf({ width: 320, height: 640, fontScale: 1.5 }));
 });
 
 // ---- Delete: where it lives, what it says

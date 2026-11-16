@@ -1,0 +1,116 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import { getSupabaseClient } from '../shared/services/supabase/client';
+import { createRentalReviewService } from '../shared/services/rentalReviewService';
+import { usePublicIdentitiesViewModel } from '../shared/viewModels/usePublicIdentitiesViewModel';
+import { createTenancyActivityService, emptyActivity, type TenancyActivity } from '../features/tenancy/services/tenancyActivityService';
+import { nextScheduledRentDate } from '../features/tenancy/models/TenancyWorkspace';
+import type { RentalRelationship } from '../features/tenancy/models/TenancyWorkspace';
+import { effectiveReservationStatus } from '../features/messaging-viewing/models/RentalReservation';
+import { reservationService, messageId } from '../features/messaging-viewing/services/messagingDependencies';
+import { scopedReservationService } from '../features/messaging-viewing/services/requestScope';
+import { createReservationWorkflow } from '../features/messaging-viewing/viewModels/reservationWorkflow';
+import type { useRequestSnapshot } from '../features/messaging-viewing/viewModels/useRequestSnapshot';
+import { emptyFacts, type ManagedFacts, type NeedsTarget, type PropertyManagementPort } from '../features/property-listing/models/PropertyManagement';
+import type { LandlordPortfolioItem } from '../features/property-listing/models/LandlordPortfolio';
+
+const activityService = createTenancyActivityService(getSupabaseClient);
+const reviewService = createRentalReviewService(getSupabaseClient);
+const CLOSED = ['resolved', 'rejected', 'cancelled'];
+const COLUMNS = 'id,property_id,listing_id,conversation_id,tenant_id,landlord_id,status,start_date,expected_end_date,actual_end_date,agreed_monthly_rent,rent_due_day,tenant_confirmed_at,landlord_confirmed_at';
+
+export interface PropertyManagementNavigation {
+  openTenancy: (open: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' }) => void;
+  message: (conversationId: string) => void;
+}
+
+/**
+ * Composes the facts the My properties overview and Manage screens show, using only reads that already exist: the landlord's own
+ * open tenancies, get_tenancy_care, get_tenancy_lifecycle, get_published_rental_reviews and the reservation snapshot the root already
+ * holds. A failed read leaves its fact empty (hidden), never a guessed value. Account-scoped; an account change drops everything.
+ */
+export function usePropertyManagement(accountId: string | undefined, snapshot: ReturnType<typeof useRequestSnapshot>, navigation: PropertyManagementNavigation, openRequests: (item: LandlordPortfolioItem) => void): PropertyManagementPort {
+  const [state, setState] = useState<{ owner: string | undefined; tenancies: RentalRelationship[]; activity: TenancyActivity; busy: boolean; error: string | null }>({ owner: undefined, tenancies: [], activity: emptyActivity(), busy: true, error: null });
+  const [reviews, setReviews] = useState<{ owner: string | undefined; byProperty: Record<string, { average: number; count: number } | null> }>({ owner: undefined, byProperty: {} });
+  const [revision, setRevision] = useState(0);
+  const requested = useRef(new Set<string>());
+  useEffect(() => {
+    const c = new AbortController();
+    setState({ owner: accountId, tenancies: [], activity: emptyActivity(), busy: !!accountId, error: null });
+    requested.current = new Set(); setReviews({ owner: accountId, byProperty: {} });
+    if (!accountId) return () => c.abort();
+    (async () => {
+      try {
+        const client = getSupabaseClient(), who = await client.auth.getUser();
+        if (who.error || who.data.user?.id !== accountId) throw new Error('account');
+        const { data, error } = await client.from('tenancies').select(COLUMNS).eq('landlord_id', accountId).in('status', ['active', 'proposed', 'pending_confirmation']).order('created_at', { ascending: false }).range(0, 199).abortSignal(c.signal);
+        if (error || !data) throw new Error('read');
+        if (data.some(t => t.landlord_id !== accountId)) throw new Error('scope');
+        const tenancies = data as RentalRelationship[];
+        const activity = await activityService.read(accountId, tenancies, c.signal);
+        if (!c.signal.aborted) setState({ owner: accountId, tenancies, activity, busy: false, error: null });
+      } catch {
+        if (!c.signal.aborted) setState({ owner: accountId, tenancies: [], activity: emptyActivity(), busy: false, error: 'Tenant and maintenance details could not load. Pull to refresh to retry.' });
+      }
+    })();
+    const sub = AppState.addEventListener('change', s => { if (s === 'active') setRevision(v => v + 1); });
+    return () => { c.abort(); sub.remove(); };
+  }, [accountId, revision]);
+  const current = state.owner === accountId ? state : { owner: accountId, tenancies: [], activity: emptyActivity(), busy: true, error: null };
+  const reservations = snapshot.owner === accountId ? snapshot.reservations.filter(r => r.landlordId === accountId && effectiveReservationStatus(r, snapshot.now) === 'pending') : [];
+  const identities = usePublicIdentitiesViewModel(accountId, [...current.tenancies.map(t => t.tenant_id), ...reservations.map(r => r.tenantId)]);
+  const facts = useMemo(() => {
+    const out: Record<string, ManagedFacts> = {};
+    const of = (propertyId: string) => out[propertyId] ??= emptyFacts();
+    for (const t of current.tenancies) {
+      const f = of(t.property_id);
+      if (t.status === 'active' && !f.stay) {
+        const care = current.activity.care[t.id], lifecycle = current.activity.lifecycle[t.id];
+        const open = (care?.requests ?? []).filter(r => !CLOSED.includes(r.status));
+        f.stay = { tenancyId: t.id, tenantId: t.tenant_id, tenantName: identities[t.tenant_id]?.nickname ?? null, startDate: t.start_date, endDate: t.actual_end_date ?? t.expected_end_date, rent: t.agreed_monthly_rent ?? null, nextDue: nextScheduledRentDate(t), conversationId: t.conversation_id };
+        f.maintenance = { open: open.length, urgent: open.filter(r => r.priority === 'urgent').map(r => ({ id: r.id, title: r.title, createdAt: r.createdAt })) };
+        f.endRequest = lifecycle?.pending ? { tenancyId: t.id, fromTenant: lifecycle.pending.initiatorId === t.tenant_id } : null;
+      } else if (t.status !== 'active' && !f.setup) f.setup = { tenancyId: t.id };
+    }
+    for (const r of reservations) of(r.propertyId).reservations.push({ id: r.id, conversationId: r.conversationId, applicantName: identities[r.tenantId]?.nickname ?? null, moveInDate: r.moveInDate, endDate: r.endDate, applicantTier1: r.applicantTier1 });
+    if (reviews.owner === accountId) for (const [propertyId, value] of Object.entries(reviews.byProperty)) of(propertyId).reviews = value;
+    return out;
+  }, [current, reservations, identities, reviews, accountId]);
+  const refresh = useCallback(() => { setRevision(v => v + 1); void snapshot.refresh(); }, [snapshot.refresh]);
+  const loadReviews = useCallback((propertyId: string) => {
+    if (!accountId || requested.current.has(propertyId)) return;
+    requested.current.add(propertyId);
+    const c = new AbortController();
+    void reviewService.read(accountId, { mode: 'property', id: propertyId }, 0, c.signal).then(data => {
+      if (data.type === 'public') setReviews(old => old.owner === accountId ? { owner: accountId, byProperty: { ...old.byProperty, [propertyId]: { average: data.value.average ?? 0, count: data.value.count } } } : old);
+    }).catch(() => { requested.current.delete(propertyId); });
+  }, [accountId]);
+  const decline = useCallback(async (propertyId: string, reservationId: string): Promise<string | null> => {
+    const row = snapshot.reservations.find(r => r.id === reservationId && r.propertyId === propertyId && r.landlordId === accountId);
+    if (!accountId || !row) return 'This request is no longer available.';
+    const workflow = createReservationWorkflow(scopedReservationService(reservationService, { kind: 'property', propertyId, listingIds: [row.listingId] }, accountId), messageId);
+    workflow.activate();
+    try {
+      await workflow.open(null);
+      const found = workflow.getSnapshot().rows.find(r => r.id === reservationId);
+      if (!found) return 'This request is no longer available.';
+      workflow.edit(found, 'decline');
+      if (!workflow.getSnapshot().editor) return 'This request can no longer be declined.';
+      await workflow.submit();
+      const after = workflow.getSnapshot();
+      return after.editor || after.error ? (after.error ?? 'The request could not be declined. Try again.') : null;
+    } finally { workflow.dispose(); }
+  }, [accountId, snapshot.reservations]);
+  const openTarget = useCallback((_propertyId: string, target: NeedsTarget) => {
+    if (target.kind === 'care') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'care' });
+    else if (target.kind === 'lifecycle') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'lifecycle' });
+    else navigation.openTenancy({});
+  }, [navigation.openTenancy]);
+  return {
+    factsOf: (propertyId: string) => facts[propertyId] ?? emptyFacts(),
+    loading: current.busy, error: current.error, refresh, openTarget,
+    openTenancy: (tenancyId, panel) => navigation.openTenancy({ tenancyId, ...(panel ? { panel } : {}) }),
+    message: navigation.message, reviewRequests: openRequests, loadReviews, decline,
+    reviewsFor: (propertyId: string) => reviews.owner === accountId ? reviews.byProperty[propertyId] ?? null : null,
+  };
+}

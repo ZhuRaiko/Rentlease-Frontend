@@ -6,10 +6,11 @@ export const defaultMarketplaceMode = (preference: unknown): MarketplaceMode => 
 export const defaultPreviewActor = (legacyRoles: readonly string[]): MarketplaceMode => legacyRoles.includes('landlord') && !legacyRoles.includes('tenant') ? 'landlord' : 'tenant';
 export type AppWorkspace =
   | { type: 'discovery'; initialScreen: 'home' | 'matchingPreferences'; introduction?: boolean; /** Opens the results already filtered to a city and property type ("Find similar"). */ initialSearch?: { city: string; type: string } }
-  | { type: 'properties'; initialScreen: 'dashboard' | 'postingType' }
+  | { type: 'properties'; initialScreen: 'dashboard' | 'postingType'; /** Opens this property's Manage screen once My properties has loaded ("Open property" from Tenancy). */ managePropertyId?: string }
   | { type: 'priceEstimate'; actor: MarketplaceMode; returnTo: 'discovery' | 'properties' }
   | { type: 'messages'; initialScreen: 'inbox' | 'newInquiry' }
-  | { type: 'tenancy' | 'maintenance' | 'ratingsReports' | 'adminModeration' | 'notifications' | 'verification' }
+  | { type: 'tenancy'; /** Opens one rental's details (optionally on a panel) from Manage. */ open?: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' } }
+  | { type: 'maintenance' | 'ratingsReports' | 'adminModeration' | 'notifications' | 'verification' }
   | null;
 
 // Presentation routing only; backend authorization remains independent.

@@ -42,14 +42,14 @@ export function portfolioCardActions(item: LandlordPortfolioItem): { primary: Po
   const primary: PortfolioAction = relist ? { key: 'createListing', label: 'Create a new listing' }
     : !listing ? { key: 'continuePosting', label: 'Continue posting' }
     : status === 'draft' ? { key: 'continueEditing', label: 'Continue editing' }
-    : live && active ? { key: 'editListing', label: 'Edit listing' }
-    : { key: 'open', label: status === 'removed' ? 'View status' : live ? 'Manage status' : 'View listing' };
+    : status === 'rented' || live || status === 'removed' ? { key: 'open', label: 'Manage' }
+    : { key: 'open', label: 'View listing' };
   const verificationLabel = item.tier3.requiresRepair ? null : propertyVerificationActionLabel(item.tier3.status);
   const verification: PortfolioAction | null = verificationLabel ? { key: 'verification', label: verificationLabel } : null;
   const editDetails: PortfolioAction | null = editPropertyDetailsPlan(item) ? { key: 'editPropertyDetails', label: 'Edit property details' } : null;
-  const manage: PortfolioAction | null = live && primary.key !== 'open' ? { key: 'manageStatus', label: 'Manage status' } : null;
+  const edit: PortfolioAction | null = live && active ? { key: 'editListing', label: 'Edit listing' } : null;
   const review: PortfolioAction | null = canReviewPortfolioPublication(item) ? { key: 'reviewPublication', label: 'Review Publication' } : null;
-  const menu = [...(relist ? [{ key: 'open', label: 'View listing' } as PortfolioAction] : []), editDetails, manage, verification, review].filter((a): a is PortfolioAction => a !== null);
+  const menu = [...(relist ? [{ key: 'open', label: 'View listing' } as PortfolioAction] : []), edit, editDetails, verification, review].filter((a): a is PortfolioAction => a !== null);
   return { primary, secondary: null, menu };
 }
 
@@ -76,10 +76,10 @@ export function portfolioVerificationRow(item: LandlordPortfolioItem): Portfolio
   return { ...portfolioVerificationChip(item), actionLabel: item.tier3.requiresRepair ? null : propertyVerificationActionLabel(item.tier3.status) };
 }
 
-/** The card shows its one button; every other action (except the verification row) is in the overflow menu. */
+/** The card shows its one button; every other action, including verification, is in the overflow menu. */
 export function portfolioCardLayout(item: LandlordPortfolioItem): { primary: PortfolioAction; secondary: null; menu: PortfolioAction[] } {
   const { primary, menu } = portfolioCardActions(item);
-  return { primary, secondary: null, menu: menu.filter(a => a.key !== 'verification') };
+  return { primary, secondary: null, menu };
 }
 
 /** Today's date in Philippine time (UTC+8) as YYYY-MM-DD, the same rule the rest of the app uses. */

@@ -9,7 +9,8 @@ import type {PortfolioRequestActivity} from '../models/PortfolioCardPresentation
 import {PropertyIdentityEditView} from './PropertyIdentityEditView';
 import {listingNumber} from '../models/PersistedListingDraft';
 import { ListingDraftSavedView } from './ListingDraftSavedView';
-import { PublishedListingStatusView } from './PublishedListingStatusView';
+import { ManagePropertyView } from './ManagePropertyView';
+import type { PropertyManagementPort } from '../models/PropertyManagement';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
 import { Modal, StatusBar, StyleSheet, View, Text } from 'react-native';
@@ -29,6 +30,10 @@ import { PropertyDashboardView } from './PropertyDashboardView';
 export interface PropertyListingFlowViewProps {
  accountId?:string|undefined;
  requestActivity?:((item:LandlordPortfolioItem)=>PortfolioRequestActivity|null)|undefined;
+ /** Facts and navigation for the overview cards and the Manage screen, composed by the root from existing reads. */
+ management?:PropertyManagementPort|undefined;
+ /** Opens this property's Manage screen once the portfolio has loaded ("Open property" from Tenancy). */
+ initialManagePropertyId?:string|undefined;
   renderPropertyVerification?: (propertyId:string,onClose:()=>void,registerBack:(action:(()=>void)|null)=>void)=>ReactNode;
   initialScreen?: 'dashboard' | 'postingType';
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
@@ -71,6 +76,8 @@ export function PropertyListingFlowView({
   accountId,
   renderPropertyVerification,
   requestActivity,
+  management,
+  initialManagePropertyId,
   initialScreen = 'dashboard',
   registerBackAction,
   onClose,
@@ -84,6 +91,10 @@ export function PropertyListingFlowView({
   const verificationBack=useRef<(()=>void)|null>(null);
   const verificationPropertyId=viewModel.propertyVerificationState.entryPropertyId;
   const close = () => viewModel.requestNavigation(onClose);
+  const opened = useRef<string | null>(null);
+  useEffect(() => {
+    if (initialManagePropertyId && opened.current !== initialManagePropertyId && viewModel.portfolioState.loaded) { opened.current = initialManagePropertyId; viewModel.openPortfolioItem(initialManagePropertyId); }
+  });
   useEffect(() => {
     registerBackAction?.(() => viewModel.backFromWorkspace(onRootBack));
     return () => registerBackAction?.(null);
@@ -96,9 +107,9 @@ export function PropertyListingFlowView({
   if(viewModel.screen!=='dashboard'&&viewModel.unfinishedPostState.status?.propertyId===viewModel.workspacePropertyId&&viewModel.unfinishedPostState.status?.state==='cleanup_pending'){
     content=<View style={{padding:24,gap:12}}><Text accessibilityRole="header">Finishing post deletion</Text><Text>The post was removed. Owned photos still need cleanup. Retry below, or return to My Rentals.</Text><ListingButton label="Back to My Rentals" tone="outline" disabled={viewModel.unfinishedPostState.busy} onPress={viewModel.goDashboard}/></View>;
   } else if (viewModel.screen === 'dashboard' || viewModel.screen === 'empty') {
-    content = <PropertyDashboardView viewModel={viewModel} requestActivity={requestActivity}/>;
+    content = <PropertyDashboardView viewModel={viewModel} requestActivity={requestActivity} management={management}/>;
   } else if (viewModel.screen === 'published' && viewModel.showRealPublication && viewModel.realListing) {
-    content = <PublishedListingStatusView estimateSection={estimateSection} viewModel={viewModel} onClose={close} />;
+    content = <ManagePropertyView accountId={accountId} management={management} viewModel={viewModel} />;
   } else if (viewModel.screen === 'identityEdit') {
     content=<PropertyIdentityEditView viewModel={viewModel} onClose={close}/>;
   } else if (viewModel.screen === 'draftSaved') {

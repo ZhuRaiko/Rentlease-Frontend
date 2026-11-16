@@ -5,8 +5,8 @@ import {colors} from '../../../shared/theme/colors';
 import {ui} from '../../../shared/theme/ui';
 import type {RequestScope} from '../services/requestScope';
 import {ViewingsWorkspace,ReservationsWorkspace} from './RequestWorkspaces';
-export function RequestManagementView({accountId,scope,title,cover,status,onBack,registerBackAction,onOpenConversation,counts}:{accountId:string|undefined;scope:RequestScope;title:string;cover?:string|undefined;status?:string|undefined;counts?:{viewings:number;reservations:number}|undefined;onBack:()=>void;registerBackAction?:((action:(()=>void)|null)=>void)|undefined;onOpenConversation?:((id:string)=>void)|undefined}){
- const [tab,setTab]=useState<'viewings'|'reservations'>('viewings');
+export function RequestManagementView({accountId,scope,title,cover,status,onBack,registerBackAction,onOpenConversation,counts,initialTab}:{initialTab?:'viewings'|'reservations'|undefined;accountId:string|undefined;scope:RequestScope;title:string;cover?:string|undefined;status?:string|undefined;counts?:{viewings:number;reservations:number}|undefined;onBack:()=>void;registerBackAction?:((action:(()=>void)|null)=>void)|undefined;onOpenConversation?:((id:string)=>void)|undefined}){
+ const [tab,setTab]=useState<'viewings'|'reservations'>(initialTab??'viewings');
  // Tabs are disabled while editing so an uncertain write cannot be abandoned by switching tabs.
  const nested=useRef<(()=>void)|null>(null),[locked,setLocked]=useState(false);
  const register=useCallback((action:(()=>void)|null)=>{nested.current=action;registerBackAction?.(action);},[registerBackAction]);

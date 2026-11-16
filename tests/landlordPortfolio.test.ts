@@ -77,7 +77,7 @@ test('dashboard contains only real property presentation and no mock metrics or 
   const source = readFileSync('src/features/property-listing/views/PropertyDashboardView.tsx', 'utf8');
   const card = readFileSync('src/features/property-listing/components/PortfolioRentalCard.tsx', 'utf8');
   for (const text of [source, card]) assert.doesNotMatch(text, /landlordListingPreviews|Figma|UC-06|OVERDUE|AVG RATING|TENANTED|inquiry|\.rpc\(|getSupabaseClient/);
-  assert.match(source, /portfolioItems\.map/); assert.match(card, /coverPhoto\.publicUrl/); assert.match(source, /portfolioFilterCounts/);
+  assert.match(source, /shown\.map/); assert.match(card, /coverPhoto\.publicUrl/); assert.match(source, /portfolioFilterCounts/);
   const flow = readFileSync('src/features/property-listing/views/PropertyListingFlowView.tsx', 'utf8'); assert.doesNotMatch(flow, /<FeedbackNotice|Check publication status|Check listing status|draft to reconcile/);
 });
 test('portfolio pagination retains properties beyond one page and chunks owner-confirmed cover queries', async () => {

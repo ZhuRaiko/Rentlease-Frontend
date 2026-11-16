@@ -37,9 +37,9 @@ export function portfolioStats(items: LandlordPortfolioItem[]) {
 /** Status tabs act on each property's current listing, the same row its card shows, so tab counts always match the cards. */
 export type PortfolioFilter = 'all' | 'published' | 'drafts' | 'rented';
 export const portfolioFilters: readonly { key: PortfolioFilter; label: string }[] = [
-  { key: 'all', label: 'All' }, { key: 'published', label: 'Published' }, { key: 'drafts', label: 'Drafts' }, { key: 'rented', label: 'Rented' },
+  { key: 'all', label: 'All' }, { key: 'rented', label: 'Occupied' }, { key: 'published', label: 'Listed' }, { key: 'drafts', label: 'Drafts' },
 ];
-export const portfolioFilterEmptyText: Record<Exclude<PortfolioFilter, 'all'>, string> = { published: 'No published rentals yet.', drafts: 'No drafts.', rented: 'No rented listings yet.' };
+export const portfolioFilterEmptyText: Record<Exclude<PortfolioFilter, 'all'>, string> = { published: 'No listed properties yet.', drafts: 'No drafts.', rented: 'No occupied properties yet.' };
 const filterStatus: Record<Exclude<PortfolioFilter, 'all'>, Enums<'listing_status'>> = { published: 'active', drafts: 'draft', rented: 'rented' };
 export function portfolioFilterMatches(item: LandlordPortfolioItem, filter: PortfolioFilter) {
   return filter === 'all' || item.currentListing?.status === filterStatus[filter];

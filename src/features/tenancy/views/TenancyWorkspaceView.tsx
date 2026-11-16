@@ -24,12 +24,14 @@ interface Props {
   onStartRequest?:((conversationId:string)=>void)|undefined;
   /** Opens Discover filtered to a city and property type. */
   onFindSimilar?:((city:string,type:string)=>void)|undefined;
-  /** Opens the property screen (today's list of properties; a single property's Manage screen replaces it later). */
+  /** Opens that property's Manage screen. */
   onOpenProperty?:((propertyId:string)=>void)|undefined;
   externalPanelOpen?:boolean;
+  /** Opens one rental's details straight away (from a property's Manage screen). */
+  initialOpen?:{tenancyId?:string;panel?:TenancyDetailsPanel}|undefined;
 }
-export function TenancyWorkspaceView({accountId,onBack,onDiscover,onListings,onPost,onChat,registerBackAction,onOpenConversation,onStartRequest,onFindSimilar,onOpenProperty,externalPanelOpen=false}:Props){
- const vm=useTenancyWorkspaceViewModel(accountId,onStartRequest),[setup,setSetup]=useState<{actor:string|undefined;reservationId:string}|null>(null),[reload,setReload]=useState(0),[details,setDetails]=useState<Details|null>(null);
+export function TenancyWorkspaceView({accountId,onBack,onDiscover,onListings,onPost,onChat,registerBackAction,onOpenConversation,onStartRequest,onFindSimilar,onOpenProperty,externalPanelOpen=false,initialOpen}:Props){
+ const vm=useTenancyWorkspaceViewModel(accountId,onStartRequest),[setup,setSetup]=useState<{actor:string|undefined;reservationId:string}|null>(null),[reload,setReload]=useState(0),[details,setDetails]=useState<Details|null>(initialOpen?.tenancyId?{actor:accountId,id:initialOpen.tenancyId,sourceId:null,...(initialOpen.panel?{panel:initialOpen.panel}:{})}:null);
  const activeDetails=details?.actor===accountId?details:null,screen=vm.screen;
  const scroll=useRef<ScrollView|null>(null),at=useRef<Partial<Record<TileKind,number>>>({});
  useEffect(()=>{if((!setup||setup.actor!==accountId)&&!activeDetails&&!externalPanelOpen){registerBackAction(onBack);return()=>registerBackAction(null);}},[registerBackAction,onBack,setup,accountId,activeDetails,externalPanelOpen]);

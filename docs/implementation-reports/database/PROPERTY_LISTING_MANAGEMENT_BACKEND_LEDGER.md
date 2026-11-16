@@ -1983,3 +1983,7 @@ Known migration-history drift (11 renamed local/remote pairs) remains as recorde
 | Android/client runtime | RUNTIME-UNVERIFIED |
 
 No permanent live backend mutation was performed in this phase.
+
+## Feature 2: property management hub - November 16, 2026
+
+No migration, RPC, grant, policy or Edge Function change. One hosted read-only catalog query (project `cxfsbwbwmwmgtqfonqth`, `pg_policies` for `public.listing_views` and `has_table_privilege('authenticated', 'public.listing_views', 'SELECT')`, plus a `pg_proc` name count) returned: no policy, no client SELECT grant, no listing-view function. Views therefore are not shown. New frontend calls reuse existing reads only: `tenancies` (landlord's own rows, SELECT), `get_tenancy_care`, `get_tenancy_lifecycle`, `get_published_rental_reviews`, `get_public_identities`, the reservation list, and the existing `respond_rental_reservation` decline path (code only; no decline was run on real data). Reservation `d67d5332-39f6-45b7-b4f3-8e81396d490e` was not touched.

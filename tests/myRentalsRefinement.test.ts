@@ -114,45 +114,39 @@ test('dashboard has no Post a Rental button; posting stays in the navbar and emp
 test('filter tabs show ViewModel counts, mark the active tab and report taps; the list is the ViewModel-filtered list', () => {
   const { vm, calls } = viewModel({ filter: 'drafts' }); const tree = harness().render(dashboard, 'PropertyDashboardView', { viewModel: vm });
   const tabs = nodes(tree).filter(n => n.props?.accessibilityRole === 'tab');
-  assert.deepEqual(tabs.map(t => t.props.accessibilityLabel), ['All, 5', 'Published, 2', 'Drafts, 1', 'Rented, 1']);
-  assert.deepEqual(tabs.map(t => t.props.accessibilityState.selected), [false, false, true, false]);
+  assert.deepEqual(tabs.map(t => t.props.accessibilityLabel), ['All, 5', 'Occupied, 1', 'Listed, 2', 'Drafts, 1']);
+  assert.deepEqual(tabs.map(t => t.props.accessibilityState.selected), [false, false, false, true]);
   assert.ok(tabs.every(t => t.props.hitSlop.top + t.props.hitSlop.bottom + 40 >= 48), 'tab hit area is at least 48dp tall');
-  assert.equal(nodes(tree).filter(byText('Continue editing')).length, 1, 'one card rendered for the single draft');
-  tabs[1].props.onPress(); assert.deepEqual(calls, ['filter:published']);
+  assert.equal(nodes(tree).filter(byText('Continue posting')).length, 1, 'one card rendered for the single draft');
+  tabs[2].props.onPress(); assert.deepEqual(calls, ['filter:published']);
 });
 
 test('empty filter and empty search results use distinct honest copy', () => {
   const none = [makeItem('x', 'active')];
   assert.match(text(harness().render(dashboard, 'PropertyDashboardView', { viewModel: viewModel({ items: none, filter: 'drafts' }).vm })), /No drafts\./);
-  assert.match(text(harness().render(dashboard, 'PropertyDashboardView', { viewModel: viewModel({ items: none, filter: 'rented' }).vm })), /No rented listings yet\./);
+  assert.match(text(harness().render(dashboard, 'PropertyDashboardView', { viewModel: viewModel({ items: none, filter: 'rented' }).vm })), /No occupied properties yet\./);
   assert.match(text(harness().render(dashboard, 'PropertyDashboardView', { viewModel: viewModel({ items: none, query: 'zzz' }).vm })), /No matching properties or listings/);
 });
 
-test('search sits behind a header icon; opening reveals the input, closing clears the query', () => {
-  const { vm, calls } = viewModel(); const h = harness();
-  const closed = h.render(dashboard, 'PropertyDashboardView', { viewModel: vm });
-  assert.ok(!nodes(closed).some(n => n.props?.accessibilityLabel === 'Search properties and listings'));
-  const icon = nodes(closed).find(labelled('Search my rentals'))!; assert.equal(icon.props.accessibilityState.expanded, false); assert.equal(icon.props.style.width, 48); assert.equal(icon.props.style.height, 48);
-  icon.props.onPress();
-  const open = h.render(dashboard, 'PropertyDashboardView', { viewModel: vm });
-  const input = nodes(open).find(labelled('Search properties and listings'))!; assert.ok(input, 'input revealed');
+test('search is always visible under the summary tiles and reports typing to the ViewModel', () => {
+  const { vm, calls } = viewModel(); const tree = harness().render(dashboard, 'PropertyDashboardView', { viewModel: vm });
+  const input = nodes(tree).find(labelled('Search properties and listings'))!; assert.ok(input, 'input is visible without a toggle');
+  assert.equal(input.props.placeholder, 'Search properties');
   input.props.onChangeText('imus'); assert.deepEqual(calls, ['query:imus']);
-  press(open, labelled('Close search')); assert.deepEqual(calls, ['query:imus', 'query:']);
-  assert.ok(!nodes(h.render(dashboard, 'PropertyDashboardView', { viewModel: vm })).some(labelled('Search properties and listings')));
-  assert.ok(nodes(harness().render(dashboard, 'PropertyDashboardView', { viewModel: viewModel({ query: 'imus' }).vm })).some(labelled('Search properties and listings')), 'an active query keeps the input visible');
+  assert.ok(!nodes(tree).some(labelled('Search my rentals')), 'no search icon toggle any more');
 });
 
 // ---- Card: actions
 const actionLabels = (item: LandlordPortfolioItem) => { const a = portfolioCardActions(item); return [a.primary.label, a.secondary, a.menu.map(m => m.label)]; };
 test('one button per card named for the state; every other action is in the menu, using only existing actions', () => {
   assert.deepEqual(actionLabels(makeItem('1', 'draft', 'not_submitted')), ['Continue editing', null, ['Edit property details', 'Verify This Property']]);
-  assert.deepEqual(actionLabels(makeItem('2', 'active', 'approved')), ['Edit listing', null, ['Edit property details', 'Manage status']]);
-  assert.deepEqual(actionLabels(makeItem('3', 'paused', 'pending')), ['Edit listing', null, ['Edit property details', 'Manage status', 'View Verification Status']]);
+  assert.deepEqual(actionLabels(makeItem('2', 'active', 'approved')), ['Manage', null, ['Edit listing', 'Edit property details']]);
+  assert.deepEqual(actionLabels(makeItem('3', 'paused', 'pending')), ['Manage', null, ['Edit listing', 'Edit property details', 'View Verification Status']]);
   assert.deepEqual(actionLabels(makeItem('4', null, 'not_submitted')), ['Continue posting', null, ['Edit property details', 'Verify This Property']]);
-  assert.deepEqual(actionLabels(makeItem('5', 'rented', 'rejected')), ['View listing', null, ['View Verification Feedback']]);
+  assert.deepEqual(actionLabels(makeItem('5', 'rented', 'rejected')), ['Manage', null, ['View Verification Feedback']]);
   assert.deepEqual(actionLabels(makeItem('6', 'draft', 'approved', { completeness: 0.9 })), ['Continue editing', null, ['Edit property details', 'Review Publication']]);
   assert.deepEqual(actionLabels(makeItem('7', 'draft', 'approved', { completeness: 0.5 })), ['Continue editing', null, ['Edit property details']]);
-  assert.deepEqual(actionLabels(makeItem('8', 'active', 'approved', { active: false })), ['Manage status', null, []]);
+  assert.deepEqual(actionLabels(makeItem('8', 'active', 'approved', { active: false })), ['Manage', null, []]);
   for (const item of [...items, makeItem('9', 'removed'), makeItem('10', 'archived')]) {
     const a = portfolioCardActions(item), all = [a.primary, ...a.menu].filter(Boolean).map(x => x!.label);
     assert.equal(a.secondary, null, 'no second button');
@@ -171,30 +165,33 @@ test('card buttons and menu entries reach the ViewModel handlers with the proper
     }
     return calls;
   };
-  assert.deepEqual(run(makeItem('p1', 'draft', 'not_submitted'), 'Continue editing', 'Verify This Property'), ['open:p1', 'verify:p1']);
+  assert.deepEqual(run(makeItem('p1', 'draft', 'not_submitted'), 'Continue posting', 'Verify This Property'), ['open:p1', 'verify:p1']);
   assert.deepEqual(run(makeItem('p2', 'active', 'approved'), 'Edit listing'), ['editListing:p2']);
   assert.deepEqual(run(makeItem('p3', null, 'approved'), 'Continue posting'), ['continue:p3']);
   assert.deepEqual(run(makeItem('p4', 'active', 'approved'), 'Edit property details'), ['editDetails:p4']);
-  assert.deepEqual(run(makeItem('p5', 'paused', 'approved'), 'Manage status'), ['open:p5']);
+  assert.deepEqual(run(makeItem('p5', 'paused', 'approved'), 'Manage'), ['open:p5']);
   assert.deepEqual(run(makeItem('p6', 'archived', 'approved'), 'Create a new listing'), ['create:p6']);
 });
 
 test('portfolioActionsDisabled disables every card action and the menu button', () => {
   const { vm } = viewModel({ items: [makeItem('d1', 'draft', 'not_submitted')], disabled: true });
   const tree = harness().render(dashboard, 'PropertyDashboardView', { viewModel: vm });
-  const buttons = ['Continue editing', 'Verify This Property'].map(label => nodes(tree).find(byText(label))); assert.ok(buttons.every(Boolean)); assert.ok(buttons.every(b => b!.props.disabled === true));
+  const buttons = ['Continue posting'].map(label => nodes(tree).find(byText(label))); assert.ok(buttons.every(Boolean)); assert.ok(buttons.every(b => b!.props.disabled === true));
+  assert.equal(nodes(tree).find(n => n.props?.accessibilityLabel?.startsWith('More actions for'))!.props.disabled, true);
   const { vm: vm2 } = viewModel({ items: [makeItem('d2', 'paused', 'pending')], disabled: true });
   const menu = nodes(harness().render(dashboard, 'PropertyDashboardView', { viewModel: vm2, requestActivity: () => ({ text: null, pending: false, error: null, onManage() {} }) })).find(n => n.props?.accessibilityLabel?.startsWith('More actions for'));
   assert.equal(menu!.props.disabled, true);
 });
 
-for (const status of ['not_submitted', 'pending', 'under_review', 'rejected', 'approved'] as const) test(`My Rentals draft card exposes ${status} verification directly while keeping Continue editing`, () => {
+for (const status of ['not_submitted', 'pending', 'under_review', 'rejected', 'approved'] as const) test(`My properties draft card keeps ${status} verification in the menu next to Continue posting`, () => {
   const item = makeItem('10000000-0000-4000-8000-000000000001', 'draft', status, { completeness: 1 }); const { vm, calls } = viewModel({ items: [item] }); const h = harness();
   const render = () => h.render(dashboard, 'PropertyDashboardView', { viewModel: vm });
-  press(render(), byText('Continue editing'));
+  press(render(), byText('Continue posting'));
+  assert.ok(!['Verify This Property', 'View Verification Status', 'View Verification Feedback'].some(label => nodes(render()).some(byText(label))), 'closed menu shows no verification control');
+  press(render(), n => n.props?.accessibilityLabel?.startsWith('More actions for'));
   const tree = render(), verification = ['Verify This Property', 'View Verification Status', 'View Verification Feedback'].find(label => nodes(tree).some(byText(label)));
   if (status === 'approved') {
-    assert.equal(verification, undefined); assert.match(text(tree), /Property verified/); press(tree, n => n.props?.accessibilityLabel?.startsWith('More actions for')); press(render(), byText('Review Publication'));
+    assert.equal(verification, undefined); press(tree, byText('Review Publication'));
     assert.deepEqual(calls, ['open:10000000-0000-4000-8000-000000000001', 'review:10000000-0000-4000-8000-000000000001']);
   } else {
     assert.ok(verification); press(tree, byText(verification!)); assert.ok(!nodes(tree).some(byText('Review Publication')));
@@ -230,10 +227,11 @@ test('status and verification chips come only from existing statuses', () => {
   assert.deepEqual(portfolioVerificationChip(makeItem('10', 'draft', 'approved', { tier3: { requiresRepair: true } as any })), { label: 'Identity data repair required', tone: 'attention' });
 });
 
-test('card renders both chips, rent and a checkmark only for a verified property', () => {
+test('card shows one status chip and the price, and no verification row (verification lives in the menu)', () => {
   const h = harness(); const render = (item: LandlordPortfolioItem) => text(h.render(cardPath, 'PortfolioRentalCard', { item, disabled: false, onAction() {} }));
-  const verified = render(makeItem('v', 'active', 'approved')); assert.match(verified, /Published/); assert.match(verified, /✓ Property verified/); assert.match(verified, /9,999/);
-  const unverified = render(makeItem('u', 'draft', 'not_submitted')); assert.match(unverified, /Draft/); assert.match(unverified, /Ownership not verified/); assert.doesNotMatch(unverified, /✓/);
+  const listed = render(makeItem('v', 'active', 'approved')); assert.match(listed, /Listed/); assert.match(listed, /9,999/); assert.doesNotMatch(listed, /Property verified|✓/);
+  const draft = render(makeItem('u', 'draft', 'not_submitted')); assert.match(draft, /Draft/); assert.doesNotMatch(draft, /Ownership not verified/);
+  assert.match(render(makeItem('o', 'rented')), /Occupied/);
 });
 
 // ---- Activity line
@@ -247,27 +245,26 @@ test('activity line lists only non-zero counts and is null when nothing needs at
   assert.equal(requestSummary({ propertyId: 'p', listings: [] }, owner, [], []), 'Viewings: 0 pending, 0 upcoming. Reservations: 0 pending, 0 approved.', 'legacy summary string is unchanged');
 });
 
-test('card renders no activity line for zero activity, a quiet line for non-pending, and an accented line only when pending', () => {
+test('card renders no activity chip for zero activity and one amber chip for open requests', () => {
   const item = makeItem('r', 'active'); const h = harness();
   const render = (request: any) => h.render(cardPath, 'PortfolioRentalCard', { item, disabled: false, onAction() {}, request });
   const dot = (tree: Node) => nodes(tree).some(n => n.props?.accessible === false && n.props?.style?.width === 8 && n.props?.style?.height === 8);
   for (const request of [undefined, null, { text: null, pending: false, error: null, onManage() {} }]) {
-    const tree = render(request); assert.doesNotMatch(text(tree), /pending|upcoming|approved|Requests|\b0\b/i); assert.equal(dot(tree), false);
+    const tree = render(request); assert.doesNotMatch(text(tree), /pending|upcoming|approved|\b0\b/i); assert.equal(dot(tree), false);
   }
   const quiet = render({ text: '1 approved reservation', pending: false, error: null, onManage() {} });
-  assert.match(text(quiet), /1 approved reservation/); assert.match(text(quiet), /Requests/); assert.equal(dot(quiet), false);
+  assert.match(text(quiet), /1 approved reservation/); assert.equal(dot(quiet), false);
   const pending = render({ text: '2 pending reservations', pending: true, error: null, onManage() {} });
-  assert.match(text(pending), /2 pending reservations/); assert.equal(dot(pending), true);
+  assert.match(text(pending), /2 pending reservations/);
   const failed = render({ text: null, pending: false, error: 'Request counts unavailable. Open Manage Requests to retry.', onManage() {} });
   assert.match(text(failed), /Request counts unavailable/); assert.equal(dot(failed), false);
 });
 
 // ---- Layout and text scaling
-test('card row stacks at narrow widths and large text, and keeps full text without line limits', () => {
+test('card keeps Manage and the 48dp menu on one row at every width, and keeps full text without line limits', () => {
   const item = makeItem('n', 'active', 'not_submitted', { title: 'A very long rental title that must remain fully readable' });
-  const row = (viewport: any) => nodes(harness(viewport).render(cardPath, 'PortfolioRentalCard', { item, disabled: false, onAction() {} })).find(n => Array.isArray(n.props?.style) && n.props.style.some((s: any) => s?.flexDirection === 'row' && s?.gap === 12));
-  assert.ok(row({ width: 411, height: 900, fontScale: 1 }).props.style.every((s: any) => s?.flexDirection !== 'column'));
-  assert.ok(row({ width: 320, height: 640, fontScale: 1.5 }).props.style.some((s: any) => s?.flexDirection === 'column'));
+  const row = (viewport: any) => nodes(harness(viewport).render(cardPath, 'PortfolioRentalCard', { item, disabled: false, onAction() {} })).find(n => n.props?.style?.flexDirection === 'row' && n.props.style.gap === 12 && n.props.style.alignItems === 'center');
+  assert.ok(row({ width: 411, height: 900, fontScale: 1 })); assert.ok(row({ width: 320, height: 640, fontScale: 1.5 }));
   const source = readFileSync(cardPath, 'utf8') + readFileSync('src/features/property-listing/components/PortfolioFilterTabs.tsx', 'utf8');
   assert.doesNotMatch(source, /numberOfLines|ellipsizeMode|allowFontScaling=\{false\}|maxFontSizeMultiplier/);
   assert.match(text(harness().render(cardPath, 'PortfolioRentalCard', { item, disabled: false, onAction() {} })), /A very long rental title that must remain fully readable/);
