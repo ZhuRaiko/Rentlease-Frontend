@@ -55,3 +55,26 @@ Environment local, actor Codex; no production interaction in this phase. Existin
 ## Final T7 source checkpoint - November 10, 2026
 
 Developer reports T7A deployed as 20261110140910, Python /wordcloud deployed and review-wordcloud Edge v1 with JWT verification enabled. These external deployment reports supersede earlier local-only statements; this checkpoint performs no backend/device actions. Retained original T7A source filename 20261110125450; LF SHA-256 matches reviewed af9535f787912b87b02978e0f5b160d77948144eb2eb4db5a977916524e4b705. Includes remaining App account bindings, focused tests and SQL fixture/rollback/runner support; excludes .vscode, secrets, caches and backups. Source integration targets master, never main. Native/hosted end-to-end acceptance remains unverified; no production migration replay or history change.
+
+## Feature 4 (ratings with tags): Step 0 backend audit - November 16, 2026
+
+Entry F4-A1. Design proposal: [f4-ratings-backend-design.md](../../design/f4-ratings-backend-design.md). Living feature document: [RATINGS_REVIEWS.md](../../features/RATINGS_REVIEWS.md).
+
+| Field | Content |
+| --- | --- |
+| Date | 2026-11-16 (clock time not recorded); recorded the same day |
+| Feature/phase | Ratings and reviews, Feature 4 Step 0, entry F4-A1 |
+| Actor/tool | Claude Code (Claude Sonnet 5.5) through the claude.ai Supabase connector (`execute_sql`, `list_edge_functions`, `get_edge_function`); project-level access, not an app end user |
+| Environment/project | Hosted project `cxfsbwbwmwmgtqfonqth` |
+| Classification | `READ_ONLY_INSPECTION` |
+| Target | Schema `rentlease_reviews` (columns, constraints, indexes, triggers, RLS flag, table and schema privileges for anon/authenticated/service_role); `public.reviews` (columns, policies, triggers); `public.profile_rating_summary` view definition; functions `get_tenancy_reviews`, `submit_tenancy_review`, `get_published_rental_reviews`, `get_review_moderation`, `moderate_rental_review`, `rentlease_reviews.*`, `validate_review` (signature, owner, search_path, anon/authenticated/service_role EXECUTE, md5 of prosrc; full definitions of `get_published_rental_reviews` and `validate_review`); notification triggers; Edge Function list and the `review-wordcloud` source; counts only: entries by kind/status and direction, events, receipts, legacy reviews, ended tenancies, `review_request` notifications |
+| Action | Catalog `select` statements and the two Edge Function read calls above; no write, no transaction opened |
+| Purpose | Feature 4 Step 0 audit requested by the user |
+| Result | See sections 1 and 2 of the design document. Key facts: `entries` has no tags; the content guard freezes any new column; clients have no table or schema access; 3 entries, all approved, including 1 tenant to landlord review; no author notification exists; `review-wordcloud` is ACTIVE v2 with `verify_jwt=true`; hosted `send-sms` has `verify_jwt=false` and is not in the repo (source not read). |
+| Durable effect | None |
+| Rollback/cleanup | Not applicable |
+| Security/RLS | Catalog privilege checks only; no end-user JWT call and no owner/non-owner test. No review text or user id was read. |
+| Source-controlled backend file | `supabase/migrations/20261110125450_tenancy_ratings_reviews.sql`, `20261114200000_published_reviews_reviewer_role.sql`; Edge Function source `supabase/functions/review-wordcloud/` (hosted copy not byte-compared) |
+| Android/client runtime | Not applicable (no client change) |
+
+No permanent live backend mutation was performed in this step. No migration, SQL file or code was written.

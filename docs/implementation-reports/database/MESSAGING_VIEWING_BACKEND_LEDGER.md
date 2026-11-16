@@ -266,3 +266,26 @@ No other permanent live backend mutation was performed in this step.
 Entry F3-A3. No backend change in this step; no migration, grant or function was touched. Classification `READ_ONLY_INSPECTION` (and one client read): (1) a read-only count of `public.tenancies` by status through the connector (result: 1 cancelled, 1 ended, 1 pending_confirmation, 0 active); (2) the app's own `get_rent_ledger` call, made on the emulator (agent-observed, not user acceptance) by opening the Rent ledger row of the ended "miguel house" rental as its landlord. It returned a ledger with no due months and wrote nothing. The frontend can issue `write_rent_ledger` but no write was made: no active tenancy exists and none was created. `rent_obligations`, the events table and the receipts table were not queried again. Reservation `d67d5332-39f6-45b7-b4f3-8e81396d490e` was not touched. Android/client runtime for writes: RUNTIME-UNVERIFIED.
 
 No permanent live backend mutation was performed in this step.
+
+## Tenancy Feature 6 (maintenance): Step 0 backend audit - November 16, 2026
+
+Entry F6-A1. Audit and proposal: [f6-maintenance-audit.md](../../design/f6-maintenance-audit.md). Living feature document: [TENANCY.md](../../features/TENANCY.md) (maintenance is the T4 part of the tenancy workspace).
+
+| Field | Content |
+| --- | --- |
+| Date | 2026-11-16 (clock time not recorded); recorded the same day |
+| Feature/phase | Tenancy maintenance, Feature 6 Step 0, entry F6-A1 |
+| Actor/tool | Claude Code (Claude Sonnet 5.5) through the claude.ai Supabase connector `execute_sql` (project-level access, not an app end user) |
+| Environment/project | Hosted project `cxfsbwbwmwmgtqfonqth` |
+| Classification | `READ_ONLY_INSPECTION` |
+| Target | `public.maintenance_requests` and `public.maintenance_updates` (columns, constraints, indexes, policies, triggers and trigger function source, RLS flag, table privileges); enums `maintenance_status` and `maintenance_priority`; storage buckets and `storage.objects` policies; functions that mention the maintenance tables (signature, anon/authenticated EXECUTE, md5 prefix); counts only: requests by status/priority, updates, care receipts, objects in `maintenance-media`, `maintenance_update` notifications |
+| Action | Catalog `select` statements; no write, no transaction opened |
+| Purpose | Feature 6 Step 0 audit requested by the user |
+| Result | See section 1 of the audit document. Key facts: statuses (9) and priority (4) enums exist; `tenant_confirmed_resolved_at` exists but is unused; the `create` action forces priority `normal`; no photo metadata; bucket `maintenance-media` is private, empty, with party policies but no size or MIME limits and no delete policy; 0 requests, 0 updates, 0 photos; no client table privileges. |
+| Durable effect | None |
+| Rollback/cleanup | Not applicable |
+| Security/RLS | Catalog checks only; no end-user JWT call and no owner/non-owner test. No row content was read. |
+| Source-controlled backend file | `supabase/migrations/20261110072014_tenancy_rent_maintenance.sql` (the T4 RPCs); the base maintenance tables come from `20260709100000_post_listing_workflows.sql`, which does **not** match the hosted schema (drift) |
+| Android/client runtime | Not applicable (no client change) |
+
+No permanent live backend mutation was performed in this step. No migration, SQL file or code was written.
