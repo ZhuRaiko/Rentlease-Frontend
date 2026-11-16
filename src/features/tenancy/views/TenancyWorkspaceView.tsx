@@ -9,12 +9,14 @@ import {colors} from '../../../shared/theme/colors';
 import {radius} from '../../../shared/theme/radius';
 import {spacing} from '../../../shared/theme/spacing';
 import {useTenancyWorkspaceViewModel} from '../viewModels/useTenancyWorkspaceViewModel';
-import {TILE_COLORS,TILE_LABELS,type TileKind} from '../models/TenancyPresentation';
+import {TILE_LABELS,type TileKind} from '../models/TenancyPresentation';
+import {TILE_COLORS} from '../components/tileColors';
 import type {AttentionItem,PastCard,StayCard,UpcomingCard} from '../models/TenancyWorkspaceScreen';
 import {TenancySetupView} from './TenancySetupView';
-import {TenancyDashboardIcon} from './TenancyDashboardIcon';
+import {DashboardIcon} from '../../../shared/components/DashboardIcon';
 import {ReleaseSheet} from '../components/ReleaseSheet';
-import {ButtonRow,Cell,CellRow,HeroPhoto,PersonRow,Slot,Stars,TenancyButton,TenancyChip,Thumb} from '../components/TenancyParts';
+import {ButtonRow,Cell,CellRow,Slot,StatusButton,StatusChip} from '../../../shared/components/StatusParts';
+import {HeroPhoto,PersonRow,Stars,Thumb} from '../components/TenancyParts';
 import type {TenancyDetailsPanel} from '../viewModels/tenancyDetailsWorkflow';
 type Details={actor:string|undefined;id:string;sourceId:string|null;panel?:TenancyDetailsPanel};
 const ICON={confirm_terms:'upcoming',start_setup:'upcoming',end_request:'history',maintenance:'maintenance'} as const;
@@ -47,26 +49,26 @@ export function TenancyWorkspaceView({accountId,onBack,onDiscover,onListings,onP
  const stay=(s:StayCard)=><View key={s.id} style={styles.card}><HeroPhoto photos={s.photos} chip={s.chip}/>
    <View style={{gap:2}}><Text accessibilityRole="header" style={ui.sectionTitle}>{s.title}</Text><Text style={ui.supporting}>{s.place}</Text></View><PersonRow person={s.other}/>
    <CellRow><Cell label="Rent" value={s.rent}/><Cell label="Next rent due" value={s.nextDue}/></CellRow>
-   <ButtonRow><Slot><TenancyButton tone="primary" label={s.primary.label} onPress={()=>s.primary.kind==='report'?open(s.id,'care'):onOpenProperty?.(s.propertyId)}/></Slot><Slot><TenancyButton label={s.secondary.label} accessibilityLabel={`Details: ${s.title}`} onPress={()=>open(s.id)}/></Slot></ButtonRow></View>;
- const upcoming=(u:UpcomingCard)=><View key={u.id} style={styles.card}><View style={styles.head}><Thumb photos={u.photos}/><View style={styles.grow}><Text style={ui.body}>{u.title}</Text>{u.place?<Text style={ui.supporting}>{u.place}</Text>:null}{stacked?<TenancyChip chip={u.chip}/>:null}</View>{stacked?null:<TenancyChip chip={u.chip}/>}</View>
+   <ButtonRow><Slot><StatusButton tone="primary" label={s.primary.label} onPress={()=>s.primary.kind==='report'?open(s.id,'care'):onOpenProperty?.(s.propertyId)}/></Slot><Slot><StatusButton label={s.secondary.label} accessibilityLabel={`Details: ${s.title}`} onPress={()=>open(s.id)}/></Slot></ButtonRow></View>;
+ const upcoming=(u:UpcomingCard)=><View key={u.id} style={styles.card}><View style={styles.head}><Thumb photos={u.photos}/><View style={styles.grow}><Text style={ui.body}>{u.title}</Text>{u.place?<Text style={ui.supporting}>{u.place}</Text>:null}{stacked?<StatusChip chip={u.chip}/>:null}</View>{stacked?null:<StatusChip chip={u.chip}/>}</View>
    <CellRow><Cell label="Move-in" value={u.moveIn}/>{u.rent?<Cell label="Rent" value={u.rent}/>:null}</CellRow>
-   <TenancyButton label={u.buttonLabel} accessibilityLabel={`Open: ${u.title}`} onPress={()=>{if(u.reservationId)setSetup({actor:accountId,reservationId:u.reservationId});else if(u.tenancyId)open(u.tenancyId);}}/></View>;
- const past=(p:PastCard)=><View key={p.id} style={styles.card}><View style={styles.head}><Thumb photos={p.photos}/><View style={styles.grow}><Text style={ui.body}>{p.title}</Text><Text style={ui.supporting}>{p.subtitle}</Text>{stacked?<TenancyChip chip={p.chip}/>:null}</View>{stacked?null:<TenancyChip chip={p.chip}/>}</View>
+   <StatusButton label={u.buttonLabel} accessibilityLabel={`Open: ${u.title}`} onPress={()=>{if(u.reservationId)setSetup({actor:accountId,reservationId:u.reservationId});else if(u.tenancyId)open(u.tenancyId);}}/></View>;
+ const past=(p:PastCard)=><View key={p.id} style={styles.card}><View style={styles.head}><Thumb photos={p.photos}/><View style={styles.grow}><Text style={ui.body}>{p.title}</Text><Text style={ui.supporting}>{p.subtitle}</Text>{stacked?<StatusChip chip={p.chip}/>:null}</View>{stacked?null:<StatusChip chip={p.chip}/>}</View>
    {p.note?<Text style={ui.supporting}>{p.note}</Text>:null}
    {p.prompt?<View style={styles.prompt}><View style={styles.promptHead}><Stars/><Text style={styles.promptTitle}>{p.prompt.title}</Text></View><Text style={ui.supporting}>{p.prompt.body}</Text></View>:null}
-   {p.buttons.length?<ButtonRow>{p.buttons.map(b=><Slot key={b.key}><TenancyButton tone={b.primary?'primary':'secondary'} label={b.label} accessibilityLabel={`${b.label}: ${p.title}`} onPress={()=>{
+   {p.buttons.length?<ButtonRow>{p.buttons.map(b=><Slot key={b.key}><StatusButton tone={b.primary?'primary':'secondary'} label={b.label} accessibilityLabel={`${b.label}: ${p.title}`} onPress={()=>{
      if(b.key==='start_request'||b.key==='release')vm.startRequest(p.id);
      else if(b.key==='message'&&p.conversationId)onOpenConversation?.(p.conversationId);
      else if(b.key==='find_similar'&&p.similar)onFindSimilar?.(p.similar.city,p.similar.type);
      else open(p.id,b.key==='rate'?'reviews':undefined);}}/></Slot>)}</ButtonRow>:null}</View>;
- const attentionRow=(x:AttentionItem)=><Pressable key={x.key} accessibilityRole="button" accessibilityLabel={`${x.title}. ${x.subtitle}`} onPress={()=>act(x)} style={styles.attentionRow}><TenancyDashboardIcon kind={ICON[x.kind]}/><View style={styles.grow}><Text style={ui.body}>{x.title}</Text><Text style={ui.supporting}>{x.subtitle}</Text>{stacked?<TenancyChip chip={x.chip}/>:null}</View>{stacked?null:<TenancyChip chip={x.chip}/>}</Pressable>;
+ const attentionRow=(x:AttentionItem)=><Pressable key={x.key} accessibilityRole="button" accessibilityLabel={`${x.title}. ${x.subtitle}`} onPress={()=>act(x)} style={styles.attentionRow}><DashboardIcon kind={ICON[x.kind]}/><View style={styles.grow}><Text style={ui.body}>{x.title}</Text><Text style={ui.supporting}>{x.subtitle}</Text>{stacked?<StatusChip chip={x.chip}/>:null}</View>{stacked?null:<StatusChip chip={x.chip}/>}</Pressable>;
  return <ScreenContainer padded={false} includeBottomInset={!!activeDetails}><View style={{flex:1}} importantForAccessibility={activeDetails||externalPanelOpen?'no-hide-descendants':'auto'}><ScreenHeader title="Tenancy" onBack={onBack}/>
   <ScrollView ref={scroll} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={vm.busy} onRefresh={()=>void vm.refresh()}/>}>
    <View style={styles.tiles}>{screen.tiles.map(t=>{const c=TILE_COLORS[t.kind];return <Pressable key={t.kind} accessibilityRole="button" accessibilityLabel={`${TILE_LABELS[t.kind]} rentals: ${ready?t.count:'unavailable'}. Go to this section`} onPress={()=>goTile(t.kind)} style={[styles.tile,stacked&&styles.tileWide,{backgroundColor:c.backgroundColor}]}><Text style={[styles.count,{color:c.color}]}>{ready?t.count:'--'}</Text><Text style={[ui.supporting,{color:c.labelColor,fontWeight:'700'}]}>{TILE_LABELS[t.kind]}</Text></Pressable>;})}</View>
    {vm.busy?<ActivityIndicator accessibilityLabel="Loading rental dashboard" color={colors.primaryAction}/>:null}
-   {vm.error?<View accessibilityRole="alert" style={styles.card}><Text style={ui.body}>{vm.error}</Text><TenancyButton label="Retry" onPress={()=>void vm.refresh()}/></View>:null}
+   {vm.error?<View accessibilityRole="alert" style={styles.card}><Text style={ui.body}>{vm.error}</Text><StatusButton label="Retry" onPress={()=>void vm.refresh()}/></View>:null}
    {vm.contextWarning?<Text style={ui.supporting}>{vm.contextWarning}</Text>:null}
-   {ready&&screen.needsOk.map(x=><View key={x.key} style={styles.okCard}><TenancyChip chip={x.chip}/><Text style={ui.sectionTitle}>{x.title}</Text><Text style={ui.body}>{x.subtitle}</Text><TenancyButton tone="warning" label={x.buttonLabel} accessibilityLabel={`${x.buttonLabel}: ${x.subtitle}`} onPress={()=>act(x)}/></View>)}
+   {ready&&screen.needsOk.map(x=><View key={x.key} style={styles.okCard}><StatusChip chip={x.chip}/><Text style={ui.sectionTitle}>{x.title}</Text><Text style={ui.body}>{x.subtitle}</Text><StatusButton tone="warning" label={x.buttonLabel} accessibilityLabel={`${x.buttonLabel}: ${x.subtitle}`} onPress={()=>act(x)}/></View>)}
    {ready&&screen.attention.length?<View style={{gap:spacing.xs}}><View style={styles.headRow}><Text accessibilityRole="header" style={ui.sectionTitle}>Needs your attention</Text><View accessible accessibilityLabel={`${screen.attention.length} waiting`} style={styles.badge}><Text style={styles.badgeText}>{screen.attention.length}</Text></View></View><View style={styles.card}>{screen.attention.map(attentionRow)}</View></View>:null}
    {bothEmpty?<View onLayout={e=>{at.current.active=at.current.upcoming=e.nativeEvent.layout.y;}} style={styles.section}><Text style={ui.supporting}>No active or upcoming rentals right now.</Text><Pressable accessibilityRole="link" onPress={onChat} style={styles.linkRow}><Text style={styles.linkText}>Browse reservations in Chat</Text></Pressable></View>:<>
    <View {...section('active')} style={styles.section}><Text accessibilityRole="header" style={ui.sectionTitle}>{screen.activeTitle}</Text>{ready?(screen.active.length?screen.active.map(stay):<Text style={ui.supporting}>No active rentals right now.</Text>):<Text style={ui.supporting}>Active rentals appear after loading succeeds.</Text>}</View>

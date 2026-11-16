@@ -222,6 +222,7 @@ export default function App() {
         {workspace?.type === 'properties' && canEnterMarketplace ? (
           <OwnedPropertiesWorkspace key={auth.account?.user.id} accountId={auth.account?.user.id}
             managePropertyId={workspace.managePropertyId}
+            onReturnToTenancy={() => setWorkspace({ type: 'tenancy' })}
             onOpenTenancy={open => setWorkspace({ type: 'tenancy', open })}
             onMessage={id => { if (auth.account) { setWorkspace({ type: 'tenancy' }); setTenancyConversation({ owner: auth.account.user.id, id }); } }}
             renderPropertyVerification={renderPropertyVerification}

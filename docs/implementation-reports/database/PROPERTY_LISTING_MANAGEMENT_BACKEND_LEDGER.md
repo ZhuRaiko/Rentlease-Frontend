@@ -1986,4 +1986,29 @@ No permanent live backend mutation was performed in this phase.
 
 ## Feature 2: property management hub - November 16, 2026
 
-No migration, RPC, grant, policy or Edge Function change. One hosted read-only catalog query (project `cxfsbwbwmwmgtqfonqth`, `pg_policies` for `public.listing_views` and `has_table_privilege('authenticated', 'public.listing_views', 'SELECT')`, plus a `pg_proc` name count) returned: no policy, no client SELECT grant, no listing-view function. Views therefore are not shown. New frontend calls reuse existing reads only: `tenancies` (landlord's own rows, SELECT), `get_tenancy_care`, `get_tenancy_lifecycle`, `get_published_rental_reviews`, `get_public_identities`, the reservation list, and the existing `respond_rental_reservation` decline path (code only; no decline was run on real data). Reservation `d67d5332-39f6-45b7-b4f3-8e81396d490e` was not touched.
+No migration, RPC, grant, policy or Edge Function change by this phase. One hosted read-only inspection (entry F2-L1) and the frontend reads listed below. Living feature document: [PROPERTY_LISTING_MANAGEMENT.md](../../features/PROPERTY_LISTING_MANAGEMENT.md); implementation history: [PROPERTY_LISTING_MANAGEMENT_IMPLEMENTATION.md](../phases/PROPERTY_LISTING_MANAGEMENT_IMPLEMENTATION.md).
+
+### F2-L1: listing_views client-read inspection
+
+| Field | Content |
+| --- | --- |
+| Date | 2026-11-16, during the Feature 2 build. The exact clock time was not recorded (it ran before the first emulator screenshot at about 8:35 local). Recorded 2026-11-16 (the same day) and completed in the architecture-cleanup pass. |
+| Feature/phase | Property & Listing Management, Feature 2 (property management hub), entry F2-L1 |
+| Actor/tool | Claude Code (Claude Sonnet 5.5) through the claude.ai Supabase connector tool `execute_sql`. The connector runs with project-level access, not as an app end user. |
+| Environment/project | Hosted project `cxfsbwbwmwmgtqfonqth` (the live project the app uses) |
+| Classification | `READ_ONLY_INSPECTION` |
+| Target | `public.listing_views` (policies and the `authenticated` SELECT privilege) and function names containing `listing_view` |
+| Action | Two catalog statements, sent together, no writes: `select policyname, cmd, roles, qual from pg_policies where schemaname='public' and tablename='listing_views';` and `select has_table_privilege('authenticated','public.listing_views','SELECT') as sel, (select count(*) from pg_proc where proname ilike '%listing_view%') as procs;` |
+| Purpose | Decide whether a landlord can read their listing's view count from the app. Authorized as a read-only inspection under the Feature 2 prompt ("show views only if the read works"). |
+| Result | The tool returned only the result of the last statement: `[{"sel":false,"procs":0}]`. The output of the `pg_policies` statement was not returned, so the absence of a policy was **not** observed. Observed: `authenticated` has no table-level SELECT on `listing_views`, and no function name contains `listing_view`. |
+| Durable effect | None |
+| Rollback/cleanup | Not applicable: no write, no transaction opened. Nothing to clean up. |
+| Security/RLS | Catalog check of the `authenticated` role privilege only. No end-user JWT call was made, so a real non-owner/owner read was not tested. Without a table SELECT grant a client read of this table is refused regardless of policy. |
+| Source-controlled backend file | None found: no repo migration creates or mentions `listing_views`; the table appears only in `src/shared/services/supabase/database.types.ts`. |
+| Android/client runtime | Not applicable to the inspection. The resulting behavior (views and saved are not shown) is IMPLEMENTED and AUTOMATED-TESTED; RUNTIME-UNVERIFIED on a device. |
+
+Saved counts: not read. `saved_listings` has no direct client grant and the saved-listing RPCs are tenant-scoped (migration `20261110154025_saved_listings_contract.sql`), so a landlord has no source for it.
+
+### Frontend reads added by Feature 2 (code only; no live call was made to test them)
+
+`tenancies` (the landlord's own open rows, SELECT, through `landlordTenanciesService`), `get_tenancy_care`, `get_tenancy_lifecycle`, `get_published_rental_reviews`, `get_public_identities`, the reservation list, and the existing `respond_rental_reservation` decline path through the reservation workflow. No decline was run on real data. Reservation `d67d5332-39f6-45b7-b4f3-8e81396d490e` was not touched.

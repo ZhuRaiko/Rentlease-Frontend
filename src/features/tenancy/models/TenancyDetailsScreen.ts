@@ -4,7 +4,9 @@ import type {RentalReservation} from '../../messaging-viewing/models/RentalReser
 import {rentSchedule, type CareContext, type CareStatus} from './TenancyCare';
 import type {LifecycleContext} from './TenancyLifecycle';
 import type {TenancyCardContext} from './TenancyDetails';
-import {ago, dueLabel, manilaToday, openCountLabel, pesos, shortDate, stayProgress, tenancyChip, type Chip} from './TenancyPresentation';
+import {openCountLabel, stayProgress, tenancyChip} from './TenancyPresentation';
+import type {Chip} from '../../../shared/models/StatusChip';
+import {ago, dueLabel, manilaToday, pesos, shortDate} from '../../../shared/utils/rentalDates';
 import {placeLine, type Person} from './TenancyWorkspaceScreen';
 import type {Role} from './CancelledRentals';
 import type {RentalRelationship} from './TenancyWorkspace';

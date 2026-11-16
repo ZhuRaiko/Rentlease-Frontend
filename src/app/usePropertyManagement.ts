@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import { getSupabaseClient } from '../shared/services/supabase/client';
 import { createRentalReviewService } from '../shared/services/rentalReviewService';
 import { usePublicIdentitiesViewModel } from '../shared/viewModels/usePublicIdentitiesViewModel';
+import { createLandlordTenanciesService } from '../features/tenancy/services/landlordTenanciesService';
 import { createTenancyActivityService, emptyActivity, type TenancyActivity } from '../features/tenancy/services/tenancyActivityService';
 import { nextScheduledRentDate } from '../features/tenancy/models/TenancyWorkspace';
 import type { RentalRelationship } from '../features/tenancy/models/TenancyWorkspace';
@@ -15,9 +16,9 @@ import { emptyFacts, type ManagedFacts, type NeedsTarget, type PropertyManagemen
 import type { LandlordPortfolioItem } from '../features/property-listing/models/LandlordPortfolio';
 
 const activityService = createTenancyActivityService(getSupabaseClient);
+const tenancyService = createLandlordTenanciesService(getSupabaseClient);
 const reviewService = createRentalReviewService(getSupabaseClient);
 const CLOSED = ['resolved', 'rejected', 'cancelled'];
-const COLUMNS = 'id,property_id,listing_id,conversation_id,tenant_id,landlord_id,status,start_date,expected_end_date,actual_end_date,agreed_monthly_rent,rent_due_day,tenant_confirmed_at,landlord_confirmed_at';
 
 export interface PropertyManagementNavigation {
   openTenancy: (open: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' }) => void;
@@ -41,12 +42,7 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
     if (!accountId) return () => c.abort();
     (async () => {
       try {
-        const client = getSupabaseClient(), who = await client.auth.getUser();
-        if (who.error || who.data.user?.id !== accountId) throw new Error('account');
-        const { data, error } = await client.from('tenancies').select(COLUMNS).eq('landlord_id', accountId).in('status', ['active', 'proposed', 'pending_confirmation']).order('created_at', { ascending: false }).range(0, 199).abortSignal(c.signal);
-        if (error || !data) throw new Error('read');
-        if (data.some(t => t.landlord_id !== accountId)) throw new Error('scope');
-        const tenancies = data as RentalRelationship[];
+        const tenancies = await tenancyService.open(accountId, c.signal);
         const activity = await activityService.read(accountId, tenancies, c.signal);
         if (!c.signal.aborted) setState({ owner: accountId, tenancies, activity, busy: false, error: null });
       } catch {

@@ -266,3 +266,61 @@ test('no-listing card renders the chip, the Create listing button and no Draft w
   const draft = text(render(makeItem('a', 'draft')));
   assert.match(draft, /Draft/); assert.match(draft, /Continue posting/); assert.doesNotMatch(draft, /No listing yet|Create listing/);
 });
+
+// ---- Back returns to the screen Manage was opened from
+import { manageBack, nextOrigin, type ManageOrigin } from '../src/features/property-listing/models/PropertyManagement';
+
+test('Back from Manage returns to Tenancy only for a Manage opened from Tenancy, and only until the list is shown again', () => {
+  // Opened from Tenancy: pending while the list is still showing, shown once Manage appears, back goes to the origin.
+  let origin: ManageOrigin = 'pending';
+  origin = nextOrigin(origin, 'dashboard'); assert.equal(origin, 'pending', 'the open has not rendered yet: the origin survives the list frame');
+  assert.equal(manageBack(origin, 'published'), 'origin');
+  origin = nextOrigin(origin, 'published'); assert.equal(origin, 'shown'); assert.equal(manageBack(origin, 'published'), 'origin');
+  // Edit listing and back to Manage keeps the origin.
+  origin = nextOrigin(origin, 'listingComposer'); assert.equal(origin, 'shown');
+  origin = nextOrigin(origin, 'published'); assert.equal(manageBack(origin, 'published'), 'origin');
+  // Once the list is shown, a later Manage opened from the list goes back to the list.
+  origin = nextOrigin(origin, 'dashboard'); assert.equal(origin, 'none');
+  assert.equal(manageBack(origin, 'published'), 'list');
+  // Opened from the list: never an origin. Other screens never use it.
+  assert.equal(nextOrigin('none', 'published'), 'none'); assert.equal(manageBack('none', 'published'), 'list');
+  assert.equal(manageBack('shown', 'listingComposer'), 'list');
+});
+
+test('the Manage header Back uses the given origin Back, and falls back to the ViewModel Back', () => {
+  const item = makeItem('p1', 'active', { title: 'Garcia Apartment' }); const calls: string[] = [];
+  const vm: any = { portfolioState: { items: [item] }, workspacePropertyId: 'p1', realListing: item.currentListing, notice: null, lifecycleState: { confirmation: null, error: null, busy: false }, lifecycleBlocked: false, lifecycleLabel: {}, lifecycle: {}, goBack: () => calls.push('vmBack'), goDashboard() {}, editManagedListing() {}, editPortfolioPropertyDetails() {}, estimationProperty: null };
+  const management: PropertyManagementPort = { factsOf: () => emptyFacts(), loading: false, error: null, refresh() {}, openTarget() {}, openTenancy() {}, message() {}, reviewRequests() {}, loadReviews() {}, decline: async () => null, reviewsFor: () => null };
+  const render = (onBack?: () => void) => harness().render(MANAGE, 'ManagePropertyView', { viewModel: vm, management, accountId: owner, onBack });
+  press(render(() => calls.push('toTenancy')), labelled('Back')); press(render(), labelled('Back'));
+  assert.deepEqual(calls, ['toTenancy', 'vmBack']);
+});
+
+test('the vacant Manage screen has no Back to My properties button (header Back stays); occupied keeps it', () => {
+  assert.ok(!nodes(manage('active', emptyFacts()).render()).some(byText('Back to My properties')));
+  assert.ok(nodes(manage('active', emptyFacts()).render()).some(labelled('Back')));
+  assert.ok(nodes(manage('rented', stayFacts()).render()).some(byText('Back to My properties')));
+});
+
+// ---- Shared helpers moved out of tenancy keep their behavior
+import { dateRange as sharedDateRange, dueLabel as sharedDueLabel, pesos as sharedPesos, ago as sharedAgo } from '../src/shared/utils/rentalDates';
+import { CHIP_COLORS as sharedChipColors } from '../src/shared/theme/statusColors';
+import { CHIP } from '../src/features/tenancy/models/TenancyPresentation';
+
+test('shared date helpers and chip colors give the same output the tenancy screens had', () => {
+  assert.equal(sharedDateRange('2026-11-12', '2026-12-12'), 'Nov 12 \u2013 Dec 12');
+  assert.equal(sharedDateRange('2026-12-12', '2027-01-12'), 'Dec 12, 2026 \u2013 Jan 12, 2027');
+  assert.equal(sharedDateRange('2026-11-12', null), 'From Nov 12');
+  assert.equal(sharedDueLabel('2026-12-02', Date.parse('2026-11-16T04:00:00Z')), 'Dec 2 \u00b7 in 16 days');
+  assert.equal(sharedPesos(10000), '\u20b110,000'); assert.equal(sharedPesos(null), '\u2014');
+  assert.equal(sharedAgo('2026-11-16T08:00:00Z', Date.parse('2026-11-16T10:00:00Z')), '2h ago');
+  for (const chip of Object.values(CHIP)) assert.ok(sharedChipColors[chip.tone], chip.label);
+  assert.deepEqual(Object.keys(sharedChipColors).sort(), ['info', 'neutral', 'positive', 'restricted', 'urgent', 'warning']);
+});
+
+test('shared parts hold no tenancy imports, and the models hold no theme colors', () => {
+  for (const file of ['src/shared/components/StatusParts.tsx', 'src/shared/components/DashboardIcon.tsx', 'src/shared/utils/rentalDates.ts', 'src/shared/models/StatusChip.ts', 'src/shared/theme/statusColors.ts']) assert.doesNotMatch(readFileSync(file, 'utf8'), /features\/tenancy|features\/property-listing/, file);
+  for (const file of ['src/features/tenancy/models/TenancyPresentation.ts', 'src/features/property-listing/models/PropertyManagement.ts']) assert.doesNotMatch(readFileSync(file, 'utf8'), /theme\/colors|CHIP_COLORS|TILE_COLORS/, file);
+  const manage = readFileSync(MANAGE, 'utf8') + readFileSync('src/features/property-listing/components/ManagePriceCheck.tsx', 'utf8') + readFileSync('src/features/property-listing/models/PropertyManagement.ts', 'utf8');
+  assert.doesNotMatch(manage, /features\/tenancy/, 'property-listing imports nothing from the tenancy feature');
+});

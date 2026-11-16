@@ -6,7 +6,7 @@ import {spacing} from '../../../shared/theme/spacing';
 import {ui} from '../../../shared/theme/ui';
 import {releaseSheetView,RELEASE_RETRY_LABEL} from '../models/CancelledRentals';
 import type {ReleaseRequest} from '../viewModels/tenancyReleaseWorkflow';
-import {TenancyButton} from './TenancyParts';
+import {StatusButton} from '../../../shared/components/StatusParts';
 /** The confirmation before a held reservation is released: one plain sentence, the effect, and two buttons. A failure is one amber line with a 48dp Retry. */
 export function ReleaseSheet({request,saving,error,onConfirm,onRetry,onKeep}:{request:ReleaseRequest|null;saving:boolean;error:string|null;onConfirm:()=>void;onRetry:()=>void;onKeep:()=>void}){
   const insets=useSafeAreaInsets(),{height}=useWindowDimensions();
@@ -21,8 +21,8 @@ export function ReleaseSheet({request,saving,error,onConfirm,onRetry,onKeep}:{re
       <View style={styles.note}><Text style={styles.noteText}>{view.note}</Text></View>
       {error?<View accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}><Text style={styles.errorText}>{error}</Text>
         <Pressable accessibilityRole="button" accessibilityLabel={`${RELEASE_RETRY_LABEL}: ${view.confirmLabel}`} disabled={saving} onPress={onRetry} style={styles.retry}><Text style={styles.retryText}>{RELEASE_RETRY_LABEL}</Text></Pressable></View>:null}
-      <TenancyButton tone="primary" label={saving?'Releasing…':view.confirmLabel} disabled={saving} onPress={onConfirm}/>
-      <TenancyButton label={view.keepLabel} disabled={saving} onPress={onKeep}/>
+      <StatusButton tone="primary" label={saving?'Releasing…':view.confirmLabel} disabled={saving} onPress={onConfirm}/>
+      <StatusButton label={view.keepLabel} disabled={saving} onPress={onKeep}/>
       </ScrollView>
     </View></View></Modal>;
 }

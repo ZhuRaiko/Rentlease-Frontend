@@ -61,7 +61,7 @@ The Profile My Properties action and Listings tab open the same `PropertyListing
 | Unified Post and listing composition | `listingComposer` | `ListingComposerView` | New local property or owned persisted property/draft |
 | Sample wizard terms/content | `rentTerms`, `description`, `rules`, `availability` | `CreateListingView` | Explicit sample compatibility |
 | Preview, requirements and publication | `preview`, `missingRequirements`, `publishConfirmation` | `ListingPreviewView` | Landlord |
-| Published listing detail | `published` | `PublishedListingStatusView` for confirmed real listing status/lifecycle; `ListingDetailView` for samples | Landlord |
+| Published listing detail | `published` | `ManagePropertyView` for confirmed real listing status/lifecycle (Feature 2; it replaced `PublishedListingStatusView`); `ListingDetailView` for samples | Landlord |
 | Listing management | `management`, `editListing` | `ListingManagementView` | Landlord |
 | Listing status actions | `pauseConfirmation`, `reactivateConfirmation`, `unavailableConfirmation`, `archiveConfirmation` | `ListingManagementView` | Landlord |
 
@@ -225,12 +225,12 @@ The real listingComposer owns the primary horizontal multi-photo media strip. ph
 
 ## Phase 3 listing drafts (2026-10-24)
 
-Real creation uses Property for media/physical/address fields and Listing Details for terms, Save draft and Preview. My Listings loads the property-centered backend portfolio and opens property-only items on Property, drafts on Listing Details or non-draft items in PublishedListingStatusView. Existing wizard/fixture paths remain explicit samples rather than the mandatory real flow. Save uses the existing Phase 3 RPC/journal and confirmed baseline; the coordinated composer Save stays on that form, while retained legacy save actions can return to the dashboard. Publication/lifecycle/draft feedback is inside matching selected-item surfaces, never global above Post/property/map screens. See [current composer and portfolio](features/PROPERTY_LISTING_MANAGEMENT.md#streamlined-composer-and-real-landlord-portfolio-2026-10-29).
+Real creation uses Property for media/physical/address fields and Listing Details for terms, Save draft and Preview. My Listings loads the property-centered backend portfolio and opens property-only items on Property, drafts on Listing Details or non-draft items in ManagePropertyView (Feature 2; earlier `PublishedListingStatusView`). Existing wizard/fixture paths remain explicit samples rather than the mandatory real flow. Save uses the existing Phase 3 RPC/journal and confirmed baseline; the coordinated composer Save stays on that form, while retained legacy save actions can return to the dashboard. Publication/lifecycle/draft feedback is inside matching selected-item surfaces, never global above Post/property/map screens. See [current composer and portfolio](features/PROPERTY_LISTING_MANAGEMENT.md#streamlined-composer-and-real-landlord-portfolio-2026-10-29).
 
 
 ### Phase 5 lifecycle screen behavior (2026-10-26)
 
-The existing published screen and saved-property dashboard entry now cover active/paused/rented/archived/removed without a new navigation framework or replacement draft. Real status uses PublishedListingStatusView with inline ViewModel-owned confirmation for pause/reactivate/archive only; Android Back cancels confirmation first, then retains the existing meaningful workspace history and exit guards. Busy lifecycle requests block competing writes/navigation; uncertain requests expose Check listing status without replay. Non-draft content editing is unavailable. Sample management actions, including Mark unavailable, remain local-only. See [current Phase 5 behavior](features/PROPERTY_LISTING_MANAGEMENT.md#phase-5---listing-lifecycle-2026-10-26).
+The existing published screen and saved-property dashboard entry now cover active/paused/rented/archived/removed without a new navigation framework or replacement draft. Real status uses ManagePropertyView (before Feature 2: `PublishedListingStatusView`) with inline ViewModel-owned confirmation for pause/reactivate/archive only; Android Back cancels confirmation first, then retains the existing meaningful workspace history and exit guards. Busy lifecycle requests block competing writes/navigation; uncertain requests expose Check listing status without replay. Non-draft content editing is unavailable. Sample management actions, including Mark unavailable, remain local-only. See [current Phase 5 behavior](features/PROPERTY_LISTING_MANAGEMENT.md#phase-5---listing-lifecycle-2026-10-26).
 
 
 ### Root posting chooser (2026-10-30)
@@ -290,4 +290,13 @@ Existing Discovery bell opens the persisted account inbox with an unread badge. 
 Root Post now opens Property Details directly. New-post workspace screens: listingComposer -> listingDetails -> postingEstimate -> postingReview. Typed screen/history ownership remains in usePropertyListingViewModel. Map/gallery/protected physical editing and existing publishConfirmation are retained; Back/Close use existing guards. Root bottom tabs/deletion controls are hidden within the new four-step wizard. Draft/published editing entry points retain their existing routes pending T8-B.
 
 
-T8-B local: Continue Editing (saved drafts) and Edit Rental (active/paused listings) enter the existing four-step Property/Listing/Estimate/Review wizard at Property. Manage Status remains separate; secure identity correction retains its guarded context and returns to Property. No new router or root destination.
+T8-B local: Continue Editing (saved drafts) and Edit Rental (active/paused listings) enter the existing four-step Property/Listing/Estimate/Review wizard at Property. Manage Status was replaced by the Manage screen (`ManagePropertyView`) in Feature 2; secure identity correction retains its guarded context and returns to Property. No new router or root destination.
+
+## Feature 2: Manage screen and deep links - November 16, 2026
+
+No router and no new bottom tab. The Listings tab is titled "My properties" (`PropertyDashboardView`); a property's Manage screen is the existing `published` screen of the property workspace, now `ManagePropertyView`. Two optional `AppWorkspace` fields carry the new entry points (`shared/models/marketplaceNavigation.ts`): `{ type: 'properties', managePropertyId }` and `{ type: 'tenancy', open: { tenancyId, panel } }`.
+
+- **Open property** (Tenancy hero card and details) calls `openManage(propertyId)` in `App.tsx`, which opens the properties workspace with `managePropertyId`. `PropertyListingFlowView` opens that property's Manage screen once My properties has loaded and the property is in the list. Back (header or hardware) returns to the Tenancy tab for that Manage screen (`onReturnToTenancy`); once the list is shown again, Back goes to My properties as usual (`manageBack` and `nextOrigin` in `models/PropertyManagement.ts`).
+- **Needs-you rows and the Maintenance, Reviews and Tenancy tiles** call `onOpenTenancy`, which sets the tenancy workspace with `open`; `TenancyWorkspaceView` opens that rental's details on the panel (`care`, `lifecycle` or `reviews`; no panel opens the details). A tenancy setup row opens the Tenancy tab. Reservation requests open Manage Requests on its Reservations tab (`initialTab`).
+- **Message** opens the existing conversation over the Tenancy tab (`tenancyConversation`).
+- All of this is root-owned workspace state; backend authorization is unchanged. RUNTIME-UNVERIFIED on a device.

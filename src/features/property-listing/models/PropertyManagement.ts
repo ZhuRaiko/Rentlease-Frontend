@@ -1,6 +1,6 @@
 import type { LandlordPortfolioItem } from './LandlordPortfolio';
 import { lifecycleActions, type LifecycleOperation } from './ListingLifecycle';
-import { ago, dateRange, shortDate } from '../../tenancy/models/TenancyPresentation';
+import { ago, dateRange, shortDate } from '../../../shared/utils/rentalDates';
 
 /**
  * Facts the My properties overview and the Manage screen show beyond the listing itself. The root composes them from reads that already
@@ -148,3 +148,19 @@ export interface PropertyManagementPort {
   /** Published review average and count for one property, or null when that read is unavailable. */
   reviewsFor: (propertyId: string) => { average: number; count: number } | null;
 }
+
+/**
+ * Where Back from the Manage screen goes. A Manage screen opened from another screen (Tenancy's "Open property") returns there; one
+ * opened from the My properties list returns to the list. The origin is 'pending' from the moment the open is requested, 'shown' once
+ * any screen other than the list has appeared, and cleared when the list is shown again, so opening a property from the list later
+ * never returns to the old origin.
+ */
+export type ManageOrigin = 'none' | 'pending' | 'shown';
+export type ManageBack = 'origin' | 'list';
+const isList = (screen: string) => screen === 'dashboard' || screen === 'empty';
+export function nextOrigin(origin: ManageOrigin, screen: string): ManageOrigin {
+  if (origin === 'none') return 'none';
+  if (origin === 'pending') return isList(screen) ? 'pending' : 'shown';
+  return isList(screen) ? 'none' : 'shown';
+}
+export function manageBack(origin: ManageOrigin, screen: string): ManageBack { return origin !== 'none' && screen === 'published' ? 'origin' : 'list'; }

@@ -4,7 +4,10 @@ import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import ts from 'typescript';
 import {colors} from '../src/shared/theme/colors';
-import {CHIP,CHIP_COLORS,TILE_COLORS,dueLabel,shortDate,stayProgress,tenancyChip,tenantNeedsOk} from '../src/features/tenancy/models/TenancyPresentation';
+import {CHIP,stayProgress,tenancyChip,tenantNeedsOk} from '../src/features/tenancy/models/TenancyPresentation';
+import {CHIP_COLORS} from '../src/shared/theme/statusColors';
+import {TILE_COLORS} from '../src/features/tenancy/components/tileColors';
+import {dueLabel,shortDate} from '../src/shared/utils/rentalDates';
 import {cancelledLine,releaseSheetView,releaseTarget} from '../src/features/tenancy/models/CancelledRentals';
 import {attentionItems,workspaceScreen,type WorkspaceInput} from '../src/features/tenancy/models/TenancyWorkspaceScreen';
 import {detailsScreen} from '../src/features/tenancy/models/TenancyDetailsScreen';
@@ -188,6 +191,7 @@ function renderWorkspace(vm:any,scale=1,width=411){
     if(key==='react-native')return new Proxy({StyleSheet:{create:(x:any)=>x},useWindowDimensions:()=>({width,height:800,fontScale:scale})},{get:(x:any,k)=>x[k]??k});
     if(key.includes('useTenancyWorkspaceViewModel'))return{useTenancyWorkspaceViewModel:()=>vm};
     if(key.includes('models/TenancyPresentation'))return require('../src/features/tenancy/models/TenancyPresentation');
+    if(key.endsWith('/tileColors'))return require('../src/features/tenancy/components/tileColors');
     if(key.endsWith('/colors'))return{colors:{}};if(key.endsWith('/ui'))return{ui:{}};if(key.endsWith('/radius'))return{radius:{}};if(key.endsWith('/spacing'))return{spacing:{}};
     return new Proxy({},{get:(_x,k)=>String(k)}); // every other import is a named stand-in: each component stays an element named after itself
   };
@@ -209,13 +213,13 @@ test('the tab shows state tiles, no removed panels and no Refresh button; headin
 test('loading or failed: no zero counts are invented and the error has Retry', () => {
   const tree=renderWorkspace(vmFor(T,{},{error:'Request failed'}));
   assert.ok(!nodes(tree).some(x=>/rentals: 0/.test(String(x.props?.accessibilityLabel))));assert.ok(nodes(tree).some(x=>x.props?.accessibilityRole==='alert'));
-  assert.ok(nodes(tree).some(x=>x.type==='TenancyButton'&&x.props.label==='Retry'));
+  assert.ok(nodes(tree).some(x=>x.type==='StatusButton'&&x.props.label==='Retry'));
 });
 test('the tab shows Needs your OK first for the tenant and the attention list first for the landlord, only when something waits', () => {
   const pending=tenancy({status:'pending_confirmation',landlord_confirmed_at:'2026-11-15T00:00:00Z'}),r=reservation(),links=[{reservation_id:r.id,tenancy_id:pending.id}];
   const tenant=renderWorkspace(vmFor(T,{tenancies:[pending],reservations:[r],links}));
-  assert.ok(texts(tenant).includes('Confirm your tenancy terms'));assert.ok(nodes(tenant).some(x=>x.type==='TenancyButton'&&x.props.label==='Review terms'&&x.props.tone==='warning'));
-  const order=nodes(tenant).filter(x=>x.type==='TenancyChip'||(x.props?.accessibilityRole==='header')).map(x=>x.type==='TenancyChip'?'chip':[x.props.children].flat(Infinity).join(''));assert.equal(order[0],'chip','the Needs your OK card comes before the first section heading');
+  assert.ok(texts(tenant).includes('Confirm your tenancy terms'));assert.ok(nodes(tenant).some(x=>x.type==='StatusButton'&&x.props.label==='Review terms'&&x.props.tone==='warning'));
+  const order=nodes(tenant).filter(x=>x.type==='StatusChip'||(x.props?.accessibilityRole==='header')).map(x=>x.type==='StatusChip'?'chip':[x.props.children].flat(Infinity).join(''));assert.equal(order[0],'chip','the Needs your OK card comes before the first section heading');
   assert.ok(!texts(renderWorkspace(vmFor(T,{}))).includes('Confirm your tenancy terms'),'nothing waiting, no card');
   const stay=tenancy(),landlord=renderWorkspace(vmFor(L,{tenancies:[stay],activity:{...emptyActivity(),care:{[stay.id]:care(stay,[request()])}}}));
   assert.ok(texts(landlord).includes('Needs your attention'));assert.ok(!texts(renderWorkspace(vmFor(L,{tenancies:[stay]}))).includes('Needs your attention'));
@@ -242,13 +246,13 @@ test('with only one of Active and Upcoming empty, both headings stay (so each ti
 test('cancelled card: the primary (Start a new request for the tenant, Release it for the landlord) is the one filled green button; Message and Find similar stay outlined', () => {
   const gone=tenancy({status:'cancelled'}),held=reservation(),links=[{reservation_id:held.id,tenancy_id:gone.id}],base={tenancies:[gone],reservations:[held],links,contexts:{[gone.id]:ctx('Dela Cruz Unit')}};
   for(const actor of [T,L]){
-    const tree=renderWorkspace(vmFor(actor,base)),buttons=nodes(tree).filter(x=>x.type==='TenancyButton'&&/: Dela Cruz Unit$/.test(String(x.props.accessibilityLabel)));
+    const tree=renderWorkspace(vmFor(actor,base)),buttons=nodes(tree).filter(x=>x.type==='StatusButton'&&/: Dela Cruz Unit$/.test(String(x.props.accessibilityLabel)));
     assert.deepEqual(buttons.map(b=>[b.props.label,b.props.tone]),actor===T?[['Start a new request','primary'],['Find similar','secondary'],['Message','secondary']]:[['Release it','primary'],['Message','secondary']]);
   }
 });
 // Style values live in .tsx files the test runner cannot import, so this one reads the source (a source-text test, kept to the spacing rules only).
 test('spacing uses the theme: 16dp card padding and between sections, 12dp between rows of buttons, 48dp buttons that wrap', () => {
-  const parts=readFileSync('src/features/tenancy/components/TenancyParts.tsx','utf8'),view=readFileSync('src/features/tenancy/views/TenancyWorkspaceView.tsx','utf8'),spacing=readFileSync('src/shared/theme/spacing.ts','utf8');
+  const parts=readFileSync('src/shared/components/StatusParts.tsx','utf8'),view=readFileSync('src/features/tenancy/views/TenancyWorkspaceView.tsx','utf8'),spacing=readFileSync('src/shared/theme/spacing.ts','utf8');
   assert.match(spacing,/sm: 12/);assert.match(spacing,/md: 16/);
   assert.match(parts,/row:\{flexDirection:'row',flexWrap:'wrap',gap:spacing\.sm\}/);assert.match(parts,/cells:\{flexDirection:'row',flexWrap:'wrap',gap:spacing\.sm\}/);assert.match(parts,/slot:\{flexGrow:1,flexBasis:130\}/);assert.match(parts,/button:\{minHeight:48/);
   assert.match(view,/content:\{padding:spacing\.md,gap:spacing\.md/);assert.match(view,/card:\{\.\.\.ui\.panel,padding:spacing\.md,gap:spacing\.sm/);
@@ -256,7 +260,7 @@ test('spacing uses the theme: 16dp card padding and between sections, 12dp betwe
 
 test('large text or a narrow screen: the chip moves under the title instead of squeezing it, and the tiles wrap', () => {
   const gone=tenancy({status:'cancelled'}),held=reservation(),base={tenancies:[gone],reservations:[held],links:[{reservation_id:held.id,tenancy_id:gone.id}],contexts:{[gone.id]:ctx('Dela Cruz Unit')}};
-  const chipPlace=(tree:any)=>{const head=nodes(tree).find(x=>x.type==='View'&&[x.props.children].flat(Infinity).some((c:any)=>c?.type==='Thumb'));const direct=[head.props.children].flat(Infinity).filter(Boolean);return direct.some((c:any)=>c.type==='TenancyChip')?'beside':'under';};
+  const chipPlace=(tree:any)=>{const head=nodes(tree).find(x=>x.type==='View'&&[x.props.children].flat(Infinity).some((c:any)=>c?.type==='Thumb'));const direct=[head.props.children].flat(Infinity).filter(Boolean);return direct.some((c:any)=>c.type==='StatusChip')?'beside':'under';};
   assert.equal(chipPlace(renderWorkspace(vmFor(T,base))),'beside','normal text: the chip is beside the title, as drawn');
   assert.equal(chipPlace(renderWorkspace(vmFor(T,base),1.5,411)),'under','150% font');assert.equal(chipPlace(renderWorkspace(vmFor(T,base),1,320)),'under','320dp wide');
   const wide=nodes(renderWorkspace(vmFor(T,base),1.5)).filter(x=>x.type==='Pressable'&&/rentals: /.test(String(x.props.accessibilityLabel)));assert.ok(wide.every(x=>x.props.style[1]?.flexBasis===130),'tiles take a wider basis so they wrap');

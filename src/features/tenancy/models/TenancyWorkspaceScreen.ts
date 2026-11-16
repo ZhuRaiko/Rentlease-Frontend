@@ -7,7 +7,9 @@ import {rentSchedule, type CareContext} from './TenancyCare';
 import type {TenancyActivity} from '../services/tenancyActivityService';
 import type {LifecycleContext} from './TenancyLifecycle';
 import type {TenancyCardContext} from './TenancyDetails';
-import {ago, CHIP, dateRange, dueLabel, inDays, pesos, shortDate, tenancyChip, tenantNeedsOk, type Chip, type TileKind} from './TenancyPresentation';
+import {CHIP, tenancyChip, tenantNeedsOk, type TileKind} from './TenancyPresentation';
+import type {Chip} from '../../../shared/models/StatusChip';
+import {ago, dateRange, dueLabel, inDays, pesos, shortDate} from '../../../shared/utils/rentalDates';
 import {tenancyCounts, tenancySections, type RentalRelationship} from './TenancyWorkspace';
 
 export interface Link { reservation_id: string; tenancy_id: string }

@@ -18,7 +18,8 @@ import {generalizedLocation} from '../models/TenancyDetails';
 import {detailsScreen,stars,REVIEWS_NOTE,type DetailsScreen} from '../models/TenancyDetailsScreen';
 import type {TenancyDetailsPanel} from '../viewModels/tenancyDetailsWorkflow';
 import {effectiveReservationStatus,reservationStatusLabels} from '../../messaging-viewing/models/RentalReservation';
-import {ButtonRow,HeroPhoto,PersonRow,Slot,Stars,TenancyButton,TenancyChip} from '../components/TenancyParts';
+import {ButtonRow,Slot,StatusButton,StatusChip} from '../../../shared/components/StatusParts';
+import {HeroPhoto,PersonRow,Stars} from '../components/TenancyParts';
 interface Props {
   accountId:string|undefined;tenancyId:string;reservationId:string|null;onBack:()=>void;onOpenConversation?:((id:string)=>void)|undefined;externalPanelOpen?:boolean;registerBackAction:((action:(()=>void)|null)=>void);
   /** Opens a panel as soon as the details have loaded (for example the care panel from "Report an issue"). */
@@ -59,16 +60,16 @@ export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onO
      :<Text style={ui.supporting}>{screen.dates.start}{screen.dates.end?` – ${screen.dates.end}`:''}</Text>}
     {screen.summary?<Text style={ui.body}>{screen.summary}</Text>:null}
    </Card>
-   {screen.actions?<ButtonRow><Slot><TenancyButton tone="primary" label={screen.actions.primary.label} onPress={()=>screen.actions!.primary.kind==='report'?vm.workflow.open('care'):onOpenProperty?.(t.property_id)}/></Slot>{screen.actions.message?<Slot><TenancyButton label="Message" onPress={message}/></Slot>:null}</ButtonRow>:null}
-   {screen.ratingPrompt?<View style={styles.prompt}><View style={styles.promptHead}><Stars/><Text style={styles.promptTitle}>{screen.ratingPrompt.title}</Text></View><Text style={ui.supporting}>{screen.ratingPrompt.body}</Text><TenancyButton tone="warning" label={screen.ratingPrompt.button} onPress={()=>vm.workflow.open('reviews')}/></View>:null}
+   {screen.actions?<ButtonRow><Slot><StatusButton tone="primary" label={screen.actions.primary.label} onPress={()=>screen.actions!.primary.kind==='report'?vm.workflow.open('care'):onOpenProperty?.(t.property_id)}/></Slot>{screen.actions.message?<Slot><StatusButton label="Message" onPress={message}/></Slot>:null}</ButtonRow>:null}
+   {screen.ratingPrompt?<View style={styles.prompt}><View style={styles.promptHead}><Stars/><Text style={styles.promptTitle}>{screen.ratingPrompt.title}</Text></View><Text style={ui.supporting}>{screen.ratingPrompt.body}</Text><StatusButton tone="warning" label={screen.ratingPrompt.button} onPress={()=>vm.workflow.open('reviews')}/></View>:null}
    {screen.reviews?<Card title="Reviews from this tenancy">{screen.reviews.length?screen.reviews.map(r=><View key={r.key} style={{gap:2}}><Text style={ui.supporting}>{r.label} · {r.status}</Text><Text accessibilityLabel={`${r.rating} out of 5 stars`} style={styles.starsText}>{stars(r.rating)}</Text><Text style={ui.body}>{r.text??'Rating only; no written feedback.'}</Text></View>):<Text style={ui.supporting}>No reviews yet.</Text>}<Text style={ui.supporting}>{REVIEWS_NOTE}</Text></Card>:null}
    {screen.timeline?<Card title="What happened"><Timeline items={screen.timeline}/></Card>:null}
    {screen.rent?<Card title="Rent" right={<Text style={ui.supporting}>{screen.rent.dueOn}</Text>}>{screen.rent.rows.length?screen.rent.rows.map(row=><View key={row} style={styles.rentRow}><Text style={ui.body}>Due {row}</Text></View>):<Text style={ui.supporting}>No upcoming date is scheduled.</Text>}<Text style={ui.supporting}>{screen.rent.note}</Text></Card>:null}
    <Card title={screen.person.relation}><PersonRow person={screen.person} showRelation={false}/></Card>
-   {screen.maintenance?<Pressable accessibilityRole="button" accessibilityLabel={`Maintenance, ${screen.maintenance.chip}`} onPress={()=>vm.workflow.open('care')} style={styles.card}><View style={styles.cardHead}><Text accessibilityRole="header" style={ui.sectionTitle}>Maintenance</Text><TenancyChip chip={{label:screen.maintenance.chip,tone:'warning'}}/></View>{screen.maintenance.latest?<View style={styles.docRow}><View style={{flex:1}}><Text style={ui.body}>{screen.maintenance.latest.title}</Text><Text style={ui.supporting}>{screen.maintenance.latest.meta}</Text></View><Text accessible={false} style={styles.chevron}>›</Text></View>:<Text style={ui.supporting}>No requests yet.</Text>}</Pressable>:null}
+   {screen.maintenance?<Pressable accessibilityRole="button" accessibilityLabel={`Maintenance, ${screen.maintenance.chip}`} onPress={()=>vm.workflow.open('care')} style={styles.card}><View style={styles.cardHead}><Text accessibilityRole="header" style={ui.sectionTitle}>Maintenance</Text><StatusChip chip={{label:screen.maintenance.chip,tone:'warning'}}/></View>{screen.maintenance.latest?<View style={styles.docRow}><View style={{flex:1}}><Text style={ui.body}>{screen.maintenance.latest.title}</Text><Text style={ui.supporting}>{screen.maintenance.latest.meta}</Text></View><Text accessible={false} style={styles.chevron}>›</Text></View>:<Text style={ui.supporting}>No requests yet.</Text>}</Pressable>:null}
    {screen.documents.length?<Card title="Tenancy documents">{screen.documents.map(doc=><Row key={doc.key} label={doc.label} onPress={()=>vm.workflow.open(doc.key)}/>)}</Card>:null}
-   {screen.openConversation?<TenancyButton label="Open conversation" onPress={message}/>:null}
-   {screen.endEarly?<TenancyButton tone="dangerOutline" label="Request to end early" onPress={()=>vm.workflow.open('lifecycle')}/>:null}
+   {screen.openConversation?<StatusButton label="Open conversation" onPress={message}/>:null}
+   {screen.endEarly?<StatusButton tone="dangerOutline" label="Request to end early" onPress={()=>vm.workflow.open('lifecycle')}/>:null}
   </>}
  {[d.context.notice,d.conversationNotice,d.reservationNotice].filter(Boolean).length?<View style={styles.card}><Text style={ui.supporting}>{[d.context.notice,d.conversationNotice,d.reservationNotice].filter(Boolean).join(' ')}</Text><AppButton label="Retry related information" variant="secondary" onPress={()=>void vm.workflow.load()}/></View>:null}
  </>:null}

@@ -6,9 +6,10 @@ import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { ui } from '../../../shared/theme/ui';
-import { ButtonRow, Cell, CellRow, Slot, TenancyButton, TenancyChip } from '../../tenancy/components/TenancyParts';
-import { TenancyDashboardIcon } from '../../tenancy/views/TenancyDashboardIcon';
-import { CHIP_COLORS, dueLabel, pesos, shortDate } from '../../tenancy/models/TenancyPresentation';
+import { ButtonRow, Cell, CellRow, Slot, StatusButton, StatusChip } from '../../../shared/components/StatusParts';
+import { DashboardIcon } from '../../../shared/components/DashboardIcon';
+import { CHIP_COLORS } from '../../../shared/theme/statusColors';
+import { dueLabel, pesos, shortDate } from '../../../shared/utils/rentalDates';
 import { portfolioLocation, portfolioType } from '../models/LandlordPortfolio';
 import { editPropertyDetailsPlan } from '../models/PortfolioCardPresentation';
 import { emptyFacts, itemFor, lifecycleSegments, managementPill, needsYou, PAUSED_HINT, stayDates, type ManagedReservation, type PropertyManagementPort } from '../models/PropertyManagement';
@@ -30,12 +31,12 @@ function Tile({ label, note, icon, tone = 'positive', onPress }: { label: string
  * listing status and the price check (vacant). Replaces "Manage Status". Every element comes from a read that exists; if a fact could not
  * be read the element is not drawn rather than guessed.
  */
-export function ManagePropertyView({ viewModel: vm, management, accountId }: { viewModel: PropertyListingViewModel; management?: PropertyManagementPort | undefined; accountId?: string | undefined }) {
+export function ManagePropertyView({ viewModel: vm, management, accountId, onBack }: { viewModel: PropertyListingViewModel; management?: PropertyManagementPort | undefined; accountId?: string | undefined; /** Back to the screen Manage was opened from; defaults to the ViewModel's own Back. */ onBack?: (() => void) | undefined }) {
   const item = itemFor(vm.portfolioState.items, vm.workspacePropertyId), row = vm.realListing, state = vm.lifecycleState, operation = state.confirmation;
   const [declining, setDeclining] = useState<ManagedReservation | null>(null), [declineError, setDeclineError] = useState<string | null>(null), [declineBusy, setDeclineBusy] = useState(false);
   const loadedFor = vm.workspacePropertyId;
   useEffect(() => { if (loadedFor) management?.loadReviews(loadedFor); }, [loadedFor]);
-  if (!item || !row) return <View style={styles.screen}><ScreenHeader title="Manage" onBack={vm.goBack} /><Text style={[ui.body, styles.pad]}>Checking listing status...</Text></View>;
+  if (!item || !row) return <View style={styles.screen}><ScreenHeader title="Manage" onBack={onBack ?? vm.goBack} /><Text style={[ui.body, styles.pad]}>Checking listing status...</Text></View>;
   const facts = management?.factsOf(item.propertyId) ?? emptyFacts(), stay = facts.stay, occupied = row.status === 'rented' || !!stay;
   const pill = managementPill(item), needs = needsYou(facts), title = row.title || `${portfolioType(item.property)} in ${portfolioLocation(item.property)}`;
   const segments = lifecycleSegments(row.status, occupied), reviews = management?.reviewsFor(item.propertyId) ?? null;
@@ -51,14 +52,14 @@ export function ManagePropertyView({ viewModel: vm, management, accountId }: { v
     if (error) setDeclineError(error); else { setDeclining(null); management.refresh(); }
   };
   return <View style={styles.screen}>
-    <ScreenHeader title={title} onBack={vm.goBack} />
+    <ScreenHeader title={title} onBack={onBack ?? vm.goBack} />
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <FeedbackNotice message={vm.notice} />
       <FeedbackNotice message={state.error ?? null} tone="error" />
       <FeedbackNotice message={management?.error ?? null} tone="error" />
       <View style={styles.card}>
         {item.coverPhoto ? <Image accessibilityLabel={`Cover of ${title}`} source={{ uri: item.coverPhoto.publicUrl }} style={styles.cover} /> : <View accessible={false} style={[styles.cover, styles.coverBlank]} />}
-        <View style={styles.coverChip}><TenancyChip chip={{ label: pill.label, tone: pillTone[pill.tone] }} onPhoto /></View>
+        <View style={styles.coverChip}><StatusChip chip={{ label: pill.label, tone: pillTone[pill.tone] }} onPhoto /></View>
         <View style={styles.cardBody}>
           <Text style={ui.supporting}>{portfolioLocation(item.property)} {'·'} {portfolioType(item.property)}{!occupied && row.asking_rent_monthly ? ` · ${pesos(row.asking_rent_monthly)} / mo` : ''}{archivedWhileOccupied ? ' · Listing archived while occupied' : ''}</Text>
           {!occupied ? <CellRow>
@@ -70,7 +71,7 @@ export function ManagePropertyView({ viewModel: vm, management, accountId }: { v
       {needs.length ? <View accessibilityLabel={`Needs you, ${needs.length}`} style={styles.alert}>
         <Text accessibilityRole="header" style={styles.alertHead}>{`Needs you · ${needs.length}`}</Text>
         {needs.map(n => <Pressable key={n.key} accessibilityRole="button" accessibilityLabel={`${n.chip}: ${n.text}`} onPress={() => go(n.target)} style={styles.needRow}>
-          <TenancyChip chip={{ label: n.chip, tone: n.tone === 'danger' ? 'urgent' : 'warning' }} /><Text style={[ui.body, styles.grow]}>{n.text}</Text><Text style={styles.chevron}>{'›'}</Text>
+          <StatusChip chip={{ label: n.chip, tone: n.tone === 'danger' ? 'urgent' : 'warning' }} /><Text style={[ui.body, styles.grow]}>{n.text}</Text><Text style={styles.chevron}>{'›'}</Text>
         </Pressable>)}
       </View> : null}
 
@@ -80,20 +81,20 @@ export function ManagePropertyView({ viewModel: vm, management, accountId }: { v
           <View style={styles.headRow}>
             <View style={[styles.avatar]}><Text style={styles.avatarText}>{(stay.tenantName || 'T').slice(0, 1).toUpperCase()}</Text></View>
             <View style={styles.grow}><Text style={ui.sectionTitle}>{stay.tenantName || 'Tenant'}</Text></View>
-            {stay.conversationId ? <View style={styles.messageSlot}><TenancyButton label="Message" accessibilityLabel={`Message ${stay.tenantName || 'tenant'}`} onPress={() => management?.message(stay.conversationId!)} /></View> : null}
+            {stay.conversationId ? <View style={styles.messageSlot}><StatusButton label="Message" accessibilityLabel={`Message ${stay.tenantName || 'tenant'}`} onPress={() => management?.message(stay.conversationId!)} /></View> : null}
           </View>
           <CellRow><Cell label="Stay" value={stayDates(stay)} />{stay.rent !== null ? <Cell label="Rent" value={pesos(stay.rent)} /> : null}</CellRow>
         </View></View>
         <View style={styles.card}><View style={styles.cardBody}>
-          <View style={styles.headRow}><Text accessibilityRole="header" style={[ui.sectionTitle, styles.grow]}>Rent</Text>{stay.nextDue ? <TenancyChip chip={{ label: `Next ${shortDate(stay.nextDue)}`, tone: 'info' }} /> : null}</View>
+          <View style={styles.headRow}><Text accessibilityRole="header" style={[ui.sectionTitle, styles.grow]}>Rent</Text>{stay.nextDue ? <StatusChip chip={{ label: `Next ${shortDate(stay.nextDue)}`, tone: 'info' }} /> : null}</View>
           <Text style={ui.body}>{stay.nextDue ? `Next rent due ${dueLabel(stay.nextDue, Date.now())}` : 'No upcoming rent date is recorded.'}</Text>
           <Text style={ui.supporting}>Rent dates come from the tenancy schedule. Payments are not tracked yet.</Text>
         </View></View>
         <View style={styles.grid}>
-          <Tile label="Maintenance" note={facts.maintenance.open ? `${facts.maintenance.open} open` : 'None open'} icon={<TenancyDashboardIcon kind="maintenance" />} tone={facts.maintenance.open ? 'warning' : 'positive'} onPress={() => management?.openTenancy(stay.tenancyId, 'care')} />
+          <Tile label="Maintenance" note={facts.maintenance.open ? `${facts.maintenance.open} open` : 'None open'} icon={<DashboardIcon kind="maintenance" />} tone={facts.maintenance.open ? 'warning' : 'positive'} onPress={() => management?.openTenancy(stay.tenancyId, 'care')} />
           {reviews ? <Tile label="Reviews" note={reviews.count > 0 ? `★ ${reviews.average.toFixed(1)} · ${reviews.count} review${reviews.count === 1 ? '' : 's'}` : 'No reviews yet'} icon={<Text style={styles.glyph}>{'★'}</Text>} onPress={() => management?.openTenancy(stay.tenancyId, 'reviews')} /> : null}
           {detailsPlan && canEditListing ? <Tile label="Edit details" note="Price, photos, info" icon={<Text style={styles.glyph}>{'✎'}</Text>} onPress={() => vm.editPortfolioPropertyDetails(item.propertyId)} /> : null}
-          <Tile label="Tenancy" note="Terms and history" icon={<TenancyDashboardIcon kind="upcoming" />} tone="info" onPress={() => management?.openTenancy(stay.tenancyId)} />
+          <Tile label="Tenancy" note="Terms and history" icon={<DashboardIcon kind="upcoming" />} tone="info" onPress={() => management?.openTenancy(stay.tenancyId)} />
         </View>
       </> : null}
 
@@ -104,8 +105,8 @@ export function ManagePropertyView({ viewModel: vm, management, accountId }: { v
         {declining ? <View style={styles.confirm}>
           <Text style={ui.body}>Decline this request? {waiting.applicantName || 'The renter'} will be told it was declined.</Text>
           <FeedbackNotice message={declineError} tone="error" />
-          <ButtonRow><Slot><TenancyButton tone="dangerOutline" label={declineBusy ? 'Declining...' : 'Decline request'} disabled={declineBusy} onPress={() => void decline()} /></Slot><Slot><TenancyButton label="Keep request" disabled={declineBusy} onPress={() => { setDeclining(null); setDeclineError(null); }} /></Slot></ButtonRow>
-        </View> : <ButtonRow><Slot><TenancyButton tone="warning" label="Review request" onPress={() => management?.reviewRequests(item)} /></Slot><Slot><TenancyButton label="Decline" accessibilityLabel={`Decline request from ${waiting.applicantName || 'renter'}`} onPress={() => setDeclining(waiting)} /></Slot></ButtonRow>}
+          <ButtonRow><Slot><StatusButton tone="dangerOutline" label={declineBusy ? 'Declining...' : 'Decline request'} disabled={declineBusy} onPress={() => void decline()} /></Slot><Slot><StatusButton label="Keep request" disabled={declineBusy} onPress={() => { setDeclining(null); setDeclineError(null); }} /></Slot></ButtonRow>
+        </View> : <ButtonRow><Slot><StatusButton tone="warning" label="Review request" onPress={() => management?.reviewRequests(item)} /></Slot><Slot><StatusButton label="Decline" accessibilityLabel={`Decline request from ${waiting.applicantName || 'renter'}`} onPress={() => setDeclining(waiting)} /></Slot></ButtonRow>}
       </View> : null}
 
       {!operation ? <View style={styles.card}><View style={styles.cardBody}>
@@ -122,7 +123,7 @@ export function ManagePropertyView({ viewModel: vm, management, accountId }: { v
       </View></View> : <View style={styles.card}><View style={styles.cardBody}>
         <Text accessibilityRole="header" style={ui.sectionTitle}>{vm.lifecycleLabel[operation]}?</Text>
         <Text style={ui.body}>{operation === 'archive' ? 'Archiving is final in this workflow. Your listing record, property and photos will be kept.' : operation === 'pause' ? 'Pause this listing? You may request reactivation later.' : "Return this listing to Published? RentLease will recheck this property's verification and publication requirements."}</Text>
-        <ButtonRow><Slot><TenancyButton tone="primary" label={`Confirm ${vm.lifecycleLabel[operation].toLowerCase()}`} disabled={vm.lifecycleBlocked} onPress={() => void vm.lifecycle.confirm()} /></Slot><Slot><TenancyButton label="Cancel" onPress={vm.lifecycle.cancel} /></Slot></ButtonRow>
+        <ButtonRow><Slot><StatusButton tone="primary" label={`Confirm ${vm.lifecycleLabel[operation].toLowerCase()}`} disabled={vm.lifecycleBlocked} onPress={() => void vm.lifecycle.confirm()} /></Slot><Slot><StatusButton label="Cancel" onPress={vm.lifecycle.cancel} /></Slot></ButtonRow>
       </View></View>}
 
       {!occupied ? <ManagePriceCheck accountId={accountId} listingId={row.id} property={vm.estimationProperty} rent={row.asking_rent_monthly} /> : null}
@@ -130,7 +131,7 @@ export function ManagePropertyView({ viewModel: vm, management, accountId }: { v
       {!occupied ? <View style={styles.grid}>
         {canEditListing ? <Tile label="Edit listing" note="Photos, price, info" icon={<Text style={styles.glyph}>{'✎'}</Text>} onPress={vm.editManagedListing} /> : null}
       </View> : null}
-      <TenancyButton label="Back to My properties" onPress={vm.goDashboard} disabled={state.busy} />
+      {occupied ? <StatusButton label="Back to My properties" onPress={vm.goDashboard} disabled={state.busy} /> : null}
     </ScrollView>
   </View>;
 }

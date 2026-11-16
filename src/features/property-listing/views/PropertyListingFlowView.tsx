@@ -10,7 +10,7 @@ import {PropertyIdentityEditView} from './PropertyIdentityEditView';
 import {listingNumber} from '../models/PersistedListingDraft';
 import { ListingDraftSavedView } from './ListingDraftSavedView';
 import { ManagePropertyView } from './ManagePropertyView';
-import type { PropertyManagementPort } from '../models/PropertyManagement';
+import { manageBack, nextOrigin, type ManageOrigin, type PropertyManagementPort } from '../models/PropertyManagement';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { NavigationConfirmation } from '../../../shared/components/NavigationConfirmation';
 import { Modal, StatusBar, StyleSheet, View, Text } from 'react-native';
@@ -34,6 +34,8 @@ export interface PropertyListingFlowViewProps {
  management?:PropertyManagementPort|undefined;
  /** Opens this property's Manage screen once the portfolio has loaded ("Open property" from Tenancy). */
  initialManagePropertyId?:string|undefined;
+ /** Called by Back from a Manage screen that was opened from another screen (Tenancy). Without it Back returns to My properties. */
+ onReturnFromManage?:(()=>void)|undefined;
   renderPropertyVerification?: (propertyId:string,onClose:()=>void,registerBack:(action:(()=>void)|null)=>void)=>ReactNode;
   initialScreen?: 'dashboard' | 'postingType';
   registerBackAction?: ((action: (() => void) | null) => void) | undefined;
@@ -78,6 +80,7 @@ export function PropertyListingFlowView({
   requestActivity,
   management,
   initialManagePropertyId,
+  onReturnFromManage,
   initialScreen = 'dashboard',
   registerBackAction,
   onClose,
@@ -93,10 +96,14 @@ export function PropertyListingFlowView({
   const close = () => viewModel.requestNavigation(onClose);
   const opened = useRef<string | null>(null);
   useEffect(() => {
-    if (initialManagePropertyId && opened.current !== initialManagePropertyId && viewModel.portfolioState.loaded) { opened.current = initialManagePropertyId; viewModel.openPortfolioItem(initialManagePropertyId); }
+    if (initialManagePropertyId && opened.current !== initialManagePropertyId && viewModel.portfolioState.loaded) { opened.current = initialManagePropertyId; if (viewModel.portfolioState.items.some(i => i.propertyId === initialManagePropertyId)) { originActive.current = 'pending'; viewModel.openPortfolioItem(initialManagePropertyId); } }
   });
+  const originActive = useRef<ManageOrigin>('none');
+  const leaveManage = () => { if (!viewModel.lifecycleState.busy) viewModel.requestNavigation(onReturnFromManage!); };
+  const backFromManage = () => manageBack(onReturnFromManage ? originActive.current : 'none', viewModel.screen) === 'origin' ? leaveManage : null;
   useEffect(() => {
-    registerBackAction?.(() => viewModel.backFromWorkspace(onRootBack));
+    originActive.current = nextOrigin(originActive.current, viewModel.screen);
+    registerBackAction?.(() => (backFromManage() ?? (() => viewModel.backFromWorkspace(onRootBack)))());
     return () => registerBackAction?.(null);
   });
   const estimateTarget=viewModel.workspaceListingId?{listingId:viewModel.workspaceListingId}:viewModel.workspacePropertyId?{propertyId:viewModel.workspacePropertyId}:null;
@@ -109,7 +116,7 @@ export function PropertyListingFlowView({
   } else if (viewModel.screen === 'dashboard' || viewModel.screen === 'empty') {
     content = <PropertyDashboardView viewModel={viewModel} requestActivity={requestActivity} management={management}/>;
   } else if (viewModel.screen === 'published' && viewModel.showRealPublication && viewModel.realListing) {
-    content = <ManagePropertyView accountId={accountId} management={management} viewModel={viewModel} />;
+    content = <ManagePropertyView accountId={accountId} management={management} viewModel={viewModel} onBack={backFromManage() ?? undefined} />;
   } else if (viewModel.screen === 'identityEdit') {
     content=<PropertyIdentityEditView viewModel={viewModel} onClose={close}/>;
   } else if (viewModel.screen === 'draftSaved') {

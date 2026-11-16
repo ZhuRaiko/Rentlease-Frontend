@@ -9,7 +9,7 @@ import {createTenancyActivityService,emptyActivity,type TenancyActivity} from '.
 import {type RentalRelationship} from '../models/TenancyWorkspace';
 import {releaseTarget,type Role} from '../models/CancelledRentals';
 import {workspaceScreen} from '../models/TenancyWorkspaceScreen';
-import {dateRange} from '../models/TenancyPresentation';
+import {dateRange} from '../../../shared/utils/rentalDates';
 import {createTenancyReleaseWorkflow,type ReleaseRequest} from './tenancyReleaseWorkflow';
 import {publicIdentityLabel} from '../../../shared/models/PublicIdentity';
 import type {RentalReservation} from '../../messaging-viewing/models/RentalReservation';
