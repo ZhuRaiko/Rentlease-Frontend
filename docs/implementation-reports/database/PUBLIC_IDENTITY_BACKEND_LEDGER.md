@@ -104,3 +104,24 @@ Entry F5-A1. Design proposal: [f5-profiles-backend-design.md](../../design/f5-pr
 | Android/client runtime | Not applicable (no client change) |
 
 No permanent live backend mutation was performed in this step. No migration, SQL file or code was written.
+
+## Feature 5 (public profiles): Step 1 backend migrations - November 16, 2026
+
+Entry F5-M1. Design and decisions: [f5-profiles-backend-design.md](../../design/f5-profiles-backend-design.md).
+
+| Field | Content |
+| --- | --- |
+| Date | 2026-11-16 (clock time not recorded) |
+| Feature/phase | Public profiles, Feature 5 Step 1, entry F5-M1 |
+| Actor/tool | Claude Code (Claude Sonnet 5.5) with the Supabase CLI (`db query --linked -f`, `migration repair`); project-level access |
+| Environment/project | Hosted project `cxfsbwbwmwmgtqfonqth` |
+| Classification | `SCHEMA_MIGRATION_APPLIED` (approved by the user after review), two migrations applied in order |
+| Target | A `20261116150000_public_profiles.sql`: `public.get_public_profile(uuid)`, private schema `rentlease_profiles` (`can_view`, `relationship`, `id_verified`, `recent_reviews`), `rentlease_reviews.approved_set` and `summarize`. B `20261116150100_revoke_public_execute.sql`: EXECUTE on `can_access_conversation`, `can_access_tenancy`, `can_manage_property`, `can_view_property`, `has_app_role`, `is_admin(uuid)`, `is_tier1_verified`, `refresh_my_tier1_verification`, `update_my_profile` |
+| Action | Predeploy backup `C:\RentLease-Backups\public-profiles-predeploy-20261116-150251` (32 files, 5,459,060 bytes, hashes verified, forward and rollback SQL recorded as A+B and B+A concatenations), then A, `migration repair --status applied 20261116150000`, then B, `migration repair --status applied 20261116150100`. Rolled-back hosted checks before apply: profiles 62/62 (with and without B applied), revoke 37/37, both rollbacks 4/4. The checks were not re-run on hosted after apply. |
+| Purpose | Public profile read (whitelist only) and closing anonymous EXECUTE on nine non-trigger functions (the grant was to PUBLIC, so the revoke is from PUBLIC) |
+| Result | Applied. md5(prosrc) of `get_public_profile` fc45f06861446cd16dd7c687b0e26ba6; ACL `{postgres, authenticated}`, definer, `search_path=pg_catalog`. Each of the nine: ACL `{postgres, authenticated, service_role}`. Anon-callable non-trigger functions in `public`: none. Anon-callable trigger functions: 18, unchanged. `can_read_public_identity`, `get_public_identities` and `get_review_summary` keep their pins. Last migration `20261116150100` (49 history rows). No open transactions. |
+| Durable effect | Schema and function changes above; no table, column or data change; reservation `d67d5332-39f6-45b7-b4f3-8e81396d490e` untouched |
+| Rollback/cleanup | `supabase/test-support/revoke_public_execute_rollback.sql` (one grant to PUBLIC) and `public_profiles_rollback.sql` (drops the functions and the private schema; nothing is stored) |
+| Security/RLS | Private schemas closed to client roles; no policy added; checks ran as `authenticated`, `anon` and `service_role` JWT roles |
+| Source-controlled backend file | `supabase/migrations/20261116150000_public_profiles.sql`, `20261116150100_revoke_public_execute.sql` |
+| Android/client runtime | Not applicable (no client change) |
