@@ -48,7 +48,7 @@ export default function App() {
   }), [accountIdForOverlays]);
   const popOverlay = useCallback(() => setOverlays(list => list.slice(0, -1)), []);
   const discoveryHomeAction=useRef<(()=>void)|null>(null);
-  const [tenancyConversation,setTenancyConversation]=useState<{owner:string;id:string;startRequest?:boolean}|null>(null);
+  const [tenancyConversation,setTenancyConversation]=useState<{owner:string;id:string;startRequest?:boolean;/** Opened from Manage: Back returns there, not to the Tenancy tab. */from?:'properties'}|null>(null);
   const [inquiryConversation,setInquiryConversation]=useState<{userId:string;id:string}|null>(null);
   const [activityMode, setActivityMode] = useState<UserRole>('tenant');
   const previewActor: UserRole = activityMode;
@@ -78,7 +78,7 @@ export default function App() {
       modalVisible: workspace !== null && (workspace.type === 'adminModeration' ? canEnterAdmin : canEnterMarketplace) });
   }, [auth.screen, auth.asyncState, auth.account, workspaceDestination, workspace, canEnterAdmin, canEnterMarketplace]);
   useEffect(() => { setOverlays([]); }, [workspace?.type, auth.account?.user.id]);
-  useEffect(()=>{if(workspace?.type!=='tenancy'||tenancyConversation?.owner!==auth.account?.user.id)setTenancyConversation(null);},[workspace?.type,auth.account?.user.id]);
+  useEffect(()=>{const host=tenancyConversation?.from==='properties'?'properties':'tenancy';if(workspace?.type!==host||tenancyConversation?.owner!==auth.account?.user.id)setTenancyConversation(null);},[workspace?.type,auth.account?.user.id]);
   useEffect(()=>{if(workspace?.type!=='discovery'||inquiryConversation?.userId!==auth.account?.user.id)setInquiryConversation(null);},[workspace?.type,auth.account?.user.id]);
   const validProfileReturn = resolveProfileReturn(profileReturnTarget, auth.account?.user.id ?? null, access);
   const allowedProfileReturn = profileBackTarget(profileReturnTarget, auth.account?.user.id ?? null, previewActor, access);
@@ -241,10 +241,10 @@ export default function App() {
             managePropertyId={workspace.managePropertyId}
             onReturnToTenancy={() => setWorkspace({ type: 'tenancy' })}
             onOpenTenancy={open => setWorkspace({ type: 'tenancy', open })}
-            onMessage={id => { if (auth.account) { setWorkspace({ type: 'tenancy' }); setTenancyConversation({ owner: auth.account.user.id, id }); } }}
+            onMessage={id => { if (auth.account) setTenancyConversation({ owner: auth.account.user.id, id, from: 'properties' }); }}
             renderPropertyVerification={renderPropertyVerification}
             onRootBack={openDiscovery}
-            registerBackAction={registerWorkspaceBack}
+            registerBackAction={tenancyConversation?.from==='properties'&&tenancyConversation.owner===auth.account?.user.id?undefined:registerWorkspaceBack}
             initialScreen={workspace.initialScreen}
             onClose={openProfile}
             onOpenDiscover={openDiscovery}
@@ -255,6 +255,7 @@ export default function App() {
             onOpenMaintenance={() => setWorkspace({ type: 'tenancy' })}
           />
         ) : null}
+        {workspace?.type==='properties'&&canEnterMarketplace&&tenancyConversation?.from==='properties'&&tenancyConversation.owner===auth.account?.user.id?<View style={{position:'absolute',top:0,right:0,bottom:0,left:0}}><MessagingViewingFlowView key={`${tenancyConversation.owner}:${tenancyConversation.id}`} accountId={auth.account?.user.id} conversationId={tenancyConversation.id} returnToListing onRootBack={()=>setTenancyConversation(null)} onClose={()=>setTenancyConversation(null)} registerBackAction={registerWorkspaceBack} canPostProperty={canEnterMarketplace} onCreateListing={()=>openProperties('postingType')} onOpenListings={()=>setTenancyConversation(null)} onOpenDiscover={openDiscovery} onOpenMaintenance={()=>setWorkspace({type:'tenancy'})} renderTenancySetup={renderTenancySetup} renderListingDetails={(id,onBack)=><ChatListingDetails key={`${auth.account?.user.id}:${id}`} owner={auth.account?.user.id} id={id} onBack={onBack}/>}/></View>:null}
         {workspace?.type === 'priceEstimate' ? (
           <RentalPriceEstimationFlowView key={auth.account?.user.id} accountId={auth.account?.user.id}
             registerBackAction={registerWorkspaceBack}
