@@ -129,4 +129,4 @@ Verified by reading the code; all use `coalesce(actual_end_date, expected_end_da
 
 ## Before applying (not done)
 
-Run the check batch against a scratch database or branch, not the hosted project in use. The three CR-carrying pins are already verified on hosted (CR-stripped). If any guard comparison fails, the migration stops safely before changing anything. Confirm `trg_validate_tenancy` and `trg_sync_listing_from_tenancy` accept an end-date-only update (check 5 of the batch does this).
+Run the check batch against a scratch database or branch, not the hosted project in use. The three CR-carrying pins are already verified on hosted (CR-stripped). If any guard comparison fails, the migration stops safely before changing anything. Confirm `trg_validate_tenancy` and `trg_sync_listing_from_tenancy` accept an end-date-only update. The batch runs a real accept with every tenancy trigger enabled (checks 5c and 5k: one per trigger). `trg_validate_tenancy` needs a listing row matching each tenancy's `listing_id`, `property_id` and `landlord_id`; the fixture creates one per tenancy.

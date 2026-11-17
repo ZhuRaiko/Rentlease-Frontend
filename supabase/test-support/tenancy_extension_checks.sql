@@ -15,10 +15,14 @@
 --    updated_at triggers still run, which is the point of running a real accept).
 --  * Mid-test fixture changes that would trip a gate (ending a tenancy, changing an end date, adding reservations or early-end requests) run in
 --    their own blocks between top-level SET replica / SET origin, never inside a DO block.
+-- Every expected-error check matches the exact SQLSTATE and the exact message (pg_temp.is_err / is_conflict); a different exception fails it.
 -- Fixture inserts, against the real column lists:
 --  * public.profiles(id, account_status, tier1_verified_at): the same three columns the ledger fixture uses.
 --  * public.tenancies: every NOT NULL column is given (id, property_id, listing_id, tenant_id, landlord_id, status, start_date, agreed_monthly_rent,
 --    rent_due_day, created_by); also expected_end_date, actual_end_date, ended_at, tenant_confirmed_at, landlord_confirmed_at, activated_at.
+--  * public.listings: validate_tenancy (BEFORE UPDATE) raises 'Listing does not exist' unless a listings row has id = tenancy.listing_id, with the same
+--    property_id and landlord_id. The fixture inserts one listing per fixture tenancy, selected FROM that tenancy row (fixture block, right after the
+--    tenancies insert), giving only the columns without a default (property_id, landlord_id, title, description, asking_rent_monthly) plus id.
 --  * public.rental_reservations: id, conversation_id, listing_id, property_id, tenant_id, landlord_id, move_in_date, duration_months (1 to 120),
 --    end_date (> move_in_date), status, expires_at: all NOT NULL columns; revision, created_at and updated_at take their defaults.
 --  * rentlease_tenancy_end.requests (early-end): tenancy_id, initiator_id, proposed_end_date, reason (1 to 1000), base_version, original_terms: all
@@ -53,6 +57,10 @@ create function pg_temp.gp(p_uid uuid) returns text language sql as $$
 create function pg_temp.body(p text) returns jsonb language sql as $$ select substr(p,4)::jsonb $$;
 create function pg_temp.state(p text) returns text language sql as $$ select case when p like 'OK|%' then 'OK' else split_part(p,'|',2) end $$;
 create function pg_temp.msg(p text) returns text language sql as $$ select case when p like 'ERR|%' then split_part(p,'|',3) else '' end $$;
+-- Exact-match error checks: the SQLSTATE AND the whole message must be the expected ones; any other exception (or success) fails the check.
+create function pg_temp.is_err(p text,p_state text,p_msg text) returns boolean language sql as $$ select p like 'ERR|%' and split_part(p,'|',2)=p_state and split_part(p,'|',3)=p_msg $$;
+create function pg_temp.is_conflict(p text,p_date date) returns boolean language sql as $$
+ select p like 'ERR|23P01|%' and split_part(p,'|',3)~'^extension_conflict:[0-9]{4}-[0-9]{2}-[0-9]{2}$' and split_part(p,'|',3)='extension_conflict:'||to_char(p_date,'YYYY-MM-DD') $$;
 create function pg_temp.req(p_end date,p_note text default null) returns jsonb language sql as $$
  select jsonb_strip_nulls(jsonb_build_object('requestedEndDate',to_char(p_end,'YYYY-MM-DD'),'note',p_note)) $$;
 create function pg_temp.dec(p_id text,p_rev text) returns jsonb language sql as $$ select jsonb_build_object('requestId',p_id,'revision',p_rev) $$;
@@ -90,6 +98,13 @@ begin
   (tu,gen_random_uuid(),gen_random_uuid(),tn,ld,'active',today-60,ea,null,null,10000,5,ld,now(),now(),now()),
   (tw,p_w,gen_random_uuid(),tn,ld,'active',today-60,ea,null,null,10000,5,ld,now(),now(),now()),
   (tx,gen_random_uuid(),gen_random_uuid(),nt,ld,'active',today-60,ea,null,null,10000,5,ld,now(),now(),now());
+ -- Listings (validate_tenancy raises 'Listing does not exist' unless public.listings has a row with id = tenancy.listing_id, and requires
+ -- listing.property_id = tenancy.property_id and listing.landlord_id = tenancy.landlord_id). ONE listing per fixture tenancy, built FROM the tenancy
+ -- row just inserted, so the three values match by construction. Only the columns without a default are given: property_id, landlord_id, title,
+ -- description, asking_rent_monthly (plus id). Created here, in the fixture block, right after the tenancies insert; there is no other listing insert.
+ insert into public.listings(id,property_id,landlord_id,title,description,asking_rent_monthly) select t.listing_id,t.property_id,t.landlord_id,'Fixture listing','Fixture listing for the extension checks',t.agreed_monthly_rent from public.tenancies t where t.id in(ta,tb,tc,td,te,tf,tg,th,ti,tj,tk,tm,tq,tr,ts,tu,tw,tx);
+ -- Stale updated_at, so the updated_at trigger's work is visible on an accept.
+ update public.tenancies set updated_at=now()-interval '2 days' where id in(ta,tb,tc,td,te,tf,tg,th,ti,tj,tk,tm,tq,tr,ts,tu,tw,tx);
  -- Reservations. Only an APPROVED, UNEXPIRED reservation by ANOTHER party blocks.
  --  p_g: one such reservation from today+40 (blocks).                   p_w: only a PENDING one from today+40 (does not block).
  --  p_r: five reservations, only the first counts: (1) approved, unexpired, other party, from today+45 -> blocks; (2) pending, unexpired, other party,
@@ -120,7 +135,7 @@ declare
  tg uuid:=pg_temp.c('tg'); th uuid:=pg_temp.c('th'); tj uuid:=pg_temp.c('tj'); tk uuid:=pg_temp.c('tk'); tm uuid:=pg_temp.c('tm'); tq uuid:=pg_temp.c('tq');
  tr uuid:=pg_temp.c('tr'); ts uuid:=pg_temp.c('ts'); tu uuid:=pg_temp.c('tu'); tw uuid:=pg_temp.c('tw'); tx uuid:=pg_temp.c('tx'); y int:=pg_temp.cv('y')::int;
  today date:=(statement_timestamp() at time zone 'Asia/Manila')::date; ea date:=today+30; bound date; res text; res2 text; j jsonb; r1 text; r1rev text; op uuid;
- ledger_before int; ledger_after int; before_n int; after_n int; raw_md5 text; stripped_md5 text;
+ ledger_before int; ledger_after int; before_n int; after_n int; raw_md5 text; stripped_md5 text; trg record; upd_before timestamptz; accept_ok boolean; moved boolean;
 begin
  perform pg_temp.chk('fixture: the extension tables hold only the one pre-made request on tb, and no events or receipts',(select count(*) from rentlease_tenancy_extension.requests)=1 and (select count(*) from rentlease_tenancy_extension.events)=0 and (select count(*) from rentlease_tenancy_extension.receipts)=0,'');
 
@@ -129,7 +144,7 @@ begin
   not exists(select 1 from unnest(array['public.write_tenancy_extension(uuid,uuid,text,jsonb)','public.get_tenancy_extension(uuid)','public.get_pending_tenancy_extensions()']) f where has_function_privilege('anon',f::regprocedure,'EXECUTE') or has_function_privilege('service_role',f::regprocedure,'EXECUTE') or not has_function_privilege('authenticated',f::regprocedure,'EXECUTE'))
   and not exists(select 1 from pg_proc p cross join lateral aclexplode(p.proacl) a where p.pronamespace in('public'::regnamespace) and p.proname in('write_tenancy_extension','get_tenancy_extension','get_pending_tenancy_extensions') and a.grantee=0),'');
  res:=pg_temp.act(tn,'anon',format('select public.get_tenancy_extension(%L)::text',ta));
- perform pg_temp.chk('1b the anon role is refused by the database',pg_temp.state(res)='42501',res);
+ perform pg_temp.chk('1b the anon role is refused by the database',pg_temp.is_err(res,'42501','permission denied for function get_tenancy_extension'),res);
  perform pg_temp.chk('1c the private schema and its tables are closed to client roles',
   not has_schema_privilege('authenticated','rentlease_tenancy_extension','USAGE') and not has_table_privilege('authenticated','rentlease_tenancy_extension.requests','SELECT,INSERT,UPDATE,DELETE')
   and not exists(select 1 from pg_proc p where p.pronamespace='rentlease_tenancy_extension'::regnamespace and (has_function_privilege('authenticated',p.oid,'EXECUTE') or has_function_privilege('anon',p.oid,'EXECUTE'))),'');
@@ -148,54 +163,54 @@ begin
 
  -- ---------------------------------------------------------------- 2 actor rules
  res:=pg_temp.w(ld,ta,gen_random_uuid(),'request',pg_temp.req(ea+10));
- perform pg_temp.chk('2a the owner cannot request',pg_temp.state(res)='42501' and pg_temp.msg(res)='Tenant required',res);
+ perform pg_temp.chk('2a the owner cannot request',pg_temp.is_err(res,'42501','Tenant required'),res);
  res:=pg_temp.w(st,ta,gen_random_uuid(),'request',pg_temp.req(ea+10));
- perform pg_temp.chk('2b a stranger is refused',pg_temp.state(res)='42501' and pg_temp.msg(res)='Access unavailable',res);
+ perform pg_temp.chk('2b a stranger is refused',pg_temp.is_err(res,'42501','Access unavailable'),res);
  res:=pg_temp.w(nt,tx,gen_random_uuid(),'request',pg_temp.req(ea+10));
- perform pg_temp.chk('2c a participant without Tier 1 is refused',pg_temp.state(res)='42501',res);
+ perform pg_temp.chk('2c a participant without Tier 1 is refused',pg_temp.is_err(res,'42501','Access unavailable'),res);
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'accept',pg_temp.dec(gen_random_uuid()::text,gen_random_uuid()::text));
- perform pg_temp.chk('2d the tenant cannot accept',pg_temp.state(res)='42501' and pg_temp.msg(res)='Owner required',res);
+ perform pg_temp.chk('2d the tenant cannot accept',pg_temp.is_err(res,'42501','Owner required'),res);
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'decline',pg_temp.dec(gen_random_uuid()::text,gen_random_uuid()::text));
- perform pg_temp.chk('2e the tenant cannot decline',pg_temp.state(res)='42501',res);
+ perform pg_temp.chk('2e the tenant cannot decline',pg_temp.is_err(res,'42501','Owner required'),res);
  res:=pg_temp.w(ld,ta,gen_random_uuid(),'withdraw',pg_temp.dec(gen_random_uuid()::text,gen_random_uuid()::text));
- perform pg_temp.chk('2f the owner cannot withdraw',pg_temp.state(res)='42501' and pg_temp.msg(res)='Tenant required',res);
+ perform pg_temp.chk('2f the owner cannot withdraw',pg_temp.is_err(res,'42501','Tenant required'),res);
  res:=pg_temp.g(st,ta);
- perform pg_temp.chk('2g a stranger cannot read',pg_temp.state(res)='42501',res);
+ perform pg_temp.chk('2g a stranger cannot read',pg_temp.is_err(res,'42501','Access unavailable'),res);
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'bogus','{}'::jsonb);
- perform pg_temp.chk('2h an unknown action is refused',pg_temp.state(res)='22023',res);
+ perform pg_temp.chk('2h an unknown action is refused',pg_temp.is_err(res,'22023','Invalid operation'),res);
 
  -- ---------------------------------------------------------------- 3 date bounds (ta ends today+30)
  bound:=((ea+1)::timestamp+interval '6 months')::date-1;
  perform pg_temp.chk('3a the latest end date is (end + 1 day) + 6 months - 1 day',rentlease_tenancy_extension.latest_end(ea)=bound,'end='||ea||' bound='||bound||' fn='||rentlease_tenancy_extension.latest_end(ea));
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'request',pg_temp.req(ea));
- perform pg_temp.chk('3b a request equal to the current end is refused',pg_temp.state(res)='22023' and pg_temp.msg(res)='extension_date_invalid:not_after_end',res);
+ perform pg_temp.chk('3b a request equal to the current end is refused',pg_temp.is_err(res,'22023','extension_date_invalid:not_after_end'),res);
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'request',pg_temp.req(ea-1));
- perform pg_temp.chk('3c a request before the current end is refused',pg_temp.msg(res)='extension_date_invalid:not_after_end',res);
+ perform pg_temp.chk('3c a request before the current end is refused',pg_temp.is_err(res,'22023','extension_date_invalid:not_after_end'),res);
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'request',pg_temp.req(bound+1));
- perform pg_temp.chk('3d six months and a day is refused',pg_temp.state(res)='22023' and pg_temp.msg(res)='extension_date_invalid:beyond_limit',res);
+ perform pg_temp.chk('3d six months and a day is refused',pg_temp.is_err(res,'22023','extension_date_invalid:beyond_limit'),res);
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'request','{}'::jsonb);
- perform pg_temp.chk('3e a missing date is refused',pg_temp.msg(res)='extension_date_invalid:missing',res);
+ perform pg_temp.chk('3e a missing date is refused',pg_temp.is_err(res,'22023','extension_date_invalid:missing'),res);
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'request','{"requestedEndDate":"2027-02-30"}'::jsonb);
- perform pg_temp.chk('3f an impossible date is refused',pg_temp.msg(res)='extension_date_invalid:malformed',res);
+ perform pg_temp.chk('3f an impossible date is refused',pg_temp.is_err(res,'22023','extension_date_invalid:malformed'),res);
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'request',jsonb_build_object('requestedEndDate',to_char(ea+10,'YYYY-MM-DD'),'extra',1));
- perform pg_temp.chk('3g an unknown payload field is refused',pg_temp.state(res)='22023' and pg_temp.msg(res)='Unexpected fields',res);
+ perform pg_temp.chk('3g an unknown payload field is refused',pg_temp.is_err(res,'22023','Unexpected fields'),res);
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'request',pg_temp.req(ea+10,''));
- perform pg_temp.chk('3h an empty note is refused',pg_temp.state(res)='22023',res);
+ perform pg_temp.chk('3h an empty note is refused',pg_temp.is_err(res,'22023','Note must be 1 to 1000 characters'),res);
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'request',pg_temp.req(ea+10,repeat('x',1001)));
- perform pg_temp.chk('3i a note over 1000 characters is refused',pg_temp.state(res)='22023',res);
+ perform pg_temp.chk('3i a note over 1000 characters is refused',pg_temp.is_err(res,'22023','Note must be 1 to 1000 characters'),res);
  perform pg_temp.chk('3j refusals left nothing behind on ta',(select count(*) from rentlease_tenancy_extension.requests where tenancy_id=ta)=0 and (select count(*) from rentlease_tenancy_extension.receipts)=0,'');
  res:=pg_temp.w(tn,tb,gen_random_uuid(),'request',pg_temp.req(today+10));
- perform pg_temp.chk('3k an active tenancy past its end date is refused',pg_temp.state(res)='22023' and pg_temp.msg(res)='extension_unavailable:past_end_date',res);
+ perform pg_temp.chk('3k an active tenancy past its end date is refused',pg_temp.is_err(res,'22023','extension_unavailable:past_end_date'),res);
  res:=pg_temp.w(tn,tc,gen_random_uuid(),'request',pg_temp.req(today+100));
- perform pg_temp.chk('3l a tenancy that has not started is refused',pg_temp.msg(res)='extension_unavailable:not_active',res);
+ perform pg_temp.chk('3l a tenancy that has not started is refused',pg_temp.is_err(res,'22023','extension_unavailable:not_active'),res);
  res:=pg_temp.w(tn,td,gen_random_uuid(),'request',pg_temp.req(today+10));
- perform pg_temp.chk('3m an ended tenancy is refused',pg_temp.msg(res)='extension_unavailable:not_active',res);
+ perform pg_temp.chk('3m an ended tenancy is refused',pg_temp.is_err(res,'22023','extension_unavailable:not_active'),res);
  res:=pg_temp.w(tn,te,gen_random_uuid(),'request',pg_temp.req(make_date(y,7,31)+1));
- perform pg_temp.chk('3n Jan 31: Aug 1 is beyond the limit',pg_temp.msg(res)='extension_date_invalid:beyond_limit',res);
+ perform pg_temp.chk('3n Jan 31: Aug 1 is beyond the limit',pg_temp.is_err(res,'22023','extension_date_invalid:beyond_limit'),res);
  res:=pg_temp.w(tn,te,gen_random_uuid(),'request',pg_temp.req(make_date(y,7,31)));
  perform pg_temp.chk('3o Jan 31: Jul 31 is the latest allowed',pg_temp.state(res)='OK' and pg_temp.body(res)->>'status'='pending',res);
  res:=pg_temp.w(tn,tf,gen_random_uuid(),'request',pg_temp.req(make_date(y,8,31)+1));
- perform pg_temp.chk('3p last day of Feb: Sep 1 is beyond the limit',pg_temp.msg(res)='extension_date_invalid:beyond_limit',res);
+ perform pg_temp.chk('3p last day of Feb: Sep 1 is beyond the limit',pg_temp.is_err(res,'22023','extension_date_invalid:beyond_limit'),res);
  res:=pg_temp.w(tn,tf,gen_random_uuid(),'request',pg_temp.req(make_date(y,8,31)));
  perform pg_temp.chk('3q last day of Feb: Aug 31 is the latest allowed (not Aug 28)',pg_temp.state(res)='OK',res);
  op:=gen_random_uuid(); res:=pg_temp.w(tn,ta,op,'request',pg_temp.req(bound,'Staying for the semester'));
@@ -204,15 +219,15 @@ begin
 
  -- ---------------------------------------------------------------- 4 one pending request, retry, stale, reads, withdraw, decline, ask again
  res2:=pg_temp.w(tn,ta,gen_random_uuid(),'request',pg_temp.req(ea+10));
- perform pg_temp.chk('4a a second request while one is pending is refused',pg_temp.state(res2)='22023' and pg_temp.msg(res2)='extension_unavailable:request_pending',res2);
+ perform pg_temp.chk('4a a second request while one is pending is refused',pg_temp.is_err(res2,'22023','extension_unavailable:request_pending'),res2);
  res2:=pg_temp.w(tn,ta,op,'request',pg_temp.req(bound,'Staying for the semester'));
  perform pg_temp.chk('4b the same operation id with the same input returns the same result and writes nothing',res2=res and (select count(*) from rentlease_tenancy_extension.requests where tenancy_id=ta)=1 and (select count(*) from rentlease_tenancy_extension.events where tenancy_id=ta)=1,res2);
  res2:=pg_temp.w(tn,ta,op,'request',pg_temp.req(bound-1));
- perform pg_temp.chk('4c the same operation id with different input is refused',pg_temp.state(res2)='22023' and pg_temp.msg(res2)='Conflicting retry',res2);
+ perform pg_temp.chk('4c the same operation id with different input is refused',pg_temp.is_err(res2,'22023','Conflicting retry'),res2);
  res2:=pg_temp.w(tn,ta,gen_random_uuid(),'withdraw',pg_temp.dec(r1,gen_random_uuid()::text));
- perform pg_temp.chk('4d a stale revision is refused with 40001',pg_temp.state(res2)='40001',res2);
+ perform pg_temp.chk('4d a stale revision is refused with 40001',pg_temp.is_err(res2,'40001','Extension request changed. Reload.'),res2);
  res2:=pg_temp.w(tn,ta,gen_random_uuid(),'withdraw',pg_temp.dec(gen_random_uuid()::text,r1rev));
- perform pg_temp.chk('4e an unknown request id is refused with 40001',pg_temp.state(res2)='40001',res2);
+ perform pg_temp.chk('4e an unknown request id is refused with 40001',pg_temp.is_err(res2,'40001','Extension request changed. Reload.'),res2);
  res:=pg_temp.g(ld,ta); j:=pg_temp.body(res);
  perform pg_temp.chk('4f owner read: pending request with canAccept, canDecline, no conflict, role landlord, no user ids',
   j->>'role'='landlord' and j#>>'{request,status}'='pending' and (j#>>'{request,canAccept}')::boolean and (j#>>'{request,canDecline}')::boolean and not (j#>>'{request,canWithdraw}')::boolean
@@ -230,7 +245,7 @@ begin
  res:=pg_temp.g(tn,ta); j:=pg_temp.body(res);
  perform pg_temp.chk('4l after a withdrawal the read shows it and the tenant can ask again',j#>>'{request,status}'='withdrawn' and j#>>'{request,whoDecided}'='tenant' and (j->>'canRequest')::boolean,left(res,200));
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'withdraw',pg_temp.dec(r1,r1rev));
- perform pg_temp.chk('4m withdrawing again is refused (not pending any more)',pg_temp.state(res)='40001',res);
+ perform pg_temp.chk('4m withdrawing again is refused (not pending any more)',pg_temp.is_err(res,'40001','Extension request changed. Reload.'),res);
  res:=pg_temp.w(tn,ta,gen_random_uuid(),'request',pg_temp.req(ea+20)); r1:=pg_temp.body(res)->>'requestId'; r1rev:=pg_temp.body(res)->>'revision';
  perform pg_temp.chk('4n the tenant asks again after a withdrawal',pg_temp.state(res)='OK',res);
  res:=pg_temp.w(ld,ta,gen_random_uuid(),'decline',jsonb_build_object('requestId',r1,'revision',r1rev,'note','Not this time'));
@@ -244,10 +259,12 @@ begin
  -- ---------------------------------------------------------------- 5 accept moves the end date (tm)
  select count(*) into ledger_before from rentlease_rent_ledger.due_dates((select start_date from public.tenancies where id=tm),(select expected_end_date from public.tenancies where id=tm),5,today+400);
  select count(*) into before_n from public.notifications;
+ select updated_at into upd_before from public.tenancies where id=tm;
  op:=gen_random_uuid(); res:=pg_temp.w(tn,tm,gen_random_uuid(),'request',pg_temp.req(ea+60)); r1:=pg_temp.body(res)->>'requestId'; r1rev:=pg_temp.body(res)->>'revision';
  perform pg_temp.chk('5a the tenant asks for 60 more days',pg_temp.state(res)='OK',res);
  res:=pg_temp.w(ld,tm,op,'accept',pg_temp.dec(r1,r1rev));
  perform pg_temp.chk('5b the owner accepts',pg_temp.state(res)='OK' and pg_temp.body(res)->>'status'='accepted' and (pg_temp.body(res)->>'currentEndDate')::date=ea+60,res);
+ accept_ok:=pg_temp.state(res)='OK';
  perform pg_temp.chk('5c the tenancy end date moved and nothing else did (this accept ran through every tenancy trigger)',
   (select expected_end_date from public.tenancies where id=tm)=ea+60 and (select actual_end_date from public.tenancies where id=tm) is null and (select status from public.tenancies where id=tm)='active'
   and (select agreed_monthly_rent from public.tenancies where id=tm)=10000 and (select rent_due_day from public.tenancies where id=tm)=5 and (select start_date from public.tenancies where id=tm)=today-60,'');
@@ -255,10 +272,27 @@ begin
  perform pg_temp.chk('5d the rent ledger schedule (coalesce(actual, expected)) now has the extra months',ledger_after>ledger_before,'before='||ledger_before||' after='||ledger_after);
  select count(*) into after_n from public.notifications;
  perform pg_temp.chk('5e no notification was created',after_n=before_n,'before='||before_n||' after='||after_n);
+ moved:=(select expected_end_date from public.tenancies where id=tm)=ea+60;
+ -- One check per trigger that runs on an UPDATE of public.tenancies. Each proves: the trigger exists, is enabled for origin sessions (the session is
+ -- in origin mode, set at top level above), fires on UPDATE, and the end-date-only accept above succeeded and moved the date, i.e. it passed this trigger.
+ for trg in select * from (values('aaa_tenancy_property_gate','property gate'),('aab_tenancy_identity_gate','identity gate'),('aac_reservation_tenancy_commitment','guard_tenancy_commitment'),
+   ('trg_sync_listing_from_tenancy','listing sync'),('trg_tenancies_updated_at','set_updated_at'),('trg_validate_tenancy','validate_tenancy'),('inapp_tenancy','notifications trigger')) v(tgname,label) loop
+  perform pg_temp.chk('5k '||trg.label||' ('||trg.tgname||') is enabled on UPDATE and the end-date-only accept passed it',
+   accept_ok and moved and current_setting('session_replication_role')='origin'
+   and exists(select 1 from pg_trigger where tgrelid='public.tenancies'::regclass and tgname=trg.tgname and tgenabled='O' and not tgisinternal and (tgtype & 16)=16),'accept='||accept_ok||' moved='||moved);
+ end loop;
+ perform pg_temp.chk('5l set_updated_at ran: updated_at moved forward on the accept',(select updated_at from public.tenancies where id=tm)>upd_before,'before='||upd_before||' after='||(select updated_at from public.tenancies where id=tm));
+ perform pg_temp.chk('5m the notifications trigger ran and created nothing for an end-date-only update',accept_ok and after_n=before_n,'before='||before_n||' after='||after_n);
+ begin
+  update public.tenancies set expected_end_date=today+60 where id=tg;
+  perform pg_temp.chk('5n guard_tenancy_commitment is live: a direct update into another party''s approved reservation is refused',false,'the update succeeded');
+ exception when others then
+  perform pg_temp.chk('5n guard_tenancy_commitment is live: a direct update into another party''s approved reservation is refused',sqlstate='23P01' and sqlerrm='Unit has an overlapping reservation commitment',sqlstate||' '||sqlerrm);
+ end;
  res:=pg_temp.w(ld,tm,op,'accept',pg_temp.dec(r1,r1rev));
  perform pg_temp.chk('5f retrying the accept with the same operation id returns the stored result',pg_temp.state(res)='OK' and pg_temp.body(res)->>'status'='accepted',res);
  res:=pg_temp.w(ld,tm,gen_random_uuid(),'accept',pg_temp.dec(r1,r1rev));
- perform pg_temp.chk('5g accepting again with a new operation id is refused (not pending)',pg_temp.state(res)='40001',res);
+ perform pg_temp.chk('5g accepting again with a new operation id is refused (not pending)',pg_temp.is_err(res,'40001','Extension request changed. Reload.'),res);
  res:=pg_temp.g(tn,tm); j:=pg_temp.body(res);
  perform pg_temp.chk('5h the read shows the accepted request, the new end date and a new limit',j#>>'{request,status}'='accepted' and (j->>'currentEndDate')::date=ea+60 and (j->>'latestEndDate')::date=rentlease_tenancy_extension.latest_end(ea+60) and j#>>'{request,whoDecided}'='landlord',left(res,240));
  res:=pg_temp.w(tn,tm,gen_random_uuid(),'request',pg_temp.req(ea+70));
@@ -266,13 +300,13 @@ begin
 
  -- ---------------------------------------------------------------- 6 conflicts that exist from the start
  res:=pg_temp.w(tn,tg,gen_random_uuid(),'request',pg_temp.req(ea+60));
- perform pg_temp.chk('6a an APPROVED reservation by another party blocks, and the error carries the first conflicting date',pg_temp.state(res)='23P01' and pg_temp.msg(res)='extension_conflict:'||to_char(today+40,'YYYY-MM-DD'),res);
+ perform pg_temp.chk('6a an APPROVED reservation by another party blocks, and the error carries the first conflicting date',pg_temp.is_conflict(res,today+40),res);
  res:=pg_temp.w(tn,tg,gen_random_uuid(),'request',pg_temp.req(today+39));
  perform pg_temp.chk('6b a request that stops the day before the reservation is allowed',pg_temp.state(res)='OK',res);
  res:=pg_temp.w(tn,th,gen_random_uuid(),'request',pg_temp.req(ea+60));
- perform pg_temp.chk('6c another tenancy in pending_confirmation blocks, with its start date',pg_temp.state(res)='23P01' and pg_temp.msg(res)='extension_conflict:'||to_char(today+50,'YYYY-MM-DD'),res);
+ perform pg_temp.chk('6c another tenancy in pending_confirmation blocks, with its start date',pg_temp.is_conflict(res,today+50),res);
  res:=pg_temp.w(tn,tr,gen_random_uuid(),'request',pg_temp.req(ea+60));
- perform pg_temp.chk('6d of five reservations only the approved, unexpired, other-party one counts: not the pending, the expired, the same pair''s or the declined',pg_temp.state(res)='23P01' and pg_temp.msg(res)='extension_conflict:'||to_char(today+45,'YYYY-MM-DD'),res);
+ perform pg_temp.chk('6d of five reservations only the approved, unexpired, other-party one counts: not the pending, the expired, the same pair''s or the declined',pg_temp.is_conflict(res,today+45),res);
  res:=pg_temp.w(tn,tw,gen_random_uuid(),'request',pg_temp.req(ea+60));
  perform pg_temp.chk('6e a PENDING reservation request by another party does NOT block',pg_temp.state(res)='OK' and pg_temp.body(res)->>'status'='pending',res);
  -- requests that the next blocks use after the calendar or the tenancy changes underneath them
@@ -286,7 +320,7 @@ begin
  perform pg_temp.chk('6i tu: a request is pending (its end date will change)',pg_temp.state(res)='OK',res);
  -- 7a: tk already has an early-end request (fixture)
  res:=pg_temp.w(tn,tk,gen_random_uuid(),'request',pg_temp.req(ea+10));
- perform pg_temp.chk('7a a tenant cannot ask while an early-end request is pending',pg_temp.state(res)='22023' and pg_temp.msg(res)='extension_unavailable:early_end_pending',res);
+ perform pg_temp.chk('7a a tenant cannot ask while an early-end request is pending',pg_temp.is_err(res,'22023','extension_unavailable:early_end_pending'),res);
  res:=pg_temp.g(tn,tk); j:=pg_temp.body(res);
  perform pg_temp.chk('7b the read says so',not (j->>'canRequest')::boolean and j->>'cannotRequestReason'='early_end_pending',left(res,200));
 end$a$;
@@ -320,12 +354,12 @@ begin
  res:=pg_temp.gp(ld); j:=pg_temp.body(res);
  perform pg_temp.chk('6k the pending feed carries the same conflictDate',exists(select 1 from jsonb_array_elements(j->'rows') e where e->>'requestId'=r1 and e->>'conflictDate'=to_char(today+45,'YYYY-MM-DD')),left(res,240));
  res:=pg_temp.w(ld,tj,gen_random_uuid(),'accept',pg_temp.dec(r1,r1rev));
- perform pg_temp.chk('6l accept checks again and refuses with the conflicting date',pg_temp.state(res)='23P01' and pg_temp.msg(res)='extension_conflict:'||to_char(today+45,'YYYY-MM-DD'),res);
+ perform pg_temp.chk('6l accept checks again and refuses with the conflicting date',pg_temp.is_conflict(res,today+45),res);
  perform pg_temp.chk('6m the refused accept moved nothing',(select expected_end_date from public.tenancies where id=tj)=today+30 and (select status from rentlease_tenancy_extension.requests where id=r1::uuid)='pending','');
  -- tq: an early-end request appeared after the extension request
  r1:=pg_temp.rid(tq); r1rev:=pg_temp.rrev(tq);
  res:=pg_temp.w(ld,tq,gen_random_uuid(),'accept',pg_temp.dec(r1,r1rev));
- perform pg_temp.chk('7c the owner cannot accept while an early-end request is pending',pg_temp.state(res)='22023' and pg_temp.msg(res)='extension_unavailable:early_end_pending',res);
+ perform pg_temp.chk('7c the owner cannot accept while an early-end request is pending',pg_temp.is_err(res,'22023','extension_unavailable:early_end_pending'),res);
  res:=pg_temp.g(ld,tq); j:=pg_temp.body(res);
  perform pg_temp.chk('7d the owner read shows canAccept false, but the owner can still decline',not (j#>>'{request,canAccept}')::boolean and (j#>>'{request,canDecline}')::boolean,left(res,240));
  -- ts: the tenancy ended while the extension was pending
@@ -333,17 +367,17 @@ begin
  res:=pg_temp.gp(ld);
  perform pg_temp.chk('7f the pending feed no longer lists a request on an ended tenancy',not exists(select 1 from jsonb_array_elements(pg_temp.body(res)->'rows') e where e->>'tenancyId'=ts::text),left(res,160));
  res:=pg_temp.w(ld,ts,gen_random_uuid(),'accept',pg_temp.dec(r1,r1rev));
- perform pg_temp.chk('7g accept refuses because the tenancy is no longer active',pg_temp.state(res)='22023' and pg_temp.msg(res)='extension_unavailable:not_active',res);
+ perform pg_temp.chk('7g accept refuses because the tenancy is no longer active',pg_temp.is_err(res,'22023','extension_unavailable:not_active'),res);
  res:=pg_temp.w(ld,ts,gen_random_uuid(),'decline',pg_temp.dec(r1,r1rev));
  perform pg_temp.chk('7h the owner can still clear it by declining',pg_temp.state(res)='OK' and pg_temp.body(res)->>'status'='declined',res);
  -- tu: the tenancy's end date moved under the request
  r1:=pg_temp.rid(tu); r1rev:=pg_temp.rrev(tu);
  res:=pg_temp.w(ld,tu,gen_random_uuid(),'accept',pg_temp.dec(r1,r1rev));
- perform pg_temp.chk('7i accept refuses with 40001 when the tenancy end date is no longer the one the request was made against',pg_temp.state(res)='40001' and pg_temp.msg(res)='Tenancy changed. Reload.',res);
+ perform pg_temp.chk('7i accept refuses with 40001 when the tenancy end date is no longer the one the request was made against',pg_temp.is_err(res,'40001','Tenancy changed. Reload.'),res);
  -- tb: today is past the end date (the request row was made in the fixture)
  r1:=pg_temp.rid(tb); r1rev:=pg_temp.rrev(tb);
  res:=pg_temp.w(ld,tb,gen_random_uuid(),'accept',pg_temp.dec(r1,r1rev));
- perform pg_temp.chk('7j accept refuses once today is past the current end date',pg_temp.state(res)='22023' and pg_temp.msg(res)='extension_unavailable:past_end_date',res);
+ perform pg_temp.chk('7j accept refuses once today is past the current end date',pg_temp.is_err(res,'22023','extension_unavailable:past_end_date'),res);
  res:=pg_temp.gp(ld);
  perform pg_temp.chk('7k the pending feed does not list a request past its end date',not exists(select 1 from jsonb_array_elements(pg_temp.body(res)->'rows') e where e->>'tenancyId'=tb::text),left(res,160));
 end$b$;
@@ -368,11 +402,11 @@ begin
  perform pg_temp.chk('7e once the early-end request is resolved the extension can be accepted',pg_temp.state(res)='OK' and (select expected_end_date from public.tenancies where id=tq)=ea+10,res);
 
  perform pg_temp.chk('8a there is evidence to protect',(select count(*) from rentlease_tenancy_extension.events)>0 and (select count(*) from rentlease_tenancy_extension.receipts)>0,'');
- begin update rentlease_tenancy_extension.events set note='x';perform pg_temp.chk('8b events cannot be updated',false,'updated');exception when others then perform pg_temp.chk('8b events cannot be updated',sqlstate='42501',sqlerrm);end;
- begin delete from rentlease_tenancy_extension.receipts;perform pg_temp.chk('8c receipts cannot be deleted',false,'deleted');exception when others then perform pg_temp.chk('8c receipts cannot be deleted',sqlstate='42501',sqlerrm);end;
- begin delete from rentlease_tenancy_extension.requests;perform pg_temp.chk('8d requests cannot be deleted',false,'deleted');exception when others then perform pg_temp.chk('8d requests cannot be deleted',sqlstate='42501',sqlerrm);end;
- begin update rentlease_tenancy_extension.requests set requested_end_date=requested_end_date+1 where status='accepted';perform pg_temp.chk('8e an original request field cannot be changed',false,'changed');exception when others then perform pg_temp.chk('8e an original request field cannot be changed',sqlstate='42501',sqlerrm);end;
- begin update rentlease_tenancy_extension.requests set status='pending' where status='accepted';perform pg_temp.chk('8f a decided request cannot be reopened',false,'reopened');exception when others then perform pg_temp.chk('8f a decided request cannot be reopened',sqlstate in('42501','23514'),sqlerrm);end;
+ begin update rentlease_tenancy_extension.events set note='x';perform pg_temp.chk('8b events cannot be updated',false,'updated');exception when others then perform pg_temp.chk('8b events cannot be updated',sqlstate='42501' and sqlerrm='Extension evidence is immutable',sqlstate||' '||sqlerrm);end;
+ begin delete from rentlease_tenancy_extension.receipts;perform pg_temp.chk('8c receipts cannot be deleted',false,'deleted');exception when others then perform pg_temp.chk('8c receipts cannot be deleted',sqlstate='42501' and sqlerrm='Extension evidence is immutable',sqlstate||' '||sqlerrm);end;
+ begin delete from rentlease_tenancy_extension.requests;perform pg_temp.chk('8d requests cannot be deleted',false,'deleted');exception when others then perform pg_temp.chk('8d requests cannot be deleted',sqlstate='42501' and sqlerrm='Extension request cannot be deleted',sqlstate||' '||sqlerrm);end;
+ begin update rentlease_tenancy_extension.requests set requested_end_date=requested_end_date+1 where status='accepted';perform pg_temp.chk('8e an original request field cannot be changed',false,'changed');exception when others then perform pg_temp.chk('8e an original request field cannot be changed',sqlstate='42501' and sqlerrm='Original extension request cannot be changed',sqlstate||' '||sqlerrm);end;
+ begin update rentlease_tenancy_extension.requests set status='pending' where status='accepted';perform pg_temp.chk('8f a decided request cannot be reopened',false,'reopened');exception when others then perform pg_temp.chk('8f a decided request cannot be reopened',sqlstate='42501' and sqlerrm='Original extension request cannot be changed',sqlstate||' '||sqlerrm);end;
  perform pg_temp.chk('8g a tenancy with extension history cannot be deleted (RESTRICT)',(select count(*) from pg_constraint where conrelid='rentlease_tenancy_extension.requests'::regclass and contype='f' and confdeltype='r')=1 and (select count(*) from pg_constraint where conrelid='rentlease_tenancy_extension.events'::regclass and contype='f' and confdeltype='r')=2,'');
  perform pg_temp.chk('8h every extension table has row level security and no policy',not exists(select 1 from pg_tables where schemaname='rentlease_tenancy_extension' and not rowsecurity) and not exists(select 1 from pg_policies where schemaname='rentlease_tenancy_extension'),'');
 end$c$;
