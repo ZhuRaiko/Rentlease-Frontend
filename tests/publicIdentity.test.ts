@@ -60,3 +60,20 @@ test('identity hook batches IDs, masks changed accounts immediately, and ignores
 
 
 test('confirmed Display Name changes use normal Save without repeating first-publication acknowledgement',async()=>{const h=harness();h.result(own({nickname:'Existing Public Name'}));await h.workflow.load();h.workflow.setNickname('Updated Public Name');assert.equal(h.workflow.info().consent,false);await h.workflow.save();assert.equal(h.writes[0][3],'Updated Public Name');assert.equal(h.writes[0][5],true);});
+
+const readWith=async(response:any[])=>{const {createPublicIdentityService}=loadService();const client={auth:{getUser:async()=>({data:{user:{id:A}}})},rpc:()=>({abortSignal:async()=>({data:response})}),storage:{from:()=>({getPublicUrl:(p:string)=>({data:{publicUrl:'https://public.example/'+p}})})}};return createPublicIdentityService(()=>client).read(A,[B]);};
+test('public read keeps idVerified true or false when the server sends id_verified',async()=>{
+  const yes=await readWith([{id:B,nickname:'Nightcity',avatar_path:null,id_verified:true}]);assert.equal(yes[0].idVerified,true);assert.equal(yes[0].nickname,'Nightcity');
+  const no=await readWith([{id:B,nickname:null,avatar_path:null,id_verified:false}]);assert.equal(no[0].idVerified,false);
+});
+test('public read of an older response (no id_verified key) still parses and leaves idVerified out',async()=>{
+  const rows=await readWith([{id:B,nickname:null,avatar_path:path.replace(A,B)}]);
+  assert.equal(rows.length,1);assert.equal('idVerified' in rows[0],false);assert.equal(rows[0].avatarPath,path.replace(A,B));
+});
+test('public read rejects an id_verified that is not a boolean (null or text), never guessing a value',async()=>{
+  for(const bad of [null,'true',1])await assert.rejects(readWith([{id:B,nickname:null,avatar_path:null,id_verified:bad}]),/could not be verified/);
+});
+test('own identity does not carry idVerified (get_own_public_identity does not send it)',async()=>{
+  const {createPublicIdentityService}=loadService();const client={auth:{getUser:async()=>({data:{user:{id:A}}})},rpc:()=>({abortSignal:async()=>({data:{id:A,nickname:null,avatar_path:null,version:id(20)}})})};
+  const result=await createPublicIdentityService(()=>client).own(A);assert.equal('idVerified' in result,false);assert.equal(result.version,id(20));
+});

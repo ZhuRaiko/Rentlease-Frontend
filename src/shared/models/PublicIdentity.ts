@@ -1,4 +1,5 @@
-export interface PublicIdentity {id:string;nickname:string|null;avatarUrl:string|null;avatarPath:string|null}
+/** `idVerified` (approved Tier 2 identity) is optional: it is present only when the server's get_public_identities returns `id_verified`. */
+export interface PublicIdentity {id:string;nickname:string|null;avatarUrl:string|null;avatarPath:string|null;idVerified?:boolean}
 export interface OwnPublicIdentity extends PublicIdentity {version:string}
 export const avatarByteLimit=3*1024*1024;
 export const identityUuid=(value:unknown):value is string=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(value);
