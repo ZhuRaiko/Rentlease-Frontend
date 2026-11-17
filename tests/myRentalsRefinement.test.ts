@@ -275,3 +275,24 @@ test('card keeps Manage and the 48dp menu on one row at every width, and keeps f
 test('new My Rentals styling reuses theme tokens and introduces no hardcoded colors', () => {
   for (const file of [cardPath, dashboard, 'src/features/property-listing/components/PortfolioFilterTabs.tsx']) assert.doesNotMatch(readFileSync(file, 'utf8'), /#[0-9a-fA-F]{3,8}\b|rgba?\(/, file);
 });
+
+// ---- Delete message, refresh and first load
+test('after a delete the short message sits above the list and the list stays on screen', () => {
+  const { vm } = viewModel({ items: [makeItem('b', 'active'), makeItem('c', 'active')] }); vm.notice = 'Unfinished post deleted.';
+  const tree = harness().render(dashboard, 'PropertyDashboardView', { viewModel: vm }), all = text(tree);
+  assert.match(all, /Unfinished post deleted\./); assert.match(all, /Rental b/); assert.match(all, /Rental c/); assert.doesNotMatch(all, /Loading your properties/);
+  assert.ok(all.indexOf('Unfinished post deleted.') < all.indexOf('Rental b'), 'the message is above the list');
+});
+test('a background refresh keeps the list; a failed one adds a quiet retry line and no error screen', () => {
+  const refreshing = viewModel({ items: [makeItem('b', 'active')] }).vm; refreshing.portfolioState.busy = true; refreshing.portfolioState.refreshing = true;
+  const during = text(harness().render(dashboard, 'PropertyDashboardView', { viewModel: refreshing }));
+  assert.match(during, /Rental b/); assert.doesNotMatch(during, /Loading your properties/);
+  const failed = viewModel({ items: [makeItem('b', 'active')] }).vm; failed.portfolioState.refreshError = 'offline';
+  const tree = harness().render(dashboard, 'PropertyDashboardView', { viewModel: failed }), all = text(tree);
+  assert.match(all, /Rental b/); assert.match(all, /Couldn.t refresh\./); assert.ok(nodes(tree).some(n => n.props?.accessibilityLabel === 'Retry refreshing'));
+  assert.doesNotMatch(all, /Retry loading properties/); assert.ok(!all.includes('offline'));
+});
+test('the full loading text shows only on the first load, when no list is on screen', () => {
+  const first = viewModel({ items: [] }).vm; first.portfolioState.loaded = false; first.portfolioState.busy = true;
+  assert.match(text(harness().render(dashboard, 'PropertyDashboardView', { viewModel: first })), /Loading your properties/);
+});

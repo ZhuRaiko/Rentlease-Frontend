@@ -24,6 +24,7 @@ import { CONTINUE_WAIT_MS } from '../models/ListingCheck';
 import { propertyMediaItems, photoWait, PHOTOS_ATTENTION_MESSAGE, PHOTOS_UPLOADING_MESSAGE } from '../models/PropertyMedia';
 import { createLandlordPortfolioWorkflow } from './landlordPortfolioWorkflow';
 import { landlordPortfolioService } from '../services/landlordPortfolioDependencies';
+import { createAccountCache } from '../../../shared/utils/accountCache';
 import { portfolioTierLabels, type LandlordPortfolioItem } from '../models/LandlordPortfolio';
 import { createPropertyLocationWorkflow } from './propertyLocationWorkflow';
 import { propertyLocationService } from '../services/propertyLocationDependencies';
@@ -74,12 +75,15 @@ import {
 
 type CounterField = 'bedrooms' | 'bathrooms' | 'parkingSpaces';
 
-export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dashboard') {
+/** The last My properties list per signed-in user, in memory only. Emptied on sign-out, account switch and every write (see accountCache). */
+const portfolioCache = createAccountCache<LandlordPortfolioItem[]>();
+export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dashboard', accountId?: string) {
   type Workspace = { propertyId: string | null; listingId: string | null; mode: 'none' | 'create' | 'compose' | 'manage' | 'editPublished'; item: LandlordPortfolioItem | null };
   const [workspace, setWorkspace] = useState<Workspace>({ propertyId: null, listingId: null, mode: initialScreen === 'postingType' ? 'create' : 'none', item: null });
   const [unfinishedPost]=useState(()=>createUnfinishedPostWorkflow(unfinishedPostService,id=>{
     if(workspaceRef.current.propertyId===id){detachWorkspace();setHistory([]);setScreen('dashboard');}
-    portfolio.invalidate();setNotice('Unfinished post deleted.');
+    // The deleted post leaves the list at once and the list is read again in the background; the message is short and sits above the list.
+    void portfolio.remove(id);const message='Unfinished post deleted.';setNotice(message);setTimeout(()=>setNotice(current=>current===message?null:current),4000);
   }));
   const unfinishedPostState=useSyncExternalStore(unfinishedPost.subscribe,unfinishedPost.getSnapshot);
   useEffect(()=>{unfinishedPost.activate();return()=>unfinishedPost.dispose();},[unfinishedPost]);
@@ -105,7 +109,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const propertyRoutineState=useSyncExternalStore(propertyRoutine.subscribe,propertyRoutine.getSnapshot);
   useEffect(()=>{propertyRoutine.activate();return()=>propertyRoutine.dispose();},[propertyRoutine]);
   useEffect(()=>{const c=propertyRoutineState.context;if(c&&c.property_id===workspaceRef.current.propertyId)setEditedProperty(c);},[propertyRoutineState.context]);
-  const [portfolio] = useState(() => createLandlordPortfolioWorkflow(landlordPortfolioService));
+  const [portfolio] = useState(() => createLandlordPortfolioWorkflow(landlordPortfolioService, { store: portfolioCache, owner: accountId }));
   const portfolioState = useSyncExternalStore(portfolio.subscribe, portfolio.getSnapshot);
   useEffect(() => { portfolio.activate(); return () => portfolio.dispose(); }, [portfolio]);
   const [propertyValidationTarget,setPropertyValidationTarget]=useState<(PropertyValidationIssue & {requestId:number})|null>(null);

@@ -1,3 +1,4 @@
+import { RefreshHint } from '../../../shared/components/RefreshHint';
 import { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { FeedbackNotice } from '../../../shared/components/FeedbackNotice';
@@ -45,8 +46,9 @@ export function PropertyDashboardView({ viewModel: vm, requestActivity, manageme
   const tap = (tile: Tile) => { if (tile === 'need') { setNeedOnly(true); vm.setPortfolioFilter('all'); } else choose(tile === 'occupied' ? 'rented' : 'published'); };
   const noMatch = state.loaded && state.items.length > 0 && !shown.length;
   const ready = state.loaded && state.items.length > 0;
-  return <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={() => { void vm.portfolio.load(); management?.refresh(); }} />}>
+  return <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={false} onRefresh={() => { void vm.portfolio.load(); management?.refresh(); }} />}>
     <Text accessibilityRole="header" style={styles.title}>My properties</Text>
+    <RefreshHint refreshing={state.loaded && state.busy} failed={!!state.refreshError} onRetry={() => void vm.portfolio.load()} />
     {ready ? <View style={styles.tiles}>
       {(['occupied', 'vacant', 'need'] as const).map(tile => {
         const count = tile === 'occupied' ? summary.occupied : tile === 'vacant' ? summary.vacant : summary.needYou, c = tileColors[tile];

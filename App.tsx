@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, Modal, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { traceAuthBoot } from './src/shared/utils/authBootTrace';
+import { accountCaches } from './src/shared/utils/accountCache';
 import { ScreenContainer } from './src/shared/components/ScreenContainer';
 import { colors } from './src/shared/theme/colors';
 import { PublicProfileView } from './src/features/public-profiles/views/PublicProfileView';
@@ -110,6 +111,8 @@ export default function App() {
   const workspaceOwner = useRef(auth.account?.user.id ?? null);
   useEffect(() => {
     const userId = auth.account?.user.id ?? null;
+    // Sign-out and account switch: no cached list (My properties, Tenancy tab, Messages) may outlive the account it was read for.
+    if (workspaceOwner.current !== userId) accountCaches.invalidateAll();
     if (workspaceOwner.current !== userId || (!canEnterMarketplace && !canEnterAdmin)) {
       setWorkspace(null);
       setProfileReturnTarget(null);

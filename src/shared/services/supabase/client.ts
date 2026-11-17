@@ -7,6 +7,7 @@ import { AppState } from 'react-native';
 import { env, requireEnvironmentValue } from '../../../config/env';
 import type { Database } from './database.types';
 import { traceAuthBoot } from '../../utils/authBootTrace';
+import { instrumentMutations } from '../../utils/accountCache';
 
 let client: SupabaseClient<Database> | undefined;
 
@@ -24,6 +25,8 @@ export function getSupabaseClient(): SupabaseClient<Database> {
         },
       },
     );
+    // Every write the app sends empties the in-memory screen caches (My properties, Tenancy tab, Messages) so a stale list is never shown after it.
+    instrumentMutations(client as unknown as Parameters<typeof instrumentMutations>[0]);
     traceAuthBoot('SUPABASE_CLIENT_CREATED', { appState: AppState.currentState });
 
     const currentClient = client;

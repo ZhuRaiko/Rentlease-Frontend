@@ -90,7 +90,7 @@ export function PropertyListingFlowView({
   onOpenChat,
   onOpenMaintenance,
 }: PropertyListingFlowViewProps) {
-  const viewModel = usePropertyListingViewModel(initialScreen);
+  const viewModel = usePropertyListingViewModel(initialScreen, accountId);
   const verificationBack=useRef<(()=>void)|null>(null);
   const verificationPropertyId=viewModel.propertyVerificationState.entryPropertyId;
   const close = () => viewModel.requestNavigation(onClose);

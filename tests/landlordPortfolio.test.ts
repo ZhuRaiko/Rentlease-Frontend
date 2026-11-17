@@ -113,7 +113,7 @@ test('portfolio diagnostics identify schema rejection at listings read without l
 });
 test('portfolio failures retain prior records and distinguish authorization from network errors',async()=>{
  const h=serviceHarness(),flow=createLandlordPortfolioWorkflow(h.service);await flow.load();h.failures.set('verification_submissions',{code:'42501',message:'permission denied private data'});await flow.load();
- assert.equal(flow.getSnapshot().items.length,1);assert.match(flow.getSnapshot().error??'',/account access/);assert.equal(h.diagnostics.at(-1)?.stage,'verifications');assert.equal(h.diagnostics.at(-1)?.classification,'authorization');
+ assert.equal(flow.getSnapshot().items.length,1);assert.match(flow.getSnapshot().refreshError??'',/account access/);assert.equal(flow.getSnapshot().error,null,'with the list on screen the failure is a quiet refresh error');assert.equal(h.diagnostics.at(-1)?.stage,'verifications');assert.equal(h.diagnostics.at(-1)?.classification,'authorization');
  h.failures.clear();h.failures.set('properties',{message:'Network request failed'});await flow.load();assert.equal(flow.getSnapshot().items.length,1);assert.equal(h.diagnostics.at(-1)?.stage,'properties');assert.equal(h.diagnostics.at(-1)?.classification,'network');
 });
 test('cover failures remain visible and diagnosed rather than returning an empty portfolio',async()=>{
