@@ -25,6 +25,12 @@ import type {TenancyDetailsPanel} from '../viewModels/tenancyDetailsWorkflow';
 import {effectiveReservationStatus,reservationStatusLabels} from '../../messaging-viewing/models/RentalReservation';
 import {ButtonRow,Slot,StatusButton,StatusChip} from '../../../shared/components/StatusParts';
 import {HeroPhoto,PersonRow,Stars} from '../components/TenancyParts';
+import {ExtensionStayBlock} from '../components/ExtensionStayBlock';
+import {ExtensionSheet} from '../components/ExtensionSheet';
+import {TenancyExtensionRequestPanel} from './TenancyExtensionRequestPanel';
+import {useTenancyExtensionViewModel} from '../viewModels/useTenancyExtensionViewModel';
+import {acceptClash,ownerExtensionView,tenantExtensionView} from '../models/TenancyExtension';
+import {inDays} from '../../../shared/utils/rentalDates';
 interface Props {
   accountId:string|undefined;tenancyId:string;reservationId:string|null;onBack:()=>void;onOpenConversation?:((id:string)=>void)|undefined;externalPanelOpen?:boolean;registerBackAction:((action:(()=>void)|null)=>void);
   /** Opens a panel as soon as the details have loaded (for example the care panel from "Report an issue"). */
@@ -41,6 +47,8 @@ function Timeline({items}:{items:NonNullable<DetailsScreen['timeline']>}){return
 export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onOpenConversation,externalPanelOpen=false,registerBackAction,initialPanel,initialRequestId,onOpenProperty}:Props){
  const vm=useTenancyDetailsViewModel(accountId,tenancyId,reservationId,externalPanelOpen),d=vm.data,t=d?.tenancy;
  const care=useTenancyCareViewModel(accountId,tenancyId),life=useTenancyLifecycleViewModel(accountId,tenancyId),reviews=useRentalReviews(accountId,{mode:'tenancy',id:tenancyId});
+ // The extension request is read only for an active tenancy; every hook of this screen runs before it returns anything.
+ const ext=useTenancyExtensionViewModel(accountId,tenancyId,t?.status==='active'),[sheetOpen,setSheetOpen]=useState(false);
  const [reviewTitle,setReviewTitle]=useState('Ratings'),[careTitle,setCareTitle]=useState('My maintenance requests');
  const exitGuard=useRef<(()=>boolean)|null>(null),registerExitGuard=useCallback((guard:(()=>boolean)|null)=>{exitGuard.current=guard;},[]);
  const back=()=>{if(exitGuard.current&&!exitGuard.current())return;if(!vm.workflow.back())onBack();};
@@ -52,7 +60,13 @@ export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onO
  const screen=d&&t&&accountId?detailsScreen({actor:accountId,tenancy:t,context:d.context,identities:vm.identities,care:care.data,lifecycle:life.data,reviews:reviews.data?.type==='context'?reviews.data.value:null,reservation:d.reservation,conversationId:d.conversationId,now:Date.now()}):null;
  const counterpart=screen?.person.label??'the other person',rent=useRentLedgerViewModel(accountId,tenancyId,d?.conversationId??null,counterpart);
  const payable=t?payableRow(rent.rows,accountId===t.tenant_id?'tenant':'landlord',t.status):undefined;
- const title=vm.panel==='rent'?`Rent · ${screen?.title??'Rental'}`:vm.panel==='reviews'?reviewTitle:vm.panel==='lifecycle'?'Tenancy completion':vm.panel==='care'||vm.panel==='report'?careTitle:vm.panel==='property'?'Property information':vm.panel==='reservation'?'Reservation reference':'Tenancy details';
+ const tenancyActive=t?.status==='active',tenantExt=tenantExtensionView({read:ext.read,tenancyActive,ownerName:counterpart,now:Date.now()});
+ const ownerExt=ownerExtensionView({read:ext.read,tenancyActive,tenantName:counterpart,propertyTitle:screen?.title??'',rent:t?.agreed_monthly_rent??null,dueDay:t?.rent_due_day??null});
+ const clash=ext.conflictDate&&ownerExt?acceptClash({conflictDate:ext.conflictDate,asks:ownerExt.asks,tenantName:counterpart,reference:ext.read?.currentEndDate??null}):null;
+ const endIso=t?(t.actual_end_date??t.expected_end_date):null;
+ // After an owner's answer went through: back to the details, read again (an accept moved the end date).
+ const answered=async(sent:Promise<boolean>)=>{if(await sent){vm.workflow.back();void vm.workflow.load();}};
+ const title=vm.panel==='rent'?`Rent · ${screen?.title??'Rental'}`:vm.panel==='reviews'?reviewTitle:vm.panel==='lifecycle'?'Tenancy completion':vm.panel==='extension'?'Extension request':vm.panel==='care'||vm.panel==='report'?careTitle:vm.panel==='property'?'Property information':vm.panel==='reservation'?'Reservation reference':'Tenancy details';
  const message=()=>{if(d?.conversationId)onOpenConversation?.(d.conversationId);};
  return <View style={styles.screen}><ScreenHeader title={title} onBack={back}/><KeyboardAwareScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={vm.phase==='loading'} onRefresh={()=>void vm.workflow.load()}/>}>
  {vm.phase==='loading'||vm.phase==='idle'?<ActivityIndicator accessibilityLabel="Loading tenancy details" color={colors.primaryAction}/>:null}
@@ -60,6 +74,7 @@ export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onO
  {d&&t&&screen?<>
  {vm.panel==='reviews'?<TenancyReviewPanel key={`${accountId}:${t.id}`} accountId={accountId} tenancyId={t.id} otherName={screen.person.label} subject={reviewSubject(screen,d.context.photos,t.start_date,t.actual_end_date??t.expected_end_date)} endDate={t.actual_end_date??t.expected_end_date} registerExitGuard={registerExitGuard} onTitle={setReviewTitle} onDone={()=>{void reviews.workflow.load();vm.workflow.back();}}/>
   :vm.panel==='lifecycle'?<TenancyLifecyclePanel key={`${accountId}:${t.id}`} accountId={accountId} tenancyId={t.id} registerExitGuard={registerExitGuard} onChanged={()=>void vm.workflow.load()}/>
+  :vm.panel==='extension'?<TenancyExtensionRequestPanel view={ownerExt} asksTitle={ownerExt?`${counterpart} asks to stay until ${ownerExt.asks}`:null} clash={clash} saving={ext.saving} error={clash?null:ext.error} notice={ext.notice} canMessage={!!d.conversationId} onAccept={()=>void answered(ext.workflow.accept())} onDecline={note=>void answered(ext.workflow.decline(note))} onMessage={message}/>
   :vm.panel==='rent'?<RentLedgerPanel accountId={accountId} counterpart={counterpart} hasConversation={!!d.conversationId} rent={rent}/>
   :vm.panel==='care'||vm.panel==='report'?<MaintenanceFlowView key={`${accountId}:${t.id}:${vm.panel}`} accountId={accountId} role={screen.role} tenancyId={t.id} propertyId={t.property_id} propertyTitle={screen.title} otherName={screen.person.label} start={vm.panel==='report'&&screen.role==='tenant'?{kind:'report'}:requestOnce.current&&vm.panel==='care'?{kind:'request',requestId:requestOnce.current}:{kind:'list'}} registerExitGuard={registerExitGuard} onTitle={setCareTitle}/>
   :vm.panel==='property'?<View style={styles.card}>{d.context.property?<><Text style={ui.sectionTitle}>Authorized property information</Text><Text style={ui.body}>{d.context.property.type.replace(/_/g,' ')}</Text><Text style={ui.body}>Generalized public location: {generalizedLocation(d.context.property)}</Text><Text style={ui.body}>{d.context.property.bedrooms??'Unknown'} bedrooms; {d.context.property.bathrooms??'Unknown'} bathrooms</Text><Text style={ui.body}>Floor area: {d.context.property.floorArea===null?'Unknown':`${d.context.property.floorArea} sqm`}</Text><Text style={ui.body}>Furnishing: {d.context.property.furnishing?.replace(/_/g,' ')??'Unknown'}</Text><Text style={ui.supporting}>Property: {d.context.property.active?'active':'inactive'}. Listing: {d.context.listingStatus??'unavailable'}.</Text><Text style={ui.supporting}>Only authorized public property fields are shown. Exact addresses and private map points are excluded.</Text></>:<Text style={ui.body}>Property information is inaccessible or unavailable.</Text>}</View>
@@ -73,7 +88,10 @@ export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onO
       <Text style={ui.supporting}>{screen.dates.progress.label}{t.agreed_monthly_rent!==undefined?` · agreed rent ₱${t.agreed_monthly_rent.toLocaleString('en-PH')} / month`:''}</Text></>
      :<Text style={ui.supporting}>{screen.dates.start}{screen.dates.end?` – ${screen.dates.end}`:''}</Text>}
     {screen.summary?<Text style={ui.body}>{screen.summary}</Text>:null}
+    {tenancyActive&&endIso&&screen.dates.progress?<Text style={ui.supporting}>Ends {inDays(endIso,Date.now())}</Text>:null}
+    <ExtensionStayBlock view={tenantExt} saving={ext.saving} notice={ext.notice} error={ext.conflictDate?null:ext.error} onAsk={()=>setSheetOpen(true)} onCancel={()=>void ext.workflow.withdraw()}/>
    </Card>
+   {ownerExt?<View style={styles.prompt}><Text style={styles.promptTitle}>{ownerExt.title}</Text><Text style={ui.supporting}>Needs your OK. Accept or decline it.</Text><StatusButton tone="warning" label="Review request" onPress={()=>vm.workflow.open('extension')}/></View>:null}
    {screen.actions?<ButtonRow><Slot><StatusButton tone="primary" label={screen.actions.primary.label} onPress={()=>screen.actions!.primary.kind==='report'?vm.workflow.open('report'):onOpenProperty?.(t.property_id)}/></Slot>{screen.actions.message?<Slot><StatusButton label="Message" onPress={message}/></Slot>:null}</ButtonRow>:null}
    {screen.ratingPrompt?<View style={styles.prompt}><View style={styles.promptHead}><Stars/><Text style={styles.promptTitle}>{screen.ratingPrompt.title}</Text></View><Text style={ui.supporting}>{screen.ratingPrompt.body}</Text><StatusButton tone="warning" label={screen.ratingPrompt.button} onPress={()=>vm.workflow.open('reviews')}/></View>:null}
    {screen.reviews?<Card title="Reviews from this tenancy">{screen.reviews.length?screen.reviews.map(r=><View key={r.key} style={{gap:2}}><Text style={ui.supporting}>{r.status?`${r.label} · ${r.status}`:r.label}</Text><Text accessibilityLabel={`${r.rating} out of 5 stars`} style={styles.starsText}>{stars(r.rating)}</Text><Text style={ui.body}>{r.text||'Rating only; no written feedback.'}</Text><TagPills labels={r.tags}/></View>):<Text style={ui.supporting}>No reviews yet.</Text>}<Text style={ui.supporting}>{REVIEWS_NOTE}</Text></Card>:null}
@@ -89,7 +107,9 @@ export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onO
   </>}
  {[d.context.notice,d.conversationNotice,d.reservationNotice].filter(Boolean).length?<View style={styles.card}><Text style={ui.supporting}>{[d.context.notice,d.conversationNotice,d.reservationNotice].filter(Boolean).join(' ')}</Text><AppButton label="Retry related information" variant="secondary" onPress={()=>void vm.workflow.load()}/></View>:null}
  </>:null}
- </KeyboardAwareScrollView></View>;
+ </KeyboardAwareScrollView>
+ <ExtensionSheet visible={sheetOpen&&!!ext.read} read={ext.read} ownerName={counterpart} rent={t?.agreed_monthly_rent??null} saving={ext.saving} error={ext.error} conflictDate={ext.conflictDate} onSend={date=>ext.workflow.request(date)} onClose={()=>{setSheetOpen(false);ext.workflow.clearError();}}/>
+ </View>;
 }
 const styles=StyleSheet.create({screen:{flex:1,backgroundColor:colors.background},content:{padding:spacing.md,gap:spacing.md,paddingBottom:spacing.lg},
  card:{...ui.panel,padding:spacing.md,gap:spacing.sm,borderRadius:16},cardHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:spacing.xs},

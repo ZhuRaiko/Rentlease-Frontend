@@ -9,7 +9,7 @@ export type AppWorkspace =
   | { type: 'properties'; initialScreen: 'dashboard' | 'postingType'; /** Opens this property's Manage screen once My properties has loaded ("Open property" from Tenancy). */ managePropertyId?: string }
   | { type: 'priceEstimate'; actor: MarketplaceMode; returnTo: 'discovery' | 'properties' }
   | { type: 'messages'; initialScreen: 'inbox' | 'newInquiry' }
-  | { type: 'tenancy'; /** Opens one rental's details (optionally on a panel) from Manage. */ open?: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' | 'rent'; /** Opens one maintenance request straight away (from Needs you). */ requestId?: string } }
+  | { type: 'tenancy'; /** Opens one rental's details (optionally on a panel) from Manage. */ open?: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' | 'rent' | 'extension'; /** Opens one maintenance request straight away (from Needs you). */ requestId?: string } }
   | { type: 'maintenance' | 'ratingsReports' | 'adminModeration' | 'notifications' | 'verification' }
   | null;
 

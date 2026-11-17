@@ -38,7 +38,7 @@ async function readInbox(actor: string, signal: AbortSignal): Promise<InboxRow[]
 }
 
 export interface PropertyManagementNavigation {
-  openTenancy: (open: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' | 'rent'; requestId?: string }) => void;
+  openTenancy: (open: { tenancyId?: string; panel?: 'care' | 'lifecycle' | 'reviews' | 'rent' | 'extension'; requestId?: string }) => void;
   message: (conversationId: string) => void;
 }
 
@@ -83,6 +83,8 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
         const lifecycle = current.activity.lifecycle[t.id];
         f.stay = { tenancyId: t.id, tenantId: t.tenant_id, tenantName: identities[t.tenant_id]?.nickname ?? null, startDate: t.start_date, endDate: t.actual_end_date ?? t.expected_end_date, rent: t.agreed_monthly_rent ?? null, nextDue: nextScheduledRentDate(t), conversationId: t.conversation_id };
         if (current.inbox) f.maintenance = propertyMaintenance(current.inbox, t.property_id);
+        const extension = current.activity.extensions?.find(x => x.tenancyId === t.id);
+        f.extension = extension ? { tenancyId: t.id, requestedEndDate: extension.requestedEndDate, currentEndDate: extension.currentEndDate } : null;
         f.endRequest = lifecycle?.pending ? { tenancyId: t.id, fromTenant: lifecycle.pending.initiatorId === t.tenant_id } : null;
         const ledger = current.activity.rent[t.id], waiting = ledger?.awaiting ? ledger.rows.find(r => r.dueDate === ledger.awaiting!.dueDate) : undefined;
         f.rentAwaiting = ledger?.awaiting && waiting ? { tenancyId: t.id, dueDate: ledger.awaiting.dueDate, revision: ledger.awaiting.revision, paidAt: waiting.tenantMarkedPaidAt } : null;
@@ -128,6 +130,7 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
     if (target.kind === 'care') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'care', ...(target.requestId ? { requestId: target.requestId } : {}) });
     else if (target.kind === 'lifecycle') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'lifecycle' });
     else if (target.kind === 'rent') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'rent' });
+    else if (target.kind === 'extension') navigation.openTenancy({ tenancyId: target.tenancyId, panel: 'extension' });
     else navigation.openTenancy({});
   }, [navigation.openTenancy]);
   return {

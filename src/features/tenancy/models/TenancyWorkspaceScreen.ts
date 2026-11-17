@@ -27,11 +27,11 @@ export interface WorkspaceInput {
 // ---- Attention: what is waiting on this person, from reads the tab already makes
 export type AttentionAction =
   | {kind: 'setup'; reservationId: string}
-  | {kind: 'details'; tenancyId: string; panel: 'lifecycle' | 'care'};
+  | {kind: 'details'; tenancyId: string; panel: 'lifecycle' | 'care' | 'extension'};
 export interface AttentionItem {
   key: string;
   role: Role;
-  kind: 'confirm_terms' | 'start_setup' | 'end_request' | 'maintenance';
+  kind: 'confirm_terms' | 'start_setup' | 'end_request' | 'maintenance' | 'extension_request';
   title: string;
   subtitle: string;
   chip: Chip;
@@ -62,6 +62,10 @@ export function attentionItems(i: WorkspaceInput): AttentionItem[] {
     const life: LifecycleContext | null | undefined = i.activity.lifecycle[t.id];
     if (life?.pending && life.pending.initiatorId !== i.actor)
       out.push({rank: 2, key: `end:${t.id}`, role, kind: 'end_request', title: 'Early-end request', subtitle: `${title} · ${other} asked to end the stay`, chip: {label: 'Reply', tone: 'warning'}, buttonLabel: 'Reply', action: {kind: 'details', tenancyId: t.id, panel: 'lifecycle'}});
+    // A tenant's request to stay longer, from get_pending_tenancy_extensions (the owner's reads only). The server already leaves out inactive tenancies; this loop is active ones only.
+    const asked = role === 'landlord' ? (i.activity.extensions ?? []).find(x => x.tenancyId === t.id) : undefined;
+    if (asked)
+      out.push({rank: 2, key: `extension:${asked.requestId}`, role, kind: 'extension_request', title: 'Extension request', subtitle: `${title} · ${other} asks to stay until ${shortDate(asked.requestedEndDate)}`, chip: {label: 'Needs your OK', tone: 'warning'}, buttonLabel: 'Review', action: {kind: 'details', tenancyId: t.id, panel: 'extension'}});
     const care: CareContext | null | undefined = i.activity.care[t.id];
     for (const req of care?.requests ?? []) {
       const open = !FINAL_MAINTENANCE.includes(req.status);
