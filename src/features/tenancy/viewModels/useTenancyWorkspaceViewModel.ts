@@ -14,20 +14,24 @@ import {createTenancyReleaseWorkflow,type ReleaseRequest} from './tenancyRelease
 import {publicIdentityLabel} from '../../../shared/models/PublicIdentity';
 import type {RentalReservation} from '../../messaging-viewing/models/RentalReservation';
 import {usePublicIdentitiesViewModel} from '../../../shared/viewModels/usePublicIdentitiesViewModel';
+import {createAccountCache} from '../../../shared/utils/accountCache';
+import {beginWorkspaceRefresh,blankWorkspace,failWorkspaceRefresh,seedWorkspace,succeedWorkspace,type WorkspaceData,type WorkspaceState} from './tenancyWorkspaceState';
 const activityService=createTenancyActivityService(getSupabaseClient);
-type State={owner:string|undefined;tenancies:RentalRelationship[];reservations:RentalReservation[];contexts:Record<string,TenancyCardContext>;contextWarning:string|null;links:{reservation_id:string;tenancy_id:string}[]|null;busy:boolean;error:string|null;offset:number};
-const blank=(owner:string|undefined,busy:boolean,error:string|null=null):State=>({owner,tenancies:[],reservations:[],contexts:{},contextWarning:null,links:null,busy,error,offset:0});
+/** The last Tenancy tab result per signed-in user (memory only); emptied on sign-out, account switch and every write. */
+const tabCache=createAccountCache<WorkspaceData>();
+type State=WorkspaceState;
+const blank=blankWorkspace;
 /** `onStartRequest` opens the reservation request for a conversation once the held reservation was released. */
 export function useTenancyWorkspaceViewModel(actor:string|undefined,onStartRequest?:(conversationId:string)=>void){
- const [state,setState]=useState<State>(blank(undefined,false)),[activity,setActivity]=useState<{owner:string|undefined;value:TenancyActivity}>({owner:undefined,value:emptyActivity()}),[tick,setTick]=useState(Date.now());
+ const [state,setState]=useState<State>(()=>seedWorkspace(actor,tabCache.peek(actor))),[activity,setActivity]=useState<{owner:string|undefined;value:TenancyActivity}>(()=>({owner:actor,value:tabCache.peek(actor)?.activity??emptyActivity()})),[tick,setTick]=useState(Date.now());
  const version=useRef(0),controller=useRef<AbortController|null>(null);
- const refresh=useCallback(async()=>{controller.current?.abort();const c=new AbortController();controller.current=c;const g=++version.current;if(!actor)return;setState(blank(actor,true));
- try{const data=await readTenancyWorkspace(actor,c.signal);if(g!==version.current||c.signal.aborted)return;setState({owner:actor,...data,busy:false,error:null,offset:data.reservations[0]?Date.parse(data.reservations[0].serverNow)-Date.now():0});
+ const refresh=useCallback(async()=>{controller.current?.abort();const c=new AbortController();controller.current=c;const g=++version.current;if(!actor)return;const token=tabCache.begin();setState(prev=>beginWorkspaceRefresh(prev,actor,tabCache.peek(actor)));
+ try{const data=await readTenancyWorkspace(actor,c.signal);if(g!==version.current||c.signal.aborted)return;const offset=data.reservations[0]?Date.parse(data.reservations[0].serverNow)-Date.now():0,result:WorkspaceData={...data,offset,activity:null};setState(succeedWorkspace(actor,result));tabCache.set(actor,{...result,activity:tabCache.peek(actor)?.activity??null},token);
   // The list is on screen now; open maintenance, end requests and review state follow without holding it. A failed read just leaves that item out.
-  void activityService.read(actor,data.tenancies,c.signal).then(value=>{if(g===version.current&&!c.signal.aborted)setActivity({owner:actor,value});},()=>{});}
- catch(e){if(g===version.current&&!c.signal.aborted)setState(blank(actor,false,e instanceof Error?e.message:'Could not load rentals.'));}},[actor]);
+  void activityService.read(actor,data.tenancies,c.signal).then(value=>{if(g===version.current&&!c.signal.aborted){setActivity({owner:actor,value});tabCache.set(actor,{...result,activity:value},token);}},()=>{});}
+ catch(e){if(g===version.current&&!c.signal.aborted)setState(prev=>failWorkspaceRefresh(prev,actor,e instanceof Error?e.message:'Could not load rentals.'));}},[actor]);
  useEffect(()=>{void refresh();const sub=AppState.addEventListener('change',s=>{if(s==='active')void refresh();});return()=>{version.current++;controller.current?.abort();sub.remove();};},[refresh]);
- const safe=state.owner===actor?state:blank(actor,true);
+ const safe=state.owner===actor?state:seedWorkspace(actor,tabCache.peek(actor));
  const now=Math.max(tick,Date.now())+safe.offset;
  useEffect(()=>{const deadlines=safe.reservations.filter(r=>r.status==='approved').map(r=>Date.parse(r.expiresAt)).filter(d=>d>now);if(!deadlines.length)return;const timer=setTimeout(()=>setTick(Date.now()),Math.min(2147483647,Math.min(...deadlines)-now+50));return()=>clearTimeout(timer);},[safe.reservations,now]);
  const identities=usePublicIdentitiesViewModel(actor,[...safe.tenancies.flatMap(t=>[t.tenant_id,t.landlord_id]),...safe.reservations.flatMap(r=>[r.tenantId,r.landlordId])].filter(id=>id!==actor));

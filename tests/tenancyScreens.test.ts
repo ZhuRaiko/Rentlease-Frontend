@@ -213,7 +213,7 @@ function renderWorkspace(vm:any,scale=1,width=411){
 }
 const nodes=(v:any):any[]=>v&&typeof v==='object'?[v,...[v.props?.children].flat(Infinity).flatMap(nodes)]:[];
 const texts=(tree:any)=>nodes(tree).filter(x=>x.type==='Text').map(x=>[x.props.children].flat(Infinity).join(''));
-const vmFor=(actor:string,i:Partial<WorkspaceInput>,over:any={})=>({actor,busy:false,error:null,contextWarning:null,links:i.links??[],screen:workspaceScreen(input(actor,i)),release:{request:null,saving:false,error:null,confirm(){},retry(){},keep(){}},startRequest(){},refresh(){},...over});
+const vmFor=(actor:string,i:Partial<WorkspaceInput>,over:any={})=>({actor,busy:false,loaded:!over.busy,refreshError:null,error:null,contextWarning:null,links:i.links??[],screen:workspaceScreen(input(actor,i)),release:{request:null,saving:false,error:null,confirm(){},retry(){},keep(){}},startRequest(){},refresh(){},...over});
 test('the tab shows state tiles, no removed panels and no Refresh button; headings follow the fixed order', () => {
   const stay=tenancy(),gone=tenancy({status:'cancelled'}),tree=renderWorkspace(vmFor(T,{tenancies:[stay,gone],contexts:{[stay.id]:ctx()}}));
   const all=texts(tree);for(const removed of ['What you can do here','Maintenance Requests','Upcoming Rentals','Cancelled Rentals','Rental History'])assert.ok(!all.includes(removed),`${removed} is gone`);
@@ -331,4 +331,19 @@ test('your own review card is titled "Your review" for a property, and keeps the
   assert.deepEqual(tenant.reviews!.map(r=>[r.label,r.status]),[['Your review','Pending review']]);
   const landlord=detailsScreen({actor:L,tenancy:ended,context:ctx(),identities:{[T]:ident('Samuel',T)},care:null,lifecycle:null,reviews:review(ended,[{...given('user',4),status:'approved'}]),reservation:null,conversationId:null,now:NOW});
   assert.deepEqual(landlord.reviews!.map(r=>[r.label,r.status]),[['Your review of Samuel','Published']]);
+});
+
+test('first load with nothing cached: placeholders stand where the tiles and sections will be, never "--" or "appear after loading"',()=>{
+  const tree=renderWorkspace(vmFor(T,{},{busy:true})),all=texts(tree),blocks=nodes(tree).filter(n=>n.type==='SkeletonBlock');
+  assert.ok(blocks.length>=6,'three tile counts and the three sections');assert.ok(!all.includes('--'));assert.ok(!all.some(t=>/appear after loading succeeds/.test(t)));
+  assert.ok(!nodes(tree).some(n=>n.type==='ActivityIndicator'),'no spinner in place of content');
+});
+test('cached data on screen while it refreshes: the cards stay, the counts show, only a small refresh hint appears',()=>{
+  const stay=tenancy(),tree=renderWorkspace(vmFor(T,{tenancies:[stay],contexts:{[stay.id]:ctx()}},{busy:true,loaded:true})),hint=nodes(tree).find(n=>n.type==='RefreshHint');
+  assert.ok(hint&&hint.props.refreshing===true&&hint.props.failed===false);assert.ok(!nodes(tree).some(n=>n.type==='SkeletonBlock'),'no placeholders when data is on screen');assert.ok(!texts(tree).includes('--'));
+  assert.ok(nodes(tree).some(n=>n.props?.accessibilityLabel&&/Active rentals: 1/.test(String(n.props.accessibilityLabel))),'the tile shows the cached count');
+});
+test("a refresh that failed with data on screen: the data stays and the hint offers a quiet retry (no error card)",()=>{
+  const stay=tenancy(),tree=renderWorkspace(vmFor(T,{tenancies:[stay],contexts:{[stay.id]:ctx()}},{busy:false,loaded:true,refreshError:'offline'})),hint=nodes(tree).find(n=>n.type==='RefreshHint');
+  assert.ok(hint&&hint.props.failed===true&&hint.props.refreshing===false);assert.ok(!texts(tree).includes('offline'));assert.ok(!nodes(tree).some(n=>n.props?.accessibilityRole==='alert'));
 });

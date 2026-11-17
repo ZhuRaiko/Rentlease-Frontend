@@ -1,8 +1,14 @@
 import {MessagingError,type Conversation,type PersistentMessage} from '../models/PersistentMessaging';
 import type {MessagingService} from '../services/messagingService';
-const initial=()=>({owner:null as string|null,inbox:[] as Conversation[],inboxBusy:false,inboxError:null as string|null,inboxMore:false,selectedId:null as string|null,conversation:null as Conversation|null,messages:[] as PersistentMessage[],messageBusy:false,messageError:null as string|null,olderBusy:false,hasOlder:false,composer:'',sending:false,sendError:null as string|null,uncertain:false});
-export function createMessagingWorkflow(service:MessagingService,newId:()=>string){
- let state=initial(),disposed=false,generation=0,thread=0,inboxOffset=0,reconcileOffset=0,readCursor:PersistentMessage|null=null;
+import type {AccountCache} from '../../../shared/utils/accountCache';
+/** The last conversation list per signed-in user (memory only). `owner` is the signed-in user id the screen already knows. */
+export interface InboxSnapshot{inbox:Conversation[];inboxMore:boolean;inboxOffset:number}
+export interface InboxCache{store:AccountCache<InboxSnapshot>;owner:string|undefined}
+const initial=()=>({owner:null as string|null,inbox:[] as Conversation[],inboxBusy:false,inboxError:null as string|null,/** A refresh failed while conversations are on screen: they stay, the list shows a quiet retry. */inboxRefreshError:null as string|null,inboxMore:false,selectedId:null as string|null,conversation:null as Conversation|null,messages:[] as PersistentMessage[],messageBusy:false,messageError:null as string|null,olderBusy:false,hasOlder:false,composer:'',sending:false,sendError:null as string|null,uncertain:false});
+export function createMessagingWorkflow(service:MessagingService,newId:()=>string,cache?:InboxCache){
+ // The cached list for this user is on screen at once; the identity check inside inbox() still runs before it is replaced.
+ const cached=cache?.owner?cache.store.peek(cache.owner):null;
+ let state=cached?{...initial(),inbox:cached.inbox,inboxMore:cached.inboxMore}:initial(),disposed=false,generation=0,thread=0,inboxOffset=cached?.inboxOffset??0,reconcileOffset=0,readCursor:PersistentMessage|null=null;
  let inboxController:AbortController|null=null,messageController:AbortController|null=null,olderController:AbortController|null=null;
  let pending:{id:string;body:string;conversationId:string}|null=null;
  const waiters=new Set<()=>void>();
@@ -11,9 +17,9 @@ export function createMessagingWorkflow(service:MessagingService,newId:()=>strin
  const failure=(e:unknown)=>{if(e instanceof MessagingError&&e.identity){clear();update({...initial(),inboxError:e.message});return true;}return false;};
  const safe=(e:unknown)=>e instanceof MessagingError?e.message:'Could not load messages. Please retry.';
  const merge=(a:PersistentMessage[],b:PersistentMessage[])=>[...new Map([...a,...b].map(m=>[m.id,m])).values()].sort((x,y)=>x.createdAt.localeCompare(y.createdAt)||x.id.localeCompare(y.id));
- const inbox=async(append=false)=>{if(disposed||state.inboxBusy)return;const g=generation,c=inboxController=new AbortController(),offset=append?inboxOffset:0;update({inboxBusy:true,inboxError:null});
-  try{const owner=await service.user();if(disposed||g!==generation)return;const rows=await service.inbox(owner,offset,c.signal);if(disposed||g!==generation)return;inboxOffset=append?offset+rows.length:Math.max(inboxOffset,rows.length);const existing=append?state.inbox:state.inbox.filter(r=>!rows.some(v=>v.id===r.id));const result=append?[...state.inbox,...rows]:[...rows,...existing];update({owner,inbox:[...new Map(result.map(r=>[r.id,r])).values()],inboxMore:append?rows.length===20:(inboxOffset>20?state.inboxMore:rows.length===20)});
-  }catch(e){if(!disposed&&g===generation&&!failure(e))update({inboxError:safe(e)});}finally{if(!disposed&&g===generation)update({inboxBusy:false});}};
+ const inbox=async(append=false)=>{if(disposed||state.inboxBusy)return;const g=generation,c=inboxController=new AbortController(),offset=append?inboxOffset:0,token=cache?.store.begin()??0;update({inboxBusy:true,inboxError:null,inboxRefreshError:null});
+  try{const owner=await service.user();if(disposed||g!==generation)return;const rows=await service.inbox(owner,offset,c.signal);if(disposed||g!==generation)return;inboxOffset=append?offset+rows.length:Math.max(inboxOffset,rows.length);const existing=append?state.inbox:state.inbox.filter(r=>!rows.some(v=>v.id===r.id));const result=append?[...state.inbox,...rows]:[...rows,...existing];update({owner,inbox:[...new Map(result.map(r=>[r.id,r])).values()],inboxMore:append?rows.length===20:(inboxOffset>20?state.inboxMore:rows.length===20)});cache?.store.set(owner,{inbox:state.inbox,inboxMore:state.inboxMore,inboxOffset},token);
+  }catch(e){if(!disposed&&g===generation&&!failure(e)){if(!append&&state.inbox.length)update({inboxRefreshError:safe(e)});else update({inboxError:safe(e)});}}finally{if(!disposed&&g===generation)update({inboxBusy:false});}};
  const refreshMessages=async()=>{if(disposed||!state.owner||!state.selectedId||state.messageBusy)return;const g=generation,t=thread,owner=state.owner,id=state.selectedId,c=messageController=new AbortController();update({messageBusy:true,messageError:null});
   try{const known=state.messages.slice(reconcileOffset,reconcileOffset+100).map(m=>m.id);
     const [rows,reconciled]=await Promise.all([service.messages(owner,id,readCursor?'newer':'latest',readCursor,c.signal),known.length?service.reconcile(owner,id,known,c.signal):Promise.resolve([])]);

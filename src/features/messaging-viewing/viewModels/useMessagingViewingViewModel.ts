@@ -6,10 +6,13 @@ import {createRealtimeSync} from './realtimeSync';
 import type {MessagingConnection} from '../services/messagingRealtimeService';
 import {useEffect,useMemo,useState,useSyncExternalStore} from 'react';
 import {messagingService,messagingRealtimeService,messageId} from '../services/messagingDependencies';
-import {createMessagingWorkflow} from './messagingWorkflow';
+import {createMessagingWorkflow,type InboxSnapshot} from './messagingWorkflow';
+import {createAccountCache} from '../../../shared/utils/accountCache';
+/** The one in-memory conversation-list cache; emptied on sign-out, account switch and every write (see accountCache). */
+const inboxCache=createAccountCache<InboxSnapshot>();
 export function useMessagingViewingViewModel(accountId?:string,conversationId?:string){
   const keyboardOpen=useKeyboardVisibility();
- const workflow=useMemo(()=>createMessagingWorkflow(messagingService,messageId),[accountId]);
+ const workflow=useMemo(()=>createMessagingWorkflow(messagingService,messageId,{store:inboxCache,owner:accountId}),[accountId]);
  const state=useSyncExternalStore(workflow.subscribe,workflow.getSnapshot,workflow.getSnapshot);
  const publicIdentities=usePublicIdentitiesViewModel(accountId,[...state.inbox,...(state.conversation?[state.conversation]:[])].map(c=>c.tenantId===accountId?c.landlordId:c.tenantId));
  const context=useConversationPropertyViewModel(accountId,[...new Map([...state.inbox,...(state.conversation?[state.conversation]:[])].map(c=>[c.id,c])).values()]);

@@ -17,7 +17,8 @@ import { reservationService, messageId } from '../features/messaging-viewing/ser
 import { scopedReservationService } from '../features/messaging-viewing/services/requestScope';
 import { createReservationWorkflow } from '../features/messaging-viewing/viewModels/reservationWorkflow';
 import type { useRequestSnapshot } from '../features/messaging-viewing/viewModels/useRequestSnapshot';
-import { readManagementFacts } from './managementRead';
+import { beginManagementRefresh, failManagementRefresh, readManagementFacts, seedManagement, type ManagementData, type ManagementState } from './managementRead';
+import { createAccountCache } from '../shared/utils/accountCache';
 import { emptyFacts, type ManagedFacts, type NeedsTarget, type PropertyManagementPort } from '../features/property-listing/models/PropertyManagement';
 import type { LandlordPortfolioItem } from '../features/property-listing/models/LandlordPortfolio';
 
@@ -26,6 +27,8 @@ const tenancyService = createLandlordTenanciesService(getSupabaseClient);
 const rentService = createRentLedgerService(getSupabaseClient);
 const reviewService = createRentalReviewService(getSupabaseClient);
 const careService = createTenancyCareService(getSupabaseClient);
+/** The last Manage facts per signed-in user (memory only); emptied on sign-out, account switch and every write. */
+const managementCache = createAccountCache<ManagementData<RentalRelationship, TenancyActivity, InboxRow[]>>();
 /** The landlord's whole maintenance inbox, page by page (20 per page, at most 25 pages), the same read the inbox screen uses. */
 async function readInbox(actor: string, signal: AbortSignal): Promise<InboxRow[]> {
   let rows: InboxRow[] = [];
@@ -49,31 +52,32 @@ export interface PropertyManagementNavigation {
  * holds. A failed read leaves its fact empty (hidden), never a guessed value. Account-scoped; an account change drops everything.
  */
 export function usePropertyManagement(accountId: string | undefined, snapshot: ReturnType<typeof useRequestSnapshot>, navigation: PropertyManagementNavigation, openRequests: (item: LandlordPortfolioItem) => void): PropertyManagementPort {
-  const [state, setState] = useState<{ owner: string | undefined; tenancies: RentalRelationship[]; activity: TenancyActivity; inbox: InboxRow[] | null; busy: boolean; error: string | null }>({ owner: undefined, tenancies: [], activity: emptyActivity(), inbox: null, busy: true, error: null });
+  const [state, setState] = useState<ManagementState<RentalRelationship, TenancyActivity, InboxRow[]>>(() => seedManagement(accountId, managementCache.peek(accountId), emptyActivity));
   const [reviews, setReviews] = useState<{ owner: string | undefined; byProperty: Record<string, { average: number; count: number } | null> }>({ owner: undefined, byProperty: {} });
   const [revision, setRevision] = useState(0);
   const requested = useRef(new Set<string>());
   useEffect(() => {
     const c = new AbortController();
-    setState({ owner: accountId, tenancies: [], activity: emptyActivity(), inbox: null, busy: !!accountId, error: null });
+    setState(prev => beginManagementRefresh(prev, accountId, managementCache.peek(accountId), emptyActivity));
     requested.current = new Set(); setReviews({ owner: accountId, byProperty: {} });
     if (!accountId) return () => c.abort();
     (async () => {
+      const token = managementCache.begin();
       try {
         const { tenancies, activity, inbox } = await readManagementFacts({
           tenancies: () => tenancyService.open(accountId, c.signal),
           activity: rows => activityService.read(accountId, rows, c.signal),
           inbox: () => readInbox(accountId, c.signal),
         });
-        if (!c.signal.aborted) setState({ owner: accountId, tenancies, activity, inbox, busy: false, error: null });
+        if (!c.signal.aborted) { setState({ owner: accountId, tenancies, activity, inbox, loaded: true, busy: false, error: null }); managementCache.set(accountId, { tenancies, activity, inbox }, token); }
       } catch {
-        if (!c.signal.aborted) setState({ owner: accountId, tenancies: [], activity: emptyActivity(), inbox: null, busy: false, error: 'Tenant and maintenance details could not load. Pull to refresh to retry.' });
+        if (!c.signal.aborted) setState(prev => failManagementRefresh(prev, accountId, 'Tenant and maintenance details could not load. Pull to refresh to retry.', emptyActivity));
       }
     })();
     const sub = AppState.addEventListener('change', s => { if (s === 'active') setRevision(v => v + 1); });
     return () => { c.abort(); sub.remove(); };
   }, [accountId, revision]);
-  const current = state.owner === accountId ? state : { owner: accountId, tenancies: [], activity: emptyActivity(), inbox: null, busy: true, error: null };
+  const current = state.owner === accountId ? state : seedManagement(accountId, managementCache.peek(accountId), emptyActivity);
   const reservations = snapshot.owner === accountId ? snapshot.reservations.filter(r => r.landlordId === accountId && effectiveReservationStatus(r, snapshot.now) === 'pending') : [];
   const identities = usePublicIdentitiesViewModel(accountId, [...current.tenancies.map(t => t.tenant_id), ...reservations.map(r => r.tenantId)]);
   const facts = useMemo(() => {

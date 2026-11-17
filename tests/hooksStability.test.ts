@@ -41,7 +41,7 @@ function mount(vmOf:()=>any,actor:string,width=411,scale=1){
   return{render(){cursor=0;hooks=0;const tree=mod.exports.TenancyWorkspaceView({accountId:actor,onBack(){},onDiscover(){},onListings(){},onPost(){},onChat(){},registerBackAction(){}});return{tree,hooks};}};
 }
 const nodes=(v:any):any[]=>v&&typeof v==='object'?[v,...[v.props?.children].flat(Infinity).flatMap(nodes)]:[];
-const vm=(actor:string,i:Partial<WorkspaceInput>={},over:any={})=>({actor,busy:false,error:null,contextWarning:null,links:i.links??[],screen:workspaceScreen(input(actor,i)),release:{request:null,saving:false,error:null,confirm(){},retry(){},keep(){}},startRequest(){},refresh(){},...over});
+const vm=(actor:string,i:Partial<WorkspaceInput>={},over:any={})=>({actor,busy:false,loaded:!over.busy,refreshError:null,error:null,contextWarning:null,links:i.links??[],screen:workspaceScreen(input(actor,i)),release:{request:null,saving:false,error:null,confirm(){},retry(){},keep(){}},startRequest(){},refresh(){},...over});
 
 for(const [name,actor] of [['landlord',L],['tenant',T]] as const){
   test(`workspace hooks: ${name} loading, then an upcoming move-in with no optional fields, then Set up tenancy, run the same hooks every render`,()=>{
