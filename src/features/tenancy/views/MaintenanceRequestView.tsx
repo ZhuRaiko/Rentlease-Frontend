@@ -5,6 +5,7 @@ import {radius} from '../../../shared/theme/radius';
 import {spacing} from '../../../shared/theme/spacing';
 import {ui} from '../../../shared/theme/ui';
 import {ButtonRow, Slot, StatusButton, StatusChip} from '../../../shared/components/StatusParts';
+import {useBottomClearance} from '../../../shared/components/useBottomClearance';
 import {KeyboardAwareScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {NOTE_MAX, QUICK_REPLIES, categoryLabel, requestChip, resolvedLine, stepIndex, stepTimes, threadName, trackerSteps} from '../models/Maintenance';
 import {formatWhen} from '../models/MaintenanceFormat';
@@ -14,8 +15,9 @@ import {useMaintenanceRequestViewModel} from '../viewModels/useMaintenanceViewMo
 /** One request for either person: what was reported, where it stands, the conversation, and the actions this person may take. */
 export function MaintenanceRequestView({accountId, requestId, otherName, propertyTitle}: {accountId: string | undefined; requestId: string; otherName: string; propertyTitle?: string | undefined}) {
   const vm = useMaintenanceRequestViewModel(accountId, requestId), [text, setText] = useState(''), [sheet, setSheet] = useState<'notFixed' | 'cancel' | null>(null);
+  const bottom = useBottomClearance();
   const d = vm.data, a = vm.workflow.actions(), locked = vm.busy || vm.saving || !vm.ready, now = Date.now();
-  if (!d || !a) return <KeyboardAwareScrollView contentContainerStyle={styles.content}>
+  if (!d || !a) return <KeyboardAwareScrollView contentContainerStyle={[styles.content, {paddingBottom: bottom}]}>
     {vm.busy ? <ActivityIndicator accessibilityLabel="Loading request" color={colors.primaryAction}/> : null}
     {vm.error ? <Notice text={vm.error} onRetry={() => void vm.workflow.retry()} disabled={vm.busy}/> : null}
   </KeyboardAwareScrollView>;
@@ -26,7 +28,7 @@ export function MaintenanceRequestView({accountId, requestId, otherName, propert
   const settled = () => {const s = vm.workflow.getSnapshot(); return !s.error && !s.pending;};
   const sendReply = async () => {const note = text.trim(); if (!note) return; await vm.workflow.reply(note); if (settled()) setText('');};
   const status = async (target: 'acknowledged' | 'in_progress' | 'resolved') => {await vm.workflow.setStatus(target, text); if (settled()) setText('');};
-  return <KeyboardAwareScrollView contentContainerStyle={styles.content}>
+  return <KeyboardAwareScrollView contentContainerStyle={[styles.content, {paddingBottom: bottom}]}>
     <View style={styles.card}>
       <View style={styles.head}><View style={{flex: 1, minWidth: 0}}><Text accessibilityRole="header" style={ui.pageTitle}>{r.title}</Text>
         <Text style={ui.supporting}>{categoryLabel(r.category)}{propertyTitle ? ` · ${propertyTitle}` : ''}</Text>
@@ -37,7 +39,7 @@ export function MaintenanceRequestView({accountId, requestId, otherName, propert
     {landlord ? <View style={styles.card}>
       <Text accessibilityRole="header" style={ui.sectionTitle}>Status</Text>
       <ButtonRow>
-        <Slot><StatusButton tone={at >= 1 ? 'primary' : 'secondary'} label="Seen" disabled={locked || !a.seen} onPress={() => void status('acknowledged')}/></Slot>
+        {a.seen ? <Slot><StatusButton tone={at >= 1 ? 'primary' : 'secondary'} label="Seen" disabled={locked} onPress={() => void status('acknowledged')}/></Slot> : null}
         <Slot><StatusButton tone={at === 2 ? 'warning' : at > 2 ? 'primary' : 'secondary'} label="In progress" disabled={locked || !a.start} onPress={() => void status('in_progress')}/></Slot>
         <Slot><StatusButton tone={at === 3 ? 'primary' : 'secondary'} label="Fixed" disabled={locked || !a.resolve} onPress={() => void status('resolved')}/></Slot>
       </ButtonRow>

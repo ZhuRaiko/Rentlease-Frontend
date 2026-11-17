@@ -13,6 +13,18 @@ export function createMaintenanceRequestWorkflow(service: TenancyCareService, jo
   let state = initial(), disposed = false, generation = 0, controller: AbortController | null = null;
   const listeners = new Set<() => void>();
   const update = (p: Partial<MaintenanceRequestState>) => {if (!disposed) {state = {...state, ...p}; listeners.forEach(f => f());}};
+  let autoTried = false;
+  /**
+   * The landlord opening a request that is still new marks it Seen, once, with the same action and note as the Seen button. A tenant never
+   * triggers it, nor does an already seen request, nor an unconfirmed earlier action. If it fails nothing blocks: the screen stays as loaded,
+   * the error banner is dropped, and the Seen button stays as the fallback (an unconfirmed attempt keeps its operation id for that button).
+   */
+  const autoSeen = async (data: RequestRead) => {
+    if (autoTried || disposed || data.request.role !== 'landlord' || data.request.status !== 'submitted' || state.pending || !actions()?.seen) return;
+    autoTried = true;
+    await send('respond', {status: 'acknowledged', note: statusNote('', 'acknowledged')});
+    if (!disposed && writer.get().error) update({error: null});
+  };
   const load = async (message?: string) => {
     if (!actor || disposed) return;
     controller?.abort();
@@ -29,6 +41,7 @@ export function createMaintenanceRequestWorkflow(service: TenancyCareService, jo
       const data: RequestRead = {request: read.request, thread, hasMore: false};
       update({data, busy: false, ready: true, error: message ?? null});
       await writer.recover(data.request.tenancyId, op => op.payload.requestId === requestId);
+      await autoSeen(data);
     } catch (e) {
       if (!disposed && g === generation) update({busy: false, error: e instanceof CareError ? e.message : 'This request could not load. Retry.'});
     } finally {clearTimeout(timer);}

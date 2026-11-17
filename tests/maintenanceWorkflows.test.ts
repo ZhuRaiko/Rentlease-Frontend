@@ -39,7 +39,7 @@ test('a confirmed fix and an ended tenancy offer no reply, reopen or confirm',as
 });
 test('landlord status control sends respond with the typed note, or the default note when empty',async()=>{
   const sent:any[]=[];const w=createMaintenanceRequestWorkflow(svc({request:async()=>read({role:'landlord'}),write:async(_a:string,op:any)=>{sent.push(op);return{};}}),createCareJournal(memory()),LANDLORD,REQ,ids());
-  await w.load();await w.setStatus('acknowledged','');
+  await w.load();   // opening a new request as the landlord already sent the default Seen (see the auto-seen tests)
   assert.deepEqual(sent[0].payload,{requestId:REQ,revision:REV,status:'acknowledged',note:'Seen'});
   await w.setStatus('in_progress','Plumber tomorrow');assert.equal(sent.length,2);assert.equal(sent[1].payload.note,'Plumber tomorrow');
   w.dispose();
@@ -140,7 +140,37 @@ test('the occupied Manage screen no longer has Back to My properties, and Manage
 test('a landlord cannot mark a new request fixed, and nobody replies once the tenancy ended',async()=>{
   const sent:any[]=[];const write=async(_a:string,op:any)=>{sent.push(op);return{};};
   const l=createMaintenanceRequestWorkflow(svc({request:async()=>read({role:'landlord'}),write}),createCareJournal(memory()),LANDLORD,REQ,ids());
-  await l.load();await l.setStatus('resolved','');assert.equal(sent.length,0,'submitted cannot jump to fixed');l.dispose();
+  await l.load();await l.setStatus('resolved','');assert.equal(sent.length,1,'only the automatic Seen; submitted cannot jump to fixed');assert.equal(sent[0].payload.status,'acknowledged');l.dispose();
   const t=createMaintenanceRequestWorkflow(svc({request:async()=>read({status:'in_progress',tenancyEnded:true}),write}),createCareJournal(memory()),TENANT,REQ,ids());
-  await t.load();await t.reply('Any news?');assert.equal(sent.length,0,'ended tenancy: no reply');t.dispose();
+  await t.load();await t.reply('Any news?');assert.equal(sent.length,1,'ended tenancy: no reply');t.dispose();
+});
+
+test('auto-seen: a landlord opening a new request sends one Seen with a fresh operation id, and reopening sends no second one',async()=>{
+  const sent:any[]=[];let status='submitted';
+  const mk=()=>createMaintenanceRequestWorkflow(svc({request:async()=>read({role:'landlord',status}),write:async(_a:string,op:any)=>{sent.push(op);status='acknowledged';return{};}}),createCareJournal(memory()),LANDLORD,REQ,ids());
+  const w=mk();await w.load();
+  assert.equal(sent.length,1);assert.equal(sent[0].action,'respond');assert.deepEqual(sent[0].payload,{requestId:REQ,revision:REV,status:'acknowledged',note:'Seen'});assert.match(sent[0].operationId,/^00000000-0000-4000-8000-/);
+  assert.equal(w.actions()!.seen,false,'seen already: the manual Seen button goes away');w.dispose();
+  const again=mk();await again.load();assert.equal(sent.length,1,'opened again: no second Seen');again.dispose();
+});
+test('auto-seen: never for the tenant, and never for a request that is not new',async()=>{
+  const sent:any[]=[];const write=async(_a:string,op:any)=>{sent.push(op);return{};};
+  const t=createMaintenanceRequestWorkflow(svc({request:async()=>read({role:'tenant'}),write}),createCareJournal(memory()),TENANT,REQ,ids());await t.load();t.dispose();
+  const p=createMaintenanceRequestWorkflow(svc({request:async()=>read({role:'landlord',status:'in_progress'}),write}),createCareJournal(memory()),LANDLORD,REQ,ids());await p.load();p.dispose();
+  assert.equal(sent.length,0);
+});
+test('auto-seen: a failed call does not block the screen, shows no error, tries once, and keeps the Seen button with the same operation id',async()=>{
+  const ops:string[]=[];let fail=true;
+  const w=createMaintenanceRequestWorkflow(svc({request:async()=>read({role:'landlord'}),write:async(_a:string,op:any)=>{ops.push(op.operationId);if(fail)throw new CareError('Outcome not confirmed. Retry.',true);return{};}}),createCareJournal(memory()),LANDLORD,REQ,ids());
+  await w.load();const s=w.getSnapshot();
+  assert.equal(s.ready,true);assert.ok(s.data);assert.equal(s.error,null);assert.equal(w.actions()!.seen,true,'Seen stays as the fallback');
+  await w.load();assert.equal(ops.length,1,'no second automatic attempt');
+  fail=false;await w.setStatus('acknowledged','');assert.equal(ops.length,2);assert.equal(ops[1],ops[0],'the manual Seen reuses the unconfirmed operation id');
+  w.dispose();
+});
+test('auto-seen: a refused call (not an unknown outcome) also leaves the screen usable with a fresh id for the button',async()=>{
+  const ops:string[]=[];let fail=true;
+  const w=createMaintenanceRequestWorkflow(svc({request:async()=>read({role:'landlord'}),write:async(_a:string,op:any)=>{ops.push(op.operationId);if(fail)throw new CareError('You can’t do that.',false);return{};}}),createCareJournal(memory()),LANDLORD,REQ,ids());
+  await w.load();assert.equal(w.getSnapshot().error,null);assert.equal(w.getSnapshot().ready,true);assert.equal(w.actions()!.seen,true);
+  fail=false;await w.setStatus('acknowledged','');assert.equal(ops.length,2);assert.notEqual(ops[1],ops[0]);w.dispose();
 });
