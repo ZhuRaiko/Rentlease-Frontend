@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {accountCaches,createAccountCache,instrumentMutations,isMutatingRpc} from '../src/shared/utils/accountCache';
+import {accountCaches,createAccountCache,instrumentMutations,isMutatingRpc,pickCached} from '../src/shared/utils/accountCache';
 import {createLandlordPortfolioWorkflow} from '../src/features/property-listing/viewModels/landlordPortfolioWorkflow';
 import {createMessagingWorkflow,type InboxSnapshot} from '../src/features/messaging-viewing/viewModels/messagingWorkflow';
 import {beginWorkspaceRefresh,blankWorkspace,failWorkspaceRefresh,seedWorkspace,succeedWorkspace,type WorkspaceData} from '../src/features/tenancy/viewModels/tenancyWorkspaceState';
@@ -188,4 +188,15 @@ test('Manage facts: cached facts are on screen at once; a refresh keeps them; a 
   const failed = failManagementRefresh(refreshing, A, 'x', empty as any); assert.equal(failed.tenancies.length, 1); assert.equal(failed.error, null);
   assert.equal(failManagementRefresh(seedManagement(A, null, empty as any), A, 'x', empty as any).error, 'x');
   assert.equal(beginManagementRefresh(seeded, B, null, empty as any).tenancies.length, 0);
+});
+
+// ---- names and photos on the conversation list ---------------------------------------------------------------------------------------------
+test('cached names and photos are shown only for the ids the list asks about, for the same user, until a write or sign-out empties them', () => {
+  const cache = createAccountCache<Record<string, { nickname: string }>>();
+  cache.set(A, { u1: { nickname: 'Mae' }, u2: { nickname: 'Em' }, u3: { nickname: 'Other' } }, cache.begin());
+  assert.deepEqual(pickCached(cache.peek(A), ['u1', 'u2', 'missing']), { u1: { nickname: 'Mae' }, u2: { nickname: 'Em' } });
+  assert.deepEqual(pickCached(cache.peek(B), ['u1']), {}, 'another account gets nothing');
+  assert.deepEqual(pickCached(null, ['u1']), {});
+  assert.deepEqual(pickCached(cache.peek(A), ['toString', '__proto__']), {}, 'only real ids, never inherited keys');
+  accountCaches.invalidateAll(); assert.deepEqual(pickCached(cache.peek(A), ['u1']), {});
 });

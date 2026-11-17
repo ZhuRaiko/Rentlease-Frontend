@@ -54,3 +54,10 @@ export function instrumentMutations(client: { rpc: (name: string, ...rest: unkno
     return builder;
   };
 }
+
+/** The entries of a cached id→value map that are wanted now (a screen shows cached rows for the ids it asks about, never more). */
+export function pickCached<T>(cached: Record<string, T> | null | undefined, ids: readonly string[]): Record<string, T> {
+  const out: Record<string, T> = {};
+  if (cached) for (const id of ids) if (Object.hasOwn(cached, id)) out[id] = cached[id] as T;
+  return out;
+}
