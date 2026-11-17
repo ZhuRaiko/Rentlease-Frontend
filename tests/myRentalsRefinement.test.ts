@@ -172,7 +172,7 @@ test('card buttons and menu entries reach the ViewModel handlers with the proper
   assert.deepEqual(run(makeItem('p3', null, 'approved'), 'Create listing'), ['continue:p3']);
   assert.deepEqual(run(makeItem('p4', 'active', 'approved'), 'Edit property details'), ['editDetails:p4']);
   assert.deepEqual(run(makeItem('p5', 'paused', 'approved'), 'Manage'), ['open:p5']);
-  assert.deepEqual(run(makeItem('p6', 'archived', 'approved'), 'Create a new listing'), ['create:p6']);
+  assert.deepEqual(run(makeItem('p6', 'archived', 'approved'), 'List again'), ['create:p6']);
 });
 
 test('portfolioActionsDisabled disables every card action and the menu button', () => {

@@ -1,47 +1,63 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from './AppButton';
-import { PropertyReviewWordCloud } from './PropertyReviewWordCloud';
 import { StarRow, TagPills } from './ReviewParts';
-import { PREVIEW_ROWS, publishedRowView, seeAllLabel, summaryView } from '../models/ReviewPresentation';
+import { NO_REVIEWS_CARD, PREVIEW_ROWS, STAYS_WITH_PROPERTY, cloudWords, feedbackLayout, publishedRowView, seeAllLabel, summaryView, type FeedbackTab } from '../models/ReviewPresentation';
 import { colors } from '../theme/colors';
 import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { ui } from '../theme/ui';
 import { useRentalReviews } from '../viewModels/useRentalReviews';
 
-type Tab = 'Reviews' | 'Themes';
+const TABS: readonly FeedbackTab[] = ['Themes', 'Reviews'];
 
 /**
- * Listing ratings: the summary (average, count, top tags) comes from get_review_summary('property'); the Reviews tab lists the published
- * reviews with their tags; the Themes tab counts the tags first and keeps the free-text word cloud as a quiet secondary view.
- * Tag counts and the list never depend on the word-cloud service.
+ * Listing ratings (f4b v10). The summary (average, count, tag counts) comes from get_review_summary('property'). Once it has loaded the
+ * layout is decided by feedbackLayout: no reviews -> one muted card; fewer than three tag selections -> the reviews only, no tabs;
+ * otherwise tabs that open on Themes (a sized tag cloud). The free-text word cloud (PropertyReviewWordCloud) is no longer shown here:
+ * its file is kept but nothing renders it, so the Edge function is not called from this screen.
  */
 export function RentalFeedbackSection({ accountId, propertyId }: { accountId: string | undefined; propertyId: string }) {
-  const [tab, setTab] = useState<Tab>('Reviews');
+  const [picked, setPicked] = useState<FeedbackTab | null>(null);
   const [all, setAll] = useState(false);
   const summaryVm = useRentalReviews(accountId, { mode: 'summary', kind: 'property', id: propertyId });
   const rowsVm = useRentalReviews(accountId, { mode: 'property', id: propertyId });
   const summary = summaryVm.data?.type === 'summary' ? summaryVm.data.value : null;
   const view = summary ? summaryView(summary, 'property') : null;
+  const layout = feedbackLayout(view, !!summaryVm.error);
+  const tab: FeedbackTab = picked ?? layout.defaultTab ?? 'Reviews';
   const published = rowsVm.data?.type === 'public' ? rowsVm.data.value : null;
   const rows = published ? published.rows.map(publishedRowView) : [];
   const shown = all ? rows : rows.slice(0, PREVIEW_ROWS);
+  const showReviews = layout.mode === 'reviews_only' || (layout.mode === 'tabs' && tab === 'Reviews');
+  const words = view ? cloudWords(view.tags) : [];
   return <View style={styles.wrap}>
     <Text accessibilityRole="header" style={ui.sectionTitle}>Ratings and reviews</Text>
     {!accountId ? <Text style={ui.supporting}>Sign in to see reviews from past tenants.</Text> : <>
-      <View accessibilityRole="tablist" style={styles.tabs}>{(['Reviews', 'Themes'] as const).map(label => <Pressable key={label} accessibilityRole="tab" accessibilityState={{ selected: tab === label }} onPress={() => setTab(label)} style={[styles.tab, tab === label && styles.tabOn]}><Text style={[ui.body, { fontWeight: '600', color: tab === label ? colors.primaryAction : colors.ink }]}>{label}</Text></Pressable>)}</View>
-      <View style={styles.card}>
-        {summaryVm.busy && !summary ? <ActivityIndicator accessibilityLabel="Loading ratings" color={colors.primaryAction} /> : null}
-        {summaryVm.error && !summary ? <><Text accessibilityRole="alert" style={ui.supporting}>Ratings are not available right now.</Text><AppButton label="Retry" variant="secondary" disabled={summaryVm.busy} onPress={() => void summaryVm.workflow.load()} /></> : null}
-        {view && view.empty ? <Text style={ui.body}>{view.countLine}</Text> : null}
-        {view && !view.empty ? <View style={styles.summary}>
-          <Text accessibilityLabel={`Average ${view.average} out of 5`} style={styles.average}>{view.average}</Text>
-          <View style={styles.grow}><StarRow filled={view.starsFilled} size={18} /><Text style={ui.supporting}>{view.countLine}</Text></View>
-        </View> : null}
-        {view && !view.empty && tab === 'Reviews' ? <TagPills labels={view.tags.map(t => t.label)} counts={view.tags.map(t => t.count)} /> : null}
-      </View>
-      {tab === 'Reviews' ? <>
+      {summaryVm.busy && !summary ? <ActivityIndicator accessibilityLabel="Loading ratings" color={colors.primaryAction} /> : null}
+      {summaryVm.error && !summary ? <View style={styles.card}><Text accessibilityRole="alert" style={ui.supporting}>Ratings are not available right now.</Text><AppButton label="Retry" variant="secondary" disabled={summaryVm.busy} onPress={() => void summaryVm.workflow.load()} /></View> : null}
+      {layout.mode === 'empty' ? <View style={[styles.card, styles.muted]}><Text style={ui.body}>{NO_REVIEWS_CARD}</Text></View> : null}
+      {view && !view.empty ? <>
+        {layout.mode === 'tabs' ? <View accessibilityRole="tablist" style={styles.tabs}>{TABS.map(label => <Pressable key={label} accessibilityRole="tab" accessibilityState={{ selected: tab === label }} onPress={() => setPicked(label)} style={[styles.tab, tab === label && styles.tabOn]}><Text style={[ui.body, tab === label && { fontWeight: '700' }]}>{label}</Text></Pressable>)}</View> : null}
+        <View style={styles.card}>
+          <View style={styles.summary}>
+            <Text accessibilityLabel={`Average ${view.average} out of 5`} style={styles.average}>{view.average}</Text>
+            <View style={styles.grow}><StarRow filled={view.starsFilled} size={18} /><Text style={ui.supporting}>{view.countLine}</Text></View>
+          </View>
+          <Text style={ui.supporting}>{STAYS_WITH_PROPERTY}</Text>
+        </View>
+      </> : null}
+      {layout.mode === 'tabs' && tab === 'Themes' ? <>
+        <View style={styles.card}>
+          <Text accessibilityRole="header" style={[ui.body, { fontWeight: '700' }]}>What tenants mention</Text>
+          <View accessibilityLabel={words.map(w => `${w.label}, ${w.count}`).join('. ')} accessible style={styles.cloud}>
+            {words.map(w => <Text key={w.code} style={[styles.word, { fontSize: w.fontSize, lineHeight: Math.round(w.fontSize * 1.25), fontWeight: w.bold ? '700' : '400' }]}>{w.label}</Text>)}
+          </View>
+        </View>
+        {rows.length > 0 || (published?.count ?? 0) > 0 ? <AppButton label={seeAllLabel(published?.count ?? rows.length)} variant="secondary" onPress={() => { setAll(true); setPicked('Reviews'); }} /> : null}
+      </> : null}
+      {layout.mode === 'reviews_only' && view ? <View style={[styles.card, styles.muted]}><Text style={ui.supporting}>Themes appear once a few tenants have added tags.</Text></View> : null}
+      {showReviews ? <>
         {rowsVm.busy && !published ? <ActivityIndicator accessibilityLabel="Loading reviews" color={colors.primaryAction} /> : null}
         {rowsVm.error ? <View style={styles.card}><Text accessibilityRole="alert" style={ui.supporting}>Reviews are not available right now.</Text><AppButton label="Retry" variant="secondary" disabled={rowsVm.busy} onPress={() => void rowsVm.workflow.load()} /></View> : null}
         {shown.map(r => <View key={r.key} style={styles.card}>
@@ -54,11 +70,7 @@ export function RentalFeedbackSection({ accountId, propertyId }: { accountId: st
         {all && rows.length === 20 ? <AppButton label="Older reviews" variant="secondary" disabled={rowsVm.busy || rowsVm.offset >= 10000} onPress={() => void rowsVm.workflow.load(rowsVm.offset + 20)} /> : null}
         {published && rows.length === 0 && view && !view.empty ? <Text style={ui.supporting}>No written reviews on this page.</Text> : null}
         <Text style={ui.supporting}>Only approved feedback is included. Reviewer names are never shown.</Text>
-      </> : <View style={styles.card}>
-        <Text accessibilityRole="header" style={[ui.body, { fontWeight: '700' }]}>What tenants mention</Text>
-        {view && view.tags.length > 0 ? <TagPills labels={view.tags.map(t => t.label)} counts={view.tags.map(t => t.count)} /> : <Text style={ui.supporting}>{summary ? 'No tags yet.' : 'Not available right now'}</Text>}
-        <PropertyReviewWordCloud compact quiet accountId={accountId} propertyId={propertyId} />
-      </View>}
+      </> : null}
     </>}
   </View>;
 }
@@ -72,5 +84,8 @@ const styles = StyleSheet.create({
   card: { ...ui.panel, padding: spacing.md, gap: spacing.sm, borderRadius: radius.card },
   summary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' },
   average: { ...ui.pageTitle, fontSize: 40, lineHeight: 48 },
+  muted: { backgroundColor: colors.surface },
+  cloud: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', columnGap: spacing.md, rowGap: spacing.xxs, paddingVertical: spacing.xs },
+  word: { color: colors.primaryAction },
   rowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing.xs },
 });

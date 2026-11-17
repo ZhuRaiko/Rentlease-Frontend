@@ -32,6 +32,7 @@ function mount(vmOf:()=>any,actor:string,width=411,scale=1){
     if(key==='react-native')return new Proxy({StyleSheet:{create:(x:any)=>x},useWindowDimensions:()=>{hooks++;cursor++;return{width,height:800,fontScale:scale};}},{get:(x:any,k)=>x[k]??k});
     if(key.includes('useTenancyWorkspaceViewModel'))return{useTenancyWorkspaceViewModel:()=>{hooks++;cursor++;return vmOf();}};
     if(key.includes('models/TenancyPresentation'))return require('../src/features/tenancy/models/TenancyPresentation');
+    if(key.endsWith('/PublicIdentity'))return require('../src/shared/models/PublicIdentity');
     if(key.endsWith('/tileColors'))return require('../src/features/tenancy/components/tileColors');
     if(key.endsWith('/colors'))return{colors:{}};if(key.endsWith('/ui'))return{ui:{}};if(key.endsWith('/radius'))return{radius:{}};if(key.endsWith('/spacing'))return{spacing:{}};
     return new Proxy({},{get:(_x,k)=>String(k)});
@@ -67,4 +68,14 @@ test('workspace hooks: an upcoming move-in with only a reservation (no tenancy y
   assert.equal(loaded.hooks,first.hooks);
   const open=nodes(loaded.tree).find(x=>x.type==='StatusButton'&&/^Open: /.test(String(x.props.accessibilityLabel)));
   if(open){open.props.onPress();assert.equal(view.render().hooks,first.hooks);}
+});
+
+test('workspace: opening Set up tenancy hands the setup screen the chat and both names from what the tab already loaded',()=>{
+  const r=bare(),identities={[L]:{id:L,nickname:'Nightcity',avatarUrl:null,avatarPath:null},[T]:{id:T,nickname:'Maria',avatarUrl:null,avatarPath:null}} as any;
+  let current:any=vm(L,{},{busy:true});
+  const view=mount(()=>current,L);view.render();
+  current=vm(L,{reservations:[r]},{reservations:[r],identities});
+  const loaded=view.render(),open=nodes(loaded.tree).find(x=>x.type==='StatusButton'&&/^Open: /.test(String(x.props.accessibilityLabel)));
+  open.props.onPress();const setup=view.render(),props=nodes(setup.tree).find(x=>x.type==='TenancySetupView').props;
+  assert.equal(props.conversationId,r.conversationId);assert.deepEqual(props.names,{owner:'Nightcity',renter:'Maria'});assert.equal(setup.hooks,loaded.hooks);
 });

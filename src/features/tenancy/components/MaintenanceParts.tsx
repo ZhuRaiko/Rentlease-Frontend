@@ -34,7 +34,8 @@ export function NoteBubble({who, text, when, mine = false}: {who: string; text: 
 }
 
 /** The four steps, one under the other, each with its time or state. */
-export function StepList({steps}: {steps: Step[]}) {
+/** The vertical step list. Any steps with a key, label, detail and state; the setup screen uses it too. */
+export function StepList({steps}: {steps: readonly {key: string; label: string; detail: string; state: Step['state']}[]}) {
   return <View accessibilityRole="list" style={{gap: 0}}>{steps.map((s, i) => <View key={s.key} accessible accessibilityLabel={`${s.label}. ${s.detail}. ${s.state === 'done' ? 'Done' : s.state === 'current' ? 'Now' : 'Not yet'}`} style={styles.stepRow}>
     <View style={styles.rail}><View style={[styles.dot, s.state === 'done' && styles.dotDone, s.state === 'current' && styles.dotNow]}/>{i < steps.length - 1 ? <View style={[styles.line, s.state === 'done' && styles.lineDone]}/> : null}</View>
     <View style={{flex: 1, paddingBottom: spacing.sm}}><Text style={[ui.body, s.state === 'upcoming' && {color: colors.textSecondary}]}>{s.label}</Text>{s.detail ? <Text style={ui.supporting}>{s.detail}</Text> : null}</View>

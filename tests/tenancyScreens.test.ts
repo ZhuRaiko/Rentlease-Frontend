@@ -323,3 +323,12 @@ test('mutation pass: a failed release is retried with its own operation id, and 
   flow.ask(req());await flow.confirm();assert.equal(ops[2],'op-2','another reservation is a new operation');
   fail=false;await flow.retry();assert.equal(ops[3],'op-2');
 });
+
+// ---- Themes pass: titles of your own review card
+test('your own review card is titled "Your review" for a property, and keeps the tenant\'s name when a landlord rates a tenant',()=>{
+  const ended=tenancy({status:'ended',actual_end_date:'2026-11-13'}),mine={...given('property',5),status:'pending'};
+  const tenant=detailsScreen({actor:T,tenancy:ended,context:ctx(),identities:{[L]:ident('Nightcity',L)},care:null,lifecycle:null,reviews:review(ended,[mine]),reservation:null,conversationId:null,now:NOW});
+  assert.deepEqual(tenant.reviews!.map(r=>[r.label,r.status]),[['Your review','Pending review']]);
+  const landlord=detailsScreen({actor:L,tenancy:ended,context:ctx(),identities:{[T]:ident('Samuel',T)},care:null,lifecycle:null,reviews:review(ended,[{...given('user',4),status:'approved'}]),reservation:null,conversationId:null,now:NOW});
+  assert.deepEqual(landlord.reviews!.map(r=>[r.label,r.status]),[['Your review of Samuel','Published']]);
+});

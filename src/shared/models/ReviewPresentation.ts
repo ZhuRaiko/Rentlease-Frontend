@@ -118,3 +118,28 @@ export const summaryKindLabel = (k: SummaryKind): string => (k === 'property' ? 
 
 /** Which direction this person rates, from the loaded context: the tenant the property, the landlord the tenant. */
 export const roleOfActor = (c: ReviewContext, actor: string): 'tenant' | 'landlord' | null => (actor === c.tenantId ? 'tenant' : actor === c.landlordId ? 'landlord' : null);
+
+/** Themes need a few tag selections to say anything. Below this the section shows the reviews only. */
+export const THEMES_MIN_TAGS = 3;
+export const NO_REVIEWS_CARD = 'No reviews yet. Reviews appear after a tenant finishes a stay.';
+export const STAYS_WITH_PROPERTY = 'Reviews stay with this property, even when it is listed again.';
+export type FeedbackTab = 'Themes' | 'Reviews';
+/**
+ * How the ratings section on a listing is laid out, decided once the summary has loaded:
+ * no approved reviews -> one muted card; fewer than THEMES_MIN_TAGS tag selections -> the reviews only, no tabs;
+ * otherwise tabs, opening on Themes.
+ */
+export type FeedbackLayout = { mode: 'loading' | 'empty' | 'reviews_only' | 'tabs'; defaultTab: FeedbackTab | null };
+export function feedbackLayout(view: SummaryView | null, summaryFailed = false): FeedbackLayout {
+  // A summary that could not be read must not hide the reviews: they show on their own, with the Retry for the summary above them.
+  if (!view) return summaryFailed ? { mode: 'reviews_only', defaultTab: 'Reviews' } : { mode: 'loading', defaultTab: null };
+  if (view.empty) return { mode: 'empty', defaultTab: null };
+  const selections = view.tags.reduce((sum, t) => sum + t.count, 0);
+  return selections >= THEMES_MIN_TAGS ? { mode: 'tabs', defaultTab: 'Themes' } : { mode: 'reviews_only', defaultTab: 'Reviews' };
+}
+export interface CloudWord { code: string; label: string; count: number; fontSize: number; bold: boolean }
+/** The tag cloud: a word's size follows how many reviews used it (15 to 30), the most used words are bold. Most used first. */
+export function cloudWords(tags: readonly { code: string; label: string; count: number }[]): CloudWord[] {
+  const max = Math.max(1, ...tags.map(t => t.count));
+  return [...tags].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label)).map(t => ({ ...t, fontSize: 15 + Math.round(15 * (t.count / max) ** 1.5), bold: t.count / max >= 0.8 }));
+}

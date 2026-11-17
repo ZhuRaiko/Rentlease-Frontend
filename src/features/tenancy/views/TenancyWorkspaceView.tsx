@@ -13,6 +13,7 @@ import {TILE_LABELS,type TileKind} from '../models/TenancyPresentation';
 import {TILE_COLORS} from '../components/tileColors';
 import type {AttentionItem,PastCard,StayCard,UpcomingCard} from '../models/TenancyWorkspaceScreen';
 import {TenancySetupView} from './TenancySetupView';
+import {publicIdentityLabel} from '../../../shared/models/PublicIdentity';
 import {DashboardIcon} from '../../../shared/components/DashboardIcon';
 import {ReleaseSheet} from '../components/ReleaseSheet';
 import {ButtonRow,Cell,CellRow,Slot,StatusButton,StatusChip} from '../../../shared/components/StatusParts';
@@ -32,6 +33,12 @@ interface Props {
   /** Opens one rental's details straight away (from a property's Manage screen). */
   initialOpen?:{tenancyId?:string;panel?:TenancyDetailsPanel;requestId?:string}|undefined;
 }
+/** The chat and the two names for a reservation, from what this tab already loaded. Nothing is read again; without the reservation there is no Message button. */
+function setupPeople(vm:{reservations?:readonly {id:string;conversationId:string;tenantId:string;landlordId:string}[];identities?:Record<string,Parameters<typeof publicIdentityLabel>[0]>},reservationId:string){
+ const r=vm.reservations?.find(x=>x.id===reservationId);
+ if(!r)return {};
+ return {conversationId:r.conversationId,names:{owner:publicIdentityLabel(vm.identities?.[r.landlordId],'owner'),renter:publicIdentityLabel(vm.identities?.[r.tenantId],'renter')}};
+}
 export function TenancyWorkspaceView({accountId,onBack,onDiscover,onListings,onPost,onChat,registerBackAction,onOpenConversation,onStartRequest,onFindSimilar,onOpenProperty,externalPanelOpen=false,initialOpen}:Props){
  const vm=useTenancyWorkspaceViewModel(accountId,onStartRequest),[setup,setSetup]=useState<{actor:string|undefined;reservationId:string}|null>(null),[reload,setReload]=useState(0),[details,setDetails]=useState<Details|null>(initialOpen?.tenancyId?{actor:accountId,id:initialOpen.tenancyId,sourceId:null,...(initialOpen.panel?{panel:initialOpen.panel}:{}),...(initialOpen.requestId?{requestId:initialOpen.requestId}:{})}:null);
  const activeDetails=details?.actor===accountId?details:null,screen=vm.screen;
@@ -40,7 +47,7 @@ export function TenancyWorkspaceView({accountId,onBack,onDiscover,onListings,onP
  const {width,fontScale}=useWindowDimensions();
  useEffect(()=>{if((!setup||setup.actor!==accountId)&&!activeDetails&&!externalPanelOpen){registerBackAction(onBack);return()=>registerBackAction(null);}},[registerBackAction,onBack,setup,accountId,activeDetails,externalPanelOpen]);
  useEffect(()=>{if(reload)void vm.refresh();},[reload]);
- if(setup&&setup.actor===accountId)return <ScreenContainer padded={false}><TenancySetupView accountId={accountId} reservationId={setup.reservationId} onBack={()=>{setSetup(null);setReload(v=>v+1);}} onChanged={()=>setReload(v=>v+1)} registerBackAction={registerBackAction}/></ScreenContainer>;
+ if(setup&&setup.actor===accountId)return <ScreenContainer padded={false}><TenancySetupView accountId={accountId} reservationId={setup.reservationId} onBack={()=>{setSetup(null);setReload(v=>v+1);}} onChanged={()=>setReload(v=>v+1)} registerBackAction={registerBackAction} {...setupPeople(vm,setup.reservationId)} onMessage={onOpenConversation}/></ScreenContainer>;
  // Large text or a narrow screen: the status chip sits under the text instead of squeezing the title beside it, and the tiles wrap.
  const stacked=fontScale>=1.3||width<340;
  const ready=!vm.busy&&!vm.error,bothEmpty=ready&&!screen.active.length&&!screen.upcoming.length;

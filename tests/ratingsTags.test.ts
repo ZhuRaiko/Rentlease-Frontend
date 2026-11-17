@@ -225,33 +225,39 @@ const section = (summaryValue: ReviewSummary | null, rows: any[], over: { summar
   .render('src/shared/components/RentalFeedbackSection.tsx', 'RentalFeedbackSection', { accountId: TENANT, propertyId: PROP });
 const approvedRow = (n: number, over: object = {}) => parsePublishedReviews({ kind: 'property', targetId: PROP, count: 1, average: 4, rows: [row({ id: U(100 + n), status: 'approved', reviewerRole: 'tenant', ...over })] }, 'property', PROP).rows[0]!;
 
-test('listing ratings: the summary, top tags with counts and the published reviews with role, month and tags', () => {
-  const tree = section(parseReviewSummary(summary(), 'property', PROP), [approvedRow(1, { text: 'Nice property, the wifi was good.', tags: ['clean', 'good_wifi'] })]), t = text(tree);
-  for (const s of ['Ratings and reviews', 'Reviews', 'Themes', '4.6', '18 reviews from past tenants', 'Clean', 'Good wifi', '12', '9', 'Tenant · Nov 2026', 'Nice property, the wifi was good.']) assert.ok(t.includes(s), s);
-  assert.deepEqual(nodes(tree).filter(n => n.props?.accessibilityRole === 'tab').map(n => text(n)), ['Reviews', 'Themes'], 'two tabs, no Landlord tab');
-  assert.doesNotMatch(t, /Landlord(?! fixes)|Property\b.*tab/);
+test('listing ratings: opens on Themes (average, count, the promise, a tag cloud); Reviews holds the published reviews with role, month and tags', () => {
+  const rows = [approvedRow(1, { text: 'Nice property, the wifi was good.', tags: ['clean', 'good_wifi'] })];
+  const themes = section(parseReviewSummary(summary(), 'property', PROP), rows), t = text(themes);
+  for (const s of ['Ratings and reviews', 'Themes', 'Reviews', '4.6', '18 reviews from past tenants', 'Reviews stay with this property, even when it is listed again.', 'What tenants mention', 'Clean', 'Good wifi']) assert.ok(t.includes(s), s);
+  assert.deepEqual(nodes(themes).filter(n => n.props?.accessibilityRole === 'tab').map(n => text(n)), ['Themes', 'Reviews'], 'Themes first, no Landlord tab');
+  assert.ok(!t.includes('Nice property, the wifi was good.'), 'the written reviews are on the other tab');
+  const reviews = text(section(parseReviewSummary(summary(), 'property', PROP), rows, {}, ['Reviews']));
+  for (const s of ['Tenant · Nov 2026', 'Nice property, the wifi was good.', 'Clean', 'Good wifi']) assert.ok(reviews.includes(s), s);
+  assert.doesNotMatch(t, /Landlord(?! fixes)|Property.*tab/);
 });
-test('listing ratings: with no reviews the section says "No reviews yet", draws no stars and hides the average', () => {
+test('listing ratings: with no reviews there is one muted card, no tabs, no stars and no average', () => {
   const tree = section(parseReviewSummary(summary({ count: 0, average: null, distribution: [0, 0, 0, 0, 0], tags: [] }), 'property', PROP), []), t = text(tree);
-  assert.ok(t.includes('No reviews yet'));
-  assert.ok(!t.includes('★') && !/\b[1-5]\.\d\b/.test(t) && !t.includes('from past tenants'));
+  assert.ok(t.includes('No reviews yet. Reviews appear after a tenant finishes a stay.'));
+  assert.ok(!t.includes('★') && !/[1-5]\.\d/.test(t) && !t.includes('from past tenants'));
+  assert.equal(nodes(tree).filter(n => n.props?.accessibilityRole === 'tab').length, 0);
 });
 test('listing ratings: only the first three reviews show, then "See all N reviews"', () => {
   const rows = [1, 2, 3, 4, 5].map(n => approvedRow(n, { text: `Review ${n}` }));
-  const tree = section(parseReviewSummary(summary(), 'property', PROP), rows), t = text(tree);
+  const tree = section(parseReviewSummary(summary(), 'property', PROP), rows, {}, ['Reviews']), t = text(tree);
   assert.ok(t.includes('Review 1') && t.includes('Review 3') && !t.includes('Review 4'));
   assert.ok(nodes(tree).some(n => n.type === 'Button' && n.props.label === 'See all 18 reviews'));
   const expanded = text(section(parseReviewSummary(summary(), 'property', PROP), rows, {}, [ 'Reviews', true ]));
   assert.ok(expanded.includes('Review 5'));
 });
-test('listing ratings, Themes: tag counts show first and without the word-cloud service; the cloud is a quiet secondary view', () => {
-  const tree = section(parseReviewSummary(summary(), 'property', PROP), [], { cloud: { status: 'unavailable', error: null } }, ['Themes']), t = text(tree);
-  assert.ok(t.includes('What tenants mention') && t.includes('Clean') && t.includes('12') && t.includes('Good wifi'));
-  assert.ok(t.indexOf('Clean') < t.indexOf(WORD_CLOUD_UNAVAILABLE), 'tag counts come before the word cloud');
-  assert.ok(t.includes('Not available right now'));
-  assert.doesNotMatch(t, /not connected yet|Frequently mentioned|failed|error/i);
-  const failed = text(section(parseReviewSummary(summary(), 'property', PROP), [], { cloud: { status: 'error', error: 'Review themes could not load.' } }, ['Themes']));
-  assert.ok(failed.includes('Not available right now') && failed.includes('Clean') && !failed.includes('could not load'), 'a service failure becomes the quiet line, never a raw error');
+test('listing ratings, Themes: the tag cloud comes from the summary counts alone; the free-text word cloud is not part of the screen', () => {
+  const seen: string[] = [];
+  const tree = harness(scope => { seen.push(scope.mode); return scope.mode === 'summary' ? { ...idle, data: { type: 'summary', value: parseReviewSummary(summary(), 'property', PROP) } } : { ...idle, data: { type: 'public', value: { kind: 'property', targetId: PROP, count: 18, average: 4.6, rows: [] } } }; })
+    .render('src/shared/components/RentalFeedbackSection.tsx', 'RentalFeedbackSection', { accountId: TENANT, propertyId: PROP }), t = text(tree);
+  assert.ok(t.includes('What tenants mention') && t.includes('Clean') && t.includes('Good wifi'));
+  assert.ok(!seen.includes('cloud'), 'the word-cloud service is never asked');
+  assert.doesNotMatch(t, /Refresh review themes|Not available right now|Frequently mentioned/);
+  const word = (label: string) => styleOf(nodes(tree).find(n => n.type === 'Text' && flat(n.props.children).includes(label)));
+  assert.ok(word('Clean').fontSize > word('Good wifi').fontSize, 'a word used by more reviews is bigger (12 vs 9)');
 });
 test('listing ratings: a failed summary read keeps the reviews and offers Retry; a failed list read offers Retry', () => {
   const t1 = section(null, [approvedRow(1, { text: 'Still here' })], { summary: { error: 'Reviews could not load. Retry.', ready: true } });

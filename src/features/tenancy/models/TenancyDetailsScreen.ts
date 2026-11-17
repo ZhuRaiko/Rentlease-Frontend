@@ -106,7 +106,7 @@ export function detailsScreen(i: DetailsInput): DetailsScreen {
     // Your own review of this tenancy (a legacy earlier row is not shown), then the other person's approved one. Names come from the tenancy's people. A tenant's review of a landlord (an older row, no longer allowed) is not shown.
     reviews: ended && review ? [...(review.own ? [review.own] : []).map((r): ReviewLine => ({
       key: r.id, status: reviewStatusLabel(r.status), rating: r.rating, text: r.text, tags: tagLabels(groupOf(r.kind), r.tags ?? []),
-      label: r.kind === 'property' ? 'Your review of this property' : `Your review of ${other}`,
+      label: r.kind === 'property' ? 'Your review' : `Your review of ${other}`,
     })), ...(i.reviews?.received ?? []).filter(r => !(r.kind === 'user' && role === 'landlord')).map(r => receivedLine(r, other))] : null,
     timeline,
     endEarly: active,

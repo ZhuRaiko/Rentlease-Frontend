@@ -30,7 +30,7 @@ export interface PortfolioAction { key: PortfolioActionKey; label: string }
  * One button per card, named for the state; everything else is in the overflow menu. Every state that can be edited opens the same four-step
  * wizard (the button decides where it starts); there is no separate property-only editor.
  *   no listing -> Continue posting (resumes at the first incomplete step)    draft -> Continue editing
- *   active or paused -> Edit listing                                           archived -> Create a new listing
+ *   active or paused -> Edit listing                                           archived -> List again
  * Menu: Edit property details (the wizard at Step 1), Manage status (pause, reactivate, archive), verification, review publication.
  * Manage Requests is composed by the root, not here.
  */
@@ -39,7 +39,7 @@ export function portfolioCardActions(item: LandlordPortfolioItem): { primary: Po
   // An ended (archived) listing cannot be reactivated, so the owner starts a new one for the same property. Only an active property can take it.
   const relist = !!listing && status === 'archived' && active;
   const live = status === 'active' || status === 'paused';
-  const primary: PortfolioAction = relist ? { key: 'createListing', label: 'Create a new listing' }
+  const primary: PortfolioAction = relist ? { key: 'createListing', label: 'List again' }
     : !listing ? { key: 'continuePosting', label: 'Create listing' }
     : status === 'draft' ? { key: 'continueEditing', label: 'Continue editing' }
     : status === 'rented' || live || status === 'removed' ? { key: 'open', label: 'Manage' }
@@ -92,8 +92,8 @@ export function portfolioAvailability(item: LandlordPortfolioItem, now = Date.no
   return `Available from ${new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(`${date}T00:00:00Z`))}`;
 }
 
-export const ARCHIVED_LISTING_NOTE = 'This listing has ended. Create a new one to rent this place again.';
-/** The one-line explanation on an archived card, only where "Create a new listing" is actually offered. */
+export const ARCHIVED_LISTING_NOTE = 'This listing has ended. Its reviews and rating stay with this property.';
+/** The one-line explanation on an archived card, only where "List again" is actually offered. */
 export const portfolioArchivedNote = (item: LandlordPortfolioItem): string | null => portfolioCardActions(item).primary.key === 'createListing' ? ARCHIVED_LISTING_NOTE : null;
 
 /** The first wizard step that still needs the owner: the Property step while a size the range needs is missing, otherwise the Listing step. */
@@ -105,7 +105,7 @@ export function firstIncompleteStep(item: LandlordPortfolioItem): 'property' | '
 export type NewListingStart = 'details' | 'property' | 'resume';
 /**
  * Where a listing started from a card opens: the SAME property, no listing id (so nothing tries to update an archived row), compose mode.
- * 'details' = the Listing step with the Property step behind it (Create a new listing), 'property' = Step 1, 'resume' = the first incomplete
+ * 'details' = the Listing step with the Property step behind it (List again), 'property' = Step 1, 'resume' = the first incomplete
  * step (Continue posting). Null unless the property is active and has no listing or an archived one.
  */
 export function newListingTarget(item: LandlordPortfolioItem | null | undefined, start: NewListingStart = 'details') {

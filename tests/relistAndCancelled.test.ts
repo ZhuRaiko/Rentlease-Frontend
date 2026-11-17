@@ -18,13 +18,13 @@ function makeItem(id: string, status: string | null, active = true): LandlordPor
 const labels = (item: LandlordPortfolioItem) => { const l = portfolioCardLayout(item); return [l.primary.label, l.secondary, l.menu.map(a => a.label)]; };
 
 // ---- A. Archived listing
-test('archived listing on an active property: the primary action is "Create a new listing" and View listing moves to the menu', () => {
+test('archived listing on an active property: the primary action is "List again" and View listing moves to the menu', () => {
   const a = portfolioCardActions(makeItem('p', 'archived'));
-  assert.deepEqual([a.primary.key, a.primary.label], ['createListing', 'Create a new listing']);
-  assert.deepEqual(labels(makeItem('p', 'archived')), ['Create a new listing', null, ['View listing', 'Edit property details']]);
+  assert.deepEqual([a.primary.key, a.primary.label], ['createListing', 'List again']);
+  assert.deepEqual(labels(makeItem('p', 'archived')), ['List again', null, ['View listing', 'Edit property details']]);
 });
 test('archived: one-line explanation, only where the new-listing action is offered', () => {
-  assert.equal(ARCHIVED_LISTING_NOTE, 'This listing has ended. Create a new one to rent this place again.');
+  assert.equal(ARCHIVED_LISTING_NOTE, 'This listing has ended. Its reviews and rating stay with this property.');
   assert.equal(portfolioArchivedNote(makeItem('p', 'archived')), ARCHIVED_LISTING_NOTE);
   for (const status of ['draft', 'active', 'paused', 'rented', 'removed', null]) assert.equal(portfolioArchivedNote(makeItem('p', status)), null, String(status));
   assert.equal(portfolioArchivedNote(makeItem('p', 'archived', false)), null, 'an inactive property cannot take a new listing');
@@ -47,7 +47,7 @@ test('Reactivate stays for paused only: an archived listing has no lifecycle act
   const every = ['archived', 'removed', 'rented', 'draft'].flatMap(s => portfolioCardLayout(makeItem('p', s)).menu.map(a => a.label));
   assert.ok(!every.some(l => /reactivate/i.test(l)), 'no card offers Reactivate');
 });
-test('"Create a new listing" opens the SAME property at the Listing step with no listing id, and only for an archived listing on an active property', () => {
+test('"List again" opens the SAME property at the Listing step with no listing id, and only for an archived listing on an active property', () => {
   const item = makeItem('prop-1', 'archived');
   const t = newListingTarget(item)!;
   assert.deepEqual([t.listingId, t.mode, t.screen, t.history], [null, 'compose', 'listingDetails', ['dashboard', 'listingComposer']]);
@@ -97,14 +97,14 @@ const nodes = (t: any) => flat(t).filter(n => typeof n === 'object');
 const text = (t: any) => flat(t).filter(n => typeof n === 'string').join('|');
 const byText = (label: string) => (n: any) => typeof n.props?.onPress === 'function' && flat(n.props.children).includes(label);
 
-test('archived card shows the explanation once and a Create a new listing button that runs the new-listing action', () => {
+test('archived card shows the explanation once and a List again button that runs the new-listing action', () => {
   const calls: string[] = [];
   const tree = harness({}).render('src/features/property-listing/components/PortfolioRentalCard.tsx', 'PortfolioRentalCard', { item: makeItem('p', 'archived'), disabled: false, onAction: (k: string) => calls.push(k) });
   assert.equal(text(tree).split(ARCHIVED_LISTING_NOTE).length - 1, 1);
-  nodes(tree).find(byText('Create a new listing'))!.props.onPress();
+  nodes(tree).find(byText('List again'))!.props.onPress();
   assert.deepEqual(calls, ['createListing']);
   assert.ok(!nodes(tree).some(byText('Reactivate')) && !/Reactivate/.test(text(tree)));
   const paused = text(harness({}).render('src/features/property-listing/components/PortfolioRentalCard.tsx', 'PortfolioRentalCard', { item: makeItem('p', 'paused'), disabled: false, onAction() {} }));
-  assert.ok(!paused.includes(ARCHIVED_LISTING_NOTE) && !paused.includes('Create a new listing'));
+  assert.ok(!paused.includes(ARCHIVED_LISTING_NOTE) && !paused.includes('List again'));
 });
 // The cancelled-rental behavior (one card under Past, Start a new request / Release it, the confirmation sheet) is covered in tenancyScreens.test.ts.

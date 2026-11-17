@@ -157,3 +157,13 @@ Built on the Feature 6 backend (`docs/design/f6-maintenance-transitions.md`). Wi
 - **Backend gap:** `get_tenancy_care` does not return `tenantConfirmedAt`. The tenant list reads each resolved request once through `get_maintenance_request`; until that read finishes a resolved request is treated as confirmed, so Confirm fixed and Not fixed never appear early.
 - **Limits:** tenant tab counts come from the loaded page (20 per page, Newer/Older buttons). A cancelled request is in neither tab. The inbox row has no description, so cards show the derived title and the last note.
 - **Notifications:** the existing generic "Maintenance update" (no per-action text).
+
+## Tenancy setup screen, simpler - November 17, 2026
+Wireframe: `docs/design/rentlease_f1b_tenancy_setup_v10.html` (the v10 version, corrected after the audit). Frontend only; no backend change.
+
+- **Screen:** a text-only property card (name and one line from the summary string the screen already receives), a state chip, the three facts (rent, rent due day, stay with its length), a four-step line, a collapsed "How this works" row, and one main action in a pinned bottom bar. All decisions are in `models/TenancySetupScreen.ts` (`setupScreen`), built on `setupActions`; `views/TenancySetupView.tsx` only draws it.
+- **States:** owner proposing (form: rent filled from the listing, rent due day blank, dates read-only), renter before the owner proposes ("has not sent terms yet", nothing to do), owner waiting, renter needs to confirm ("Confirm terms", red "Cancel setup"), both confirmed before the start date ("Start stay" greyed with its date), start date reached ("Start stay" for either person), property changed (owner "Review updated property", renter Cancel only), not eligible, active, closed, uncertain outcome ("Try again" retries the same operation, "Check status" reloads), and a load error ("Reload").
+- **Cancel** opens a sheet saying it cancels the setup for both people and the reservation stays held. Propose, confirm, start and review keep today's confirmation dialog.
+- **Message** is shown only when the Tenancy tab knows the reservation's conversation (it passes the conversation id and both names from the reservation and the loaded identities). Otherwise it is left out.
+- **Removed:** the raw status line, "Owner: confirmed. Renter: not confirmed.", "Refresh setup status" and the always-visible legal paragraphs (their plain-word version is in "How this works"). The reload when the app returns to the foreground stays, and the screen now supports pull to refresh; a reload keeps the screen on show while it loads.
+- **Not built (needs a read or a backend change):** confirmation times, a photo and place line, editable dates.

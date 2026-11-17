@@ -19,3 +19,12 @@ const reservation:any={id:R,propertyId:V,tenantId:B,landlordId:A,status:'approve
 test('explicit source link counts a pending setup once; unrelated and inactive requests do not inflate counts',()=>{const s=tenancySections(B,[relation()],[reservation],Date.parse('2029-12-01'),[{reservation_id:R,tenancy_id:I}]);assert.deepEqual(tenancyCounts(s),{upcoming:1,active:0,history:0,past:0});assert.equal(s.upcoming.length,0);assert.equal(s.pending.length,1);assert.deepEqual(tenancyCounts(tenancySections(B,[],[],0)),{upcoming:0,active:0,history:0,past:0});assert.equal(tenancySections(B,[],[{...reservation,status:'pending'}],Date.parse('2029-12-01')).upcoming.length,0);});
 test('scheduled rent date respects recorded day and start date without inventing payments',()=>{assert.equal(nextScheduledRentDate(relation('active'),Date.parse('2030-01-06T00:00:00Z')),'2030-02-05');const missing=relation();delete missing.rent_due_day;assert.equal(nextScheduledRentDate(missing),null);});
 // The dashboard view tests moved to tenancyScreens.test.ts (the tab was rebuilt: state chips, hero stay, Past section).
+
+test('a reload keeps the screen on show while it loads (pull to refresh), and a failed reload clears it with an error',async()=>{
+  let mode:'ok'|'fail'|'hang'='ok',finish!:(v:SetupContext)=>void;
+  const service:any={read:()=>mode==='ok'?Promise.resolve(proposed()):mode==='hang'?new Promise<SetupContext>(r=>finish=r):Promise.reject(new TenancySetupError('Tenancy setup could not load. Retry.'))};
+  const f=createTenancyEstablishmentWorkflow(service,A,R,()=>I);await f.load();assert.equal(f.getSnapshot().context?.tenancy?.status,'pending_confirmation');
+  mode='hang';const reload=f.load();assert.equal(f.getSnapshot().busy,true);assert.ok(f.getSnapshot().context,'the old screen stays while the new one loads');
+  finish(proposed());await reload;assert.equal(f.getSnapshot().busy,false);
+  mode='fail';await f.load();assert.equal(f.getSnapshot().context,null);assert.match(f.getSnapshot().error!,/could not load/);
+});

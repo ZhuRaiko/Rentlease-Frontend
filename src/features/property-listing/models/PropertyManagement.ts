@@ -92,7 +92,7 @@ export function lifecycleSegments(status: Parameters<typeof lifecycleActions>[0]
   const actions = lifecycleActions(status);
   const op = (key: SegmentKey): LifecycleOperation | null => key === 'listed' ? (actions.includes('reactivate') ? 'reactivate' : null) : key === 'paused' ? (actions.includes('pause') ? 'pause' : null) : (actions.includes('archive') ? 'archive' : null);
   const reason = occupied || status === 'rented' ? 'Pause and archive are unavailable while a tenancy is active.'
-    : status === 'archived' ? 'Archived listings stay archived. Create a new listing from My properties.'
+    : status === 'archived' ? 'Archived listings stay archived. Use List again from My properties.'
     : status === 'removed' ? 'This listing was removed from RentLease.'
     : status === 'draft' ? 'Publish this draft to manage its status.'
     : null;
