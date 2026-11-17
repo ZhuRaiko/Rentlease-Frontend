@@ -11,6 +11,7 @@ function load(file:string,mocks:Record<string,any>,cache=new Map<string,any>()):
   const path=resolve(file);if(cache.has(path))return cache.get(path).exports;
   const mod={exports:{} as any};cache.set(path,mod);
   const req=(key:string):any=>{
+    if(/\/useBottomClearance$/.test(key))return{useBottomClearance:()=>56};
     if(key==='react')return{useState:(v:any)=>[typeof v==='function'?v():v,()=>{}],useMemo:(f:any)=>f(),useEffect:()=>{},useRef:(v:any)=>({current:v}),useCallback:(f:any)=>f};
     if(key==='react/jsx-runtime'){const jsx=(type:any,props:any)=>typeof type==='function'?type(props):({type,props});return{jsx,jsxs:jsx,Fragment:'Fragment'};}
     if(key==='react-native')return new Proxy({StyleSheet:{create:(v:any)=>v,flatten:(v:any)=>v}},{get:(v:any,k)=>v[k]??k});

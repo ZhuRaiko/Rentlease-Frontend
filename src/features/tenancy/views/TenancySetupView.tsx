@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react';
 import {ActivityIndicator,Alert,Pressable,RefreshControl,StyleSheet,Text,TextInput,View} from 'react-native';
 import {ScreenHeader} from '../../../shared/components/ScreenHeader';
+import {useBottomClearance} from '../../../shared/components/useBottomClearance';
 import {KeyboardAwareScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {PinnedFooter} from '../../../shared/components/PinnedFooter';
 import {ButtonRow,Slot,StatusButton,StatusChip} from '../../../shared/components/StatusParts';
@@ -24,6 +25,7 @@ export function TenancySetupView({accountId,reservationId,onBack,onChanged,regis
   conversationId?:string|null|undefined;names?:{owner:string;renter:string}|undefined;onMessage?:((conversationId:string)=>void)|undefined}){
  // Every hook runs before anything is returned: the screen renders loading, loaded and sheet states with the same hooks.
  const vm=useTenancyEstablishmentViewModel(accountId,reservationId),ctx=vm.context,locked=vm.busy||vm.saving||vm.uncertain;
+ const bottom=useBottomClearance();
  const [howOpen,setHowOpen]=useState(false),[cancelOpen,setCancelOpen]=useState(false);
  const back=()=>{if(vm.saving)return;if(vm.uncertain){Alert.alert('We could not confirm it went through','Try again, or check the saved status. You can also leave and open this reservation again.',[{text:'Keep reviewing',style:'cancel'},{text:'Leave setup',onPress:onBack}]);}else onBack();};
  useEffect(()=>{registerBackAction?.(back);return()=>registerBackAction?.(null);});
@@ -36,7 +38,7 @@ export function TenancySetupView({accountId,reservationId,onBack,onChanged,regis
  const canMessage=!!screen?.message&&!!conversationId&&!!onMessage;
  return <View style={styles.root}>
   <ScreenHeader title={screen?.headerTitle??'Tenancy setup'} onBack={back} disabled={vm.saving}/>
-  <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={vm.busy&&!!ctx} onRefresh={()=>void vm.workflow.load()} colors={[colors.primaryAction]}/>}>
+  <KeyboardAwareScrollView contentContainerStyle={[styles.content,{paddingBottom:bottom}]} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={vm.busy&&!!ctx} onRefresh={()=>void vm.workflow.load()} colors={[colors.primaryAction]}/>}>
    {vm.busy&&!ctx?<ActivityIndicator accessibilityLabel="Loading tenancy setup" color={colors.primaryAction}/>:null}
    {vm.error&&!vm.uncertain?<View accessibilityRole="alert" style={styles.alertRed}><Text style={styles.alertRedTitle}>{vm.error}</Text>
     <StatusButton label="Reload" disabled={vm.busy||vm.saving} onPress={()=>void vm.workflow.retry()}/></View>:null}

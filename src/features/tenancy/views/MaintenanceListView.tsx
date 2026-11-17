@@ -5,6 +5,7 @@ import {radius} from '../../../shared/theme/radius';
 import {spacing} from '../../../shared/theme/spacing';
 import {ui} from '../../../shared/theme/ui';
 import {ButtonRow, Slot, StatusButton, StatusChip} from '../../../shared/components/StatusParts';
+import {useBottomClearance} from '../../../shared/components/useBottomClearance';
 import {KeyboardAwareScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {ageText, careActionsFor, categoryLabel, isOpen, requestChip, resolvedLine, tenancyStateOf, trackerSteps} from '../models/Maintenance';
 import {formatWhen} from '../models/MaintenanceFormat';
@@ -18,6 +19,7 @@ type Tab = 'open' | 'resolved';
 /** "My maintenance requests" for the tenant: Open and Resolved tabs, one card per request. */
 export function MaintenanceListView({care, propertyTitle, landlordName, onReport, onOpen}: {care: Care; propertyTitle: string; landlordName: string; onReport: () => void; onOpen: (requestId: string) => void}) {
   const [tab, setTab] = useState<Tab>('open'), [sheet, setSheet] = useState<{kind: 'notFixed' | 'cancel'; request: CareRequest} | null>(null);
+  const bottom = useBottomClearance();
   const data = care.data, now = Date.now(), tenancy = tenancyStateOf(data?.status ?? '');
   const confirmed = (r: CareRequest) => care.workflow.confirmedOf(r);
   const groups = useMemo(() => {
@@ -30,7 +32,7 @@ export function MaintenanceListView({care, propertyTitle, landlordName, onReport
     void care.workflow.submit(action, {requestId: r.id, revision: r.revision, ...(note ? {note} : {})});
     setSheet(null);
   };
-  return <KeyboardAwareScrollView contentContainerStyle={styles.content}>
+  return <KeyboardAwareScrollView contentContainerStyle={[styles.content, {paddingBottom: bottom}]}>
     <Text style={ui.supporting}>{propertyTitle}</Text>
     <View accessibilityRole="tablist" style={styles.tabs}>{(['open', 'resolved'] as const).map(t => <Pressable key={t} accessibilityRole="tab" accessibilityLabel={`${t === 'open' ? 'Open' : 'Resolved'}, ${groups[t].length}`} accessibilityState={{selected: tab === t}} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabOn]}>
       <Text style={[styles.tabText, tab === t && styles.tabTextOn]}>{t === 'open' ? 'Open' : 'Resolved'} · {groups[t].length}</Text></Pressable>)}</View>

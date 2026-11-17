@@ -138,6 +138,7 @@ function harness(mocks:Record<string,(count:()=>void)=>any>={}){
     const path=resolve(file);if(cache.has(path))return cache.get(path).exports;
     const mod={exports:{} as any};cache.set(path,mod);
     const req=(key:string):any=>{
+    if(/\/useBottomClearance$/.test(key))return{useBottomClearance:()=>56};
       if(key==='react')return react;
       if(key==='react/jsx-runtime'){const jsx=(type:any,props:any)=>({type,props});return{jsx,jsxs:jsx,Fragment:'Fragment'};}
       if(key==='react-native')return native;

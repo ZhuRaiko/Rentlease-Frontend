@@ -6,6 +6,7 @@ import {MaintenanceFlowView} from './MaintenanceFlowView';
 import {RentLedgerPanel} from './RentLedgerPanel';
 import {payableRow} from '../models/RentLedger';
 import {useRentLedgerViewModel} from '../viewModels/useRentLedgerViewModel';
+import {useBottomClearance} from '../../../shared/components/useBottomClearance';
 import {KeyboardAwareScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Pressable,RefreshControl,StyleSheet,Text,View} from 'react-native';
@@ -46,6 +47,7 @@ function Card({title,right,children}:{title?:string;right?:React.ReactNode;child
 function Timeline({items}:{items:NonNullable<DetailsScreen['timeline']>}){return <View>{items.map((e,index)=><View key={e.key} style={styles.timelineRow}><View style={styles.rail}><View style={[styles.dot,index===items.length-1&&{backgroundColor:colors.warning}]}/>{index<items.length-1?<View style={styles.line}/>:null}</View><View style={{flex:1,paddingBottom:spacing.sm}}><Text style={ui.body}>{e.label}</Text><Text style={ui.supporting}>{e.date}{e.note?` · ${e.note}`:''}</Text></View></View>)}</View>;}
 export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onOpenConversation,externalPanelOpen=false,registerBackAction,initialPanel,initialRequestId,onOpenProperty}:Props){
  const vm=useTenancyDetailsViewModel(accountId,tenancyId,reservationId,externalPanelOpen),d=vm.data,t=d?.tenancy;
+ const bottom=useBottomClearance();
  const care=useTenancyCareViewModel(accountId,tenancyId),life=useTenancyLifecycleViewModel(accountId,tenancyId),reviews=useRentalReviews(accountId,{mode:'tenancy',id:tenancyId});
  // The extension request is read only for an active tenancy; every hook of this screen runs before it returns anything.
  const ext=useTenancyExtensionViewModel(accountId,tenancyId,t?.status==='active'),[sheetOpen,setSheetOpen]=useState(false);
@@ -68,7 +70,7 @@ export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onO
  const answered=async(sent:Promise<boolean>)=>{if(await sent){vm.workflow.back();void vm.workflow.load();}};
  const title=vm.panel==='rent'?`Rent · ${screen?.title??'Rental'}`:vm.panel==='reviews'?reviewTitle:vm.panel==='lifecycle'?'Tenancy completion':vm.panel==='extension'?'Extension request':vm.panel==='care'||vm.panel==='report'?careTitle:vm.panel==='property'?'Property information':vm.panel==='reservation'?'Reservation reference':'Tenancy details';
  const message=()=>{if(d?.conversationId)onOpenConversation?.(d.conversationId);};
- return <View style={styles.screen}><ScreenHeader title={title} onBack={back}/><KeyboardAwareScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={vm.phase==='loading'} onRefresh={()=>void vm.workflow.load()}/>}>
+ return <View style={styles.screen}><ScreenHeader title={title} onBack={back}/><KeyboardAwareScrollView contentContainerStyle={[styles.content,{paddingBottom:bottom}]} refreshControl={<RefreshControl refreshing={vm.phase==='loading'} onRefresh={()=>void vm.workflow.load()}/>}>
  {vm.phase==='loading'||vm.phase==='idle'?<ActivityIndicator accessibilityLabel="Loading tenancy details" color={colors.primaryAction}/>:null}
  {vm.error?<View style={styles.card}><Text accessibilityRole="alert" style={ui.body}>{vm.error}</Text><AppButton label="Retry tenancy details" variant="secondary" onPress={()=>void vm.workflow.load()}/></View>:null}
  {d&&t&&screen?<>

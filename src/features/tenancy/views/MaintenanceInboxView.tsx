@@ -5,6 +5,7 @@ import {spacing} from '../../../shared/theme/spacing';
 import {CHIP_COLORS} from '../../../shared/theme/statusColors';
 import {ui} from '../../../shared/theme/ui';
 import {ButtonRow, Slot, StatusButton, StatusChip} from '../../../shared/components/StatusParts';
+import {useBottomClearance} from '../../../shared/components/useBottomClearance';
 import {KeyboardAwareScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {ageText, careActionsFor, categoryLabel, requestChip, resolvedLine, type InboxRow} from '../models/Maintenance';
 import {NoteBubble, Notice} from '../components/MaintenanceParts';
@@ -17,9 +18,10 @@ function Count({value, label, tone}: {value: number; label: string; tone: 'warni
 
 /** The landlord's inbox: counts, then the requests in the order the server returned them (urgent open first). */
 export function MaintenanceInboxView({accountId, propertyId, onOpen}: {accountId: string | undefined; propertyId: string | null; onOpen: (row: InboxRow, tenantName: string) => void}) {
+  const bottom = useBottomClearance();
   const vm = useMaintenanceInboxViewModel(accountId, propertyId), nameOf = useTenantNames(accountId, true), now = Date.now(), locked = vm.busy || vm.saving;
   const counts = vm.counts;
-  return <KeyboardAwareScrollView contentContainerStyle={styles.content}>
+  return <KeyboardAwareScrollView contentContainerStyle={[styles.content, {paddingBottom: bottom}]}>
     {counts ? <View style={styles.counts}><Count value={counts.open} label="Open" tone="warning"/><Count value={counts.inProgress} label="In progress" tone="info"/><Count value={counts.resolved} label="Resolved" tone="neutral"/></View> : null}
     {vm.busy && !vm.ready ? <ActivityIndicator accessibilityLabel="Loading maintenance requests" color={colors.primaryAction}/> : null}
     {vm.error ? <Notice text={vm.error} onRetry={() => void vm.workflow.retry()} disabled={locked}/> : null}

@@ -4,6 +4,7 @@ import {colors} from '../../../shared/theme/colors';
 import {spacing} from '../../../shared/theme/spacing';
 import {ui} from '../../../shared/theme/ui';
 import {StatusButton} from '../../../shared/components/StatusParts';
+import {useBottomClearance} from '../../../shared/components/useBottomClearance';
 import {KeyboardAwareScrollView} from '../../../shared/components/KeyboardAwareScrollView';
 import {CATEGORY_LABELS, DEFAULT_URGENCY, DESCRIPTION_MAX, URGENCY_OPTIONS, URGENT_HINT, PICKER_CATEGORIES, createPayload, reportValid, type PickerCategory, type UrgencyKey} from '../models/Maintenance';
 import {ChipGroup, ChoiceChip, Notice} from '../components/MaintenanceParts';
@@ -14,10 +15,11 @@ type Care = ReturnType<typeof useTenancyCareViewModel>;
 /** "Report an issue": category, urgency, description. The title is made from the description when it is sent. */
 export function MaintenanceReportView({care, propertyTitle, landlordName}: {care: Care; propertyTitle: string; landlordName: string}) {
   const [category, setCategory] = useState<PickerCategory>('plumbing'), [urgency, setUrgency] = useState<UrgencyKey>(DEFAULT_URGENCY), [description, setDescription] = useState('');
+  const bottom = useBottomClearance();
   const locked = !care.ready || care.busy || care.saving, retrying = !!care.pending && care.pending.action === 'create';
   const valid = reportValid(description);
   const send = () => {if (retrying) void care.workflow.retry(); else void care.workflow.submit('create', createPayload({description, category, urgency}));};
-  return <KeyboardAwareScrollView contentContainerStyle={styles.content}>
+  return <KeyboardAwareScrollView contentContainerStyle={[styles.content, {paddingBottom: bottom}]}>
     <View style={{gap: 2}}><Text accessibilityRole="header" style={ui.pageTitle}>{propertyTitle}</Text><Text style={ui.supporting}>Goes to {landlordName}</Text></View>
     {care.busy ? <ActivityIndicator accessibilityLabel="Loading" color={colors.primaryAction}/> : null}
     <View style={styles.group}><Text accessibilityRole="header" style={ui.sectionTitle}>What’s the problem?</Text>
