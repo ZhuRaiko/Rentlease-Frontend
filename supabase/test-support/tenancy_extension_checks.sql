@@ -9,13 +9,27 @@
 --    accepted_identity_revision_id equal the property's CURRENT edit_version / identity revision (a missing property or identity row fails too).
 --  * The fixture does NOT satisfy them: it BYPASSES them. Every row is created or mutated between a top-level
 --    "set local session_replication_role = replica" and "= origin" (the same top-level SET the rent ledger checks use), so triggers and FK
---    checks are off. The fixture properties are random ids with no properties row, and accepted_* stay null, on purpose.
+--    checks are off. The fixture property rows are minimal (no edit-version or identity history behind them) and accepted_* stay null, on purpose.
 --  * After "= origin" the only writes to public.tenancies are the extension accepts themselves. An accept updates expected_end_date ONLY: status,
 --    both confirmation timestamps and accepted_* are unchanged, so neither gate evaluates (the commitment guard, listing sync, validation and
 --    updated_at triggers still run, which is the point of running a real accept).
 --  * Mid-test fixture changes that would trip a gate (ending a tenancy, changing an end date, adding reservations or early-end requests) run in
 --    their own blocks between top-level SET replica / SET origin, never inside a DO block.
 -- Every expected-error check matches the exact SQLSTATE and the exact message (pg_temp.is_err / is_conflict); a different exception fails it.
+-- FOREIGN KEYS THAT ARE RE-CHECKED IN THE SAME TRANSACTION. Postgres re-runs a foreign-key check on UPDATE for a row inserted by the current
+-- transaction even when the key did not change. The updates that happen with triggers ON are the accepts: they update a public.tenancies row, and
+-- the listing sync updates the matching public.listings row. Both were inserted here, so every FK of those rows must resolve. Every FK below was read
+-- from the catalog (pg_constraint) and each target exists or the column is NULL:
+--   public.tenancies: property_id -> public.properties (row created from the tenancy, fixture block); listing_id -> public.listings (one per tenancy,
+--     same block); tenant_id, landlord_id, created_by -> public.profiles (tn, ot, nt / ld: profiles insert); conversation_id -> conversations: NULL;
+--     accepted_identity_revision_id -> rentlease_property_identity.revisions: NULL.
+--   public.listings: landlord_id -> public.profiles (ld); property_id -> public.properties (the same property as the tenancy or reservation).
+--   public.properties: landlord_id -> public.profiles (ld).
+--   public.rental_reservations: property_id -> properties (above); tenant_id, landlord_id -> profiles; listing_id -> a new listing and conversation_id
+--     -> a new conversation, both made by pg_temp.fx_resv for every reservation (unique (listing_id, tenant_id) holds: one new listing each);
+--     responded_by -> NULL. Reservations are inserted and deleted, never updated, but their keys resolve anyway.
+--   rentlease_tenancy_end.requests and rentlease_tenancy_extension.requests / events -> public.tenancies (exists).
+--   public.conversations (created by fx_resv): listing_id -> listings, tenant_id and landlord_id -> profiles.
 -- Fixture inserts, against the real column lists:
 --  * public.profiles(id, account_status, tier1_verified_at): the same three columns the ledger fixture uses.
 --  * public.tenancies: every NOT NULL column is given (id, property_id, listing_id, tenant_id, landlord_id, status, start_date, agreed_monthly_rent,
@@ -64,6 +78,16 @@ create function pg_temp.is_conflict(p text,p_date date) returns boolean language
 create function pg_temp.req(p_end date,p_note text default null) returns jsonb language sql as $$
  select jsonb_strip_nulls(jsonb_build_object('requestedEndDate',to_char(p_end,'YYYY-MM-DD'),'note',p_note)) $$;
 create function pg_temp.dec(p_id text,p_rev text) returns jsonb language sql as $$ select jsonb_build_object('requestId',p_id,'revision',p_rev) $$;
+-- A reservation plus the listing and conversation rows its foreign keys point at (listing_id and conversation_id are NOT NULL). Called only
+-- between the top-level replica/origin SETs, so triggers are off while it inserts. The listing belongs to the same property and landlord, the
+-- conversation to the reservation's tenant and landlord; (listing_id, tenant_id) is unique and every call makes a new listing, so it never collides.
+create function pg_temp.fx_resv(p_id uuid,p_property uuid,p_tenant uuid,p_landlord uuid,p_move_in date,p_months int,p_end date,p_status text,p_expires timestamptz) returns void language plpgsql as $$
+declare l uuid:=gen_random_uuid(); c uuid:=gen_random_uuid();
+begin
+ insert into public.listings(id,property_id,landlord_id,title,description,asking_rent_monthly) values(l,p_property,p_landlord,'Fixture listing for a reservation','Fixture listing for the extension checks',10000);
+ insert into public.conversations(id,listing_id,tenant_id,landlord_id) values(c,l,p_tenant,p_landlord);
+ insert into public.rental_reservations(id,conversation_id,listing_id,property_id,tenant_id,landlord_id,move_in_date,duration_months,end_date,status,expires_at) values(p_id,c,l,p_property,p_tenant,p_landlord,p_move_in,p_months,p_end,p_status,p_expires);
+end$$;
 create function pg_temp.rid(p_tenancy uuid) returns text language sql as $$ select id::text from rentlease_tenancy_extension.requests where tenancy_id=p_tenancy and status='pending' $$;
 create function pg_temp.rrev(p_tenancy uuid) returns text language sql as $$ select revision::text from rentlease_tenancy_extension.requests where tenancy_id=p_tenancy and status='pending' $$;
 
@@ -98,6 +122,18 @@ begin
   (tu,gen_random_uuid(),gen_random_uuid(),tn,ld,'active',today-60,ea,null,null,10000,5,ld,now(),now(),now()),
   (tw,p_w,gen_random_uuid(),tn,ld,'active',today-60,ea,null,null,10000,5,ld,now(),now(),now()),
   (tx,gen_random_uuid(),gen_random_uuid(),nt,ld,'active',today-60,ea,null,null,10000,5,ld,now(),now(),now());
+ -- Properties. Postgres re-runs foreign-key checks on UPDATE for a row that was inserted in the same transaction even when the key did not change, and
+ -- the accepts (and the listing sync they trigger) update tenancy and listing rows created here, so tenancies_property_id_fkey and listings_property_id_fkey
+ -- need a real properties row. One per distinct fixture property id (the three reservation properties p_g, p_w, p_r and p_j are tenancy properties too),
+ -- built from the tenancy rows. Only the NOT NULL columns without a default are given: landlord_id (the fixture owner), property_type 'house' and city
+ -- 'imus' (labels read from pg_enum: property_type = apartment, boarding_house, bedspace, room, studio, condominium, house, dormitory, other; cavite_city
+ -- = imus, dasmarinas, tagaytay), barangay, and public_location (a geography(Point,4326), type in the extensions schema; not an enum). property_subtype
+ -- stays NULL, which properties_model_subtype_check allows. No other constraint applies to these values (bedrooms, bathrooms and floor_area_sqm are NULL
+ -- and their checks pass on NULL). Triggers on public.properties: the INSERT ones (rental_location_revision, unfinished_post_register) would write rows in
+ -- other schemas, so this insert must run, and does run, between the top-level replica/origin SETs with the other fixtures; the UPDATE ones
+ -- (property_details_rotate, updated_at, completeness, identity_canonical_property) never fire because nothing here updates a property.
+ insert into public.properties(id,landlord_id,property_type,city,barangay,public_location)
+  select distinct t.property_id,t.landlord_id,'house','imus','Fixture Barangay','SRID=4326;POINT(120.9 14.3)'::extensions.geography from public.tenancies t where t.id in(ta,tb,tc,td,te,tf,tg,th,ti,tj,tk,tm,tq,tr,ts,tu,tw,tx);
  -- Listings (validate_tenancy raises 'Listing does not exist' unless public.listings has a row with id = tenancy.listing_id, and requires
  -- listing.property_id = tenancy.property_id and listing.landlord_id = tenancy.landlord_id). ONE listing per fixture tenancy, built FROM the tenancy
  -- row just inserted, so the three values match by construction. Only the columns without a default are given: property_id, landlord_id, title,
@@ -110,14 +146,13 @@ begin
  --  p_r: five reservations, only the first counts: (1) approved, unexpired, other party, from today+45 -> blocks; (2) pending, unexpired, other party,
  --       from today+36 -> does not block (it would give an earlier date if it did); (3) approved but EXPIRED, from today+37 -> does not block;
  --       (4) approved, unexpired, the SAME tenant and landlord as the tenancy, from today+35 -> ignored; (5) declined, from today+31 -> ignored.
- insert into public.rental_reservations(id,conversation_id,listing_id,property_id,tenant_id,landlord_id,move_in_date,duration_months,end_date,status,expires_at) values
-  (gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),p_g,ot,ld,today+40,2,today+100,'approved',now()+interval '100 days'),
-  (gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),p_w,ot,ld,today+40,2,today+100,'pending',now()+interval '3 days'),
-  (gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),p_r,ot,ld,today+45,2,today+105,'approved',now()+interval '100 days'),
-  (gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),p_r,ot,ld,today+36,1,today+60,'pending',now()+interval '3 days'),
-  (gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),p_r,ot,ld,today+37,1,today+61,'approved',now()-interval '1 day'),
-  (gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),p_r,tn,ld,today+35,2,today+80,'approved',now()+interval '100 days'),
-  (gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),p_r,ot,ld,today+31,1,today+50,'declined',now()+interval '3 days');
+ perform pg_temp.fx_resv(gen_random_uuid(),p_g,ot,ld,today+40,2,today+100,'approved',now()+interval '100 days');
+ perform pg_temp.fx_resv(gen_random_uuid(),p_w,ot,ld,today+40,2,today+100,'pending',now()+interval '3 days');
+ perform pg_temp.fx_resv(gen_random_uuid(),p_r,ot,ld,today+45,2,today+105,'approved',now()+interval '100 days');
+ perform pg_temp.fx_resv(gen_random_uuid(),p_r,ot,ld,today+36,1,today+60,'pending',now()+interval '3 days');
+ perform pg_temp.fx_resv(gen_random_uuid(),p_r,ot,ld,today+37,1,today+61,'approved',now()-interval '1 day');
+ perform pg_temp.fx_resv(gen_random_uuid(),p_r,tn,ld,today+35,2,today+80,'approved',now()+interval '100 days');
+ perform pg_temp.fx_resv(gen_random_uuid(),p_r,ot,ld,today+31,1,today+50,'declined',now()+interval '3 days');
  -- tk: an early-end request is already pending. tb: an extension request made earlier, now past the tenancy's end (for the accept-time date check).
  insert into rentlease_tenancy_end.requests(tenancy_id,initiator_id,proposed_end_date,reason,base_version,original_terms) values(tk,tn,today,'Moving out','v','{}'::jsonb);
  insert into rentlease_tenancy_extension.requests(tenancy_id,requester_id,requested_end_date,base_end_date) values(tb,tn,today+10,today-3);
@@ -332,8 +367,7 @@ declare tj uuid:=pg_temp.c('tj'); tq uuid:=pg_temp.c('tq'); ts uuid:=pg_temp.c('
  today date:=(statement_timestamp() at time zone 'Asia/Manila')::date; ea date:=today+30;
 begin
  -- another party's APPROVED reservation appears on tj's property after the request
- insert into public.rental_reservations(id,conversation_id,listing_id,property_id,tenant_id,landlord_id,move_in_date,duration_months,end_date,status,expires_at)
-  values(pg_temp.c('resv'),gen_random_uuid(),gen_random_uuid(),pg_temp.c('p_j'),ot,ld,today+45,2,today+105,'approved',now()+interval '100 days');
+ perform pg_temp.fx_resv(pg_temp.c('resv'),pg_temp.c('p_j'),ot,ld,today+45,2,today+105,'approved',now()+interval '100 days');
  -- an early-end request appears on tq after its extension request (reason, base_version, original_terms are NOT NULL)
  insert into rentlease_tenancy_end.requests(tenancy_id,initiator_id,proposed_end_date,reason,base_version,original_terms) values(tq,tn,today,'Moving out','v','{}'::jsonb);
  -- ts ends; tu's end date moves
