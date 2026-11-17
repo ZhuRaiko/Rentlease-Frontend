@@ -456,3 +456,28 @@ test('rent ledger files use theme tokens and shared parts, no raw queries in the
   for (const file of files.filter(f => /viewModels|views|components/.test(f))) assert.doesNotMatch(readFileSync(file, 'utf8'), /\.from\(|\.rpc\(|getSupabaseClient\(\)\.|features\/(messaging|property)/, file);
   assert.doesNotMatch(readFileSync('src/features/tenancy/models/RentLedger.ts', 'utf8'), /messaging-viewing\/(views|viewModels)/);
 });
+
+// ---------------------------------------------------------------- mutation pass: guards the first suite left unchecked
+test('workflow: while one write is unresolved, another action on the same month is refused even when its flag is on, and tapping the same action again reuses the operation id', async () => {
+  const j = tenantLedger() as any; j.rows[1].canAcknowledge = true;
+  const f = flow({ actor: T, ledgers: [j], writes: [uncertain()] });
+  await f.wf.load();
+  assert.equal(await f.wf.act('mark_paid', '2026-11-02'), false);
+  assert.equal(await f.wf.act('acknowledge', '2026-11-02'), false, 'refused: another action is unresolved');
+  assert.equal(f.writes().length, 1, 'nothing was sent for the refused action');
+  assert.equal(await f.wf.act('mark_paid', '2026-11-02'), true);
+  assert.equal(f.writes()[1]!.operationId, f.writes()[0]!.operationId, 'the same tap again is the same intent');
+});
+test('dispute: a chat message id is used once. A second dispute of the same month and a dispute after a refused one never reuse an earlier id', async () => {
+  const f = flow({ ledgers: [asLandlord()] });
+  await f.wf.load();
+  f.wf.openDispute('2026-11-02'); await f.wf.confirmDispute();
+  f.wf.openDispute('2026-11-02'); await f.wf.confirmDispute();
+  assert.equal(f.chatCalls.length, 2); assert.notEqual(f.chatCalls[0]!.messageId, f.chatCalls[1]!.messageId, 'a new dispute is a new message');
+  const j = asLandlord() as any; j.rows[2].canDispute = true;
+  const g = flow({ ledgers: [j], writes: [server('42501')] });
+  await g.wf.load();
+  g.wf.openDispute('2026-11-02'); assert.equal(await g.wf.confirmDispute(), false, 'refused');
+  g.wf.openDispute('2026-10-02'); assert.equal(await g.wf.confirmDispute(), true);
+  assert.equal(g.chatCalls.length, 1); assert.equal(g.chatCalls[0]!.messageId, '50000000-0000-4000-8000-000000000004', 'the refused month left no message id behind');
+});

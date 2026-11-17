@@ -105,3 +105,17 @@ test('step times come from the thread and ages and dates are in Philippine time'
   assert.equal(formatWhen('2026-11-16T23:12:00Z',now),'Today 7:12 AM');assert.equal(formatWhen('2026-11-09T01:00:00Z',now),'Nov 9, 9:00 AM');assert.equal(shortDate('2026-11-09T01:00:00Z'),'Nov 9');
   assert.equal(ageText('2026-11-17T02:00:00Z',now),'2h ago');assert.equal(ageText('2026-11-14T04:00:00Z',now),'3d ago');
 });
+
+// ---- mutation pass: rules the first suite did not pin down
+import {propertyMaintenance as manageMaintenance} from '../src/features/tenancy/models/MaintenanceInbox';
+test('after the tenancy ended the landlord can still mark a request fixed but cannot reply; a note is not a step',()=>{
+  const a=(status:CareStatus,tenancy:'active'|'ended')=>careActionsFor({role:'landlord',tenancy,status,confirmed:false});
+  assert.equal(a('in_progress','ended').resolve,true,'fixed stays allowed');assert.equal(a('in_progress','ended').reply,false);assert.equal(a('submitted','ended').reply,false);
+  assert.deepEqual(stepTimes([{id:'1',role:'landlord',fromStatus:'in_progress',status:'in_progress',note:'Still on it',at:'2026-11-17T05:00:00Z'}],'2026-11-17T01:00:00Z',s=>s.slice(11,16)),{sent:'01:00'});
+});
+test('counts: scheduled work counts as in progress, and Manage lists only open urgent requests',()=>{
+  const row=(o:any):any=>({id:'r'+Math.random(),propertyId:'p1',title:'T',createdAt:'2026-11-17T01:00:00Z',status:'submitted',priority:'urgent',tenantConfirmedAt:null,...o});
+  assert.equal(countRows([row({status:'scheduled',priority:'normal'}),row({status:'in_progress',priority:'normal'})]).inProgress,2);
+  const done=row({id:'done',status:'resolved',tenantConfirmedAt:'2026-11-17T02:00:00Z'}),open=row({id:'open'});
+  assert.deepEqual(manageMaintenance([done,open],'p1').urgent.map(u=>u.id),['open']);
+});

@@ -128,3 +128,18 @@ test('unknown portfolio errors are not falsely labeled network and identity diag
 test('current binding, not historical approval, controls repair and verified portfolio status',async()=>{const h=serviceHarness();h.rows.verification_submissions=[verification('approved')];h.bindings([{property_id:property,verified:false,requires_repair:true,current_submission_id:null}]);const item=(await h.service.load(owner))[0]!;assert.equal(item.tier3.requiresRepair,true);assert.equal(item.tier3.identityBound,false);assert.notEqual(item.tier3.status,'approved');assert.deepEqual(h.bindingCalls,[[property]]);});
 test('missing identity-read migration preserves real portfolio and marks binding as unavailable',async()=>{const h=serviceHarness();h.rows.verification_submissions=[verification('approved')];const items=await h.service.load(owner);assert.equal(items.length,1);assert.equal(items[0]!.currentListing?.id,listing('draft').id);assert.equal(items[0]!.tier3.identityBindingAvailable,false);});
 test('pending correction does not erase the current canonical approved binding',async()=>{const h=serviceHarness();h.rows.verification_submissions=[verification('approved'),{...verification('pending'),id:'new',submitted_at:'2026-11-02T00:00:00Z'}];h.bindings([{property_id:property,verified:true,requires_repair:false,current_submission_id:'v'}]);const item=(await h.service.load(owner))[0]!;assert.equal(item.tier3.status,'approved');assert.equal(item.tier3.submissionId,'v');assert.equal(item.tier3.identityBound,true);});
+
+// ---- mutation pass: rules the first suite did not pin down
+import { portfolioFilterMatches } from '../src/features/property-listing/models/LandlordPortfolio';
+import { ageText as manageAge } from '../src/features/property-listing/models/PropertyManagement';
+test('portfolio: Rented counts rented listings only, All shows every card, a search ignores surrounding spaces, and a future time reads "recently"', () => {
+  const stats = portfolioStats([{ listings: [{ status: 'rented' }, { status: 'rented' }, { status: 'active' }, { status: 'draft' }] }] as any);
+  assert.deepEqual(stats, { properties: 1, published: 1, drafts: 1, rented: 2 });
+  assert.equal(portfolioFilterMatches({ currentListing: null } as any, 'all'), true);
+  assert.equal(portfolioFilterMatches({ currentListing: { status: 'paused' } } as any, 'all'), true, 'All shows a paused listing too');
+  const older = { ...listing('active', '40000000-0000-4000-8000-000000000002'), updated_at: '2026-01-01T00:00:00Z' }, newer = { ...listing('active', '40000000-0000-4000-8000-000000000003'), updated_at: '2026-06-01T00:00:00Z' };
+  assert.equal(currentPortfolioListing([older, newer])?.id, newer.id, 'the most recently updated listing is current');
+  const items = assemblePortfolio([p], [listing('active')], [], new Map());
+  assert.equal(filterPortfolio(items, '  Buhay  ').length, 1);
+  assert.equal(manageAge('2030-01-01T00:00:00Z', Date.parse('2026-11-16T04:00:00Z')), 'recently');
+});

@@ -135,3 +135,12 @@ test('the occupied Manage screen no longer has Back to My properties, and Manage
   assert.doesNotMatch(readFileSync('src/features/property-listing/views/ManagePropertyView.tsx','utf8'),/Back to My properties/);
   const hook=readFileSync('src/app/usePropertyManagement.ts','utf8');assert.match(hook,/careService\.inbox/);assert.doesNotMatch(hook,/activity\.care|CLOSED/);
 });
+
+// ---- mutation pass: a refused action sends nothing
+test('a landlord cannot mark a new request fixed, and nobody replies once the tenancy ended',async()=>{
+  const sent:any[]=[];const write=async(_a:string,op:any)=>{sent.push(op);return{};};
+  const l=createMaintenanceRequestWorkflow(svc({request:async()=>read({role:'landlord'}),write}),createCareJournal(memory()),LANDLORD,REQ,ids());
+  await l.load();await l.setStatus('resolved','');assert.equal(sent.length,0,'submitted cannot jump to fixed');l.dispose();
+  const t=createMaintenanceRequestWorkflow(svc({request:async()=>read({status:'in_progress',tenancyEnded:true}),write}),createCareJournal(memory()),TENANT,REQ,ids());
+  await t.load();await t.reply('Any news?');assert.equal(sent.length,0,'ended tenancy: no reply');t.dispose();
+});

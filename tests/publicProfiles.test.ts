@@ -324,3 +324,11 @@ test('screens never reach a backend client: the profile views use only the share
   assert.match(readFileSync('App.tsx', 'utf8'), /ProfileNavigationContext\.Provider/);
   assert.doesNotMatch(readFileSync('src/features/messaging-viewing/views/RentalReservationsView.tsx', 'utf8'), /Tier 1 active|Tier 2 approved|Applicant: \{item\.applicantLabel/);
 });
+
+// ---- mutation pass: rules the first suite did not pin down
+test('a block must match the roles the profile lists, a listing rent cannot be negative, and a block with no reviews gives no rating badge', () => {
+  assert.throws(() => parsed({ roles: ['landlord'], tenant: tenantBlock() }), PublicProfileError, 'a tenant block without the tenant role');
+  assert.throws(() => parsed({ landlord: landlordBlock({ listings: [{ listingId: U(40), propertyId: U(41), title: 'Garcia Apartment', city: 'imus', monthlyRent: -1 }] }) }), PublicProfileError);
+  const quiet = parsed({ roles: ['landlord', 'tenant'], tenant: tenantBlock({ completedStays: 1, reviewerCount: 0, rating: noRating, recentReviews: [] }) });
+  assert.deepEqual(profileBadge(quiet, 'tenant'), { idVerified: true, rating: null, stays: 1 });
+});

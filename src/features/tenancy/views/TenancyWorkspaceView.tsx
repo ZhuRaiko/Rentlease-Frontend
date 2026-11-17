@@ -36,11 +36,13 @@ export function TenancyWorkspaceView({accountId,onBack,onDiscover,onListings,onP
  const vm=useTenancyWorkspaceViewModel(accountId,onStartRequest),[setup,setSetup]=useState<{actor:string|undefined;reservationId:string}|null>(null),[reload,setReload]=useState(0),[details,setDetails]=useState<Details|null>(initialOpen?.tenancyId?{actor:accountId,id:initialOpen.tenancyId,sourceId:null,...(initialOpen.panel?{panel:initialOpen.panel}:{}),...(initialOpen.requestId?{requestId:initialOpen.requestId}:{})}:null);
  const activeDetails=details?.actor===accountId?details:null,screen=vm.screen;
  const scroll=useRef<ScrollView|null>(null),at=useRef<Partial<Record<TileKind,number>>>({});
+ // Every hook runs before the setup early return below: the same hooks must run on every render (Rules of Hooks).
+ const {width,fontScale}=useWindowDimensions();
  useEffect(()=>{if((!setup||setup.actor!==accountId)&&!activeDetails&&!externalPanelOpen){registerBackAction(onBack);return()=>registerBackAction(null);}},[registerBackAction,onBack,setup,accountId,activeDetails,externalPanelOpen]);
  useEffect(()=>{if(reload)void vm.refresh();},[reload]);
  if(setup&&setup.actor===accountId)return <ScreenContainer padded={false}><TenancySetupView accountId={accountId} reservationId={setup.reservationId} onBack={()=>{setSetup(null);setReload(v=>v+1);}} onChanged={()=>setReload(v=>v+1)} registerBackAction={registerBackAction}/></ScreenContainer>;
  // Large text or a narrow screen: the status chip sits under the text instead of squeezing the title beside it, and the tiles wrap.
- const {width,fontScale}=useWindowDimensions(),stacked=fontScale>=1.3||width<340;
+ const stacked=fontScale>=1.3||width<340;
  const ready=!vm.busy&&!vm.error,bothEmpty=ready&&!screen.active.length&&!screen.upcoming.length;
  const open=(tenancyId:string,panel?:TenancyDetailsPanel)=>setDetails({actor:accountId,id:tenancyId,sourceId:vm.links?.find(l=>l.tenancy_id===tenancyId)?.reservation_id??null,...(panel?{panel}:{})});
  const act=(item:AttentionItem)=>item.action.kind==='setup'?setSetup({actor:accountId,reservationId:item.action.reservationId}):open(item.action.tenancyId,item.action.panel);

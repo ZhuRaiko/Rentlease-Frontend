@@ -278,3 +278,17 @@ test('Back to tenancy is offered only when the screen is given a way back, and t
   assert.doesNotMatch(panel, /Choose the review target|Refresh reviews|Alert\.alert\('Send/);
   assert.doesNotMatch(readFileSync('src/shared/components/RentalReviews.tsx', 'utf8'), /TenancyReviewPanel/);
 });
+
+// ---- mutation pass: rules the first suite did not pin down
+import { filledStars, sentDateLabel } from '../src/shared/models/ReviewPresentation';
+test('review rules: one person cannot be both sides, stars stop at five, a review sent now says Today, and unknown summary tags are never shown', () => {
+  const A = '10000000-0000-4000-8000-0000000000aa', B = '10000000-0000-4000-8000-0000000000bb', TEN = '20000000-0000-4000-8000-000000000001', PROP = '30000000-0000-4000-8000-000000000001';
+  const ctx = (tenantId: string, landlordId: string) => ({ tenancyId: TEN, propertyId: PROP, tenantId, landlordId, eligible: true, own: [], received: [], legacyUserReview: false });
+  assert.equal(parseReviewContext(ctx(A, B), A, TEN).tenantId, A);
+  assert.throws(() => parseReviewContext(ctx(A, A), A, TEN), 'the tenant and the landlord are different people');
+  assert.equal(filledStars(6), 5); assert.equal(filledStars(-2), 0);
+  const now = Date.parse('2026-11-16T04:00:00Z');
+  assert.equal(sentDateLabel('2026-11-16T03:00:00Z', now), 'Today');
+  const view = summaryView({ kind: 'property', targetId: PROP, count: 2, average: 4.5, distribution: [0, 0, 0, 1, 1], tags: [{ tag: 'clean', count: 1 }, { tag: 'mystery', count: 1 }] });
+  assert.deepEqual(view.tags.map(t => t.code), ['clean']);
+});

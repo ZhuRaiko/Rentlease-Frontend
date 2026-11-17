@@ -8,7 +8,7 @@ import {CHIP,stayProgress,tenancyChip,tenantNeedsOk} from '../src/features/tenan
 import {CHIP_COLORS} from '../src/shared/theme/statusColors';
 import {TILE_COLORS} from '../src/features/tenancy/components/tileColors';
 import {dueLabel,shortDate} from '../src/shared/utils/rentalDates';
-import {cancelledLine,releaseSheetView,releaseTarget} from '../src/features/tenancy/models/CancelledRentals';
+import {cancelledLine,cancelledRentals,releaseSheetView,releaseTarget} from '../src/features/tenancy/models/CancelledRentals';
 import {attentionItems,workspaceScreen,type WorkspaceInput} from '../src/features/tenancy/models/TenancyWorkspaceScreen';
 import {detailsScreen} from '../src/features/tenancy/models/TenancyDetailsScreen';
 import {tenancySections,tenancyCounts} from '../src/features/tenancy/models/TenancyWorkspace';
@@ -277,4 +277,49 @@ test('large text or a narrow screen: the chip moves under the title instead of s
   assert.equal(chipPlace(renderWorkspace(vmFor(T,base))),'beside','normal text: the chip is beside the title, as drawn');
   assert.equal(chipPlace(renderWorkspace(vmFor(T,base),1.5,411)),'under','150% font');assert.equal(chipPlace(renderWorkspace(vmFor(T,base),1,320)),'under','320dp wide');
   const wide=nodes(renderWorkspace(vmFor(T,base),1.5)).filter(x=>x.type==='Pressable'&&/rentals: /.test(String(x.props.accessibilityLabel)));assert.ok(wide.every(x=>x.props.style[1]?.flexBasis===130),'tiles take a wider basis so they wrap');
+});
+
+// ---- Mutation pass: rules the first suite did not pin down
+test('mutation pass: who is asked, what is shown, and how long a stay is',()=>{
+  const pending=tenancy({status:'pending_confirmation',landlord_confirmed_at:null,tenant_confirmed_at:null});
+  assert.equal(tenantNeedsOk(pending,T),false,'the owner has not confirmed yet, so the renter is not asked');
+  assert.equal(tenantNeedsOk({...pending,landlord_confirmed_at:'2026-11-15T00:00:00Z'},L),false,'never the landlord');
+  assert.equal(stayProgress('2026-11-20','2027-11-19',NOW)?.day,1,'before the start it reads day 1, not day 0');
+  assert.equal(stayProgress('2026-11-12','2026-11-01',NOW),null,'an end before the start has no progress');
+  const stranger=id(),gone=tenancy({status:'cancelled'});
+  assert.deepEqual(cancelledRentals(stranger,[gone]),[]);assert.deepEqual(cancelledRentals(T,[gone]),[gone]);
+  const held=reservation({conversationId:C}),noChat=tenancy({status:'cancelled',conversation_id:null});
+  assert.equal(releaseTarget(noChat,[{reservation_id:held.id,tenancy_id:noChat.id}],[held],NOW).conversationId,C,'the reservation chat is used when the tenancy has none');
+  assert.equal(cancelledLine('tenant',false,'Nov 14 – Dec 14'),'Setup was cancelled.');
+});
+test('mutation pass: attention items only for the person who must act',()=>{
+  const waiting=tenancy({status:'pending_confirmation',landlord_confirmed_at:'2026-11-15T00:00:00Z',tenant_confirmed_at:null});
+  assert.deepEqual(attentionItems(input(T,{tenancies:[waiting],links:[]})),[],'no reservation link, no Confirm item');
+  assert.equal(attentionItems(input(T,{tenancies:[waiting],links:[{reservation_id:id(),tenancy_id:waiting.id}]})).some(x=>x.kind==='confirm_terms'),true);
+  const approved=reservation({tenantId:T,landlordId:L});
+  assert.equal(attentionItems(input(T,{reservations:[approved]})).some(x=>x.kind==='start_setup'),false,'the renter never sets up the tenancy');
+  assert.equal(attentionItems(input(L,{reservations:[approved]})).some(x=>x.kind==='start_setup'),true);
+  const stay=tenancy(),mine={care:{},lifecycle:{[stay.id]:life(stay,{id:id(),revision:id(),initiatorId:T,date:'2026-11-16',reason:'Moving',version:'a'.repeat(32)})},reviews:{},rent:{}};
+  assert.equal(attentionItems(input(T,{tenancies:[stay],activity:mine})).some(x=>x.kind==='end_request'),false,'your own early-end request is not waiting on you');
+  assert.equal(attentionItems(input(L,{tenancies:[stay],activity:mine})).some(x=>x.kind==='end_request'),true);
+});
+test('mutation pass: details only show what fits the stage of the tenancy',()=>{
+  const base={context:ctx(),identities:{[L]:ident('Nightcity',L),[T]:ident('Samuel',T)},care:null,lifecycle:null,reviews:null,reservation:null,conversationId:C,now:NOW};
+  const active=tenancy(),ended=tenancy({status:'ended',actual_end_date:'2026-11-13'});
+  assert.equal(detailsScreen({...base,actor:T,tenancy:active,reviews:review(active)}).ratingPrompt,null,'no rating while the stay is active');
+  assert.equal(detailsScreen({...base,actor:T,tenancy:active}).openConversation,false,'an active stay has Message, not Open conversation');
+  assert.equal(detailsScreen({...base,actor:T,tenancy:ended}).dates.progress,null,'no progress bar after the end');
+  const done=[{id:id(),actorId:L,action:'complete',requestId:null,date:'2026-11-13',reason:null,createdAt:'2026-11-13T01:00:00Z'}];
+  assert.match(detailsScreen({...base,actor:T,tenancy:ended,lifecycle:life(ended,null,done)}).summary!,/^Completed at the end/,'a completed stay is not an early end');
+  const upcoming=tenancy({status:'pending_confirmation',rent_due_day:2,landlord_confirmed_at:null,tenant_confirmed_at:null});
+  assert.equal(detailsScreen({...base,actor:L,tenancy:upcoming}).rent?.dueOn,'Due on the 2nd','an upcoming tenancy shows its agreed rent day');
+  const open=detailsScreen({...base,actor:T,tenancy:active,care:care(active,[request({status:'resolved'}),request({status:'cancelled'}),request({status:'submitted'})])});
+  assert.equal(open.maintenance?.chip,'1 open','closed requests are not open');
+});
+test('mutation pass: a failed release is retried with its own operation id, and a new request gets a new one',async()=>{
+  const ops:string[]=[];let n=0,fail=true;
+  const flow=createTenancyReleaseWorkflow({cancelReservation:async(_a,op)=>{ops.push(op.id);if(fail)throw new Error('offline');}},T,()=>`op-${++n}`,()=>{});
+  flow.ask(req());await flow.confirm();await flow.retry();assert.deepEqual(ops,['op-1','op-1'],'the retry is the same operation');
+  flow.ask(req());await flow.confirm();assert.equal(ops[2],'op-2','another reservation is a new operation');
+  fail=false;await flow.retry();assert.equal(ops[3],'op-2');
 });
