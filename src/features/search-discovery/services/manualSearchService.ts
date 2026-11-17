@@ -16,8 +16,8 @@ export function searchAvailabilityDate(date = new Date()) {
 export function createManualSearchService(getClient: () => SupabaseClient<Database>, diagnose: (event:SearchDiagnostic)=>void = traceSearchDiagnostic) {
   const user = async () => { const { data,error } = await getClient().auth.getUser(); if (error || !data.user) throw new ManualSearchError('Sign in again to search rentals.',true); return data.user.id; };
   const identity = async (owner: string) => { if (await user() !== owner) throw new ManualSearchError('Your account changed. Start a new search.',true); };
-  const photoRows = async (owner: string, listings: readonly Pick<SearchListing,'propertyId'|'ownerId'>[], signal?: AbortSignal) => {
-    try {const photos=await readPublicPropertyPhotos(getClient(),listings,signal);await identity(owner);return photos;}
+  const photoRows = async (owner: string, listings: readonly Pick<SearchListing,'propertyId'|'ownerId'>[], signal?: AbortSignal, coverOnly = false) => {
+    try {const photos=await readPublicPropertyPhotos(getClient(),listings,signal,200,coverOnly);await identity(owner);return photos;}
     catch {await identity(owner);throw new ManualSearchError('Could not load rental photos. Please retry.');}
   };
   const base = (select: string) => getClient().from('listings').select(select).eq('status','active').eq('properties.is_active',true).or(`available_from.is.null,available_from.lte.${searchAvailabilityDate()}`);
@@ -38,7 +38,7 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
       const {data,error}=await query;await identity(owner);
       if(error||!data)throw new ManualSearchError('Could not load property photos.');
       const parents=data.filter(p=>ids.includes(p.id)).map(p=>({propertyId:p.id,ownerId:p.landlord_id}));
-      const photos=await photoRows(owner,parents,signal);
+      const photos=await photoRows(owner,parents,signal,true);
       const thumbnails:Record<string,string>={};
       for(const row of photos) if(!thumbnails[row.propertyId])thumbnails[row.propertyId]=row.photo.url;
       return thumbnails;
@@ -63,7 +63,7 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
       const { data,error } = await query; await identity(owner); if (error || !data) throw new ManualSearchError();
       const rows = (data as unknown[]).map(parseSearchListing);
       let photos:Awaited<ReturnType<typeof photoRows>>;
-      try { photos=await photoRows(owner,rows,signal); }
+      try { photos=await photoRows(owner,rows,signal,true); }
       catch(error) {
         if(error instanceof ManualSearchError&&error.identity)throw error;
         if(signal?.aborted)throw Object.assign(new Error('Rental search canceled.'),{name:'AbortError'});
@@ -115,9 +115,17 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new ManualSearchError('Choose a valid listing.');
       await identity(owner); let query = base(`${LISTING_FIELDS},properties!inner(${PROPERTY_FIELDS},public_location)`).eq('id',id).limit(1); if (signal) query = query.abortSignal(signal);
       const { data,error } = await query; await identity(owner); if (error || !data?.length) throw new ManualSearchError('This rental is no longer available or could not be loaded.');
-      const row = parseSearchListing(data[0]), photos = await photoRows(owner,[row],signal);
-      let amenityQuery = getClient().from('property_amenities').select('amenity:amenities(name)').eq('property_id',row.propertyId).limit(100); if (signal) amenityQuery = amenityQuery.abortSignal(signal);
-      const { data: amenities,error: amenityError } = await amenityQuery; await identity(owner); if (amenityError || !amenities) throw new ManualSearchError('Could not load rental amenities. Please retry.');
+      const row = parseSearchListing(data[0]);
+      const readAmenities = async () => {
+        let amenityQuery = getClient().from('property_amenities').select('amenity:amenities(name)').eq('property_id',row.propertyId).limit(100); if (signal) amenityQuery = amenityQuery.abortSignal(signal);
+        const { data: amenities,error: amenityError } = await amenityQuery; await identity(owner); if (amenityError || !amenities) throw new ManualSearchError('Could not load rental amenities. Please retry.');
+        return amenities;
+      };
+      // Photos and amenities are independent reads, so they run together. Errors keep their old precedence: the photo error first.
+      const [photoRead, amenityRead] = await Promise.allSettled([photoRows(owner,[row],signal), readAmenities()]);
+      if (photoRead.status === 'rejected') throw photoRead.reason;
+      if (amenityRead.status === 'rejected') throw amenityRead.reason;
+      const photos = photoRead.value, amenities = amenityRead.value;
       const names = amenities.flatMap(item => item.amenity ? [item.amenity.name] : []);
       return { ...row,thumbnailUrl:photos[0]?.photo.url ?? null,photos:photos.map(p => p.photo),amenities:names,publicLocation:parsePublicPoint(record(record(data[0]).properties).public_location) };
     },

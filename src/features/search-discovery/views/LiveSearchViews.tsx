@@ -51,7 +51,7 @@ function DetailExpandableText({text}:{text:string}){const [open,setOpen]=useStat
 function DetailGalleryPhoto({url,label,width,onPress}:{url:string;label:string;width:number;onPress:()=>void}) {
   const [failed,setFailed]=useState(false);
   return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={{width}}>
-    {failed?<View style={[styles.heroImage,styles.placeholder]}><Text style={styles.copy}>Photo unavailable</Text></View>:<Image source={{uri:url}} onError={()=>setFailed(true)} accessibilityLabel="Property photo" style={styles.heroImage}/>}
+    {failed?<View style={[styles.heroImage,styles.placeholder]}><Text style={styles.copy}>Photo unavailable</Text></View>:<Image resizeMethod="resize" source={{uri:url}} onError={()=>setFailed(true)} accessibilityLabel="Property photo" style={styles.heroImage}/>}
     <Text style={styles.photoCaption}>{label}</Text>
   </Pressable>;
 }

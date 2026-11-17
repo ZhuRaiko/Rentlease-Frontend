@@ -15,7 +15,7 @@ export function NearbyListingCard({ listing, onPress }: { listing: NearbyListing
   const area=[listing.barangay, listing.city ? labels[listing.city] ?? listing.city : null].filter(Boolean).join(', ') || 'Area not provided';
   const availability=listing.availableFrom ? `Available from ${listing.availableFrom}` : 'Availability date not provided';
   return <Pressable accessibilityRole="button" accessibilityLabel={`View ${listing.title || 'rental listing'}. ${rent}. ${propertyType}. ${area}. ${listing.distanceMeters} meters away. ${availability}.`} onPress={onPress} style={styles.card}>
-    {listing.thumbnailUrl&&!photoFailed?<Image source={{uri:listing.thumbnailUrl}} accessibilityLabel="Property photo" onError={()=>setPhotoFailed(true)} style={styles.photo}/>:<View style={[styles.photo,styles.placeholder]}><Text style={styles.copy}>Photo unavailable</Text></View>}
+    {listing.thumbnailUrl&&!photoFailed?<Image resizeMethod="resize" source={{uri:listing.thumbnailUrl}} accessibilityLabel="Property photo" onError={()=>setPhotoFailed(true)} style={styles.photo}/>:<View style={[styles.photo,styles.placeholder]}><Text style={styles.copy}>Photo unavailable</Text></View>}
     <Text style={styles.rent}>{rent}</Text>
     <Text accessibilityRole="header" style={styles.title}>{listing.title || 'Rental listing'}</Text>
     <Text style={styles.copy}>{propertyType}</Text>

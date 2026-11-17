@@ -58,7 +58,8 @@ test('nearby thumbnails batch parents/photos, retain first cover and support mis
   b.data.property_photos=[propertyId,propertyId,other].map((p,i)=>{const id=`00000000-0000-0000-0000-00000000030${i}`;return {id,property_id:p,storage_path:`${owner}/${p}/${id}.jpg`,alt_text:null,is_cover:i===0,sort_order:i};});
   const result=await b.service.nearbyThumbnails('tenant',[{propertyId},{propertyId:other},{propertyId}]);
   assert.match(result[propertyId]??'',/300.jpg$/);assert.match(result[other]??'',/302.jpg$/);
-  assert.equal(b.calls.filter(c=>c.table==='property_photos'&&c.method==='select').length,1);
+  // One cover read, plus one fallback read because `other` has no cover row.
+  assert.equal(b.calls.filter(c=>c.table==='property_photos'&&c.method==='select').length,2);
   assert.deepEqual(b.calls.find(c=>c.table==='properties'&&c.method==='in')?.args,['id',[propertyId,other]]);
   b.user('changed');b.calls.length=0;await assert.rejects(()=>b.service.nearbyThumbnails('tenant',[{propertyId}]));assert.equal(b.calls.length,0);
 });

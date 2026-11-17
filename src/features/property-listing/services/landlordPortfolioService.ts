@@ -43,7 +43,8 @@ export function createLandlordPortfolioService(getClient: () => SupabaseClient<D
       if (properties.data.some(p => p.landlord_id !== ownerId) || listings.data.some(l => l.landlord_id !== ownerId) || verifications.data.some(v => v.user_id !== ownerId || v.tier !== 'tier_3_property')) throw failed('hydration',null,true);
       const ids = properties.data.map(p => p.id), covers = new Map<string, { id: string; publicUrl: string }>();
       const bindings=new Map<string,{verified:boolean;requires_repair:boolean;current_submission_id:string|null}>();let bindingAvailable=true;
-      for(let offset=0;offset<ids.length;offset+=100){
+      // The identity-status reads and the cover reads only need `ids`, so they run together; a failure is rethrown in the old order (verifications first).
+      const readBindings=async()=>{for(let offset=0;offset<ids.length;offset+=100){
         const requested=ids.slice(offset,offset+100);let result;
         try{result=await client.rpc('get_owned_property_identity_statuses',{p_property_ids:requested});}catch(error){throw failed('verifications',error);}
         await assertUser(ownerId);
@@ -51,9 +52,9 @@ export function createLandlordPortfolioService(getClient: () => SupabaseClient<D
         if(result.error||!result.data)throw failed('verifications',result.error);
         if(result.data.length!==requested.length||new Set(result.data.map(row=>row.property_id)).size!==requested.length||result.data.some(row=>!requested.includes(row.property_id)||typeof row.verified!=='boolean'||typeof row.requires_repair!=='boolean'))throw failed('hydration',null,true);
         for(const row of result.data)bindings.set(row.property_id,row);
-      }
+      }};
       // Only owner-confirmed property IDs enter the photo query. No private location is read.
-      for (let offset = 0; offset < ids.length; offset += 100) {
+      const readCovers=async()=>{for (let offset = 0; offset < ids.length; offset += 100) {
         let result; try { result = await client.from('property_photos').select('id,property_id,storage_path,alt_text,sort_order,is_cover,created_at').in('property_id', ids.slice(offset, offset + 100)).eq('is_cover', true); } catch(error) { throw failed('covers',error); }
         const {data,error} = result;
         await assertUser(ownerId);
@@ -66,7 +67,10 @@ export function createLandlordPortfolioService(getClient: () => SupabaseClient<D
             covers.set(photo.property_id, { id: photo.id, publicUrl: client.storage.from(PROPERTY_PHOTO_BUCKET).getPublicUrl(path).data.publicUrl });
           } catch { /* An invalid cover path falls back to a property placeholder, never an unsafe URL. */ }
         }
-      }
+      }};
+      const [bound,covered]=await Promise.allSettled([readBindings(),readCovers()]);
+      if(bound.status==='rejected')throw bound.reason;
+      if(covered.status==='rejected')throw covered.reason;
       await assertUser(ownerId);
       return assemblePortfolio(properties.data, listings.data, verifications.data, covers).map(item=>{
         const b=bindings.get(item.propertyId);

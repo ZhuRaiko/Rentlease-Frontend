@@ -17,6 +17,7 @@ import { reservationService, messageId } from '../features/messaging-viewing/ser
 import { scopedReservationService } from '../features/messaging-viewing/services/requestScope';
 import { createReservationWorkflow } from '../features/messaging-viewing/viewModels/reservationWorkflow';
 import type { useRequestSnapshot } from '../features/messaging-viewing/viewModels/useRequestSnapshot';
+import { readManagementFacts } from './managementRead';
 import { emptyFacts, type ManagedFacts, type NeedsTarget, type PropertyManagementPort } from '../features/property-listing/models/PropertyManagement';
 import type { LandlordPortfolioItem } from '../features/property-listing/models/LandlordPortfolio';
 
@@ -59,10 +60,11 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
     if (!accountId) return () => c.abort();
     (async () => {
       try {
-        const tenancies = await tenancyService.open(accountId, c.signal);
-        const activity = await activityService.read(accountId, tenancies, c.signal);
-        // A failed inbox read leaves the maintenance facts empty (hidden), never a guess.
-        const inbox = await readInbox(accountId, c.signal).catch(() => null);
+        const { tenancies, activity, inbox } = await readManagementFacts({
+          tenancies: () => tenancyService.open(accountId, c.signal),
+          activity: rows => activityService.read(accountId, rows, c.signal),
+          inbox: () => readInbox(accountId, c.signal),
+        });
         if (!c.signal.aborted) setState({ owner: accountId, tenancies, activity, inbox, busy: false, error: null });
       } catch {
         if (!c.signal.aborted) setState({ owner: accountId, tenancies: [], activity: emptyActivity(), inbox: null, busy: false, error: 'Tenant and maintenance details could not load. Pull to refresh to retry.' });

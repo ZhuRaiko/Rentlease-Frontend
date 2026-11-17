@@ -17,7 +17,7 @@ export function SearchListingCard({ listing, onPress, save, horizontal=false, di
     return <View style={[styles.savedCard,compact?styles.savedRow:null]}>
       <View style={[styles.savedMedia,compact?styles.savedMediaSide:styles.savedMediaFull]}>
         <Pressable accessible={false} onPress={onPress} style={styles.photoTarget}>
-          {listing.thumbnailUrl&&!failed?<Image source={{uri:listing.thumbnailUrl}} onError={()=>setFailed(true)} accessibilityLabel="Property cover photo" style={styles.savedImage}/>:<View style={[styles.savedImage,styles.placeholder]}><Text style={styles.copy}>Photo unavailable</Text></View>}
+          {listing.thumbnailUrl&&!failed?<Image resizeMethod="resize" source={{uri:listing.thumbnailUrl}} onError={()=>setFailed(true)} accessibilityLabel="Property cover photo" style={styles.savedImage}/>:<View style={[styles.savedImage,styles.placeholder]}><Text style={styles.copy}>Photo unavailable</Text></View>}
         </Pressable>
         {save?<View style={styles.savedHeart}><SaveListingButton control={save}/></View>:null}
         <View pointerEvents="none" style={styles.savedPrice}><Text style={styles.savedPriceAmount}>{price}<Text style={styles.savedPricePeriod}> / month</Text></Text></View>
@@ -30,7 +30,7 @@ export function SearchListingCard({ listing, onPress, save, horizontal=false, di
     </View>;
   }
   if(discovery)return <View style={styles.discoveryCard}>
-    <View style={styles.discoveryMedia}><Pressable accessible={false} onPress={onPress} style={styles.photoTarget}>{listing.thumbnailUrl&&!failed?<Image source={{uri:listing.thumbnailUrl}} onError={()=>setFailed(true)} style={styles.discoveryImage}/>:<View style={[styles.discoveryImage,styles.placeholder]}><Text style={styles.copy}>Photo unavailable</Text></View>}</Pressable><View pointerEvents="none" style={styles.propertyType}><Text style={styles.typeText}>{listing.propertyType.replace(/_/g,' ')}</Text></View>{save?<View style={styles.discoveryHeart}><SaveListingButton control={save}/></View>:null}</View>
+    <View style={styles.discoveryMedia}><Pressable accessible={false} onPress={onPress} style={styles.photoTarget}>{listing.thumbnailUrl&&!failed?<Image resizeMethod="resize" source={{uri:listing.thumbnailUrl}} onError={()=>setFailed(true)} style={styles.discoveryImage}/>:<View style={[styles.discoveryImage,styles.placeholder]}><Text style={styles.copy}>Photo unavailable</Text></View>}</Pressable><View pointerEvents="none" style={styles.propertyType}><Text style={styles.typeText}>{listing.propertyType.replace(/_/g,' ')}</Text></View>{save?<View style={styles.discoveryHeart}><SaveListingButton control={save}/></View>:null}</View>
     <Pressable accessibilityRole="button" accessibilityLabel={`View ${listing.title}, PHP ${listing.rent.toLocaleString('en-PH')} per month`} onPress={onPress} style={({pressed})=>[styles.discoveryDetails,pressed&&{opacity:.75}]}>
       <Text style={styles.discoveryPrice}>PHP {listing.rent.toLocaleString('en-PH')}<Text style={styles.savedPricePeriod}> / month</Text></Text>
       <Text style={styles.savedTitle}>{listing.title}</Text><Text style={styles.copy}>{[listing.barangay,cityLabels[listing.city]??listing.city].filter(Boolean).join(', ')||'Public location unavailable'}</Text>
@@ -38,7 +38,7 @@ export function SearchListingCard({ listing, onPress, save, horizontal=false, di
     </Pressable>
   </View>;
   return <View style={styles.card}><Pressable accessibilityRole="button" accessibilityLabel={`View ${listing.title}`} onPress={onPress} style={compact?{flexDirection:'row',gap:12,alignItems:'flex-start'}:{gap:4}}>
-    {listing.thumbnailUrl && !failed ? <Image onError={() => setFailed(true)} source={{uri:listing.thumbnailUrl}} accessibilityLabel="Property photo" style={[styles.image,compact?{width:110,aspectRatio:1,height:120}:null]} /> : <View style={[styles.image,styles.placeholder,compact?{width:110,aspectRatio:1,height:120}:null]}><Text style={styles.copy}>Photo unavailable</Text></View>}
+    {listing.thumbnailUrl && !failed ? <Image resizeMethod="resize" onError={() => setFailed(true)} source={{uri:listing.thumbnailUrl}} accessibilityLabel="Property photo" style={[styles.image,compact?{width:110,aspectRatio:1,height:120}:null]} /> : <View style={[styles.image,styles.placeholder,compact?{width:110,aspectRatio:1,height:120}:null]}><Text style={styles.copy}>Photo unavailable</Text></View>}
     <View style={{flex:compact?1:undefined,minWidth:0,gap:3}}><Text style={styles.price}>₱{listing.rent.toLocaleString('en-PH')} /mo</Text><Text style={styles.title}>{listing.title}</Text>
     <Text style={styles.copy}>{listing.propertyType.replace(/_/g,' ')} · {listing.barangay}, {cityLabels[listing.city] ?? listing.city}</Text>
     <Text style={styles.copy}>{listing.bedrooms} bed · {listing.bathrooms} bath{listing.floorArea===null?'':` · ${listing.floorArea} sqm floor area`}</Text>
