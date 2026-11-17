@@ -66,12 +66,12 @@ No user ids are returned anywhere; roles only.
 ## Conflicts
 
 The extra days are `current_end + 1` through `requested_end`, checked with the range `[from, to + 1)`. A day is committed when:
-- another party's reservation with status `pending` or `approved` and not expired (`expires_at > clock_timestamp()`) covers it. "Another party" is a different tenant or landlord than this tenancy's, the same rule as the `aac_reservation_tenancy_commitment` trigger; or
+- an **approved**, unexpired (`status = 'approved'` and `expires_at > clock_timestamp()`) reservation by another party covers it. "Another party" is a different tenant or landlord than this tenancy's, the same rule as the `aac_reservation_tenancy_commitment` trigger. A reservation that is only **pending does not block**: it holds nothing until the owner approves it, and the approval re-checks the tenancy, which by then ends later; or
 - another tenancy on the property in `proposed`, `pending_confirmation` or `active` covers it (an open-ended one covers everything after its start).
 
 Checked at **request** time, again at **accept** time, and live in both owner reads. The `aac` trigger still runs on the accept's `UPDATE` as a backstop, but is not relied on.
 
-**Error contract:** SQLSTATE `23P01`, message `extension_conflict:YYYY-MM-DD` where the date is the first conflicting day (the later of the other booking's first day and `current_end + 1`). Only a date leaves the database (no ids, names or amounts). Privacy note: the refused tenant sees that date of someone else's booking, as decided.
+**Error contract (unchanged by the rule above):** SQLSTATE `23P01`, message `extension_conflict:YYYY-MM-DD` where the date is the first conflicting day (the later of the other booking's first day and `current_end + 1`). The same date is `conflictDate` in both owner reads, computed live with the same rule. Only a date leaves the database (no ids, names or amounts). Privacy note: the refused tenant sees that date of someone else's booking, as decided.
 
 ## Error table
 
@@ -121,12 +121,12 @@ Verified by reading the code; all use `coalesce(actual_end_date, expected_end_da
 - Rollback (data retained): `supabase/test-support/tenancy_extension_rollback.sql`; full (empty tables only): `tenancy_extension_rollback_full.sql`
 - Checks (ends in a deliberate exception): `supabase/test-support/tenancy_extension_checks.sql`
 
-## Fingerprints (`md5(prosrc)`), computed from the migration files, not from a database
+## Fingerprints (`md5(prosrc)`)
 
-Dependencies pinned by the migration's guard (not replaced): `is_tier1_verified` `ddd2c8ed28b61e30e23e4f3ddefe4590` (from the ledger migration), `write_tenancy_lifecycle` `312e8bdaee38ba3b762a55b1635b2c63`, `get_tenancy_lifecycle` `c0eacfc87a52d0731a2e0eab2b34baee`, `rentlease_rent_ledger.due_dates` `8d82e44cbc7b94bf538608aefe1b48ce`, `rentlease_reservations.guard_tenancy_commitment` `7f3420d0026e508c25b240f0bae7e96c`.
+**Pins in the migration guard.** The hosted bodies of `write_tenancy_lifecycle`, `get_tenancy_lifecycle` and `rentlease_rent_ledger.due_dates` contain CR characters (those migrations were applied from CRLF files), so a plain `md5(prosrc)` differs from the value computed from the LF text. The guard compares **`md5(replace(prosrc, chr(13), ''))`** for those three, with these verified hosted values (CRs stripped): `write_tenancy_lifecycle` `312e8bdaee38ba3b762a55b1635b2c63`, `get_tenancy_lifecycle` `c0eacfc87a52d0731a2e0eab2b34baee`, `rentlease_rent_ledger.due_dates` `8d82e44cbc7b94bf538608aefe1b48ce`. `rentlease_reservations.guard_tenancy_commitment` (`7f3420d0026e508c25b240f0bae7e96c`) and `public.is_tier1_verified` (`ddd2c8ed28b61e30e23e4f3ddefe4590`) have no CRs and are compared as stored. Checks 1d to 1f cover this, including a function whose body really contains CRs.
 
-New functions: `write_tenancy_extension` `60f187a9a9489c0e26a15b46ec89e3cd`, `get_tenancy_extension` `a3733c90e3c08ba79340c2c278b64714`, `get_pending_tenancy_extensions` `b79b8191fe9e5935faf2d9aff9b900c3`.
+**New functions.** If this migration is applied from a CRLF working copy, the stored bodies of the new functions will contain CRs too, so compare them CR-stripped as well. CR-stripped (LF-text) values, computed from the migration file: `write_tenancy_extension` `60f187a9a9489c0e26a15b46ec89e3cd`, `get_tenancy_extension` `a3733c90e3c08ba79340c2c278b64714`, `get_pending_tenancy_extensions` `b79b8191fe9e5935faf2d9aff9b900c3`; helpers `first_conflict` `e4e987c1e289db3017b5b8ff4209e113` (changed by the approved-only rule), `request_block` `1ceee1186715216f80b26c8d29a2d309`, `relationship` `ef1085ecbf81a4473768fb3f7b510379`, `participant` `864525ca1cdcdb0b56a544cee327f885`, `latest_end` `37ea5834d6f1142af9d34525bf0748e0`, `early_end_pending` `2319cf67ed0ad2c829af9550a6adff97`, `guard_request` `ce3e3b7536022468105eab4a835cab28`, `immutable` `d944fef22b5349a85fcebde061d32d6c`. Not read from a database.
 
 ## Before applying (not done)
 
-Run the check batch against a scratch database or branch, not the hosted project in use. Confirm the four file-computed fingerprints match the live `prosrc` (`select md5(prosrc) from pg_proc where oid = to_regprocedure(...)`); if any differs the guard stops the migration safely. Confirm `trg_validate_tenancy` and `trg_sync_listing_from_tenancy` accept an end-date-only update (check 5 of the batch does this).
+Run the check batch against a scratch database or branch, not the hosted project in use. The three CR-carrying pins are already verified on hosted (CR-stripped). If any guard comparison fails, the migration stops safely before changing anything. Confirm `trg_validate_tenancy` and `trg_sync_listing_from_tenancy` accept an end-date-only update (check 5 of the batch does this).

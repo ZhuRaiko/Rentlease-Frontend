@@ -30,11 +30,13 @@ begin
  select count(*) into trg from pg_trigger where tgrelid='public.tenancies'::regclass and tgenabled='O' and not tgisinternal
   and tgname in('aaa_tenancy_property_gate','aab_tenancy_identity_gate','aac_reservation_tenancy_commitment','trg_sync_listing_from_tenancy','trg_tenancies_updated_at','trg_validate_tenancy','inapp_tenancy');
  if trg<>7 then raise exception 'tenancy triggers drifted (% of 7)',trg;end if;
- -- Functions this migration relies on, and does not replace. The last four fingerprints were computed from the migration files, not read from a database.
+ -- Functions this migration relies on, and does not replace. The hosted bodies of the three tenancy-lifecycle / ledger functions contain CR characters (they
+ -- were applied from CRLF files), so they are compared with the CRs removed; the values are the verified hosted values with CRs stripped.
+ -- guard_tenancy_commitment and is_tier1_verified have no CRs and are compared as stored.
  if md5((select prosrc from pg_proc where oid=to_regprocedure('public.is_tier1_verified(uuid)'))) is distinct from 'ddd2c8ed28b61e30e23e4f3ddefe4590' then raise exception 'is_tier1_verified drifted';end if;
- if md5((select prosrc from pg_proc where oid=to_regprocedure('public.write_tenancy_lifecycle(uuid,uuid,text,text,uuid,text)'))) is distinct from '312e8bdaee38ba3b762a55b1635b2c63' then raise exception 'write_tenancy_lifecycle drifted';end if;
- if md5((select prosrc from pg_proc where oid=to_regprocedure('public.get_tenancy_lifecycle(uuid,integer)'))) is distinct from 'c0eacfc87a52d0731a2e0eab2b34baee' then raise exception 'get_tenancy_lifecycle drifted';end if;
- if md5((select prosrc from pg_proc where oid=to_regprocedure('rentlease_rent_ledger.due_dates(date,date,integer,date)'))) is distinct from '8d82e44cbc7b94bf538608aefe1b48ce' then raise exception 'rent ledger due_dates drifted';end if;
+ if md5(replace((select prosrc from pg_proc where oid=to_regprocedure('public.write_tenancy_lifecycle(uuid,uuid,text,text,uuid,text)')),chr(13),'')) is distinct from '312e8bdaee38ba3b762a55b1635b2c63' then raise exception 'write_tenancy_lifecycle drifted';end if;
+ if md5(replace((select prosrc from pg_proc where oid=to_regprocedure('public.get_tenancy_lifecycle(uuid,integer)')),chr(13),'')) is distinct from 'c0eacfc87a52d0731a2e0eab2b34baee' then raise exception 'get_tenancy_lifecycle drifted';end if;
+ if md5(replace((select prosrc from pg_proc where oid=to_regprocedure('rentlease_rent_ledger.due_dates(date,date,integer,date)')),chr(13),'')) is distinct from '8d82e44cbc7b94bf538608aefe1b48ce' then raise exception 'rent ledger due_dates drifted';end if;
  if md5((select prosrc from pg_proc where oid=to_regprocedure('rentlease_reservations.guard_tenancy_commitment()'))) is distinct from '7f3420d0026e508c25b240f0bae7e96c' then raise exception 'guard_tenancy_commitment drifted';end if;
  -- Nothing of this feature may exist yet.
  if to_regnamespace('rentlease_tenancy_extension') is not null or to_regprocedure('public.write_tenancy_extension(uuid,uuid,text,jsonb)') is not null
@@ -135,14 +137,15 @@ create function rentlease_tenancy_extension.early_end_pending(p_tenancy uuid) re
 language sql stable security definer set search_path=pg_catalog as $$
  select exists(select 1 from rentlease_tenancy_end.requests r where r.tenancy_id=p_tenancy and r.status='pending') $$;
 -- The first day in [p_from, p_to] that is already committed to someone else on the same property, or null. Committed means:
---  - a pending or approved, unexpired reservation by another party (a different tenant or landlord than this tenancy's), or
+--  - an APPROVED, unexpired reservation by another party (a different tenant or landlord than this tenancy's). A reservation that is only
+--    pending does not block: it holds nothing until the owner approves it, and approving it re-checks the tenancy (which then ends later), or
 --  - another tenancy in proposed, pending_confirmation or active whose dates overlap (an open-ended one overlaps everything after its start).
 -- Only the date leaves this function: no ids, names or amounts.
 create function rentlease_tenancy_extension.first_conflict(t public.tenancies,p_from date,p_to date) returns date
 language sql stable security definer set search_path=pg_catalog as $$
  select min(c.d) from (
   select greatest(r.move_in_date,p_from) as d from public.rental_reservations r
-   where r.property_id=t.property_id and r.status in('pending','approved') and r.expires_at>clock_timestamp()
+   where r.property_id=t.property_id and r.status='approved' and r.expires_at>clock_timestamp()
     and (r.tenant_id<>t.tenant_id or r.landlord_id<>t.landlord_id)
     and daterange(r.move_in_date,r.end_date,'[)')&&daterange(p_from,p_to+1,'[)')
   union all
