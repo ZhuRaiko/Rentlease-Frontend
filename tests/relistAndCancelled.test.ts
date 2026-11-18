@@ -66,7 +66,7 @@ test('the dashboard routes the new-listing action to the ViewModel with the card
   assert.match(dash, /else if \(key === 'createListing'\) vm\.createListingForProperty\(propertyId\);/);
   const vm = readFileSync('src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'utf8');
   assert.match(vm, /createListingForProperty:\(id:string\)=>\{if\(operationBusy\(\)\)return;requestNavigation\(\(\)=>openPortfolioItem\(id,false,false,'details'\),true\);\}/);
-  assert.match(vm, /fresh=newListing\?newListingTarget\(picked,newListing\):null;\s*if\(newListing&&!fresh\)return;/);
+  assert.match(vm, /fresh=newListing\?newListingTarget\(picked,newListing\):null;\s*if\(newListing&&!fresh\)\{setNotice\(relistBlockedMessage\(picked\)[^;]*;return;\}/); // a blocked relist says why; it is never a silent return
   assert.match(vm, /setScreen\(fresh\?fresh\.screen:'listingComposer'\)/);
 });
 
@@ -108,3 +108,28 @@ test('archived card shows the explanation once and a List again button that runs
   assert.ok(!paused.includes(ARCHIVED_LISTING_NOTE) && !paused.includes('List again'));
 });
 // The cancelled-rental behavior (one card under Past, Start a new request / Release it, the confirmation sheet) is covered in tenancyScreens.test.ts.
+
+import { relistBlockedMessage, relistDraft, startsNewListing } from '../src/features/property-listing/models/PortfolioCardPresentation';
+import { emptyListingDraft } from '../src/features/property-listing/models/PropertyListing';
+test('relistDraft fills the new draft from the ended listing and leaves the availability date blank', () => {
+  const old = { ...makeItem('p', 'archived').currentListing!, title: 'Old title', description: 'Old description', asking_rent_monthly: 12500, house_rules: 'No smoking', rental_term: 'short_term', security_deposit_months: 2, advance_rent_months: 3, minimum_stay_months: 6, available_from: '2026-11-03' } as any;
+  const d = relistDraft(emptyListingDraft, old);
+  assert.deepEqual([d.title, d.description, d.askingRent, d.rentalTerm, d.securityDepositMonths, d.advanceRentMonths, d.minimumStayMonths, d.availableDate], ['Old title', 'Old description', '12500', 'short_term', '2', '3', '6', '']);
+  assert.match(d.houseRules, /No smoking/); assert.equal(relistDraft(emptyListingDraft, null), emptyListingDraft);
+});
+test('relistBlockedMessage names the reason in plain words; null only where a new listing can start', () => {
+  assert.equal(relistBlockedMessage(makeItem('p', 'archived')), null); assert.equal(relistBlockedMessage(makeItem('p', null)), null);
+  assert.match(relistBlockedMessage(makeItem('p', 'archived', false))!, /inactive/); assert.match(relistBlockedMessage(makeItem('p', 'removed'))!, /removed after a review/);
+  for (const status of ['active', 'paused', 'rented', 'draft']) assert.match(relistBlockedMessage(makeItem('p', status))!, /already has a current listing/, status);
+  assert.match(relistBlockedMessage(null)!, /could not be found/);
+});
+test('a compose workspace with no listing id starts a NEW listing; every other workspace names its listing', () => {
+  assert.equal(startsNewListing({ mode: 'compose', listingId: null }), true);
+  assert.equal(startsNewListing({ mode: 'compose', listingId: 'l-1' }), false); assert.equal(startsNewListing({ mode: 'manage', listingId: 'l-1' }), false);
+  assert.equal(startsNewListing({ mode: 'editPublished', listingId: 'l-1' }), false); assert.equal(startsNewListing({ mode: 'none', listingId: null }), false);
+});
+test('relistDraft with an incomplete listing row copies only what exists and never writes undefined into the form', () => {
+  const d = relistDraft(emptyListingDraft, { id: 'l', property_id: 'p', status: 'archived' } as any);
+  assert.deepEqual([d.title, d.description, d.askingRent, d.rentalTerm, d.securityDepositMonths, d.advanceRentMonths, d.availableDate], [emptyListingDraft.title, emptyListingDraft.description, emptyListingDraft.askingRent, emptyListingDraft.rentalTerm, emptyListingDraft.securityDepositMonths, emptyListingDraft.advanceRentMonths, '']);
+  for (const value of Object.values(d)) assert.notEqual(value, undefined);
+});

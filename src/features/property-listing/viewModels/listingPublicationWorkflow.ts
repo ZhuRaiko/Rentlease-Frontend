@@ -21,11 +21,12 @@ export function createListingPublicationWorkflow(service: ListingPublicationServ
     onResolved(row);
     update({ listingId: row.id, status: row.status, lastConfirmed: row, loaded: true, uncertain: false, publishedListingId: row.status === 'active' ? row.id : null, completenessScore: row.completeness_score, publishedAt: row.published_at });
   };
+  let draftOnly = false;
   const restore = async (selectedListingId: string | null = null) => {
     if (disposed || state.busy || !state.propertyId) return false;
     const g = generation; update({ busy: true, checking: true, error: null });
     try {
-      const result = await service.restore(state.propertyId, selectedListingId ?? undefined); if (!alive(g)) return false;
+      const result = await service.restore(state.propertyId, selectedListingId ?? undefined, draftOnly); if (!alive(g)) return false;
       if (!result) { update({ loaded: true }); return true; }
       if (result.pending) { update({ loaded: true, listingId: result.row.id, status: result.row.status, uncertain: true, error: 'A previous publication needs checking before further changes.' }); return false; }
       accept(result.row); return true;
@@ -34,8 +35,9 @@ export function createListingPublicationWorkflow(service: ListingPublicationServ
   };
   return {
     getSnapshot: () => state, subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
-    activate() { disposed = false; }, dispose() { disposed = true; generation++; state = initial(); listeners.clear(); },
-    setProperty(id: string | null) { if (id === state.propertyId) return; generation++; update(initial(isPropertyUuid(id) ? id : null)); },
+    activate() { disposed = false; }, dispose() { disposed = true; generation++; draftOnly = false; state = initial(); listeners.clear(); },
+    /** `newListing`: this workspace starts a NEW listing on the property (List again), so a listing that has ended is never restored into it. */
+    setProperty(id: string | null, newListing = false) { draftOnly = newListing; if (id === state.propertyId) return; generation++; update(initial(isPropertyUuid(id) ? id : null)); },
     setDraft(row: PublicationListing) { if (!disposed && !state.busy && !state.uncertain && (!state.status || state.status === 'draft') && row.status === 'draft' && row.property_id === state.propertyId) update({ listingId: row.id, status: 'draft', lastConfirmed: row }); },
     adoptLifecycle(row: PublicationListing) { if (!disposed && !state.busy && !state.uncertain && row.property_id === state.propertyId) accept(row); },
     report(message: string) { if (!state.busy) update({ error: message }); },

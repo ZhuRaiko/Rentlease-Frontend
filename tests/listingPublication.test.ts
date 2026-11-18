@@ -178,3 +178,20 @@ test('100 percent publication is adopted as active and reopened without another 
  const h=harness(1);const row={...draft(),completeness_score:1,updated_at:'2026-11-01T04:35:56.636907+00:00'};h.setRow(row);await h.ready();assert.equal(await h.flow.publish(row,confirmedListingFields(row),false),true);assert.equal(h.calls(),1);assert.equal(h.flow.getSnapshot().status,'active');assert.equal(h.flow.getSnapshot().completenessScore,1);assert.equal(h.flow.getSnapshot().publishedListingId,listingId);assert.equal(publicationStatusLabel(h.flow.getSnapshot().status),'Published');assert.equal(h.applied.at(-1)?.status,'active');assert.ok(h.filters.some(f=>f.id===listingId&&f.property_id===propertyId&&f.landlord_id===userId));
  const reopened=createListingPublicationWorkflow(h.service,()=>{});reopened.setProperty(propertyId);await reopened.restore(listingId);assert.equal(reopened.getSnapshot().status,'active');assert.equal(h.calls(),1);assert.equal(h.journal.has(`rentlease:publish-pending:${userId}:${listingId}`),false);
 });
+
+test('restore for a NEW listing (List again) ignores an ended listing, still finds a draft, and an explicit id still wins', async () => {
+  const h = harness();
+  h.setRow({ ...draft(), status: 'archived' });
+  assert.equal(await h.service.restore(propertyId, undefined, true), null, 'archived newest listing is not restored into a new listing');
+  assert.equal((await h.service.restore(propertyId))?.row.status, 'archived', 'the normal restore is unchanged');
+  assert.equal((await h.service.restore(propertyId, listingId, true))?.row.status, 'archived', 'an explicit listing id is always honoured');
+  h.setRow(draft());
+  assert.equal((await h.service.restore(propertyId, undefined, true))?.row.status, 'draft', 'a draft in progress is still resumed');
+});
+test('a workspace that starts a new listing leaves the publication state empty and unlocked; others still adopt the ended listing', async () => {
+  const h = harness(); h.setRow({ ...draft(), status: 'archived' });
+  const fresh = createListingPublicationWorkflow(h.service, r => h.applied.push(r)); fresh.setProperty(propertyId, true);
+  assert.equal(await fresh.restore(), true); assert.equal(fresh.getSnapshot().loaded, true); assert.equal(fresh.getSnapshot().status ?? null, null); assert.equal(h.applied.length, 0, 'nothing is adopted into the form');
+  const normal = createListingPublicationWorkflow(h.service, r => h.applied.push(r)); normal.setProperty(propertyId);
+  await normal.restore(); assert.equal(normal.getSnapshot().status, 'archived'); assert.equal(h.applied.length, 1);
+});

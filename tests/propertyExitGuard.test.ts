@@ -1827,3 +1827,29 @@ test('the Continue wait view: the label and hint while waiting, one amber line w
   const line = readFileSync('src/features/property-listing/components/ContinueStalledLine.tsx', 'utf8');
   assert.match(line, /minHeight:48/); assert.match(line, /CONTINUE_STALLED_MESSAGE/);
 });
+
+test('List again: the owner lands on an editable new draft with the previous details filled in, and the ended listing is never restored into it', async () => {
+  const old = { id: 'l-old', status: 'archived', property_id: 'p-2', title: 'Old title', description: 'Old description for the rental', asking_rent_monthly: 12000, house_rules: null, rental_term: 'long_term', security_deposit_months: 1, advance_rent_months: 1, minimum_stay_months: null, available_from: '2026-11-03' };
+  const item = { propertyId: 'p-2', property: { id: 'p-2', is_active: true, property_type: 'apartment', city: 'imus', furnishing_status: 'unfurnished', floor_area_sqm: 30 }, currentListing: old, listings: [old], tier3: { status: 'not_submitted' } };
+  const c: any = { owner_id: 'test-owner', property_id: 'p-2', edit_version: '60000000-0000-4000-8000-000000000001', property_type: 'apartment', city: 'imus', barangay: 'Fixture', floor_number: null, total_floors: 2, bedrooms: 1, bathrooms: 1, floor_area_sqm: 30, max_occupants: 2, furnishing_status: 'unfurnished', access_instructions: null, amenities: [] };
+  const calls: any[] = [];
+  // Behaves like the real service: with no listing named it finds the newest listing (the archived one) unless the workspace asks for a NEW listing.
+  const restore = async (_property: string, listing?: string, draftOnly?: boolean) => { calls.push([listing ?? null, !!draftOnly]); return draftOnly && !listing ? null : { row: { ...old }, pending: false }; };
+  const h = mountProperty(null, {}, { restore }, undefined, undefined, { initialScreen: 'dashboard', portfolio: { user: async () => 'test-owner', assertUser: async () => {}, load: async () => [item] }, routine: { load: async () => c, hasPending: async () => false } });
+  await h.settle(); h.vm().createListingForProperty('p-2'); await settle2(h); await settle2(h); await settle2(h);
+  const vm = h.vm();
+  assert.equal(vm.screen, 'listingDetails'); assert.equal(vm.workspaceListingId, null); assert.equal(vm.workspacePropertyId, 'p-2');
+  assert.ok(calls.every(([, draftOnly]) => draftOnly === true), 'any restore for the new draft is for a NEW listing: ' + JSON.stringify(calls));
+  assert.equal(vm.listingEditExplanation, null, 'nothing says the listing is no longer a draft, so the fields are not locked');
+  assert.equal(vm.draft.title, 'Old title'); assert.equal(vm.draft.description, 'Old description for the rental'); assert.equal(vm.draft.askingRent, '12000'); assert.equal(vm.draft.rentalTerm, 'long_term');
+  assert.equal(vm.draft.availableDate, '', 'an old availability date is not carried over');
+  h.unmount();
+});
+test('List again on a property that cannot take a new listing says why instead of doing nothing', async () => {
+  const mkItem = (status: string, active: boolean) => ({ propertyId: 'p-3', property: { id: 'p-3', is_active: active, property_type: 'apartment', city: 'imus', furnishing_status: 'unfurnished', floor_area_sqm: 30 }, currentListing: { id: 'l-x', status, property_id: 'p-3' }, listings: [], tier3: { status: 'not_submitted' } });
+  for (const [status, active, pattern] of [['archived', false, /inactive/], ['removed', true, /removed after a review/], ['active', true, /already has a current listing/]] as const) {
+    const h = mountProperty(null, {}, { restore: async () => null }, undefined, undefined, { initialScreen: 'dashboard', portfolio: { user: async () => 'test-owner', assertUser: async () => {}, load: async () => [mkItem(status, active)] } });
+    await h.settle(); h.vm().createListingForProperty('p-3'); await settle2(h);
+    assert.equal(h.vm().screen, 'dashboard', `${status}: stays on My properties`); assert.match(String(h.vm().notice), pattern, `${status}: the reason is shown`); h.unmount();
+  }
+});

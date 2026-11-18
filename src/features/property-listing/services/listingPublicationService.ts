@@ -44,7 +44,8 @@ export function createListingPublicationService(getClient: () => SupabaseClient<
   };
   return {
     context, assertContext, read, reconcile,
-    async restore(propertyId: string, selectedListingId?: string) {
+    /** `draftOnly` is for a NEW listing on a property (List again): when no listing is named, only a draft counts. An archived or other ended listing is not restored into the new draft. */
+    async restore(propertyId: string, selectedListingId?: string, draftOnly = false) {
       const base = await access.context(propertyId);
       const pointer = await journal.getItem(pointerKey(base));
       if (pointer && !isPropertyUuid(pointer)) throw uncertain();
@@ -57,6 +58,7 @@ export function createListingPublicationService(getClient: () => SupabaseClient<
       }
       if (!id) return null;
       const c = { ...base, listingId: id }; const row = await read(c,'status-read',false,true);
+      if (draftOnly && !selectedListingId && row.status !== 'draft') return null;
       const pending = !!await journal.getItem(pendingKey(c));
       return { row, pending };
     },

@@ -1,6 +1,6 @@
 import {createUnfinishedPostWorkflow} from './unfinishedPostWorkflow';
 import {postingEditorMenu} from '../models/UnfinishedPostMenu';
-import {editPropertyDetailsPlan,newListingTarget,type NewListingStart} from '../models/PortfolioCardPresentation';
+import {editPropertyDetailsPlan,newListingTarget,relistBlockedMessage,relistDraft,startsNewListing,type NewListingStart} from '../models/PortfolioCardPresentation';
 import {unfinishedPostService} from '../services/unfinishedPostDependencies';
 import type {PredictionReceipt} from '../../../shared/models/RentalPrediction';
 import {propertyMeasurementWarnings} from '../../../shared/models/PropertyMeasurementQuality';
@@ -234,7 +234,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   useEffect(() => {
     listingDraftPersistence.setProperty(workspace.propertyId);
     publishedContent.setProperty(workspace.mode==='editPublished'?workspace.propertyId:null);
-    publication.setProperty(workspace.propertyId);
+    publication.setProperty(workspace.propertyId, startsNewListing(workspace));
     lifecycle.setListing(null);
     if (workspace.mode!=='editPublished' && workspace.item?.currentListing && workspace.item.currentListing.status !== 'draft') { lifecycle.setListing(workspace.item.currentListing); void lifecycle.restore(); }
     const token = workspaceGeneration.current;
@@ -469,7 +469,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     savedConfirmation.current = null;
     if (!active.current) return;
     const picked=portfolio.select(propertyId),fresh=newListing?newListingTarget(picked,newListing):null;
-    if(newListing&&!fresh)return;
+    if(newListing&&!fresh){setNotice(relistBlockedMessage(picked)??'A new listing cannot be started on this property right now. Pull to refresh My properties and try again.');return;}
     const selected=fresh?fresh.item:picked;
     const managedRow=lifecycle.getSnapshot().row??publication.getSnapshot().lastConfirmed;
     const item=fromManagement&&workspaceRef.current.item&&managedRow?.property_id===propertyId?{...workspaceRef.current.item,currentListing:managedRow}:selected;if(!item)return;
@@ -479,7 +479,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     composerSaving.current = false; setComposerPhase(null); setComposerNotice(null);
     propertyPhotos.setProperty(null); publishedContent.setProperty(null); propertyAmenities.setProperty(null); listingDraftPersistence.setProperty(null); publication.setProperty(null); lifecycle.setListing(null);
     selectWorkspace({ propertyId, listingId: row?.id ?? null, mode: publishedEdit?'editPublished':row && row.status !== 'draft' ? 'manage' : 'compose', item });
-    savedDraft.current = emptyListingDraft; setDraft(emptyListingDraft); setNotice(null);
+    // List again: the new draft starts with the previous listing's details filled in (the baseline stays empty, so the first save creates the new draft).
+    savedDraft.current = emptyListingDraft; setDraft(fresh ? relistDraft(emptyListingDraft, picked?.currentListing ?? null) : emptyListingDraft); setNotice(null);
     setShowRealPublication(!!row && row.status !== 'draft'); setHistory(fromManagement?['dashboard','published']:fresh?fresh.history as typeof history:['dashboard']);
     if(publishedEdit){setPostingWizard(true);setScreen('listingComposer');void propertyRoutine.open(propertyId);}
     else if (row && row.status !== 'draft') { setPostingWizard(false); lifecycle.setListing(row); setScreen('published'); }

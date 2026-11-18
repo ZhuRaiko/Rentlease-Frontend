@@ -2,6 +2,8 @@ import { estimateNeedsFloorArea } from './PostingEstimate';
 import type { LandlordPortfolioItem } from './LandlordPortfolio';
 import { portfolioListingLabels, portfolioTierLabels } from './LandlordPortfolio';
 import { canReviewPortfolioPublication, propertyVerificationActionLabel } from './PropertyVerificationPresentation';
+import { applySavedListing, type SavedListingDraft } from './PersistedListingDraft';
+import type { ListingDraft } from './PropertyListing';
 
 /** Presentation decisions for one My Rentals card. Derived only from existing backend-derived fields; nothing is inferred. */
 export type PortfolioChipTone = 'neutral' | 'positive' | 'attention';
@@ -113,3 +115,35 @@ export function newListingTarget(item: LandlordPortfolioItem | null | undefined,
   const at = start === 'resume' ? (firstIncompleteStep(item) === 'property' ? 'property' : 'details') : start;
   return { item: { ...item, currentListing: null }, listingId: null as string | null, mode: 'compose' as const, screen: at === 'property' ? 'listingComposer' as const : 'listingDetails' as const, history: (at === 'property' ? ['dashboard'] : ['dashboard', 'listingComposer']) as string[] };
 }
+
+/**
+ * The form for a new listing started from an ended one (List again): the previous title, description, rent, terms and house rules are filled in so the
+ * owner edits them instead of retyping, and the availability date is left blank (an old date would only be wrong). The new listing is a new draft: it has no id
+ * until the first save, and the property's photos and reviews stay with the property.
+ */
+export function relistDraft(base: ListingDraft, previous: LandlordPortfolioItem['currentListing']): ListingDraft {
+  if (!previous) return base;
+  const p = previous as unknown as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === 'string' ? value : undefined);
+  const count = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : undefined);
+  // Only what the listing really has is copied; anything missing keeps the form's own starting value (never "undefined").
+  const row = { ...p, title: text(p.title) ?? '', description: text(p.description) ?? '', asking_rent_monthly: count(p.asking_rent_monthly) ?? 0, house_rules: text(p.house_rules) ?? null, rental_term: text(p.rental_term) ?? 'long_term',
+    security_deposit_months: count(p.security_deposit_months) ?? 0, advance_rent_months: count(p.advance_rent_months) ?? 0, minimum_stay_months: count(p.minimum_stay_months) ?? null, available_from: null };
+  const filled = applySavedListing(base, row as unknown as SavedListingDraft);
+  return { ...filled, availableDate: '',
+    ...(text(p.title) === undefined ? { title: base.title } : {}), ...(text(p.description) === undefined ? { description: base.description } : {}),
+    ...(count(p.asking_rent_monthly) === undefined ? { askingRent: base.askingRent } : {}), ...(text(p.rental_term) === undefined ? { rentalTerm: base.rentalTerm } : {}),
+    ...(count(p.security_deposit_months) === undefined ? { securityDepositMonths: base.securityDepositMonths } : {}), ...(count(p.advance_rent_months) === undefined ? { advanceRentMonths: base.advanceRentMonths } : {}) };
+}
+/** Why a new listing cannot be started on this property right now, in plain words, or null when it can. Never a silent dead end. */
+export function relistBlockedMessage(item: LandlordPortfolioItem | null | undefined): string | null {
+  if (!item) return 'This property could not be found. Pull to refresh My properties and try again.';
+  if (!item.property.is_active) return 'This property is inactive, so a new listing cannot be started. Contact support if you think this is a mistake.';
+  const status = item.currentListing?.status;
+  if (status === 'removed') return 'This listing was removed after a review, so it cannot be listed again. Contact support if you think this is a mistake.';
+  if (status && status !== 'archived') return 'This property already has a current listing. Open it from My properties.';
+  return null;
+}
+
+/** A workspace in compose mode with no listing id is a NEW listing (a fresh draft, including List again): an ended listing must never be restored into it. */
+export const startsNewListing = (workspace: { mode: string; listingId: string | null }): boolean => workspace.mode === 'compose' && !workspace.listingId;
