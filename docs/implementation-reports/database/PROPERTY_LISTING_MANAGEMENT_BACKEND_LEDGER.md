@@ -2012,3 +2012,26 @@ Saved counts: not read. `saved_listings` has no direct client grant and the save
 ### Frontend reads added by Feature 2 (code only; no live call was made to test them)
 
 `tenancies` (the landlord's own open rows, SELECT, through `landlordTenanciesService`), `get_tenancy_care`, `get_tenancy_lifecycle`, `get_published_rental_reviews`, `get_public_identities`, the reservation list, and the existing `respond_rental_reservation` decline path through the reservation workflow. No decline was run on real data. Reservation `d67d5332-39f6-45b7-b4f3-8e81396d490e` was not touched.
+
+
+## November 19, 2026 - 360 room tour (property panoramas): prepared migration, PREPARED LOCAL / NOT APPLIED
+
+| Field | Entry |
+| --- | --- |
+| Date | Prepared 2026-11-19 |
+| Feature/phase | Property & Listing Management, 360 room tour backend (prompt 1 of 2) |
+| Actor/tool | Claude Code; local files and a disposable Docker PostgreSQL 17.6.1.155 (no network). No hosted call of any kind |
+| Environment/project | Local only. Hosted project `cxfsbwbwmwmgtqfonqth` was not contacted |
+| Classification | PREPARED LOCAL / NOT APPLIED. No hosted mutation. Nothing pushed |
+| Target | Storage bucket `property-panoramas`; table `public.property_panoramas`; RPCs `set_property_panorama`, `remove_property_panorama`; four `storage.objects` policies; private schema `rentlease_property_panorama`; patch of `rentlease_unfinished_posts.inspect(uuid)` (allow-list only) |
+| Action | Migration `supabase/migrations/20261119100000_property_panoramas.sql`, checks `supabase/test-support/property_panoramas_checks.sql` with `property_panoramas_fixture.sql`, rollbacks `property_panoramas_rollback.sql` (data-retaining) and `property_panoramas_rollback_full.sql`, runner `supabase/tests/run_property_panoramas.py`, design `docs/design/room-tour-backend-design.md`, policy record `STORAGE_OBJECTS_POLICIES_BEFORE_PANORAMAS.md` |
+| Result | 109 disposable-container checks passed (33 runner, 76 SQL). New `inspect` body md5 `fd1bc6691ce65b03ae723d94a2d8a7c9` (original `05d843208715e6122ea53beec8165989`) |
+| Durable effect | None on hosted |
+| Rollback/cleanup | Prepared; see the two rollback files. Disposable containers removed |
+| Security/RLS | RPCs security definer, `search_path = pg_catalog`, authenticated only. Table select-only through RLS (`can_view_property`). Owner-folder storage policies, 6-object folder cap, restrictive UPDATE deny. Hosted behavior unverified |
+| Source-controlled backend file | As listed under Action |
+| Android/client runtime | Not applicable yet; frontend is prompt 2. RUNTIME-UNVERIFIED |
+
+Accepted v1 gap: deleting an unfinished post removes the panorama rows (ON DELETE CASCADE) but leaves the files in the bucket, because the cleanup edge function is not changed. Removing a panorama also leaves its file.
+Choice recorded: the bucket is created inside the migration (idempotent insert, then the contract is asserted), because no earlier migration creates a bucket. Unverified on hosted: whether the migration context may insert into `storage.buckets` and create policies on `storage.objects`; if refused, the transaction rolls back and the bucket can be created by hand with the same settings.
+Plan: Supabase Free (no PITR, no branching, 1 GB storage, 50 MB file cap). Apply only after an explicit go-ahead, a fresh predeploy backup and the live `storage.objects` policy record, with `db query --linked -f` and a single-version `migration repair`; never `db push`.
