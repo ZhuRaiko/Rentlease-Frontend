@@ -121,12 +121,12 @@ test('page: refuses a URL that is not allowed and a bad aspect; the script compi
 
 // WebGL itself cannot be unit tested. This runs the page script in a sandbox with a fake canvas and a fake GL context, to check what CAN be checked: the messages it sends,
 // its position math and clamping, and its failure paths. It does not prove anything is drawn correctly.
-function runPage(options: { glNull?: boolean; maxTexture?: number; imageWidth?: number; reducedMotion?: boolean; entry?: 'left' | 'right'; imageFails?: boolean } = {}) {
-  const html = buildRoomTourGlHtml({ imageUrl: URL_OK, aspect: 4.28, reducedMotion: !!options.reducedMotion, entry: options.entry ?? 'left' });
+function runPage(options: { glNull?: boolean; maxTexture?: number; imageWidth?: number; reducedMotion?: boolean; entry?: 'left' | 'right'; imageFails?: boolean; bothSides?: boolean } = {}) {
+  const html = buildRoomTourGlHtml({ imageUrl: URL_OK, aspect: 4.28, reducedMotion: !!options.reducedMotion, bothSides: !!options.bothSides, entry: options.entry ?? 'left' });
   const cfgText = /<script type="application\/json" id="cfg">([\s\S]*?)<\/script>/.exec(html)![1]!;
-  const messages: any[] = [], listeners: Record<string, (event: any) => void> = {}, frames: ((now: number) => void)[] = [], timers: (() => void)[] = [], drawn = { arrays: 0, downscaled: 0, textures: 0 };
+  const messages: any[] = [], listeners: Record<string, (event: any) => void> = {}, frames: ((now: number) => void)[] = [], timers: (() => void)[] = [], drawn = { arrays: 0, downscaled: 0, textures: 0, clears: 0 };
   let now = 0;
-  const gl: any = new Proxy({}, { get: (_t, key: string) => key === 'getParameter' ? () => options.maxTexture ?? 8192 : key === 'getShaderParameter' || key === 'getProgramParameter' ? () => true : key === 'drawArrays' ? () => { drawn.arrays++; } : key === 'texImage2D' ? () => { drawn.textures++; } : /^[A-Z_0-9]+$/.test(key) ? 1 : () => 1 });
+  const gl: any = new Proxy({}, { get: (_t, key: string) => key === 'getParameter' ? () => options.maxTexture ?? 8192 : key === 'getShaderParameter' || key === 'getProgramParameter' ? () => true : key === 'clear' ? () => { drawn.clears++; } : key === 'drawArrays' ? () => { drawn.arrays++; } : key === 'texImage2D' ? () => { drawn.textures++; } : /^[A-Z_0-9]+$/.test(key) ? 1 : () => 1 });
   const canvas = { clientWidth: 400, clientHeight: 700, width: 0, height: 0, addEventListener: (type: string, fn: (event: any) => void) => { listeners[type] = fn; }, getContext: () => options.glNull ? null : gl, setPointerCapture: () => {} };
   const document = { getElementById: (id: string) => id === 'cfg' ? { textContent: cfgText } : canvas, createElement: () => ({ width: 0, height: 0, getContext: () => ({ drawImage: () => { drawn.downscaled++; } }) }) };
   const images: any[] = [];
@@ -137,7 +137,7 @@ function runPage(options: { glNull?: boolean; maxTexture?: number; imageWidth?: 
   const settle = () => { for (let guard = 0; timers.length && guard < 20; guard++) { now += 40; timers.shift()!(); } };   // each timer fires 40 ms later, so throttle timers can fire
   const frame = (ms = 16) => { now += ms; const batch = frames.splice(0); batch.forEach(fn => fn(now)); settle(); };
   const loadImage = () => { const img = images.shift(); if (options.imageFails) img.onerror(); else img.onload(); settle(); };
-  const pointer = (type: string, x: number, y: number, t: number) => { now = t; listeners[type]?.({ pointerId: 1, clientX: x, clientY: y, timeStamp: t }); };
+  const pointer = (type: string, x: number, y: number, t: number) => { now = t; listeners[type]?.({ type, pointerId: 1, clientX: x, clientY: y, timeStamp: t }); };
   const positions = () => messages.filter(m => m.type === 'position').map(m => m.t as number);
   return { messages, positions, frame, loadImage, pointer, drawn, images, window, frames, clock: () => now };
 }
@@ -186,4 +186,44 @@ test('page (fake GL): setSide ignores another origin and a bad aspect, and a val
   api.setSide(URL_BACK, -1, 'left'); api.setSide(URL_BACK, 'x', 'left'); assert.equal(page.images.length, 0);
   api.setSide(URL_BACK, 4.1, 'right'); assert.equal(page.images.length, 1); page.loadImage();
   assert.deepEqual(page.positions().at(-1), 1, 'entered at the right end'); assert.equal(page.messages.filter(m => m.type === 'ready').length, 2, 'ready is reported again for the new side');
+});
+
+// ---- phase 2: pulling past an end and releasing (wrap-around between the sides) ----
+const pulls = (page: ReturnType<typeof runPage>) => page.messages.filter(m => m.type === 'pull');
+const releases = (page: ReturnType<typeof runPage>) => page.messages.filter(m => m.type === 'release');
+test('page (fake GL), both sides: pulling past the left end reports the edge and the finger distance, and a release reports it once', () => {
+  const page = runPage({ bothSides: true, reducedMotion: true }); page.loadImage();
+  page.pointer('pointerdown', 100, 300, 0); page.pointer('pointermove', 180, 300, 40); page.frame(20);   // 80 px right of the start at the left end: 80 px past it
+  const first = pulls(page).at(-1); assert.equal(first.edge, 'left'); near(first.dp, 80, 1e-6);
+  page.pointer('pointermove', 230, 300, 80); page.frame(20); near(pulls(page).at(-1).dp, 130, 1e-6);
+  page.pointer('pointerup', 230, 300, 100);
+  assert.deepEqual(releases(page).map(m => m.edge), ['left']); near(releases(page)[0].dp, 130, 1e-6);
+});
+test('page (fake GL), both sides: pulling past the right end reports the right edge', () => {
+  const page = runPage({ bothSides: true, reducedMotion: true, entry: 'right' }); page.loadImage();
+  page.pointer('pointerdown', 300, 300, 0); page.pointer('pointermove', 210, 300, 40); page.frame(20); page.pointer('pointerup', 210, 300, 60);
+  assert.equal(pulls(page).at(-1).edge, 'right'); near(pulls(page).at(-1).dp, 90, 1e-6); assert.equal(releases(page)[0].edge, 'right');
+});
+test('page (fake GL), both sides: dragging back inside the photo clears the pull; a drag that stays inside sends no pull and no release', () => {
+  const page = runPage({ bothSides: true, reducedMotion: true }); page.loadImage();
+  page.pointer('pointerdown', 100, 300, 1000); page.pointer('pointermove', 160, 300, 1030); page.frame(30); assert.ok(pulls(page).length >= 1);
+  page.pointer('pointermove', 60, 300, 1100); page.frame(30);   // back past the start, inside the photo
+  assert.equal(pulls(page).at(-1).dp, 0, 'the pull is cleared'); page.pointer('pointerup', 60, 300, 1130); assert.equal(releases(page).length, 0);
+  const inside = runPage({ bothSides: true, reducedMotion: true }); inside.loadImage();
+  inside.pointer('pointerdown', 300, 300, 0); inside.pointer('pointermove', 200, 300, 30); inside.pointer('pointerup', 200, 300, 60); assert.equal(pulls(inside).length, 0); assert.equal(releases(inside).length, 0);
+});
+test('page (fake GL), one side: never reports a pull or a release, only the soft edge', () => {
+  const page = runPage({ bothSides: false, reducedMotion: true }); page.loadImage();
+  page.pointer('pointerdown', 100, 300, 0); page.pointer('pointermove', 300, 300, 40); page.frame(20); page.pointer('pointerup', 300, 300, 60);
+  assert.equal(pulls(page).length, 0); assert.equal(releases(page).length, 0);
+});
+test('page (fake GL), both sides: a cancelled touch clears the pull and does not release', () => {
+  const page = runPage({ bothSides: true, reducedMotion: true }); page.loadImage();
+  page.pointer('pointerdown', 100, 300, 0); page.pointer('pointermove', 200, 300, 40); page.frame(20); page.pointer('pointercancel', 200, 300, 60);
+  assert.equal(releases(page).length, 0); assert.equal(pulls(page).at(-1).dp, 0);
+});
+test('page (fake GL): asking for another side clears the old picture at once (no flash of the previous side)', () => {
+  const page = runPage(); page.loadImage(); const arrays = page.drawn.arrays, clears = page.drawn.clears;
+  page.window.__roomTour.setSide(URL_BACK, 4.1, 'left'); assert.equal(page.drawn.arrays, arrays, 'nothing is drawn for the new side until it has loaded'); assert.equal(page.drawn.clears, clears + 1, 'the canvas is cleared');
+  assert.ok(page.images.length === 1, 'the new image is loading');
 });

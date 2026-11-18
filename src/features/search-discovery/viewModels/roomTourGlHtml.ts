@@ -100,7 +100,7 @@ const RENDERER_SOURCE = String.raw`
   function tick(now) { raf = 0; var dt = Math.min(50, now - last || 16); last = now; var moving = step(dt); draw(); report(); if (moving || mode === 'drag') schedule(); }
   function schedule() { if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); } }
   function load(url, asp, entry) {
-    var mine = ++token, img = new Image(); loaded = false; readyPosted = false; aspect = asp; img.crossOrigin = 'anonymous';
+    var mine = ++token, img = new Image(); loaded = false; readyPosted = false; aspect = asp; img.crossOrigin = 'anonymous'; draw();   // draw() clears the canvas: the old side is not shown while the new one loads
     img.onload = function () {
       if (mine !== token) return;
       try { size(); mesh(); upload(img); } catch (e) { fail('texture'); return; }
@@ -109,6 +109,16 @@ const RENDERER_SOURCE = String.raw`
     };
     img.onerror = function () { if (mine === token) fail('image'); };
     img.src = url;
+  }
+  var pullEdge = '', pullDp = 0, pullAt = 0;
+  function pull(over) {
+    if (!C.both) return;
+    var dp = Math.abs(over), edge = pullEdge;
+    if (over < 0) edge = 'left'; else if (over > 0) edge = 'right';
+    if (edge === '') return;
+    var now = performance.now(), changed = edge !== pullEdge || Math.abs(dp - pullDp) >= 2 || (dp === 0 && pullDp !== 0);
+    if (!changed || (dp !== 0 && now - pullAt < 1000 / C.hz)) return;
+    pullEdge = edge; pullDp = dp; pullAt = now; post({ type: 'pull', edge: edge, dp: dp });
   }
   function samplesTrim(t) { while (drag.samples.length > 2 && t - drag.samples[0][0] > 100) drag.samples.shift(); }
   canvas.addEventListener('pointerdown', function (e) {
@@ -119,11 +129,14 @@ const RENDERER_SOURCE = String.raw`
   canvas.addEventListener('pointermove', function (e) {
     if (!drag || e.pointerId !== drag.id) return;
     drag.raw = drag.start - (e.clientX - drag.x); offset = dragOff(drag.raw, maxPx, C.rubberFactor, C.rubberMax);
-    pitch = clamp((e.clientY - drag.y) * C.pitchPerPx, -C.pitchLimit, C.pitchLimit); drag.samples.push([e.timeStamp, e.clientX]); samplesTrim(e.timeStamp); schedule();
+    pitch = clamp((e.clientY - drag.y) * C.pitchPerPx, -C.pitchLimit, C.pitchLimit); drag.samples.push([e.timeStamp, e.clientX]); samplesTrim(e.timeStamp); pull(overshoot(drag.raw, maxPx)); schedule();
   });
   function end(e) {
     if (!drag || e.pointerId !== drag.id) return;
     var d = drag, over = overshoot(d.raw, maxPx); drag = null; mode = 'idle';
+    var rel = 'right'; if (over < 0) rel = 'left';
+    if (C.both && over !== 0 && e.type === 'pointerup') post({ type: 'release', edge: rel, dp: Math.abs(over) }); else pull(0);
+    pullEdge = ''; pullDp = 0;
     if (over !== 0) { target = maxPx; if (over < 0) target = 0; if (reduced) offset = target; else mode = 'spring'; }
     else if (!reduced && d.samples.length > 1) {
       var a = d.samples[0], b = d.samples[d.samples.length - 1], dtm = b[0] - a[0];
@@ -154,6 +167,8 @@ export interface RoomTourGlOptions {
   fovDegrees?: number;
   pitchLimitDegrees?: number;
   reducedMotion?: boolean;
+  /** Both Front and Back exist: the page then reports pulls past an end and releases, so the viewer can wrap to the other side. */
+  bothSides?: boolean;
   /** Which end the first image is entered at (a wrap enters at the end opposite to the one left through). */
   entry?: Edge;
 }
@@ -165,7 +180,7 @@ export function buildRoomTourGlHtml(options: RoomTourGlOptions): string {
   if (!Number.isFinite(options.aspect) || options.aspect <= 0 || options.aspect >= 100) throw new Error('The room tour image aspect is not valid.');
   const config = {
     imageUrl, aspect: options.aspect, span: options.spanDegrees ?? GL_SPAN_DEGREES, fov: options.fovDegrees ?? GL_FOV_DEGREES, pitchLimit: options.pitchLimitDegrees ?? GL_PITCH_LIMIT_DEGREES,
-    reduced: !!options.reducedMotion, entry: options.entry ?? 'left', hz: GL_POSITION_MAX_HZ, pitchPerPx: GL_PITCH_DEG_PER_PX,
+    reduced: !!options.reducedMotion, both: !!options.bothSides, entry: options.entry ?? 'left', hz: GL_POSITION_MAX_HZ, pitchPerPx: GL_PITCH_DEG_PER_PX,
     decel: MOMENTUM_DECELERATION, minFling: MIN_FLING_VELOCITY, rubberFactor: RUBBER_BAND_FACTOR, rubberMax: RUBBER_BAND_MAX_DP, spring: SPRING_BACK_SPEED, wrapThreshold: WRAP_THRESHOLD_DP,
   };
   const json = JSON.stringify(config).replace(/</g, '\\u003c');   // a "<" inside the data can never close the script tag

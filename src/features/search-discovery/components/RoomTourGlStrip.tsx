@@ -12,6 +12,8 @@ export interface RoomTourGlStripProps {
   /** The end the CURRENT side is entered at (a wrap enters at the end opposite to the one left through). Read when the side changes. */
   entry: Edge;
   reduceMotion: boolean;
+  /** Both Front and Back exist, so the page reports pulls past an end and releases (wrap-around). */
+  bothSides: boolean;
   /** The first frame of this side has drawn. */
   onReady: (side: PanoramaSide) => void;
   /** Position across the photo, 0 to 1, at most about 30 times a second. */
@@ -43,11 +45,11 @@ export function RoomTourGlStrip(props: RoomTourGlStripProps) {
   return <GlBoundary onFail={onUnavailable}><GlStripInner {...props} /></GlBoundary>;
 }
 
-function GlStripInner({ panorama, entry, reduceMotion, onReady, onPosition, onUnavailable, onPull, onRelease }: RoomTourGlStripProps) {
+function GlStripInner({ panorama, entry, reduceMotion, bothSides, onReady, onPosition, onUnavailable, onPull, onRelease }: RoomTourGlStripProps) {
   const WebView = roomTourWebView()!;
   const ref = useRef<InstanceType<ReturnType<typeof roomTourWebView> & object> | null>(null);
   const first = useRef(panorama);   // the page is built once, for the first side; later sides are sent as commands
-  const [html] = useState(() => { try { return buildRoomTourGlHtml({ imageUrl: first.current.url, aspect: first.current.width / first.current.height, reducedMotion: reduceMotion, entry }); } catch { return null; } });
+  const [html] = useState(() => { try { return buildRoomTourGlHtml({ imageUrl: first.current.url, aspect: first.current.width / first.current.height, reducedMotion: reduceMotion, bothSides, entry }); } catch { return null; } });
   const shown = useRef(panorama.url);
   const [waiting, setWaiting] = useState<string | null>(panorama.url);   // the url whose first frame we are waiting for
   const send = useCallback((script: string | null) => { if (script) ref.current?.injectJavaScript(script); else onUnavailable('command rejected'); }, [onUnavailable]);

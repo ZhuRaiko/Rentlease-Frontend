@@ -53,6 +53,7 @@ function Session({ tour, onClose }: { tour: readonly PublicPropertyPanorama[]; o
   const progress = useRef(new Animated.Value(0)).current;   // 0..1 position in the strip: written by the strip, read by the dial
   const fade = useRef(new Animated.Value(1)).current;        // strip opacity during a wrap
   const wrapping = useRef(false);
+  const positionMessages = useRef(0);   // the first position message is only where the page starts; a later one means the finger moved (the hint goes away)
   const entry = useRef<Edge>('left');                         // which end the next strip starts at (changes only for a wrap)
   const selected: PanoramaSide = view?.selected ?? 'front';
   const [dial, setDial] = useState(() => dialLabel(selected, 0));
@@ -98,7 +99,10 @@ function Session({ tour, onClose }: { tour: readonly PublicPropertyPanorama[]; o
     </View>
     <View style={styles.middle}>
       {gl ? <Animated.View style={[styles.glLayer, { opacity: fade }]}>
-        <RoomTourGlStrip panorama={current} entry={entry.current} reduceMotion={reduceMotion} onReady={side => setView(v => v && sideLoaded(v, side))} onPosition={t => progress.setValue(t)} onUnavailable={toFlat} />
+        <RoomTourGlStrip panorama={current} entry={entry.current} reduceMotion={reduceMotion} bothSides={both} onReady={side => setView(v => v && sideLoaded(v, side))} onUnavailable={toFlat}
+          onPosition={t => { progress.setValue(t); if (positionMessages.current++ > 0) dismissHint(); }}
+          onPull={(edge, dp) => setChip(previous => { const next = wrapChip(view.selected, edge === 'left' ? -dp : dp, both); return previous?.edge === next?.edge && previous?.text === next?.text ? previous : next; })}
+          onRelease={(edge, dp) => { setChip(null); if (wrapTriggered(edge === 'left' ? -dp : dp, both)) wrap(edge); }} />
       </Animated.View> : null}
       {areaHeight > 0 ? <View pointerEvents="box-none" style={{ height: areaHeight }}>
         {gl ? null : <><Animated.View style={[styles.fill, { opacity: fade }]}>
