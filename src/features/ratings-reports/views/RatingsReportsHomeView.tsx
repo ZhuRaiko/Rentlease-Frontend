@@ -1,6 +1,7 @@
 import {Pressable, RefreshControl, ScrollView, StyleSheet, Text, View} from 'react-native';
 import {AppButton} from '../../../shared/components/AppButton';
 import {GlyphIcon} from '../../../shared/components/GlyphIcon';
+import {PublishedRentalReviews} from '../../../shared/components/RentalReviews';
 import {RefreshHint, SkeletonBlock} from '../../../shared/components/RefreshHint';
 import {ScreenHeader} from '../../../shared/components/ScreenHeader';
 import {PENDING_NOTE, reviewDay, reviewStatusLabel, stayEndedText} from '../../../shared/models/ReviewsOverview';
@@ -67,7 +68,6 @@ export function RatingsReportsHomeView({onClose, viewModel, accountId, onReviewP
       </View> : null}
 
       {data && data.stays > 0 ? <Pressable accessibilityRole="button" onPress={viewModel.startReview} style={styles.linkRow}><Text style={styles.linkText}>See all completed rentals</Text></Pressable> : null}
-      {/* The participant-review block (PublishedRentalReviews, kind "user") is hidden from this screen on purpose; its code path is unchanged. */}
 
       <View style={styles.section}>
         <Text accessibilityRole="header" style={styles.sectionTitle}>Report a concern</Text>
@@ -79,6 +79,9 @@ export function RatingsReportsHomeView({onClose, viewModel, accountId, onReviewP
         </View>
         <Text style={ui.supporting}>Report a listing from Rental Details, or report the other participant from a relevant conversation. Reports are confidential and do not automatically restrict accounts.</Text>
       </View>
+
+      {/* Reviews other people published about me as a participant: read-only, the original section and title. The landlord's rating of a tenant is not offered here. */}
+      {accountId ? <View style={styles.section}><PublishedRentalReviews accountId={accountId} kind="user" targetId={accountId} /></View> : null}
     </ScrollView>
   </View>;
 }
