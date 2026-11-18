@@ -9,6 +9,8 @@ import { ui } from '../../../shared/theme/ui';
 import { clampPanOffset, maxPanOffset, panProgress, panoramaSideLabel, stripAreaHeight, stripWidth, type PanoramaSide, type PublicPropertyPanorama } from '../../../shared/models/PropertyPanorama';
 import { markDragHintSeen, openRoomTour, retrySide, selectSide, shouldShowDragHint, showSideSwitch, sideFailed, sideLoaded, switchEnabled, wrapToSide, type RoomTourViewerState } from '../viewModels/roomTourViewerState';
 import { RoomTourBackdrop, RoomTourEdgeFades } from './RoomTourBackdrop';
+import { RoomTourGlStrip } from './RoomTourGlStrip';
+import { GL_FOV_DEGREES, GL_SPAN_DEGREES, ROOM_TOUR_GL_ENABLED, horizontalFov, panDistanceDp } from '../viewModels/roomTourGlGeometry';
 import { DIAL_SIZE, MOMENTUM_DECELERATION, SPRING_BACK_SPEED, WRAP_FADE_IN_MS, WRAP_FADE_OUT_MS, backdropMaxShift, dialArc, dialHalves, dialLabel, dragOffset, edgeOf, entryOffset, overshootOf, releaseVelocity, shouldCoast, shouldRefreshDialLabel, wrapChip, wrapTarget, wrapTriggered, type DialHalfState, type Edge } from '../viewModels/roomTourMotion';
 
 const TARGET = 48, RING = 4;
@@ -44,6 +46,10 @@ function Session({ tour, onClose }: { tour: readonly PublicPropertyPanorama[]; o
   const [hint, setHint] = useState(shouldShowDragHint);
   const [chip, setChip] = useState<Chip | null>(null);
   const reduceMotion = useReduceMotion();
+  // The WebGL strip is used unless it is switched off or unavailable. Once it fails for any reason the flat strip is used for the rest of this session (no flip-flopping).
+  const [glFallback, setGlFallback] = useState(false);
+  const gl = ROOM_TOUR_GL_ENABLED && !glFallback;
+  const toFlat = useCallback((reason: string) => { if (__DEV__) console.info('[ROOM-TOUR-GL] using the flat strip:', reason); setGlFallback(true); }, []);
   const progress = useRef(new Animated.Value(0)).current;   // 0..1 position in the strip: written by the strip, read by the dial
   const fade = useRef(new Animated.Value(1)).current;        // strip opacity during a wrap
   const wrapping = useRef(false);
@@ -80,22 +86,27 @@ function Session({ tour, onClose }: { tour: readonly PublicPropertyPanorama[]; o
   const current = tour.find(p => p.side === view.selected)!;
   const areaHeight = stripAreaHeight(size.height), strip = stripWidth(areaHeight, current.width, current.height), max = maxPanOffset(strip, size.width);
   const status = view.load[view.selected], name = panoramaSideLabel[view.selected], both = showSideSwitch(view);
+  // How far a finger would drag to cross the whole photo: the flat strip's pan distance, or (GL) the span over the field of view. Feeds the backdrop drift and the dial.
+  const panMax = gl ? panDistanceDp(GL_SPAN_DEGREES, horizontalFov(GL_FOV_DEGREES, size.width / Math.max(1, size.height)), size.width) : max;
   const onLayout = (event: LayoutChangeEvent) => setSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height });
   return <View style={styles.root} onLayout={onLayout}>
     {/* Decoration only, behind everything: a blurred, darkened copy of this side's image. Still with reduced motion. */}
-    {size.width > 0 && size.height > 0 ? <RoomTourBackdrop key={current.url} url={current.url} width={size.width} height={size.height} maxShift={reduceMotion ? 0 : backdropMaxShift(max)} progress={progress} fade={fade} /> : null}
+    {size.width > 0 && size.height > 0 ? <RoomTourBackdrop key={current.url} url={current.url} width={size.width} height={size.height} maxShift={reduceMotion ? 0 : backdropMaxShift(panMax)} progress={progress} fade={fade} /> : null}
     <View style={styles.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="Close room tour" onPress={onClose} style={styles.closeTarget}><View accessible={false} style={styles.close}><Text style={styles.closeMark}>{'×'}</Text></View></Pressable>
       <Text accessibilityRole="header" style={styles.title}>Room tour</Text>
     </View>
     <View style={styles.middle}>
-      {areaHeight > 0 ? <View style={{ height: areaHeight }}>
-        <Animated.View style={[styles.fill, { opacity: fade }]}>
+      {gl ? <Animated.View style={[styles.glLayer, { opacity: fade }]}>
+        <RoomTourGlStrip panorama={current} entry={entry.current} reduceMotion={reduceMotion} onReady={side => setView(v => v && sideLoaded(v, side))} onPosition={t => progress.setValue(t)} onUnavailable={toFlat} />
+      </Animated.View> : null}
+      {areaHeight > 0 ? <View pointerEvents="box-none" style={{ height: areaHeight }}>
+        {gl ? null : <><Animated.View style={[styles.fill, { opacity: fade }]}>
           <Strip key={`${view.selected}:${view.reloads[view.selected]}`} panorama={current} width={strip} height={areaHeight} viewportWidth={size.width} max={max} interactive={status === 'loaded'} progress={progress} startAt={entry.current}
             bothSides={both} side={view.selected} reduceMotion={reduceMotion} loaded={status === 'loaded'}
             onLoaded={() => setView(v => v && sideLoaded(v, current.side))} onFailed={() => setView(v => v && sideFailed(v, current.side))} onTouch={dismissHint} onChip={setChip} onWrap={wrap} />
         </Animated.View>
-        <RoomTourEdgeFades />
+        <RoomTourEdgeFades /></>}
         {status === 'loading' ? <View style={styles.center} pointerEvents="none"><ActivityIndicator accessibilityLabel={`Loading ${name.toLowerCase()}`} color={colors.white} /><Text accessibilityLiveRegion="polite" style={styles.onDark}>{`Loading ${name.toLowerCase()}...`}</Text></View> : null}
         {status === 'failed' ? <View style={[styles.center, styles.failed]}>
           <Text accessibilityRole="alert" style={styles.failTitle}>{`Couldn’t load the ${name.toLowerCase()}`}</Text>
@@ -107,7 +118,7 @@ function Session({ tour, onClose }: { tour: readonly PublicPropertyPanorama[]; o
       </View> : null}
     </View>
     <View style={styles.footer}>
-      {status === 'loaded' && max > 0 ? <PositionDial progress={progress} side={view.selected} halves={dialHalves(view.sides, view.selected)} label={dial} /> : null}
+      {status === 'loaded' && panMax > 0 ? <PositionDial progress={progress} side={view.selected} halves={dialHalves(view.sides, view.selected)} label={dial} /> : null}
       {both
         ? <View style={styles.switchTrack}>{view.sides.map(side => <SideButton key={side} side={side} selected={view.selected === side} disabled={!switchEnabled(view)} onPress={() => setView(v => v && selectSide(v, side))} />)}</View>
         : <Text style={styles.singleLabel}>{name}</Text>}
@@ -217,6 +228,7 @@ const styles = StyleSheet.create({
   title: { ...ui.sectionTitle, color: colors.white },
   middle: { flex: 1, justifyContent: 'center' },
   fill: { flex: 1 },
+  glLayer: { ...StyleSheet.absoluteFill as object },
   window: { flex: 1, overflow: 'hidden', backgroundColor: colors.ink },
   center: { ...StyleSheet.absoluteFill as object, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, padding: spacing.md },
   failed: { backgroundColor: colors.ink },
