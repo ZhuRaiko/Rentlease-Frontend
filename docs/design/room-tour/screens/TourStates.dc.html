@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Room tour · loading and error</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#7CC587}a:hover{color:#FFFFFF}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 411px; height: 891px; box-sizing: border-box; background: #0F1A16; font-family: Roboto, sans-serif; color: #FFFFFF; position: relative; overflow: hidden">
+  <div style="position: absolute; top: 0; left: 0; right: 0; padding: 20px 16px; display: flex; align-items: center; gap: 12px">
+    <button aria-label="Close room tour" style="width: 48px; height: 48px; border-radius: 100px; border: 0; background: rgba(255,255,255,0.14); display: flex; align-items: center; justify-content: center; padding: 0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+    </button>
+    <span style="font-size: 17px; font-weight: 600">Room tour</span>
+  </div>
+
+  <div aria-busy="true" style="position: absolute; left: 16px; right: 16px; top: 96px; height: 300px; border-radius: 20px; background: rgba(255,255,255,0.08); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px">
+    <span style="width: 44px; height: 44px; border-radius: 100px; border: 3px solid rgba(255,255,255,0.25); border-top-color: #FFFFFF; box-sizing: border-box"></span>
+    <span style="font-size: 15px; color: #D7E2DA">Loading front side…</span>
+    <span style="position: absolute; top: 12px; left: 14px; font-size: 12px; font-weight: 600; color: #A9B8AE">LOADING</span>
+  </div>
+
+  <div style="position: absolute; left: 16px; right: 16px; top: 412px; height: 300px; border-radius: 20px; background: rgba(255,255,255,0.08); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 0 24px; text-align: center">
+    <span style="position: absolute; top: 12px; left: 14px; font-size: 12px; font-weight: 600; color: #A9B8AE">COULDN’T LOAD</span>
+    <span style="width: 48px; height: 48px; border-radius: 100px; background: rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 20h.01M3 3l18 18"></path></svg></span>
+    <span style="font-size: 17px; font-weight: 600">Couldn’t load the front side</span>
+    <span style="font-size: 14px; line-height: 20px; color: #D7E2DA">Check your connection and try again.</span>
+    <button style="margin-top: 6px; height: 48px; padding: 0 28px; border-radius: 100px; border: 0; background: #FFFFFF; color: #172C27; font-size: 15px; font-weight: 600">Try again</button>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 0 16px 28px 16px">
+    <div role="tablist" aria-label="Side" style="display: flex; padding: 4px; border-radius: 100px; background: rgba(255,255,255,0.14)">
+      <button role="tab" aria-selected="true" style="flex: 1; height: 48px; border-radius: 100px; border: 0; background: #FFFFFF; color: #172C27; font-size: 15px; font-weight: 600">Front side</button>
+      <button role="tab" aria-selected="false" style="flex: 1; height: 48px; border-radius: 100px; border: 0; background: transparent; color: #FFFFFF; font-size: 15px; font-weight: 500">Back side</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":411,"height":891}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
