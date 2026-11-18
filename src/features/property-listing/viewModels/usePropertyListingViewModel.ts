@@ -98,11 +98,11 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const [editedProperty,setEditedProperty]=useState<PropertyEditContext|null>(null);
   const [propertyRoutine]=useState(()=>createPropertyRoutineWorkflow(propertyRoutineService,row=>{
     if(!active.current||workspaceRef.current.propertyId!==row.property_id)return;
-    setEditedProperty(row);portfolio.invalidate();
+    setEditedProperty(row);portfolio.changed();
     propertyAmenities.setProperty(null);propertyAmenities.setProperty(row.property_id);void propertyAmenities.load();
     void publication.restore(workspaceRef.current.listingId);
   }));
-  const [propertyIdentity]=useState(()=>createPropertyIdentityWorkflow(propertyIdentityService,propertyLocationService,()=>{portfolio.invalidate();void propertyVerification.refresh();}));
+  const [propertyIdentity]=useState(()=>createPropertyIdentityWorkflow(propertyIdentityService,propertyLocationService,()=>{portfolio.changed();void propertyVerification.refresh();}));
   const propertyIdentityState=useSyncExternalStore(propertyIdentity.subscribe,propertyIdentity.getSnapshot);
   const identityLocationState=useSyncExternalStore(propertyIdentity.location.subscribe,propertyIdentity.location.getSnapshot);
   useEffect(()=>{propertyIdentity.activate();return()=>propertyIdentity.dispose();},[propertyIdentity]);
@@ -189,7 +189,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     if (hasConfirmedPropertyLocation(propertyState.draft)) { setHistory([]); setScreen('listingComposer'); }
   }, [screen, propertyState.propertyId, propertyState.step, propertyState.busy, propertyState.uncertain]);
   const [listingDraftPersistence] = useState(() => createListingDraftWorkflow(listingDraftService, (row,source) => {
-    if(source==='save')portfolio.invalidate();
+    if(source==='save')portfolio.applyListing(row);
     const baseline=savedDraft.current;
     savedDraft.current=applySavedListing(baseline,row);
     // Capture the baseline outside the pure updater: development React may replay it.
@@ -208,15 +208,16 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const [publishedContent] = useState(()=>createPublishedListingWorkflow(publishedListingService,(row,source)=>{
     const baseline=savedDraft.current;savedDraft.current=applySavedListing(baseline,row);
     setDraft(current=>{const next=applySavedListing(current,row);if(source!=='save')for(const field of Object.keys(current) as (keyof ListingDraft)[])if(JSON.stringify(current[field])!==JSON.stringify(baseline[field]))Object.assign(next,{[field]:current[field]});return next;});
-    if(source==='save')portfolio.invalidate();
+    if(source==='save')portfolio.applyListing(row);
   },()=>active.current&&workspaceRef.current.mode==='editPublished'&&!composerSaving.current));
   const publishedContentState=useSyncExternalStore(publishedContent.subscribe,publishedContent.getSnapshot);
   useEffect(()=>{publishedContent.activate();return()=>publishedContent.dispose();},[publishedContent]);
-  const [publication] = useState(() => createListingPublicationWorkflow(listingPublicationService, row => {if(workspaceRef.current.mode==='editPublished')publishedContent.adoptBackendListing(row);else listingDraftPersistence.adoptBackendListing(row);}, canWriteListing));
+  const [publication] = useState(() => createListingPublicationWorkflow(listingPublicationService, row => {portfolio.applyListing(row);if(workspaceRef.current.mode==='editPublished')publishedContent.adoptBackendListing(row);else listingDraftPersistence.adoptBackendListing(row);}, canWriteListing));
   const publicationState = useSyncExternalStore(publication.subscribe, publication.getSnapshot);
   useEffect(() => { publication.activate(); return () => publication.dispose(); }, [publication]);
   useEffect(() => { if (listingDraftState.lastConfirmed) { if(listingDraftState.lastConfirmed.status==='draft')publication.setDraft(listingDraftState.lastConfirmed);else publication.adoptLifecycle(listingDraftState.lastConfirmed); } }, [publication, listingDraftState.lastConfirmed]);
   const [lifecycle] = useState(() => createListingLifecycleWorkflow(listingLifecycleService, row => {
+    portfolio.applyListing(row);
     listingDraftPersistence.adoptBackendListing(row);
     publication.adoptLifecycle(row);
   }, canChangeLifecycle));
@@ -246,6 +247,8 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     });
   }, [listingDraftPersistence, publication, lifecycle, workspace.propertyId, workspace.listingId,workspaceEpoch]);
   useEffect(() => { if (screen === 'dashboard' || screen === 'empty') void portfolio.load(); }, [screen, portfolio]);
+  // After the user's own action the list stays on screen; as soon as it is showing it is read again in the background.
+  useEffect(() => { if ((screen === 'dashboard' || screen === 'empty') && portfolioState.stale && !portfolioState.busy) void portfolio.load(); }, [screen, portfolioState.stale, portfolioState.busy, portfolio]);
   useEffect(() => {
     if(!workspace.propertyId||workspace.item||propertyState.draft.propertyType)return;
     const item=portfolioState.items.find(item=>item.propertyId===workspace.propertyId);
@@ -372,7 +375,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     propertyPhotos.setProperty(created.propertyId,true);
     listingDraftPersistence.setProperty(created.propertyId);publication.setProperty(created.propertyId);lifecycle.setListing(null);
     selectWorkspace({propertyId:created.propertyId,listingId:null,mode:'compose',item:null});
-    portfolio.invalidate();return true;
+    portfolio.changed();return true;
   }
 
   /** Development only: names the check that stopped Continue, so a device log shows which one it was. Never reaches a user. */
@@ -425,7 +428,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
         return current.slice(0, -1);
       });
       setNotice(null);
-      if(screen==='photoManager' && workspaceRef.current.propertyId){portfolio.invalidate();if(workspaceRef.current.mode==='manage')void lifecycle.restore();}
+      if(screen==='photoManager' && workspaceRef.current.propertyId){portfolio.changed();if(workspaceRef.current.mode==='manage')void lifecycle.restore();}
     };
     if (leavesListingEditor(screen, history.at(-1) ?? 'dashboard')) requestNavigation(applyBack);
     else applyBack();
@@ -601,7 +604,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
     const result=await publishedContent.save({...draft});
     if(!active.current||token!==workspaceGeneration.current||result!=='saved')return;
     const row=publishedContent.getSnapshot().lastConfirmed;if(!row)return;
-    if(postingWizard){setComposerNotice('Rental changes saved. Publication status is unchanged.');portfolio.invalidate();return;}
+    if(postingWizard){setComposerNotice('Rental changes saved. Publication status is unchanged.');portfolio.changed();return;}
     const item=workspaceRef.current.item;
     selectWorkspace({...workspaceRef.current,mode:'manage',item:item?{...item,currentListing:row,listings:item.listings.map(l=>l.id===row.id?row:l)}:null});
     lifecycle.setListing(row);setShowRealPublication(true);setHistory(['dashboard']);setScreen('published');setNotice('Listing changes saved. Publication status is unchanged.');
@@ -628,7 +631,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
         propertyPhotos.setProperty(propertyId, true);
         listingDraftPersistence.setProperty(propertyId); publication.setProperty(propertyId); lifecycle.setListing(null);
         selectWorkspace({ propertyId, listingId: null, mode: 'compose', item: null }); token = workspaceGeneration.current;
-        portfolio.invalidate(); setComposerNotice('Property saved. Listing details are not saved yet.');
+        portfolio.changed(); setComposerNotice('Property saved. Listing details are not saved yet.');
         const restored = await publication.restore(); if (!live() || !restored || publication.getSnapshot().uncertain) return;
         await listingDraftPersistence.load(); if (!live()) return;
       }
@@ -767,7 +770,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   const deletionCandidate=!!workspace.propertyId&&(!workspace.item||workspace.item.listings.every(l=>l.status==='draft'&&l.published_at===null));
   useEffect(()=>{void unfinishedPost.open(deletionCandidate?workspace.propertyId:null);},[unfinishedPost,workspaceEpoch,deletionCandidate]);
   useEffect(()=>{if(screen==='dashboard')void unfinishedPost.refreshPending();},[unfinishedPost,screen]);
-  useEffect(()=>{if(unfinishedPostState.status?.state==='cleanup_pending')portfolio.invalidate();},[unfinishedPostState.status?.propertyId,unfinishedPostState.status?.state]);
+  useEffect(()=>{if(unfinishedPostState.status?.state==='cleanup_pending')portfolio.changed();},[unfinishedPostState.status?.propertyId,unfinishedPostState.status?.state]);
   const deletionBlocked=propertyState.uncertain||listingDraftState.uncertain||listingDraftState.conflict||photoState.needsReconcile||photoState.pendingSelections.length>0||propertyRoutineState.uncertain||propertyIdentityState.uncertain;
   const selectedAmenityIds = workspace.propertyId ? amenityState.selectedIds : propertyState.draft.amenityIds;
   // Creation freezes this draft after a confirmed receipt; never project location/address.
