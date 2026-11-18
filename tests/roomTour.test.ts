@@ -11,8 +11,9 @@ import { createPropertyPanoramaWorkflow, roomTourBusy } from '../src/features/pr
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ts from 'typescript';
+import { DIAL_LABEL_MIN_INTERVAL_MS, MIN_FLING_VELOCITY, RUBBER_BAND_FACTOR, RUBBER_BAND_MAX_DP, WRAP_THRESHOLD_DP, dialArc, dialHalves, dialLabel, dialPointerAngle, dragOffset, edgeOf, entryOffset, overshootOf, positionWords, releaseVelocity, rubberBand, shouldCoast, shouldRefreshDialLabel, wrapChip, wrapChipText, wrapTarget, wrapTriggered } from '../src/features/search-discovery/viewModels/roomTourMotion';
 import { createManualSearchService } from '../src/features/search-discovery/services/manualSearchService';
-import { markDragHintSeen, openRoomTour, resetDragHintForTests, retrySide, roomTourSubtitle, selectSide, shouldShowDragHint, showSideSwitch, sideFailed, sideLoaded, switchEnabled } from '../src/features/search-discovery/viewModels/roomTourViewerState';
+import { markDragHintSeen, openRoomTour, resetDragHintForTests, retrySide, roomTourSubtitle, selectSide, shouldShowDragHint, showSideSwitch, sideFailed, sideLoaded, switchEnabled, wrapToSide } from '../src/features/search-discovery/viewModels/roomTourViewerState';
 
 const owner = '10000000-0000-4000-8000-000000000001', other = '10000000-0000-4000-8000-000000000002', property = '20000000-0000-4000-8000-000000000001', otherProperty = '20000000-0000-4000-8000-000000000002';
 const file = (n: number) => `30000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -426,4 +427,74 @@ test('loading and loaded previews: the image asks the decoder to downsample (res
   assert.equal(loading.image.props.resizeMethod, 'resize'); assert.equal(loaded.image.props.resizeMethod, 'resize');
   assert.ok(loading.texts.includes('Loading preview\u2026')); assert.ok(!loaded.texts.includes('Loading preview\u2026') && !loaded.texts.includes('Preview unavailable'));
   assert.equal(typeof loaded.image.props.onError, 'function', 'a load error is reported so the tile can say so');
+});
+
+// ---- viewer motion: soft edges, momentum, wrap-around, dial (pure rules) ----
+test('soft edge: the rubber band follows 35% of the finger and never shows more than 96dp', () => {
+  assert.equal(rubberBand(0), 0); assert.equal(rubberBand(-5), 0); assert.equal(rubberBand(Number.NaN), 0);
+  assert.equal(rubberBand(100), 100 * RUBBER_BAND_FACTOR);
+  for (const distance of [200, 274, 275, 1000, 1e6]) assert.ok(rubberBand(distance) <= RUBBER_BAND_MAX_DP, `${distance} stays capped`);
+  assert.equal(rubberBand(1e6), 96);
+});
+test('soft edge: the strip is exact inside [0, max] and rubber-banded outside, on both ends, never past the cap', () => {
+  assert.equal(overshootOf(-40, 1000), -40); assert.equal(overshootOf(1040, 1000), 40); assert.equal(overshootOf(500, 1000), 0); assert.equal(overshootOf(Number.NaN, 1000), 0);
+  assert.equal(dragOffset(500, 1000), 500); assert.equal(dragOffset(0, 1000), 0); assert.equal(dragOffset(1000, 1000), 1000);
+  assert.equal(dragOffset(-100, 1000), -35); assert.equal(dragOffset(1100, 1000), 1035);
+  assert.equal(dragOffset(-5000, 1000), -96); assert.equal(dragOffset(9000, 1000), 1096);
+  assert.equal(dragOffset(-100, 0), -35); assert.equal(dragOffset(Number.NaN, 1000), 0);   // a strip that cannot move is all soft edge
+  assert.equal(edgeOf(-1), 'left'); assert.equal(edgeOf(1), 'right'); assert.equal(edgeOf(0), null);
+});
+test('momentum: gesture velocity (px/s) becomes animated velocity (px/ms); very slow releases do not glide', () => {
+  assert.equal(releaseVelocity(1500), 1.5); assert.equal(releaseVelocity(-800), -0.8); assert.equal(releaseVelocity(Number.NaN), 0);
+  assert.equal(shouldCoast(MIN_FLING_VELOCITY), true); assert.equal(shouldCoast(-MIN_FLING_VELOCITY), true); assert.equal(shouldCoast(MIN_FLING_VELOCITY - 0.01), false); assert.equal(shouldCoast(0), false);
+});
+test('wrap: only with both sides, and the threshold is exactly 72dp (71 no, 72 yes, 73 yes), on either end', () => {
+  assert.equal(WRAP_THRESHOLD_DP, 72);
+  for (const sign of [1, -1]) {
+    assert.equal(wrapTriggered(sign * 71, true), false); assert.equal(wrapTriggered(sign * 72, true), true); assert.equal(wrapTriggered(sign * 73, true), true);
+    assert.equal(wrapTriggered(sign * 500, false), false, 'one side never wraps');
+  }
+  assert.equal(wrapTriggered(0, true), false); assert.equal(wrapTriggered(Number.NaN, true), false);
+});
+test('wrap: it is a circle; the new side is entered at the end OPPOSITE to the one you left through', () => {
+  assert.deepEqual(wrapTarget('front', 'right'), { side: 'back', entry: 'left' });
+  assert.deepEqual(wrapTarget('back', 'right'), { side: 'front', entry: 'left' });
+  assert.deepEqual(wrapTarget('front', 'left'), { side: 'back', entry: 'right' });
+  assert.deepEqual(wrapTarget('back', 'left'), { side: 'front', entry: 'right' });
+  assert.equal(entryOffset('left', 1500), 0); assert.equal(entryOffset('right', 1500), 1500); assert.equal(entryOffset('right', 0), 0);
+});
+test('wrap chip: shown only at or past the threshold with both sides, names the side you would see, and is gone below it', () => {
+  assert.equal(wrapChipText('back'), 'Release to see the back side'); assert.equal(wrapChipText('front'), 'Release to see the front side');
+  assert.equal(wrapChip('front', 71, true), null); assert.deepEqual(wrapChip('front', 72, true), { edge: 'right', text: 'Release to see the back side' });
+  assert.deepEqual(wrapChip('back', -90, true), { edge: 'left', text: 'Release to see the front side' });
+  assert.equal(wrapChip('front', 200, false), null); assert.equal(wrapChip('front', 0, true), null);
+});
+test('wrap: wrapToSide switches only with both sides and only to the other side', () => {
+  const both = openRoomTour(tourOf('front', 'back'))!, one = openRoomTour(tourOf('front'))!;
+  assert.equal(wrapToSide(both, 'back').selected, 'back'); assert.equal(wrapToSide(both, 'front').selected, 'front');
+  assert.equal(wrapToSide(one, 'back').selected, 'front');
+});
+test('dial: the pointer sweeps 0 to 180 degrees across Front (from the top, clockwise) and 180 to 360 across Back, at 0, 0.5 and 1', () => {
+  assert.deepEqual([0, 0.5, 1].map(p => dialPointerAngle('front', p)), [0, 90, 180]);
+  assert.deepEqual([0, 0.5, 1].map(p => dialPointerAngle('back', p)), [180, 270, 360]);
+  assert.deepEqual(dialArc('front'), { from: 0, to: 180 }); assert.deepEqual(dialArc('back'), { from: 180, to: 360 });
+  assert.equal(dialPointerAngle('front', -3), 0); assert.equal(dialPointerAngle('front', 9), 180); assert.equal(dialPointerAngle('back', Number.NaN), 180);
+});
+test('dial: with both sides both halves are drawn, with one side the missing half is dimmed; the angles do not change', () => {
+  assert.deepEqual(dialHalves(['front', 'back'], 'front'), { front: 'current', back: 'available' });
+  assert.deepEqual(dialHalves(['front', 'back'], 'back'), { front: 'available', back: 'current' });
+  assert.deepEqual(dialHalves(['front'], 'front'), { front: 'current', back: 'missing' });
+  assert.deepEqual(dialHalves(['back'], 'back'), { front: 'missing', back: 'current' });
+  assert.equal(dialPointerAngle('front', 0.5), 90); assert.equal(dialPointerAngle('back', 0.5), 270);   // the same picture for one side
+});
+test('dial label: plain words, never degrees; throttled so a screen reader is not flooded', () => {
+  assert.equal(dialLabel('front', 0.5), 'Looking at the front side, about halfway across.');
+  assert.equal(dialLabel('back', 0), 'Looking at the back side, just starting.');
+  assert.equal(positionWords(1), 'near the end'); assert.equal(positionWords(0.7), 'most of the way across'); assert.equal(positionWords(0.2), 'a bit of the way across');
+  for (const p of [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1]) assert.ok(!/\d|degree/i.test(dialLabel('front', p)), 'no numbers or degrees in the label');
+  const a = dialLabel('front', 0), b = dialLabel('front', 0.5);
+  assert.equal(shouldRefreshDialLabel(a, a, 0, 99999), false, 'unchanged label is not repeated');
+  assert.equal(shouldRefreshDialLabel(a, b, 1000, 1000 + DIAL_LABEL_MIN_INTERVAL_MS - 1), false, 'too soon');
+  assert.equal(shouldRefreshDialLabel(a, b, 1000, 1000 + DIAL_LABEL_MIN_INTERVAL_MS), true);
+  assert.equal(shouldRefreshDialLabel(a, b, 1000, 1001, true), true, 'a side change is announced at once');
 });

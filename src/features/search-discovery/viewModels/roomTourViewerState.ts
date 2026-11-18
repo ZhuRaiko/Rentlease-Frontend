@@ -22,6 +22,8 @@ export const switchEnabled = (s: RoomTourViewerState): boolean => showSideSwitch
 export function selectSide(s: RoomTourViewerState, side: PanoramaSide): RoomTourViewerState {
   return s.sides.includes(side) && side !== s.selected && switchEnabled(s) ? { ...s, selected: side } : s;
 }
+/** A wrap-around switch: moves to the other side without the load check the Front/Back switch needs (the side being left has loaded). Only with both sides. */
+export const wrapToSide = (s: RoomTourViewerState, side: PanoramaSide): RoomTourViewerState => showSideSwitch(s) && s.sides.includes(side) && side !== s.selected ? { ...s, selected: side } : s;
 export const sideLoaded = (s: RoomTourViewerState, side: PanoramaSide): RoomTourViewerState => ({ ...s, load: { ...s.load, [side]: 'loaded' } });
 export const sideFailed = (s: RoomTourViewerState, side: PanoramaSide): RoomTourViewerState => ({ ...s, load: { ...s.load, [side]: 'failed' } });
 /** "Try again": back to loading and a new key, so the image is mounted again and fetched again. */
