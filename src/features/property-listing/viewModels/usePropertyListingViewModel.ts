@@ -51,6 +51,7 @@ import { PREVIEW_DEBOUNCE_MS } from '../models/PinPrecision';
 import { rangeRelation } from '../../../shared/models/RentalRange';
 import { estimateBasis, estimateDetailCount, floorAreaMissing, floorAreaRequired, rangeSupport, withoutRangeOnlyValues, NO_RANGE_FOOTER, type EstimateInputs } from '../models/PostingEstimate';
 import { createPropertyPhotoWorkflow } from './propertyPhotoWorkflow';
+import { useRoomTourWorkflow } from './useRoomTourWorkflow';
 import { propertyPhotoService, selectPropertyPhoto, selectPropertyPhotos } from '../services/propertyPhotoDependencies';
 import { createPropertyCreationWorkflow } from './propertyCreationWorkflow';
 import { propertyCreationService } from '../services/propertyCreationDependencies';
@@ -179,6 +180,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
   useEffect(() => { if (screen !== 'propertySetup' && screen !== 'listingComposer') propertyLocation.close(); }, [screen, propertyLocation]);
   const [propertyPhotos] = useState(() => createPropertyPhotoWorkflow(propertyPhotoService, selectPropertyPhoto, selectPropertyPhotos));
   const photoState = useSyncExternalStore(propertyPhotos.subscribe, propertyPhotos.getSnapshot);
+  const roomTour = useRoomTourWorkflow(workspace.propertyId);
   useEffect(() => { propertyPhotos.activate(); return () => propertyPhotos.dispose(); }, [propertyPhotos]);
   useEffect(() => { propertyPhotos.setProperty(workspace.propertyId, !!workspace.propertyId && workspace.item === null && propertyState.propertyId === workspace.propertyId); }, [propertyPhotos, workspace.propertyId,workspaceEpoch]);
   useEffect(() => { if (!composerSaving.current && ['photoUpload', 'photoManager', 'listingComposer', 'listingDetails', 'preview'].includes(screen) && workspace.propertyId && !propertyPhotos.getSnapshot().loaded) void measureHydration('photos',()=>propertyPhotos.load().then(()=>!propertyPhotos.getSnapshot().error),workspaceEpoch); }, [propertyPhotos, screen, workspace.propertyId,workspaceEpoch]);
@@ -999,6 +1001,7 @@ export function usePropertyListingViewModel(initialScreen: ListingScreen = 'dash
       propertyCreation.markFieldTouched('location');
       void propertyLocation.open({ addressRevision: current.locationRevision, setupId: 'physical-property-setup', query: propertyAddressQuery(current.draft) },hasConfirmedPropertyLocation(current.draft)?current.draft:undefined);
     },
+    roomTour,
     propertyPhotos: {
       ...propertyPhotos,
       reorder:(ids:string[])=>!operationBusy()?propertyPhotos.reorder(ids):Promise.resolve(),

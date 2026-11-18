@@ -18,6 +18,7 @@ import { ListingButton } from '../components/ListingButton';
 import { ListingWizardScaffold } from '../components/ListingWizardScaffold';
 import { rentalTermOptions } from '../models/PersistedListingDraft';
 import { ListingPhotosCard } from '../components/ListingPhotosCard';
+import { RoomTourOwnerCard } from '../components/RoomTourOwnerCard';
 import { ListingCheckLine } from '../components/ListingCheckLine';
 import { ListingSavedLine } from '../components/ListingSavedLine';
 import { savedLineText, waitingView } from '../models/ListingCheck';
@@ -66,6 +67,7 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
     </>:null}
     {!vm.postingWizard?<Text accessibilityRole="header" style={styles.heading}>Listing Details</Text>:null}
     {vm.postingWizard?<ListingPhotosCard viewModel={vm}/>:null}
+    {vm.postingWizard&&vm.workspacePropertyId?<RoomTourOwnerCard roomTour={vm.roomTour}/>:null}
     {vm.listingEditExplanation ? <FeedbackNotice message={vm.listingEditExplanation} /> : null}
     {!vm.postingWizard&&!vm.publishedEditing?<PropertyVerificationAction viewModel={vm} />:null}
     <ComposerRecoveryFeedback viewModel={vm} slimSaved />

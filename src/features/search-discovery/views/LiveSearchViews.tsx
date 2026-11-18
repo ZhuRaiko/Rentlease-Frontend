@@ -1,5 +1,6 @@
 import {ReportAction} from '../../../shared/components/Reporting';
 import {SaveListingButton,SavedListingsFeedback} from '../components/SaveListingButton';
+import {RoomTourCard} from '../components/RoomTourCard';
 import {RentalFeedbackSection} from '../../../shared/components/RentalFeedbackSection';
 import {ListingOwnerRow} from '../../../shared/components/ProfileSurfaces';
 import {PublicLocationMap} from '../../../shared/components/PublicLocationMap';
@@ -68,6 +69,7 @@ export function LivePropertyDetailView({viewModel:vm,accountId,onOpenPriceEstima
       <View style={styles.galleryShell}>{d.photos.length>0?<ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator contentContainerStyle={styles.gallery}>{d.photos.map((p,i)=><DetailGalleryPhoto key={p.id} url={p.url} width={photoWidth} label={`View photo ${i+1} of ${d.photos.length}`} onPress={()=>setImageIndex(i)}/>)}</ScrollView>:<View style={[styles.heroImage,styles.placeholder]}><Text style={styles.copy}>No property photos available</Text></View>}
       {vm.savedControl?<View style={styles.galleryHeart}><SaveListingButton control={vm.savedControl(d.listingId)}/></View>:null}</View>
       {vm.savedState&&vm.savedRetry?<SavedListingsFeedback error={vm.savedState.error} notice={vm.savedState.notice} pending={!!vm.savedState.pending} busy={!!vm.savedState.working} onRetry={vm.savedRetry}/>:null}
+      {d.roomTour?.length?<RoomTourCard key={d.listingId} tour={d.roomTour}/>:null}
       <View style={styles.summary}><Text style={styles.detailPrice}>₱{d.rent.toLocaleString('en-PH')}<Text style={styles.copy}> / month</Text></Text>
         <Text accessibilityRole="header" style={styles.detailTitle}>{d.title}</Text>
         <Text style={styles.copy}>{d.barangay}, {cityLabels[d.city]??d.city}</Text><Text style={styles.small}>Approximate area · Exact property location is private</Text>

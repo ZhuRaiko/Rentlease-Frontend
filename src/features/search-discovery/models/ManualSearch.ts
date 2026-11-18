@@ -1,4 +1,5 @@
 import type {PublicPoint} from '../../../shared/models/NearbyPlace';
+import type { PublicPropertyPanorama } from '../../../shared/models/PropertyPanorama';
 import type { Database } from '../../../shared/services/supabase/database.types';
 type Enums = Database['public']['Enums'];
 export type SearchSort = 'Recently Listed' | 'Price: Low to High' | 'Price: High to Low';
@@ -7,7 +8,8 @@ export const defaultSearchFilters = (): SearchFilters => ({ city: '', types: [],
 export interface SearchInput { query: string; filters: SearchFilters; sort: SearchSort; offset: number; publishedOnly?: boolean }
 export interface SearchListing { listingId: string; propertyId: string; ownerId: string; title: string; description: string; rent: number; availableFrom: string | null; city: string; barangay: string; propertyType: string; bedrooms: number; bathrooms: number; floorArea: number | null; furnishing: string; thumbnailUrl: string | null; houseRules: string | null; rentalTerm: string; depositMonths: number; advanceMonths: number; minimumStay: number | null }
 export interface SearchPhoto { id: string; url: string; alt: string | null }
-export interface SearchDetail extends SearchListing { photos: SearchPhoto[]; amenities: string[]; publicLocation?: PublicPoint | null }
+/** `roomTour` holds the readable sides in Front, Back order (0 to 2). A failed read is an empty list, never a failed detail. */
+export interface SearchDetail extends SearchListing { photos: SearchPhoto[]; amenities: string[]; roomTour?: PublicPropertyPanorama[]; publicLocation?: PublicPoint | null }
 export interface AvailableLocation { key: string; city: string; barangay: string; label: string; query: string }
 export interface SearchAmenity { id: number; name: string }
 export const cityLabels: Record<string, string> = { imus: 'Imus', dasmarinas: 'Dasmariñas', tagaytay: 'Tagaytay' };

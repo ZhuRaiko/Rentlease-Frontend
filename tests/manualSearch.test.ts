@@ -93,6 +93,7 @@ function renderSource(path:string,name:string,state?:{value:any;tab?:string}) {
     if(key.endsWith('/FullscreenDocumentImage'))return {FullscreenDocumentImage:'FullscreenDocumentImage'};
     if(key.endsWith('/DiscoveryControls'))return {DiscoveryHeader:'DiscoveryHeader',DiscoveryButton:'DiscoveryButton',DiscoveryChip:'DiscoveryChip',DiscoverySearchBar:'DiscoverySearchBar'};
     if(key.endsWith('/SaveListingButton'))return{SaveListingButton:'SaveListingButton',SavedListingsFeedback:'SavedListingsFeedback'};
+    if(key.endsWith('/RoomTourCard'))return{RoomTourCard:'RoomTourCard'};
     if(key.endsWith('/SearchListingCard'))return {SearchListingCard:'SearchListingCard'};
     if(key.endsWith('/PublicIdentityBadge'))return{PublicAvatar:'Avatar',PublicIdentityBadge:'Identity'};if(key.endsWith('/usePublicIdentitiesViewModel'))return{usePublicIdentitiesViewModel:()=>({})};return actual(key);
   };

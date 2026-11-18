@@ -1,5 +1,6 @@
 import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import {readPublicPropertyPhotos} from '../../../shared/services/publicPropertyPhotos';
+import {readPublicPropertyPanoramas} from '../../../shared/services/publicPropertyPanoramas';
 import {parsePublicPoint} from '../../../shared/models/NearbyPlace';
 import {createNearbyPlacesService} from '../../../shared/services/maps/nearbyPlacesService';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -122,13 +123,14 @@ export function createManualSearchService(getClient: () => SupabaseClient<Databa
         const { data: amenities,error: amenityError } = await amenityQuery; await identity(owner); if (amenityError || !amenities) throw new ManualSearchError('Could not load rental amenities. Please retry.');
         return amenities;
       };
-      // Photos and amenities are independent reads, so they run together. Errors keep their old precedence: the photo error first.
-      const [photoRead, amenityRead] = await Promise.allSettled([photoRows(owner,[row],signal), readAmenities()]);
+      // Photos, amenities and the optional room tour are independent reads, so they run together. Errors keep their old precedence: the photo error first.
+      // A failed room tour read only means "no tour"; it never fails the detail.
+      const [photoRead, amenityRead, tourRead] = await Promise.allSettled([photoRows(owner,[row],signal), readAmenities(), readPublicPropertyPanoramas(getClient(),{propertyId:row.propertyId,ownerId:row.ownerId},signal)]);
       if (photoRead.status === 'rejected') throw photoRead.reason;
       if (amenityRead.status === 'rejected') throw amenityRead.reason;
       const photos = photoRead.value, amenities = amenityRead.value;
       const names = amenities.flatMap(item => item.amenity ? [item.amenity.name] : []);
-      return { ...row,thumbnailUrl:photos[0]?.photo.url ?? null,photos:photos.map(p => p.photo),amenities:names,publicLocation:parsePublicPoint(record(record(data[0]).properties).public_location) };
+      return { ...row,thumbnailUrl:photos[0]?.photo.url ?? null,photos:photos.map(p => p.photo),amenities:names,roomTour:tourRead.status === 'fulfilled' ? tourRead.value : [],publicLocation:parsePublicPoint(record(record(data[0]).properties).public_location) };
     },
   };
 }

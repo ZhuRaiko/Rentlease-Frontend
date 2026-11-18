@@ -25,6 +25,7 @@ function loadDetail(){
   if(key.endsWith('/FullscreenDocumentImage'))return{FullscreenDocumentImage:'Gallery'};
   if(key.endsWith('/InterfaceIcon'))return{InterfaceIcon:'Icon'};
   if(key.endsWith('/SaveListingButton'))return{SaveListingButton:'SaveListingButton',SavedListingsFeedback:'SavedListingsFeedback'};
+  if(key.endsWith('/RoomTourCard'))return{RoomTourCard:'RoomTourCard'};
   if(key.endsWith('/ProfileSurfaces'))return{ListingOwnerRow:'ListingOwnerRow'};
   if(key.endsWith('/RentalFeedbackSection'))return{RentalFeedbackSection:'RentalFeedbackSection'};
   if(key.endsWith('/PublicLocationMap'))return{PublicLocationMap:'PublicLocationMap'};
