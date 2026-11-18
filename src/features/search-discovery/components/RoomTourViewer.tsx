@@ -8,7 +8,8 @@ import { spacing } from '../../../shared/theme/spacing';
 import { ui } from '../../../shared/theme/ui';
 import { clampPanOffset, maxPanOffset, panProgress, panoramaSideLabel, stripAreaHeight, stripWidth, type PanoramaSide, type PublicPropertyPanorama } from '../../../shared/models/PropertyPanorama';
 import { markDragHintSeen, openRoomTour, retrySide, selectSide, shouldShowDragHint, showSideSwitch, sideFailed, sideLoaded, switchEnabled, wrapToSide, type RoomTourViewerState } from '../viewModels/roomTourViewerState';
-import { DIAL_SIZE, MOMENTUM_DECELERATION, SPRING_BACK_SPEED, WRAP_FADE_IN_MS, WRAP_FADE_OUT_MS, dialArc, dialHalves, dialLabel, dragOffset, edgeOf, entryOffset, overshootOf, releaseVelocity, shouldCoast, shouldRefreshDialLabel, wrapChip, wrapTarget, wrapTriggered, type DialHalfState, type Edge } from '../viewModels/roomTourMotion';
+import { RoomTourBackdrop, RoomTourEdgeFades } from './RoomTourBackdrop';
+import { DIAL_SIZE, MOMENTUM_DECELERATION, SPRING_BACK_SPEED, WRAP_FADE_IN_MS, WRAP_FADE_OUT_MS, backdropMaxShift, dialArc, dialHalves, dialLabel, dragOffset, edgeOf, entryOffset, overshootOf, releaseVelocity, shouldCoast, shouldRefreshDialLabel, wrapChip, wrapTarget, wrapTriggered, type DialHalfState, type Edge } from '../viewModels/roomTourMotion';
 
 const TARGET = 48, RING = 4;
 type Chip = { edge: Edge; text: string };
@@ -81,6 +82,8 @@ function Session({ tour, onClose }: { tour: readonly PublicPropertyPanorama[]; o
   const status = view.load[view.selected], name = panoramaSideLabel[view.selected], both = showSideSwitch(view);
   const onLayout = (event: LayoutChangeEvent) => setSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height });
   return <View style={styles.root} onLayout={onLayout}>
+    {/* Decoration only, behind everything: a blurred, darkened copy of this side's image. Still with reduced motion. */}
+    {size.width > 0 && size.height > 0 ? <RoomTourBackdrop key={current.url} url={current.url} width={size.width} height={size.height} maxShift={reduceMotion ? 0 : backdropMaxShift(max)} progress={progress} fade={fade} /> : null}
     <View style={styles.header}>
       <Pressable accessibilityRole="button" accessibilityLabel="Close room tour" onPress={onClose} style={styles.closeTarget}><View accessible={false} style={styles.close}><Text style={styles.closeMark}>{'×'}</Text></View></Pressable>
       <Text accessibilityRole="header" style={styles.title}>Room tour</Text>
@@ -92,6 +95,7 @@ function Session({ tour, onClose }: { tour: readonly PublicPropertyPanorama[]; o
             bothSides={both} side={view.selected} reduceMotion={reduceMotion} loaded={status === 'loaded'}
             onLoaded={() => setView(v => v && sideLoaded(v, current.side))} onFailed={() => setView(v => v && sideFailed(v, current.side))} onTouch={dismissHint} onChip={setChip} onWrap={wrap} />
         </Animated.View>
+        <RoomTourEdgeFades />
         {status === 'loading' ? <View style={styles.center} pointerEvents="none"><ActivityIndicator accessibilityLabel={`Loading ${name.toLowerCase()}`} color={colors.white} /><Text accessibilityLiveRegion="polite" style={styles.onDark}>{`Loading ${name.toLowerCase()}...`}</Text></View> : null}
         {status === 'failed' ? <View style={[styles.center, styles.failed]}>
           <Text accessibilityRole="alert" style={styles.failTitle}>{`Couldn’t load the ${name.toLowerCase()}`}</Text>

@@ -22,6 +22,19 @@ export const WRAP_FADE_IN_MS = 180;
 /** Animated.spring `speed` for the snap back from a soft edge (higher is quicker). */
 export const SPRING_BACK_SPEED = 16;
 export const DIAL_SIZE = 64;
+/** Blur radius of the backdrop copy of the current side's image. */
+export const BACKDROP_BLUR_RADIUS = 24;
+/** How dark the backdrop is made, 0 to 1 (a dark layer over the blurred image so the sharp strip stands out). */
+export const BACKDROP_DIM_OPACITY = 0.45;
+/** The backdrop moves this fraction of the strip's pan distance (decoration only; see backdropShift). */
+export const BACKDROP_PARALLAX_FACTOR = 0.12;
+/** Width (dp) of the soft fade at the strip's left and right edges, and height (dp) at its top and bottom edges. */
+export const EDGE_FADE_SIDE_DP = 48;
+export const EDGE_FADE_VERTICAL_DP = 32;
+/** A fade is this many stacked bands of stepped opacity (no gradient library is installed). */
+export const EDGE_FADE_STEPS = 8;
+/** Opacity of the darkest band, right at the edge. */
+export const EDGE_FADE_MAX_OPACITY = 0.55;
 /** The dial's spoken description changes at most this often (milliseconds), so a screen reader is not flooded while the strip moves. */
 export const DIAL_LABEL_MIN_INTERVAL_MS = 1200;
 
@@ -83,3 +96,22 @@ export function positionWords(progress: number): string {
 export const dialLabel = (side: PanoramaSide, progress: number): string => `Looking at the ${side} side, ${positionWords(progress)}.`;
 /** Throttle for the spoken label: only a changed label, and not more often than the minimum interval. A side change should bypass this (the caller passes `force`). */
 export const shouldRefreshDialLabel = (previous: string, next: string, lastAt: number, now: number, force = false): boolean => next !== previous && (force || now - lastAt >= DIAL_LABEL_MIN_INTERVAL_MS);
+
+// ---- Backdrop and edge fades: decoration only. Nothing here invents room content; the backdrop is a blurred, darkened copy of the same image. ----
+/** The most the backdrop can move: a fraction of how far the strip can pan. 0 when the strip cannot pan. Pass 0 for `max` (reduced motion) to keep the backdrop still. */
+export const backdropMaxShift = (max: number): number => finite(max) && max > 0 ? max * BACKDROP_PARALLAX_FACTOR : 0;
+/**
+ * How far the backdrop is shifted for a strip offset (distance panned from the left end): 0 at the left end, the maximum at the right end, clamped in between.
+ * The backdrop is moved in the OPPOSITE direction to the strip (the strip moves left as the offset grows; this shift moves the backdrop right), as requested.
+ */
+export const backdropShift = (offset: number, max: number): number => {
+  const range = backdropMaxShift(max);
+  return range > 0 && finite(offset) ? Math.min(range, Math.max(0, offset / max * range)) : 0;
+};
+/** The backdrop is wider than the screen by twice the maximum shift (it starts one shift to the left), so its edges never show at either end of the pan. */
+export const backdropWidth = (screenWidth: number, maxShift: number): number => (finite(screenWidth) && screenWidth > 0 ? screenWidth : 0) + 2 * (finite(maxShift) && maxShift > 0 ? maxShift : 0);
+/** Opacity of each band of an edge fade, from the edge inward: the first at the maximum, the last at 0, evenly stepped (so the fade is monotonic). */
+export function edgeFadeOpacities(steps: number = EDGE_FADE_STEPS, maxOpacity: number = EDGE_FADE_MAX_OPACITY): number[] {
+  const count = Number.isInteger(steps) && steps > 1 ? steps : 2, top = unit(maxOpacity);
+  return Array.from({ length: count }, (_, index) => top * (count - 1 - index) / (count - 1));
+}

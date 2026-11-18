@@ -11,7 +11,7 @@ import { createPropertyPanoramaWorkflow, roomTourBusy } from '../src/features/pr
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ts from 'typescript';
-import { DIAL_LABEL_MIN_INTERVAL_MS, MIN_FLING_VELOCITY, RUBBER_BAND_FACTOR, RUBBER_BAND_MAX_DP, WRAP_THRESHOLD_DP, dialArc, dialHalves, dialLabel, dialPointerAngle, dragOffset, edgeOf, entryOffset, overshootOf, positionWords, releaseVelocity, rubberBand, shouldCoast, shouldRefreshDialLabel, wrapChip, wrapChipText, wrapTarget, wrapTriggered } from '../src/features/search-discovery/viewModels/roomTourMotion';
+import { BACKDROP_PARALLAX_FACTOR, EDGE_FADE_MAX_OPACITY, EDGE_FADE_STEPS, backdropMaxShift, backdropShift, backdropWidth, edgeFadeOpacities, DIAL_LABEL_MIN_INTERVAL_MS, MIN_FLING_VELOCITY, RUBBER_BAND_FACTOR, RUBBER_BAND_MAX_DP, WRAP_THRESHOLD_DP, dialArc, dialHalves, dialLabel, dialPointerAngle, dragOffset, edgeOf, entryOffset, overshootOf, positionWords, releaseVelocity, rubberBand, shouldCoast, shouldRefreshDialLabel, wrapChip, wrapChipText, wrapTarget, wrapTriggered } from '../src/features/search-discovery/viewModels/roomTourMotion';
 import { createManualSearchService } from '../src/features/search-discovery/services/manualSearchService';
 import { markDragHintSeen, openRoomTour, resetDragHintForTests, retrySide, roomTourSubtitle, selectSide, shouldShowDragHint, showSideSwitch, sideFailed, sideLoaded, switchEnabled, wrapToSide } from '../src/features/search-discovery/viewModels/roomTourViewerState';
 
@@ -497,4 +497,33 @@ test('dial label: plain words, never degrees; throttled so a screen reader is no
   assert.equal(shouldRefreshDialLabel(a, b, 1000, 1000 + DIAL_LABEL_MIN_INTERVAL_MS - 1), false, 'too soon');
   assert.equal(shouldRefreshDialLabel(a, b, 1000, 1000 + DIAL_LABEL_MIN_INTERVAL_MS), true);
   assert.equal(shouldRefreshDialLabel(a, b, 1000, 1001, true), true, 'a side change is announced at once');
+});
+
+// ---- viewer decoration: blurred backdrop and edge fades (pure math) ----
+test('backdrop shift: 12% of the pan distance, 0 at the left end, the maximum at the right end, clamped in between', () => {
+  assert.equal(BACKDROP_PARALLAX_FACTOR, 0.12);
+  assert.equal(backdropMaxShift(1000), 120); assert.equal(backdropMaxShift(0), 0); assert.equal(backdropMaxShift(-5), 0); assert.equal(backdropMaxShift(Number.NaN), 0);
+  assert.equal(backdropShift(0, 1000), 0); assert.equal(backdropShift(500, 1000), 60); assert.equal(backdropShift(1000, 1000), 120);
+  assert.equal(backdropShift(-50, 1000), 0, 'a soft edge past the left end does not pull the backdrop'); assert.equal(backdropShift(1100, 1000), 120, 'nor past the right end');
+  assert.equal(backdropShift(300, 0), 0); assert.equal(backdropShift(Number.NaN, 1000), 0);
+});
+test('backdrop shift moves the OPPOSITE way to the strip: as the strip moves left (offset grows) the backdrop moves right', () => {
+  let previous = 0;
+  for (const offset of [0, 250, 500, 750, 1000]) { const strip = -offset, shift = backdropShift(offset, 1000); assert.ok(shift >= previous && strip <= 0 && shift >= 0); previous = shift; }
+  assert.equal(Math.sign(-400) * Math.sign(backdropShift(400, 1000)), -1);
+});
+test('reduced motion: a maximum shift of 0 keeps the backdrop still', () => {
+  assert.equal(backdropMaxShift(0), 0); assert.equal(backdropWidth(411, 0), 411);
+});
+test('backdrop width: the screen width plus twice the maximum shift, so its edges never show at either end', () => {
+  assert.equal(backdropWidth(411, 120), 651); assert.equal(backdropWidth(411, 0), 411); assert.equal(backdropWidth(0, 120), 240); assert.equal(backdropWidth(Number.NaN, 5), 10); assert.equal(backdropWidth(411, -10), 411);
+  const shift = backdropMaxShift(1000), width = backdropWidth(411, shift), left = -shift;   // the element starts one shift to the left
+  for (const offset of [0, 400, 1000]) { const at = left + backdropShift(offset, 1000); assert.ok(at <= 0 && at + width >= 411, `covers the screen at offset ${offset}`); }
+});
+test('edge fade bands: the right count, first band at the maximum, last at 0, evenly stepped and never increasing', () => {
+  const bands = edgeFadeOpacities();
+  assert.equal(bands.length, EDGE_FADE_STEPS); assert.equal(bands[0], EDGE_FADE_MAX_OPACITY); assert.equal(bands.at(-1), 0);
+  for (let i = 1; i < bands.length; i++) assert.ok(bands[i]! < bands[i - 1]!, 'strictly darker toward the edge');
+  const step = bands[0]! - bands[1]!; for (let i = 1; i < bands.length; i++) assert.ok(Math.abs(bands[i - 1]! - bands[i]! - step) < 1e-9);
+  assert.deepEqual(edgeFadeOpacities(3, 0.6), [0.6, 0.3, 0]); assert.equal(edgeFadeOpacities(1, 0.5).length, 2); assert.equal(edgeFadeOpacities(8, 5)[0], 1);
 });
