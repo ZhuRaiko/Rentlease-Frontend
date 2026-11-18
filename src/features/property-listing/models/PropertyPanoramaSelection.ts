@@ -16,7 +16,19 @@ function mimeOf(asset: PanoramaAsset): PanoramaMime | null {
   return ext ? byExtension[ext] ?? null : null;
 }
 
-/** Checks a picked photo before anything is uploaded: type, size, then shape (at least 3:1 wide, at most 16,384 px wide). The first failing rule wins. */
+/**
+ * Checked on the ORIGINAL pick, before it is shrunk: only that it is an image type we accept and that the picker reported a real size. The original's byte size and
+ * shape are not judged here: a 13 MB, 13344 px original is fine because it is shrunk first. Shape and size are checked on the shrunk result (validatePanoramaAsset).
+ */
+export function checkPickedPanorama(asset: PanoramaAsset): PanoramaValidation {
+  if (!asset.uri.trim()) return { ok: false, problem: 'unreadable' };
+  const mime = mimeOf(asset);
+  if (!mime) return { ok: false, problem: 'type' };
+  if (!Number.isInteger(asset.width) || !Number.isInteger(asset.height) || asset.width <= 0 || asset.height <= 0) return { ok: false, problem: 'unreadable' };
+  return { ok: true, mime, width: asset.width, height: asset.height };
+}
+
+/** Checks a photo before it is uploaded (the SHRUNK result in the upload flow): type, size, then shape (at least 3:1 wide, at most 16,384 px wide). The first failing rule wins. */
 export function validatePanoramaAsset(asset: PanoramaAsset): PanoramaValidation {
   if (!asset.uri.trim()) return { ok: false, problem: 'unreadable' };
   const mime = mimeOf(asset);

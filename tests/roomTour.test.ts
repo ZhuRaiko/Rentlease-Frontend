@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../src/shared/services/supabase/database.types';
-import { MAX_PANORAMA_BYTES, clampPanOffset, maxPanOffset, panProgress, propertyPanoramaObjectPath, propertyPanoramaPath, stripAreaHeight, stripWidth, visibleFraction } from '../src/shared/models/PropertyPanorama';
+import { MAX_PANORAMA_BYTES, PANORAMA_UPLOAD_JPEG_QUALITY, PANORAMA_UPLOAD_MAX_WIDTH_PX, clampPanOffset, maxPanOffset, panProgress, propertyPanoramaObjectPath, propertyPanoramaPath, stripAreaHeight, stripWidth, visibleFraction } from '../src/shared/models/PropertyPanorama';
 import { readPublicPropertyPanoramas } from '../src/shared/services/publicPropertyPanoramas';
-import { validatePanoramaAsset, type PanoramaAsset } from '../src/features/property-listing/models/PropertyPanoramaSelection';
+import { checkPickedPanorama, panoramaProblemText, validatePanoramaAsset, type PanoramaAsset } from '../src/features/property-listing/models/PropertyPanoramaSelection';
 import { PropertyPanoramaError, createPropertyPanoramaService } from '../src/features/property-listing/services/propertyPanoramaService';
 import { createPropertyPanoramaWorkflow, roomTourBusy } from '../src/features/property-listing/viewModels/propertyPanoramaWorkflow';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import ts from 'typescript';
 import { createManualSearchService } from '../src/features/search-discovery/services/manualSearchService';
 import { markDragHintSeen, openRoomTour, resetDragHintForTests, retrySide, roomTourSubtitle, selectSide, shouldShowDragHint, showSideSwitch, sideFailed, sideLoaded, switchEnabled } from '../src/features/search-discovery/viewModels/roomTourViewerState';
 
@@ -84,6 +87,7 @@ type Fail = { code?: string; message?: string } | null;
 function harness(options: { uploadError?: boolean; user?: string | null } = {}) {
   const calls: string[] = [];
   let rpcResult: { data: unknown; error: Fail } = { data: null, error: null };
+  const device: string[] = []; let ratio = 5, shrinkFails = false, bodyBytes = 24, shrinkOverride: { width: number; height: number } | null = null;
   let rpcThrows = false, removeThrows = false, rows: Record<string, unknown>[] = [], ownsProperty = true, uploadGate: Promise<void> | null = null, user = options.user === undefined ? owner : options.user;
   const client = {
     auth: { getUser: async () => ({ data: { user: user ? { id: user } : null }, error: null }) },
@@ -102,16 +106,21 @@ function harness(options: { uploadError?: boolean; user?: string | null } = {}) 
     }) },
   } as unknown as SupabaseClient<Database>;
   let n = 100;
-  const service = createPropertyPanoramaService(() => client, { read: async () => new ArrayBuffer(24), uuid: () => file(n++) });
-  return { service, calls, ctx: { ownerId: owner, propertyId: property }, set: { rpc: (v: { data: unknown; error: Fail }) => { rpcResult = v; }, rpcThrows: (v: boolean) => { rpcThrows = v; }, removeThrows: (v: boolean) => { removeThrows = v; }, rows: (v: Record<string, unknown>[]) => { rows = v; }, owns: (v: boolean) => { ownsProperty = v; }, gate: (v: Promise<void> | null) => { uploadGate = v; }, user: (v: string | null) => { user = v; } } };
+  const service = createPropertyPanoramaService(() => client, {
+    read: async () => new ArrayBuffer(bodyBytes), uuid: () => file(n++),
+    // Stands in for the native resize: never wider than the cap, never enlarged, aspect kept (unless a test forces a result).
+    shrink: async (_uri, max, original) => { device.push(`shrink:${max}:${original}`); if (shrinkFails) throw new Error('native failure'); const width = shrinkOverride?.width ?? Math.min(original, max); return { uri: 'file:///cache/shrunk.jpg', width, height: shrinkOverride?.height ?? Math.round(width / ratio) }; },
+    cleanup: async uri => { device.push(`cleanup:${uri}`); },
+  });
+  return { service, calls, device, ctx: { ownerId: owner, propertyId: property }, set: { ratio: (v: number) => { ratio = v; }, shrinkFails: (v: boolean) => { shrinkFails = v; }, bodyBytes: (v: number) => { bodyBytes = v; }, shrinkTo: (v: { width: number; height: number } | null) => { shrinkOverride = v; }, rpc: (v: { data: unknown; error: Fail }) => { rpcResult = v; }, rpcThrows: (v: boolean) => { rpcThrows = v; }, removeThrows: (v: boolean) => { removeThrows = v; }, rows: (v: Record<string, unknown>[]) => { rows = v; }, owns: (v: boolean) => { ownsProperty = v; }, gate: (v: Promise<void> | null) => { uploadGate = v; }, user: (v: string | null) => { user = v; } } };
 }
 const stored = (n: number, ext = 'jpg') => `${owner}/${property}/${file(n)}.${ext}`;
 
 test('upload: uploads with upsert false and the right content type, then records the side with the picked size', async () => {
   const h = harness(); h.set.rpc({ data: { side: 'front', storage_path: stored(100), replaced_path: null }, error: null });
   const result = await h.service.upload(h.ctx, 'front', asset({ mimeType: 'image/png' }));
-  assert.deepEqual(h.calls, [`upload:${stored(100, 'png')}:false:image/png`, 'rpc:set_property_panorama:front']);
-  assert.deepEqual(result, { side: 'front', url: `https://example.test/${stored(100, 'png')}`, width: 5000, height: 1000 });
+  assert.deepEqual(h.calls, [`upload:${stored(100)}:false:image/jpeg`, 'rpc:set_property_panorama:front']);   // a PNG pick is uploaded as the JPEG copy
+  assert.deepEqual(result, { side: 'front', url: `https://example.test/${stored(100)}`, width: 5000, height: 1000 });
 });
 test('upload that replaces a side deletes the old file afterwards; a failed delete is ignored', async () => {
   const h = harness(); h.set.rpc({ data: { side: 'front', storage_path: stored(100), replaced_path: stored(7) }, error: null });
@@ -148,10 +157,54 @@ test('a failed upload never removes an existing side and never calls the save RP
   assert.equal((await h.service.upload(h.ctx, 'front', asset()).catch(e => e)).kind, 'upload');
   assert.deepEqual(h.calls, [`upload:${stored(100)}:false:image/jpeg`]);
 });
-test('too large, not wide enough and wrong type never reach storage or the database', async () => {
-  const h = harness();
-  for (const [bad, kind] of [[asset({ size: MAX_PANORAMA_BYTES + 1 }), 'size'], [asset({ width: 2000, height: 1000 }), 'aspect'], [asset({ mimeType: 'image/gif' }), 'type']] as const) assert.equal((await h.service.upload(h.ctx, 'front', bad).catch(e => e)).kind, kind);
+test('not wide enough and wrong type never reach storage or the database', async () => {
+  const h = harness(); h.set.ratio(2);
+  for (const [bad, kind] of [[asset({ width: 2000, height: 1000 }), 'aspect'], [asset({ mimeType: 'image/gif' }), 'type']] as const) assert.equal((await h.service.upload(h.ctx, 'front', bad).catch(e => e)).kind, kind);
   assert.deepEqual(h.calls, []);
+});
+test('shrink: a 13 MB, 13344 px original is shrunk to 6144 wide first; the size sent to the backend is the SHRUNK size', async () => {
+  const h = harness(); h.set.ratio(13344 / 3056); h.set.rpc({ data: { side: 'front', storage_path: stored(100), replaced_path: null }, error: null });
+  const big = asset({ width: 13344, height: 3056, size: 13 * 1024 * 1024 });
+  const saved = await h.service.upload(h.ctx, 'front', big);
+  assert.equal(h.device[0], `shrink:${PANORAMA_UPLOAD_MAX_WIDTH_PX}:13344`);
+  assert.equal(saved.width, 6144); assert.equal(saved.height, 1407);
+  assert.deepEqual(h.calls, [`upload:${stored(100)}:false:image/jpeg`, 'rpc:set_property_panorama:front']);
+  assert.equal(PANORAMA_UPLOAD_JPEG_QUALITY, 0.8);
+});
+test('shrink: the picked width is passed through so a smaller original is never enlarged, and a PNG is uploaded as JPEG', async () => {
+  const h = harness(); h.set.rpc({ data: { side: 'front', storage_path: stored(100), replaced_path: null }, error: null });
+  const saved = await h.service.upload(h.ctx, 'front', asset({ mimeType: 'image/png', width: 4000, height: 800 }));
+  assert.equal(h.device[0], 'shrink:6144:4000'); assert.equal(saved.width, 4000);
+  assert.ok(h.calls[0]!.endsWith(':false:image/jpeg') && h.calls[0]!.includes('.jpg'));
+});
+test('shrink: the 3:1 check and the 16,384 limit use the SHRUNK result, not the original', async () => {
+  const h = harness(); h.set.shrinkTo({ width: 3000, height: 1500 });
+  assert.equal((await h.service.upload(h.ctx, 'front', asset({ width: 13344, height: 3056 })).catch(e => e)).kind, 'aspect');
+  assert.deepEqual(h.calls, []);
+  const ok = harness(); ok.set.shrinkTo({ width: 3000, height: 1000 }); ok.set.rpc({ data: { side: 'front', storage_path: stored(100), replaced_path: null }, error: null });
+  assert.equal((await ok.service.upload(ok.ctx, 'front', asset({ width: 3200, height: 1100 }))).height, 1000);   // original 2.9:1, shrunk result exactly 3:1
+});
+test('shrink failure: a plain upload problem, nothing uploaded, nothing saved, and the tile says "Couldn\u2019t upload. Tap to try again."', async () => {
+  const h = harness(); h.set.shrinkFails(true);
+  const error = await h.service.upload(h.ctx, 'front', asset()).catch(e => e);
+  assert.ok(error instanceof PropertyPanoramaError && error.kind === 'upload');
+  assert.deepEqual(h.calls, []);
+  assert.deepEqual(panoramaProblemText.upload, { title: 'Couldn\u2019t upload.', body: 'Tap to try again.' });
+});
+test('shrink: the 15 MiB cap still guards the shrunk file, and the temporary copy is deleted after success and after failure', async () => {
+  const h = harness(); h.set.bodyBytes(MAX_PANORAMA_BYTES + 1);
+  assert.equal((await h.service.upload(h.ctx, 'front', asset()).catch(e => e)).kind, 'size');
+  assert.deepEqual(h.calls, []); assert.equal(h.device.at(-1), 'cleanup:file:///cache/shrunk.jpg');
+  const ok = harness(); ok.set.rpc({ data: { side: 'front', storage_path: stored(100), replaced_path: null }, error: null });
+  await ok.service.upload(ok.ctx, 'front', asset()); assert.equal(ok.device.at(-1), 'cleanup:file:///cache/shrunk.jpg');
+  const refused = harness(); refused.set.rpc({ data: null, error: { code: '22023', message: 'Panorama is too wide' } });
+  await refused.service.upload(refused.ctx, 'front', asset()).catch(() => {}); assert.equal(refused.device.at(-1), 'cleanup:file:///cache/shrunk.jpg');
+});
+test('picked-photo check (before shrinking) judges only the type and a real size, not the original\u2019s bytes or shape', () => {
+  assert.equal(checkPickedPanorama(asset({ size: 40 * 1024 * 1024, width: 13344, height: 3056 })).ok, true);
+  assert.equal(checkPickedPanorama(asset({ width: 2000, height: 1000 })).ok, true);   // shape is judged after shrinking
+  assert.deepEqual(checkPickedPanorama(asset({ mimeType: 'image/gif' })), { ok: false, problem: 'type' });
+  assert.deepEqual(checkPickedPanorama(asset({ width: 0, height: 0 })), { ok: false, problem: 'unreadable' });
 });
 test('only one change runs at a time per property', async () => {
   const h = harness(); h.set.rpc({ data: { side: 'front', storage_path: stored(100), replaced_path: null }, error: null });
@@ -322,4 +375,55 @@ test('viewer: the switch is disabled until the side has loaded; a failed side ca
 });
 test('viewer: "Drag to look around" is shown once per session', () => {
   resetDragHintForTests(); assert.equal(shouldShowDragHint(), true); markDragHintSeen(); assert.equal(shouldShowDragHint(), false); resetDragHintForTests();
+});
+
+// ---- owner tile: a preview that cannot load or draw must never hide the controls ----
+// Renders a component's output without React: hooks are not used by the pure SavedSideContent; every native component is a plain string tag.
+function loadTile(): any {
+  const cache = new Map<string, unknown>();
+  const load = (path: string): any => {
+    const absolute = resolve(path); if (cache.has(absolute)) return cache.get(absolute);
+    const module = { exports: {} as any }; cache.set(absolute, module.exports);
+    const req = (name: string): any => {
+      if (name === 'react') return { useState: (v: unknown) => [v, () => {}], useEffect: () => {} };
+      if (name === 'react/jsx-runtime') return { jsx: (type: any, props: any) => ({ type, props }), jsxs: (type: any, props: any) => ({ type, props }) };
+      if (name === 'react-native') return { StyleSheet: { create: (x: any) => x, absoluteFill: { position: 'absolute' } }, View: 'View', Text: 'Text', Image: 'Image', Pressable: 'Pressable', ActivityIndicator: 'ActivityIndicator' };
+      if (name.startsWith('.')) { const base = resolve(absolute, '..', name); return load(existsSync(base + '.ts') ? base + '.ts' : base + '.tsx'); }
+      return require(name);
+    };
+    const code = ts.transpileModule(readFileSync(absolute, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+    new Function('require', 'module', 'exports', code)(req, module, module.exports); return module.exports;
+  };
+  return load('src/features/property-listing/components/RoomTourSideTile.tsx');
+}
+const all = (node: any): any[] => node && typeof node === 'object' ? [node, ...[node.props?.children].flat(Infinity).flatMap(all)] : [];
+const textOf = (node: any): string => [node?.props?.children].flat(Infinity).map(c => typeof c === 'string' ? c : c && typeof c === 'object' ? textOf(c) : '').join('');
+function tile(preview: 'loading' | 'loaded' | 'failed', log: string[] = []) {
+  const { SavedSideContent } = loadTile();
+  const tree = SavedSideContent({ side: 'front', url: 'https://example.test/p.jpg', preview, disabled: false, onMenu: () => log.push('menu'), onPreviewLoad: () => log.push('loaded'), onPreviewError: () => log.push('error') });
+  const nodes = all(tree);
+  return { tree, nodes, texts: nodes.filter(n => n.type === 'Text').map(textOf), menu: nodes.find(n => n.type === 'Pressable' && n.props.accessibilityLabel === 'More actions for front side'), image: nodes.find(n => n.type === 'Image') };
+}
+test('failed preview: no image is drawn, but the side label, "Preview unavailable" and a working "\u22EF" menu are all still there', () => {
+  const log: string[] = []; const t = tile('failed', log);
+  assert.equal(t.image, undefined);
+  assert.ok(t.texts.includes('Preview unavailable')); assert.ok(t.texts.includes('\u2713 Front side'));
+  assert.ok(t.menu, 'the menu button is rendered'); t.menu.props.onPress(); assert.deepEqual(log, ['menu']);
+  assert.equal(t.menu.props.style.width, 48); assert.equal(t.menu.props.style.height, 48);
+});
+test('controls are never drawn on top of the preview: the label and the menu are not inside the image box, so a preview that fails to draw cannot hide them', () => {
+  for (const preview of ['loading', 'loaded', 'failed'] as const) {
+    const t = tile(preview);
+    const box = t.nodes.find(n => n.type === 'View' && n.props.style?.overflow === 'hidden'); assert.ok(box, 'there is one clipped preview box');
+    const inside = all(box);
+    assert.ok(!inside.includes(t.menu), `${preview}: the menu is outside the preview box`);
+    assert.ok(!inside.some(n => n.type === 'Text' && textOf(n) === '\u2713 Front side'), `${preview}: the label is outside the preview box`);
+    assert.ok(t.menu && t.texts.includes('\u2713 Front side'), `${preview}: controls rendered`);
+  }
+});
+test('loading and loaded previews: the image asks the decoder to downsample (resizeMethod resize); "Loading preview" shows only while loading', () => {
+  const loading = tile('loading'), loaded = tile('loaded');
+  assert.equal(loading.image.props.resizeMethod, 'resize'); assert.equal(loaded.image.props.resizeMethod, 'resize');
+  assert.ok(loading.texts.includes('Loading preview\u2026')); assert.ok(!loaded.texts.includes('Loading preview\u2026') && !loaded.texts.includes('Preview unavailable'));
+  assert.equal(typeof loaded.image.props.onError, 'function', 'a load error is reported so the tile can say so');
 });

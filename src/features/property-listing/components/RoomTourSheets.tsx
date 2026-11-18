@@ -17,7 +17,7 @@ function Sheet({ onClose, children, label }: { onClose: () => void; children: Re
 export function RoomTourMenuSheet({ side, panorama, onReplace, onRemove, onClose }: { side: PanoramaSide; panorama: PublicPropertyPanorama | null; onReplace: () => void; onRemove: () => void; onClose: () => void }) {
   return <Sheet onClose={onClose} label="menu">
     <View style={styles.head}>
-      {panorama ? <Image source={{ uri: panorama.url }} accessible={false} resizeMode="cover" style={styles.preview} /> : null}
+      {panorama ? <Image source={{ uri: panorama.url }} accessible={false} resizeMode="cover" resizeMethod="resize" style={styles.preview} /> : null}
       <Text accessibilityRole="header" style={styles.title}>{panoramaSideLabel[side]}</Text>
     </View>
     <Pressable accessibilityRole="button" onPress={onReplace} style={styles.row}><Text style={styles.rowText}>Replace photo</Text></Pressable>

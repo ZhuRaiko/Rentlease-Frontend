@@ -8,6 +8,9 @@ export const PROPERTY_PANORAMA_BUCKET = 'property-panoramas';
 export const MIN_PANORAMA_ASPECT = 3;
 export const MAX_PANORAMA_BYTES = 15 * 1024 * 1024;
 export const MAX_PANORAMA_WIDTH_PX = 16384;
+/** What the phone's original is shrunk to before upload: at most this wide (aspect kept), saved as JPEG at this quality. The 15 MiB cap then only guards the shrunk file. */
+export const PANORAMA_UPLOAD_MAX_WIDTH_PX = 6144;
+export const PANORAMA_UPLOAD_JPEG_QUALITY = 0.8;
 export interface PublicPropertyPanorama { side: PanoramaSide; url: string; width: number; height: number }
 
 export const isPanoramaSide = (value: unknown): value is PanoramaSide => value === 'front' || value === 'back';

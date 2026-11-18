@@ -1,13 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
-import { MAX_PANORAMA_BYTES, PROPERTY_PANORAMA_BUCKET, propertyPanoramaObjectPath, propertyPanoramaPath, type PanoramaSide, type PublicPropertyPanorama } from '../../../shared/models/PropertyPanorama';
+import { MAX_PANORAMA_BYTES, PANORAMA_UPLOAD_MAX_WIDTH_PX, PROPERTY_PANORAMA_BUCKET, propertyPanoramaObjectPath, propertyPanoramaPath, type PanoramaSide, type PublicPropertyPanorama } from '../../../shared/models/PropertyPanorama';
 import { panoramaClient } from '../../../shared/services/propertyPanoramaClient';
 import { readPublicPropertyPanoramas } from '../../../shared/services/publicPropertyPanoramas';
 import { isPropertyUuid } from '../models/DraftProperty';
-import { validatePanoramaAsset, type PanoramaAsset, type PanoramaProblem } from '../models/PropertyPanoramaSelection';
+import { checkPickedPanorama, validatePanoramaAsset, type PanoramaAsset, type PanoramaProblem } from '../models/PropertyPanoramaSelection';
 
 export interface PanoramaContext { ownerId: string; propertyId: string }
-export interface PanoramaDevice { read(uri: string): Promise<ArrayBuffer>; uuid(): string }
+/** `shrink` makes a JPEG copy of the picked image, at most `maxWidth` px wide with the aspect kept (never enlarged: `originalWidth` is the picked width), and reports the copy's real pixel size. `cleanup` deletes that copy (best effort). */
+export interface PanoramaDevice { read(uri: string): Promise<ArrayBuffer>; uuid(): string; shrink(uri: string, maxWidth: number, originalWidth: number): Promise<{ uri: string; width: number; height: number }>; cleanup?(uri: string): Promise<void> | void }
 /** `kind` is what the owner can act on; the message is already safe to show. */
 export class PropertyPanoramaError extends Error { constructor(readonly kind: PanoramaProblem | 'remove' | 'context', message: string) { super(message); } }
 
@@ -54,33 +55,40 @@ export function createPropertyPanoramaService(getClient: () => SupabaseClient<Da
     context, assertContext, list,
     /** Uploads a new object, records it for the side, then deletes the file it replaced. An existing working side is never removed by a failed upload. */
     upload: (c: PanoramaContext, side: PanoramaSide, asset: PanoramaAsset): Promise<PublicPropertyPanorama> => lock(c, async () => {
-      const checked = validatePanoramaAsset(asset);
-      if (!checked.ok) throw new PropertyPanoramaError(checked.problem, '');
+      const picked = checkPickedPanorama(asset);
+      if (!picked.ok) throw new PropertyPanoramaError(picked.problem, '');
       await assertContext(c);
-      let body: ArrayBuffer;
-      try { body = await device.read(asset.uri); } catch { throw new PropertyPanoramaError('unreadable', ''); }
-      if (!body.byteLength) throw new PropertyPanoramaError('unreadable', '');
-      if (body.byteLength > MAX_PANORAMA_BYTES) throw new PropertyPanoramaError('size', '');
-      const path = propertyPanoramaPath(c.ownerId, c.propertyId, device.uuid(), checked.mime);
-      const { error: uploadError } = await bucket().upload(path, body, { upsert: false, contentType: checked.mime });
-      if (uploadError) throw new PropertyPanoramaError('upload', '');
-      const saved = (): PublicPropertyPanorama => ({ side, url: bucket().getPublicUrl(path).data.publicUrl, width: checked.width, height: checked.height });
-      let result: { data: unknown; error: { code?: string; message?: string } | null };
-      try { result = await panoramaClient(getClient()).rpc('set_property_panorama', { p_property_id: c.propertyId, p_side: side, p_storage_path: path, p_width: checked.width, p_height: checked.height }); }
-      catch {
-        // No answer: the save may or may not have happened. Keep the file only if the row now points at it; otherwise remove it.
-        try { if ((await readPublicPropertyPanoramas(getClient(), c)).some(p => p.side === side && p.url.endsWith(path))) return saved(); } catch { /* fall through */ }
-        await discard(c, path);
-        throw new PropertyPanoramaError('upload', '');
-      }
-      if (result.error) {
-        // The backend refused: delete the object just uploaded BEFORE reporting, so refused saves cannot fill the 6-object folder cap.
-        await discard(c, path);
-        throw new PropertyPanoramaError(result.error.code === 'PGRST202' ? 'context' : setProblem(result.error), result.error.code === 'PGRST202' ? unavailable : '');
-      }
-      const data = result.data as { replaced_path?: unknown } | null;
-      if (data && typeof data === 'object' && typeof data.replaced_path === 'string' && data.replaced_path !== path) await discard(c, data.replaced_path);
-      return saved();
+      // Shrink first (at most 6144 px wide, JPEG), THEN check the shape and send the SHRUNK file and its real size. A failure here is a plain upload failure.
+      let shrunk: { uri: string; width: number; height: number };
+      try { shrunk = await device.shrink(asset.uri, PANORAMA_UPLOAD_MAX_WIDTH_PX, picked.width); } catch { throw new PropertyPanoramaError('upload', ''); }
+      try {
+        const checked = validatePanoramaAsset({ uri: shrunk.uri, mimeType: 'image/jpeg', size: null, width: shrunk.width, height: shrunk.height });
+        if (!checked.ok) throw new PropertyPanoramaError(checked.problem, '');
+        let body: ArrayBuffer;
+        try { body = await device.read(shrunk.uri); } catch { throw new PropertyPanoramaError('unreadable', ''); }
+        if (!body.byteLength) throw new PropertyPanoramaError('unreadable', '');
+        if (body.byteLength > MAX_PANORAMA_BYTES) throw new PropertyPanoramaError('size', '');   // safety net: the shrunk file should never get near 15 MiB
+        const path = propertyPanoramaPath(c.ownerId, c.propertyId, device.uuid(), checked.mime);
+        const { error: uploadError } = await bucket().upload(path, body, { upsert: false, contentType: checked.mime });
+        if (uploadError) throw new PropertyPanoramaError('upload', '');
+        const saved = (): PublicPropertyPanorama => ({ side, url: bucket().getPublicUrl(path).data.publicUrl, width: checked.width, height: checked.height });
+        let result: { data: unknown; error: { code?: string; message?: string } | null };
+        try { result = await panoramaClient(getClient()).rpc('set_property_panorama', { p_property_id: c.propertyId, p_side: side, p_storage_path: path, p_width: checked.width, p_height: checked.height }); }
+        catch {
+          // No answer: the save may or may not have happened. Keep the file only if the row now points at it; otherwise remove it.
+          try { if ((await readPublicPropertyPanoramas(getClient(), c)).some(p => p.side === side && p.url.endsWith(path))) return saved(); } catch { /* fall through */ }
+          await discard(c, path);
+          throw new PropertyPanoramaError('upload', '');
+        }
+        if (result.error) {
+          // The backend refused: delete the object just uploaded BEFORE reporting, so refused saves cannot fill the 6-object folder cap.
+          await discard(c, path);
+          throw new PropertyPanoramaError(result.error.code === 'PGRST202' ? 'context' : setProblem(result.error), result.error.code === 'PGRST202' ? unavailable : '');
+        }
+        const data = result.data as { replaced_path?: unknown } | null;
+        if (data && typeof data === 'object' && typeof data.replaced_path === 'string' && data.replaced_path !== path) await discard(c, data.replaced_path);
+        return saved();
+      } finally { try { await device.cleanup?.(shrunk.uri); } catch { /* best effort */ } }
     }),
     /** Idempotent on the backend. The removed file is deleted afterwards, best effort. */
     remove: (c: PanoramaContext, side: PanoramaSide): Promise<void> => lock(c, async () => {
