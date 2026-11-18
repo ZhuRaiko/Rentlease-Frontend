@@ -7,7 +7,7 @@ const base={property_type:'house',city:'imus',furnishing_status:'unfurnished',fl
 const A='00000000-0000-4000-8000-000000000001',P='00000000-0000-4000-8000-000000000002',L='00000000-0000-4000-8000-000000000003';
 test('all stored supported subtype pairs use the fitted group API without reclassifying marketplace types',()=>{
  for(const [parent,subtypes] of [['house',['house','townhouse','beach_house','villa']],['apartment',['apartment','room','condominium','studio','loft','penthouse','condotel']],['condominium',['apartment','room','condominium','studio','loft','penthouse','condotel']]] as const)
- for(const subtype of subtypes){const input=mapPredictionInput({...base,property_type:parent,property_subtype:subtype});assert.equal(input.property_type,parent==='house'?'house':'apartment_condominium');assert.equal(input.property_subtype,subtype);}
+ for(const subtype of subtypes){const input=mapPredictionInput({...base,property_type:parent,property_subtype:subtype});assert.equal(input.property_type,parent);assert.equal(input.property_subtype,subtype);}
  for(const parent of ['room','studio','boarding_house','bedspace','dormitory','other','apartment_condominium'])assert.throws(()=>mapPredictionInput({...base,property_type:parent,property_subtype:'room'}));
  for(const property_subtype of ['studio','unknown','',23,true])assert.throws(()=>mapPredictionInput({...base,property_subtype}));
  assert.throws(()=>mapPredictionInput({...base,property_type:'apartment',property_subtype:'villa'}));

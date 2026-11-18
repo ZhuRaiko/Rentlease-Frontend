@@ -8,5 +8,5 @@ export function modelPropertyCategory(parent:'house'|'apartment'|'condominium',s
  if(subtype===null||subtype===undefined)return {property_type:parent,property_subtype:parent};
  const allowed:readonly string[]=parent==='house'?houseModelSubtypes:combinedModelSubtypes;
  if(typeof subtype!=='string'||!allowed.includes(subtype))throw new Error('Invalid stored subtype.');
- return {property_type:parent==='house'?'house':'apartment_condominium',property_subtype:subtype as RentalModelSubtype};
+return {property_type:parent,property_subtype:subtype as RentalModelSubtype};
 }
