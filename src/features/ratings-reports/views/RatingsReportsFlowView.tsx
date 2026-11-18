@@ -1,6 +1,6 @@
 import {ReportingWorkspace} from '../../../shared/components/Reporting';
 import {TenancyReviewChooser} from './TenancyReviewChooser';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import { RentLeaseBottomNavigation } from '../../../shared/components/RentLeaseBottomNavigation';
@@ -49,15 +49,17 @@ export function RatingsReportsFlowView({
   onOpenMaintenance,
 }: RatingsReportsFlowViewProps) {
   const viewModel = useRatingsReportsViewModel(actor);
+  // The stay a "Review this property" button opened (the panel opens on it at once); null = the list of completed rentals.
+  const [reviewStay, setReviewStay] = useState<string | null>(null);
   useEffect(() => {
     if(viewModel.screen!=='home')return;
     registerBackAction?.(() => viewModel.backFromWorkspace(onClose));
     return () => registerBackAction?.(null);
   });
   const content = viewModel.screen === 'home' ? (
-    <RatingsReportsHomeView accountId={accountId} onClose={onClose} viewModel={viewModel} />
+    <RatingsReportsHomeView accountId={accountId} onClose={onClose} viewModel={viewModel} onReviewProperty={(tenancyId) => { setReviewStay(tenancyId); viewModel.startReview(); }} />
   ) : reviewScreens.has(viewModel.screen) ? (
-    <TenancyReviewChooser key={accountId} accountId={accountId} onBack={viewModel.openHome} registerBackAction={registerBackAction}/>
+    <TenancyReviewChooser key={`${accountId}:${reviewStay ?? ''}`} accountId={accountId} initialTenancyId={reviewStay ?? undefined} onBack={() => { setReviewStay(null); viewModel.openHome(); }} registerBackAction={registerBackAction}/>
   ) : (
     <ReportingWorkspace key={accountId} accountId={accountId} scope={{mode:'mine'}} onBack={viewModel.openHome} registerBackAction={registerBackAction}/>
   );
