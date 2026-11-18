@@ -20,7 +20,7 @@ test('restarting loads persisted server read state rather than sample notificati
 
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
-function renderCenter(vm:any){const mod={exports:{} as any};const req=(k:string):any=>{if(k==='react/jsx-runtime'){const jsx=(type:any,props:any)=>typeof type==='function'?type(props):({type,props});return{jsx,jsxs:jsx};}if(k==='react-native')return{ActivityIndicator:'Loading',Pressable:'Pressable',RefreshControl:'Refresh',ScrollView:'Scroll',Text:'Text',View:'View'};if(k.endsWith('/ui'))return{ui:{}};if(k.endsWith('/colors'))return{colors:{}};const name=k.split('/').at(-1)!;return{[name]:(props:any)=>({type:name,props})};};new Function('require','module','exports',ts.transpileModule(readFileSync('src/features/notifications/views/NotificationCenterView.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText)(req,mod,mod.exports);return mod.exports.NotificationCenterView({viewModel:vm,onClose(){},onOpenTarget(){}});}
+function renderCenter(vm:any){const mod={exports:{} as any};const req=(k:string):any=>{if(k==='react/jsx-runtime'){const jsx=(type:any,props:any)=>typeof type==='function'?type(props):({type,props});return{jsx,jsxs:jsx};}if(k==='react-native')return{ActivityIndicator:'Loading',Pressable:'Pressable',RefreshControl:'Refresh',ScrollView:'Scroll',Text:'Text',View:'View',StyleSheet:{create:(v:any)=>v}};if(k.endsWith('/NotificationPresentation'))return require('../src/features/notifications/models/NotificationPresentation');if(k.endsWith('/ui'))return{ui:{}};if(k.endsWith('/colors'))return{colors:{}};const name=k.split('/').at(-1)!;return{[name]:(props:any)=>({type:name,props})};};new Function('require','module','exports',ts.transpileModule(readFileSync('src/features/notifications/views/NotificationCenterView.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText)(req,mod,mod.exports);return mod.exports.NotificationCenterView({viewModel:vm,onClose(){},onOpenTarget(){}});}
 test('notification center renders honest empty, loading and unavailable states',()=>{const base={workflow:{},page:null,busy:false,writing:false,error:null,pending:null};assert.match(JSON.stringify(renderCenter({...base,busy:true})),/Loading notifications/);assert.match(JSON.stringify(renderCenter({...base,error:'Offline'})),/Unread count unavailable/);const empty=JSON.stringify(renderCenter({...base,page:{...page,rows:[],unread:0}}));assert.match(empty,/caught up/);assert.doesNotMatch(empty,/Restore preview|Samuel|push example/);});
 test('notification center shows actual unread rows with accessible actions and pagination',()=>{const rendered=JSON.stringify(renderCenter({workflow:{},page:{...page,next:{createdAt:row.createdAt,id}},busy:false,writing:false,error:null,pending:null}));assert.match(rendered,/Unread: New message/);assert.match(rendered,/Mark all read/);assert.match(rendered,/Load older updates/);});
 
@@ -31,15 +31,14 @@ test('notification center rows use a dot for unread, plain Open, no Refresh butt
   const tree=renderCenter({workflow:{},page:{...page,rows:[row,read],unread:1},busy:false,writing:false,error:null,pending:null});
   const texts=textsOf(tree);
   assert.deepEqual(texts.filter(text=>text.includes('?')),[],'a "?" glyph is rendered');
-  assert.ok(texts.includes('Open')&&!texts.some(text=>/Open update/.test(text)));
+  assert.ok(!texts.includes('Open')&&!texts.some(text=>/Open update/.test(text)),'the designed row has no "Open" word');
   assert.ok(texts.includes('Updates appear here while the app is open.'));
-  const rows=allNodes(tree).filter(n=>n.type==='Pressable');
+  const rows=allNodes(tree).filter(n=>n.type==='Pressable'&&/Open update$/.test(String(n.props.accessibilityLabel)));
   assert.deepEqual(rows.map(n=>n.props.accessibilityLabel),['Unread: New message. Open update','Read: Old message. Open update']);
-  const dot=(n:any)=>allNodes(n.props.children).some(c=>c.type==='View'&&c.props.style?.width===8&&c.props.accessible===false);
+  const dot=(n:any)=>allNodes(n.props.children).some(c=>c.type==='View'&&c.props.style?.width===10&&c.props.accessible===false);
   assert.deepEqual(rows.map(dot),[true,false]);
-  const buttons=allNodes(tree).filter(n=>n.type==='AppButton').map(n=>n.props);
+  const buttons=allNodes(tree).filter(n=>n.type==='AppButton').map(n=>n.props),markAll=(t:any)=>allNodes(t).find(n=>n.type==='Pressable'&&n.props.accessibilityLabel==='Mark all read');
   assert.equal(buttons.some(b=>b.label==='Refresh'),false);
-  assert.equal(buttons.find(b=>b.label==='Mark all read').disabled,false);
-  const none=allNodes(renderCenter({workflow:{},page:{...page,rows:[read],unread:0},busy:false,writing:false,error:null,pending:null})).filter(n=>n.type==='AppButton').map(n=>n.props);
-  assert.equal(none.find(b=>b.label==='Mark all read').disabled,true);
+  assert.equal(markAll(tree).props.disabled,false);
+  assert.equal(markAll(renderCenter({workflow:{},page:{...page,rows:[read],unread:0},busy:false,writing:false,error:null,pending:null})).props.disabled,true);
 });
