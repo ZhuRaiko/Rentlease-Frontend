@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tenancy · loading</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#32743C}a:hover{color:#172C27}
+</style>
+</helmet>
+<div aria-busy="true" style="width: 411px; height: 891px; box-sizing: border-box; background: #F7F9F5; font-family: Roboto, sans-serif; color: #172C27; position: relative; overflow: hidden; display: flex; flex-direction: column">
+  <div style="padding: 28px 16px 14px 16px">
+    <h1 style="margin: 0; font-size: 24px; line-height: 30px; font-weight: 700">Tenancy</h1>
+  </div>
+  <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; gap: 10px">
+      <div style="flex: 1; height: 80px; border-radius: 16px; background: #32743C; padding: 12px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between">
+        <span style="width: 32px; height: 24px; border-radius: 8px; background: #5E9669"></span>
+        <span style="font-size: 13px; color: #FFFFFF; font-weight: 500">Active</span>
+      </div>
+      <div style="flex: 1; height: 80px; border-radius: 16px; background: #E3ECFC; padding: 12px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between">
+        <span style="width: 32px; height: 24px; border-radius: 8px; background: #C3D4F0"></span>
+        <span style="font-size: 13px; color: #284C78; font-weight: 500">Upcoming</span>
+      </div>
+      <div style="flex: 1; height: 80px; border-radius: 16px; background: #EEF1EE; padding: 12px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between">
+        <span style="width: 32px; height: 24px; border-radius: 8px; background: #D3D9D4"></span>
+        <span style="font-size: 13px; color: #4F5B54; font-weight: 500">Past</span>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #DCE5DD; border-radius: 20px; overflow: hidden">
+      <div style="height: 140px; background: #E3EAE4"></div>
+      <div style="padding: 14px; display: flex; flex-direction: column; gap: 10px">
+        <span style="height: 24px; width: 72px; border-radius: 100px; background: #E3EAE4"></span>
+        <span style="height: 16px; width: 70%; border-radius: 8px; background: #E3EAE4"></span>
+        <span style="height: 12px; width: 45%; border-radius: 8px; background: #E3EAE4"></span>
+        <span style="height: 8px; width: 100%; border-radius: 8px; background: #E3EAE4"></span>
+        <span style="height: 44px; width: 100%; border-radius: 100px; background: #E3EAE4"></span>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #DCE5DD; border-radius: 20px; padding: 14px; display: flex; gap: 12px">
+      <span style="width: 56px; height: 56px; border-radius: 12px; background: #E3EAE4; flex: none"></span>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 10px; padding-top: 4px">
+        <span style="height: 14px; width: 65%; border-radius: 8px; background: #E3EAE4"></span>
+        <span style="height: 12px; width: 40%; border-radius: 8px; background: #E3EAE4"></span>
+      </div>
+    </div>
+  </div>
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 72px; background: #E9E9E9; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #606A63">Existing bottom navigation · unchanged</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":411,"height":891}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Notifications</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#32743C}a:hover{color:#172C27}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 411px; height: 891px; box-sizing: border-box; background: #F7F9F5; font-family: Roboto, sans-serif; color: #172C27; position: relative; overflow: hidden; display: flex; flex-direction: column">
+  <div style="padding: 20px 16px 8px 16px; display: flex; align-items: center; gap: 12px">
+    <button aria-label="Back" style="width: 48px; height: 48px; border-radius: 100px; border: 1px solid #DCE5DD; background: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 0; flex: none">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <h1 style="margin: 0; flex: 1; font-size: 22px; line-height: 28px; font-weight: 700">Notifications</h1>
+  </div>
+  <div style="padding: 4px 16px 12px 16px; display: flex; align-items: center; justify-content: space-between">
+    <span style="font-size: 15px; font-weight: 600">13 unread</span>
+    <button style="height: 44px; padding: 0 16px; border-radius: 100px; border: 1px solid #DCE5DD; background: #FFFFFF; color: #172C27; font-size: 14px; font-weight: 500">Mark all read</button>
+  </div>
+
+  <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 8px">
+    <h2 style="margin: 4px 2px 0 2px; font-size: 13px; font-weight: 600; color: #606A63">Today</h2>
+    <div style="background: #FFFFFF; border: 1px solid #DCE5DD; border-radius: 16px; overflow: hidden">
+      <a href="#n" style="text-decoration: none; color: #172C27; display: flex; gap: 12px; padding: 14px; align-items: flex-start; border-bottom: 1px solid #E6ECE7">
+        <span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 100px; background: #FBEEEE; display: flex; align-items: center; justify-content: center; flex: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9B2C2C" stroke-width="2" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"></path><path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg></span>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+          <span style="display: flex; gap: 8px; align-items: center"><span style="font-size: 15px; font-weight: 700">Urgent maintenance request</span></span>
+          <span style="font-size: 13px; line-height: 19px; color: #606A63">Open RentLease to review this update.</span>
+          <span style="display: flex; gap: 8px; align-items: center"><span style="height: 22px; padding: 0 8px; border-radius: 100px; background: #9B2C2C; color: #FFFFFF; font-size: 11px; font-weight: 500; display: flex; align-items: center">Urgent</span><span style="font-size: 12px; color: #606A63">1:11 AM</span></span>
+        </div>
+        <span role="img" aria-label="Unread" style="width: 10px; height: 10px; border-radius: 10px; background: #32743C; margin-top: 6px; flex: none"></span>
+      </a>
+      <a href="#n" style="text-decoration: none; color: #172C27; display: flex; gap: 12px; padding: 14px; align-items: flex-start; border-bottom: 1px solid #E6ECE7">
+        <span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 100px; background: #FFF7E8; display: flex; align-items: center; justify-content: center; flex: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7A4F0E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"></path></svg></span>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 15px; font-weight: 700">Maintenance update</span>
+          <span style="font-size: 13px; line-height: 19px; color: #606A63">Open RentLease to review this update.</span>
+          <span style="font-size: 12px; color: #606A63">1:29 AM</span>
+        </div>
+        <span role="img" aria-label="Unread" style="width: 10px; height: 10px; border-radius: 10px; background: #32743C; margin-top: 6px; flex: none"></span>
+      </a>
+      <a href="#n" style="text-decoration: none; color: #172C27; display: flex; gap: 12px; padding: 14px; align-items: flex-start">
+        <span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 100px; background: #E3ECFC; display: flex; align-items: center; justify-content: center; flex: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#284C78" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"></path></svg></span>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 15px; font-weight: 700">New message</span>
+          <span style="font-size: 13px; line-height: 19px; color: #606A63">Open RentLease to review this update.</span>
+          <span style="font-size: 12px; color: #606A63">12:58 AM</span>
+        </div>
+        <span role="img" aria-label="Unread" style="width: 10px; height: 10px; border-radius: 10px; background: #32743C; margin-top: 6px; flex: none"></span>
+      </a>
+    </div>
+
+    <h2 style="margin: 10px 2px 0 2px; font-size: 13px; font-weight: 600; color: #606A63">Earlier</h2>
+    <div style="background: #FFFFFF; border: 1px solid #DCE5DD; border-radius: 16px; overflow: hidden">
+      <a href="#n" style="text-decoration: none; color: #172C27; display: flex; gap: 12px; padding: 14px; align-items: flex-start; border-bottom: 1px solid #E6ECE7">
+        <span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 100px; background: #EDF8EE; display: flex; align-items: center; justify-content: center; flex: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#32743C" stroke-width="2" stroke-linejoin="round"><path d="M3 11 12 4l9 7v9H3z"></path><path d="M10 20v-5h4v5"></path></svg></span>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 15px; font-weight: 400; color: #3B4A44">Tenancy update</span>
+          <span style="font-size: 13px; line-height: 19px; color: #606A63">Open RentLease to review this update.</span>
+          <span style="font-size: 12px; color: #606A63">Nov 17</span>
+        </div>
+      </a>
+      <a href="#n" style="text-decoration: none; color: #172C27; display: flex; gap: 12px; padding: 14px; align-items: flex-start">
+        <span aria-hidden="true" style="width: 40px; height: 40px; border-radius: 100px; background: #EEF1EE; display: flex; align-items: center; justify-content: center; flex: none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4F5B54" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg></span>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 15px; font-weight: 400; color: #3B4A44">Review update</span>
+          <span style="font-size: 13px; line-height: 19px; color: #606A63">Open RentLease to review this update.</span>
+          <span style="font-size: 12px; color: #606A63">Nov 13</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":411,"height":891}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
