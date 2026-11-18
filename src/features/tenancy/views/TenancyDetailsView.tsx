@@ -36,6 +36,8 @@ interface Props {
   accountId:string|undefined;tenancyId:string;reservationId:string|null;onBack:()=>void;onOpenConversation?:((id:string)=>void)|undefined;externalPanelOpen?:boolean;registerBackAction:((action:(()=>void)|null)=>void);
   /** Opens a panel as soon as the details have loaded (for example the care panel from "Report an issue"). */
   initialPanel?:TenancyDetailsPanel|undefined;
+  /** Back from the panel it opened on closes the whole view (used when a chat opens a request: Back returns to the chat, not to the details). */
+  leaveOnPanelBack?:boolean|undefined;
   /** With the care panel: opens this maintenance request straight away. */
   initialRequestId?:string|undefined;
   /** Opens the property screen (today's list of properties until a single property's Manage screen exists). */
@@ -45,7 +47,7 @@ function reviewSubject(screen:DetailsScreen,photos:ReviewSubject['photos'],start
 function Row({label,onPress}:{label:string;onPress:()=>void}){return <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.docRow}><Text style={ui.body}>{label}</Text><Text accessible={false} style={styles.chevron}>›</Text></Pressable>;}
 function Card({title,right,children}:{title?:string;right?:React.ReactNode;children:React.ReactNode}){return <View style={styles.card}>{title?<View style={styles.cardHead}><Text accessibilityRole="header" style={ui.sectionTitle}>{title}</Text>{right}</View>:null}{children}</View>;}
 function Timeline({items}:{items:NonNullable<DetailsScreen['timeline']>}){return <View>{items.map((e,index)=><View key={e.key} style={styles.timelineRow}><View style={styles.rail}><View style={[styles.dot,index===items.length-1&&{backgroundColor:colors.warning}]}/>{index<items.length-1?<View style={styles.line}/>:null}</View><View style={{flex:1,paddingBottom:spacing.sm}}><Text style={ui.body}>{e.label}</Text><Text style={ui.supporting}>{e.date}{e.note?` · ${e.note}`:''}</Text></View></View>)}</View>;}
-export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onOpenConversation,externalPanelOpen=false,registerBackAction,initialPanel,initialRequestId,onOpenProperty}:Props){
+export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onOpenConversation,externalPanelOpen=false,registerBackAction,initialPanel,initialRequestId,onOpenProperty,leaveOnPanelBack=false}:Props){
  const vm=useTenancyDetailsViewModel(accountId,tenancyId,reservationId,externalPanelOpen),d=vm.data,t=d?.tenancy;
  const bottom=useBottomClearance();
  const care=useTenancyCareViewModel(accountId,tenancyId),life=useTenancyLifecycleViewModel(accountId,tenancyId),reviews=useRentalReviews(accountId,{mode:'tenancy',id:tenancyId});
@@ -53,7 +55,7 @@ export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onO
  const ext=useTenancyExtensionViewModel(accountId,tenancyId,t?.status==='active'),[sheetOpen,setSheetOpen]=useState(false);
  const [reviewTitle,setReviewTitle]=useState('Ratings'),[careTitle,setCareTitle]=useState('My maintenance requests');
  const exitGuard=useRef<(()=>boolean)|null>(null),registerExitGuard=useCallback((guard:(()=>boolean)|null)=>{exitGuard.current=guard;},[]);
- const back=()=>{if(exitGuard.current&&!exitGuard.current())return;if(!vm.workflow.back())onBack();};
+ const back=()=>{if(exitGuard.current&&!exitGuard.current())return;if(leaveOnPanelBack&&initialPanel&&vm.panel===initialPanel){onBack();return;}if(!vm.workflow.back())onBack();};
  useEffect(()=>{if(externalPanelOpen)return;registerBackAction(back);return()=>registerBackAction(null);});
  const requestOnce=useRef(initialRequestId),wasCare=useRef(false);
  useEffect(()=>{if(vm.panel==='care')wasCare.current=true;else if(wasCare.current)requestOnce.current=undefined;},[vm.panel]);

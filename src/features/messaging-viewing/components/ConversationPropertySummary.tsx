@@ -4,6 +4,8 @@ import {Pressable,StyleSheet,Text,View} from 'react-native';
 import {PropertyPhotoThumbnail} from '../../../shared/components/PropertyPhotoThumbnail';
 import {FullscreenDocumentImage} from '../../../shared/components/FullscreenDocumentImage';
 import {colors} from '../../../shared/theme/colors';
+import {radius} from '../../../shared/theme/radius';
+import {spacing} from '../../../shared/theme/spacing';
 import {ui} from '../../../shared/theme/ui';
 import type {ConversationProperty} from '../models/ConversationProperty';
 /**
@@ -21,4 +23,4 @@ export function ConversationPropertySummary({context,title,loading,error,onRetry
  {gallery}
  </View>;
 }
-const styles=StyleSheet.create({section:{gap:6},row:{flexDirection:'row',gap:12,alignItems:'center'},text:{flex:1,minWidth:0},title:{...ui.sectionTitle,fontSize:15},status:{...ui.supporting,color:colors.primaryAction},action:{minHeight:48,justifyContent:'center'},toggle:{minHeight:48,minWidth:48,alignItems:'center',justifyContent:'center'},link:{...ui.supporting,color:colors.primaryAction,fontWeight:'600'}});
+const styles=StyleSheet.create({section:{gap:6,backgroundColor:colors.background,borderWidth:1,borderColor:colors.outline,borderRadius:radius.card,padding:spacing.xs+2},row:{flexDirection:'row',gap:12,alignItems:'center'},text:{flex:1,minWidth:0},title:{...ui.sectionTitle,fontSize:15},status:{...ui.supporting,color:colors.primaryAction},action:{minHeight:48,justifyContent:'center'},toggle:{minHeight:48,minWidth:48,alignItems:'center',justifyContent:'center'},link:{...ui.supporting,color:colors.primaryAction,fontWeight:'600'}});

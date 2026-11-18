@@ -183,9 +183,9 @@ test('chat property row: collapsed by default in chat, expands on tap, one title
 });
 test('chat: bubbles name the other participant or say Them; Report participant is a menu item; two same-size actions hide with the keyboard', () => {
   const src = readFileSync('src/features/messaging-viewing/views/MessagingConversationView.tsx', 'utf8');
-  assert.match(src, /identity\?\.nickname\?\?'Them'/); assert.doesNotMatch(src, /Other participant/);
+  assert.match(src, /identity\?\.nickname\s*\?\?\s*'Them'/); assert.doesNotMatch(src, /Other participant/);
   assert.match(src, /asMenuItem/); assert.match(src, /kind="user" contextId=\{conversation\.id\}/);
-  assert.match(src, /vm\.keyboardOpen\?null:/); assert.match(src, /compact=\{!!vm\.keyboardOpen\}/);
+  assert.match(src, /vm\.keyboardOpen\s*\?\s*null\s*:/); assert.match(src, /compact=\{!!vm\.keyboardOpen\}/);
   assert.match(readFileSync('src/features/messaging-viewing/viewModels/useMessagingViewingViewModel.ts', 'utf8'), /useKeyboardVisibility\(\)/);
 });
 

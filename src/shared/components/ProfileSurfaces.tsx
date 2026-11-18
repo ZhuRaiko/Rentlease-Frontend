@@ -30,10 +30,10 @@ export function ListingOwnerRow({ accountId, ownerId, label, identity }: { accou
 }
 
 /** Chat header title: the name with the check, and "Landlord . <property>" or "Tenant". Tapping opens the profile. */
-export function ChatPersonTitle({ accountId, personId, role, name, propertyTitle }: { accountId: string | undefined; personId: string; role: ProfileRole; name: string; propertyTitle?: string | null | undefined }) {
+export function ChatPersonTitle({ accountId, personId, role, name, propertyTitle, subtitle }: { accountId: string | undefined; personId: string; role: ProfileRole; name: string; propertyTitle?: string | null | undefined; /** Replaces the default role line (for example "Your tenant" while a tenancy is active). */ subtitle?: string | null | undefined }) {
   const state = usePublicProfile(accountId, personId), nav = useProfileNavigation();
   const profile = state.status === 'ready' ? state.profile : null, badge = profileBadge(profile, role);
-  const sub = role === 'landlord' ? ['Landlord', propertyTitle].filter(Boolean).join(' · ') : 'Tenant';
+  const sub = subtitle || (role === 'landlord' ? ['Landlord', propertyTitle].filter(Boolean).join(' · ') : 'Tenant');
   const shown = profile ? profileName(profile.nickname) : name;
   const body = <View style={styles.grow}><NameWithCheck name={shown} verified={!!badge?.idVerified} /><Text style={ui.supporting}>{sub}</Text></View>;
   if (!nav || !profile) return body;
