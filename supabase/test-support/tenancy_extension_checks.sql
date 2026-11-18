@@ -133,7 +133,7 @@ begin
  -- other schemas, so this insert must run, and does run, between the top-level replica/origin SETs with the other fixtures; the UPDATE ones
  -- (property_details_rotate, updated_at, completeness, identity_canonical_property) never fire because nothing here updates a property.
  insert into public.properties(id,landlord_id,property_type,city,barangay,public_location)
-  select distinct t.property_id,t.landlord_id,'house','imus','Fixture Barangay','SRID=4326;POINT(120.9 14.3)'::extensions.geography from public.tenancies t where t.id in(ta,tb,tc,td,te,tf,tg,th,ti,tj,tk,tm,tq,tr,ts,tu,tw,tx);
+  select distinct t.property_id,t.landlord_id,'house'::public.property_type,'imus'::public.cavite_city,'Fixture Barangay','SRID=4326;POINT(120.9 14.3)'::extensions.geography from public.tenancies t where t.id in(ta,tb,tc,td,te,tf,tg,th,ti,tj,tk,tm,tq,tr,ts,tu,tw,tx);
  -- Listings (validate_tenancy raises 'Listing does not exist' unless public.listings has a row with id = tenancy.listing_id, and requires
  -- listing.property_id = tenancy.property_id and listing.landlord_id = tenancy.landlord_id). ONE listing per fixture tenancy, built FROM the tenancy
  -- row just inserted, so the three values match by construction. Only the columns without a default are given: property_id, landlord_id, title,
