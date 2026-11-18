@@ -1,6 +1,8 @@
-# Room tour backend design (PREPARED LOCAL / NOT APPLIED)
+# Room tour backend design (APPLIED 2026-11-19, version 20261119100000)
 
-Status: IMPLEMENTED LOCALLY / AUTOMATED-TESTED in a disposable container. Nothing is applied to hosted. Nothing is pushed. Hosted Supabase was not contacted.
+Status: APPLIED to hosted on 2026-11-19 after an explicit go-ahead (dry run rolled back first, scoped predeploy backup, live policy record, direct apply with `db query --linked -f`, single-version `migration repair` for `20261119100000`). Catalog-verified read-only; AUTOMATED-TESTED in a disposable container; RUNTIME-UNVERIFIED with real users. Nothing is pushed. Generated database types are not regenerated yet.
+
+The migration file keeps its original header comment ("PREPARED LOCAL ONLY. NOT APPLIED") because an applied migration is not edited; this document and the ledger are the record of the apply.
 Visual design: [room-tour/README.md](room-tour/README.md). Migration: `supabase/migrations/20261119100000_property_panoramas.sql`.
 
 ## What it is
@@ -60,7 +62,7 @@ Note on `is_tier1_verified`: the tenancy extension migration pins its raw md5 `d
 
 ## Decisions and accepted gaps
 
-- **Bucket created inside the migration.** No earlier migration in this repository creates a bucket (`property-media` and `avatars` already existed and were only asserted). This one inserts into `storage.buckets` with `on conflict do nothing`, then asserts the contract; an existing bucket with other settings stops the migration with `Unexpected property-panoramas bucket contract; stop for review`. Alternative if hosted refuses the insert: create the bucket by hand in the Dashboard with the same settings, then run the migration (the insert does nothing, the assertion still runs). **Unverified on hosted:** whether the migration context may insert into `storage.buckets` and create policies on `storage.objects`.
+- **Bucket created inside the migration.** No earlier migration in this repository creates a bucket (`property-media` and `avatars` already existed and were only asserted). This one inserts into `storage.buckets` with `on conflict do nothing`, then asserts the contract; an existing bucket with other settings stops the migration with `Unexpected property-panoramas bucket contract; stop for review`. Alternative if hosted refuses the insert: create the bucket by hand in the Dashboard with the same settings, then run the migration (the insert does nothing, the assertion still runs). Hosted accepted both the bucket insert and the `storage.objects` policies in the migration context (confirmed by a rolled-back dry run, then the real apply).
 - **Orphan bytes (accepted v1 gap).** Deleting an unfinished post cascades the rows but leaves the files in the bucket (the edge function is not changed). Removing a panorama with `remove_property_panorama` also leaves the file; the client may delete its own unregistered files through the Storage API (DELETE policy). Free plan has 1 GB of storage and a 50 MB file cap; the 15 MiB limit and the 6-object folder cap bound the exposure.
 - **Registered files can be deleted by the owner through the Storage API.** The DELETE policy does not look at the table, so an owner can delete the bytes of a registered panorama and leave a row that points at nothing. The viewer must treat a failed image load as "unavailable". Not a privilege problem (owner's own file) but a data-quality one.
 - **A row exists only for a file that existed.** `set_property_panorama` checks `storage.objects`, but the check is at call time; the file can be deleted afterwards (above).
@@ -78,7 +80,7 @@ Note on `is_tier1_verified`: the tenancy extension migration pins its raw md5 `d
 - `scripts/predeploy-backup/New-PredeployBackup.ps1` takes `-Feature -ExpectedProjectRef -Schemas -Functions -Tables -ForwardSql -RollbackSql -OutputRoot`; the default output is `C:\RentLease-Backups` (not `.claude/predeploy-backup-*`). It covers schema dumps, function bodies and table fingerprints for the names given. It cannot list `public.property_panoramas` in `-Tables` before the table exists, and capture of `storage` schema policies and bucket rows is **untested**. No script change is needed if the `storage.objects` policy dump and the bucket row are recorded by hand (see [the pre-apply policy record](../implementation-reports/database/STORAGE_OBJECTS_POLICIES_BEFORE_PANORAMAS.md)). The script was not changed and not run.
 - Never delete from `storage.objects` with SQL (it orphans the real files). Emptying or removing the bucket is a manual Storage API or Dashboard step.
 
-## Apply procedure (only after an explicit go-ahead)
+## Apply procedure (as carried out on 2026-11-19)
 
 1. Fresh predeploy backup; record the live `storage.objects` policy dump and `storage.buckets` rows in the policy record.
 2. `supabase db query --linked -f supabase/migrations/20261119100000_property_panoramas.sql` (a single transaction; any failed guard or post-condition rolls everything back).
@@ -93,4 +95,4 @@ Note on `is_tier1_verified`: the tenancy extension migration pins its raw md5 `d
 ## Test evidence
 
 `python supabase/tests/run_property_panoramas.py` (Docker, PostgreSQL 17.6.1.155, no network): 109 checks (33 runner assertions, 76 SQL checks in `supabase/test-support/property_panoramas_checks.sql`). Covered: set, replace, remove and idempotent empty remove; 42501 for another owner, a non-Tier-1 owner, anon and service_role; every 22023 message; read policy by actor; storage insert, update, delete and the 7th-insert refusal; property delete cascade; `inspect` with panorama rows and with a tenancy; guard refusal on re-run, drift and a mismatched bucket; both rollbacks.
-RUNTIME-UNVERIFIED on hosted and on a device.
+Hosted: catalog-verified read-only after the apply; RUNTIME-UNVERIFIED with real users and on a device.

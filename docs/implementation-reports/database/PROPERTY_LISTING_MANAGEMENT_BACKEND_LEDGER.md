@@ -2014,7 +2014,7 @@ Saved counts: not read. `saved_listings` has no direct client grant and the save
 `tenancies` (the landlord's own open rows, SELECT, through `landlordTenanciesService`), `get_tenancy_care`, `get_tenancy_lifecycle`, `get_published_rental_reviews`, `get_public_identities`, the reservation list, and the existing `respond_rental_reservation` decline path through the reservation workflow. No decline was run on real data. Reservation `d67d5332-39f6-45b7-b4f3-8e81396d490e` was not touched.
 
 
-## November 19, 2026 - 360 room tour (property panoramas): prepared migration, PREPARED LOCAL / NOT APPLIED
+## November 19, 2026 - 360 room tour (property panoramas): prepared migration (preparation record; APPLIED, see the HOSTED_MIGRATION entry below)
 
 | Field | Entry |
 | --- | --- |
@@ -2035,3 +2035,21 @@ Saved counts: not read. `saved_listings` has no direct client grant and the save
 Accepted v1 gap: deleting an unfinished post removes the panorama rows (ON DELETE CASCADE) but leaves the files in the bucket, because the cleanup edge function is not changed. Removing a panorama also leaves its file.
 Choice recorded: the bucket is created inside the migration (idempotent insert, then the contract is asserted), because no earlier migration creates a bucket. Unverified on hosted: whether the migration context may insert into `storage.buckets` and create policies on `storage.objects`; if refused, the transaction rolls back and the bucket can be created by hand with the same settings.
 Plan: Supabase Free (no PITR, no branching, 1 GB storage, 50 MB file cap). Apply only after an explicit go-ahead, a fresh predeploy backup and the live `storage.objects` policy record, with `db query --linked -f` and a single-version `migration repair`; never `db push`.
+
+
+## November 19, 2026 - HOSTED_MIGRATION 20261119100000_property_panoramas applied
+
+| Field | Entry |
+| --- | --- |
+| Date | Applied 2026-11-19, after the user's explicit go-ahead |
+| Feature/phase | 360 room tour (property panoramas) backend, prompt 1 of 2 |
+| Actor/tool | Claude Code with Supabase CLI 2.122.0: `db query --linked` (read-only queries, a rolled-back dry run, then the apply) and one `migration repair` |
+| Environment/project | Live project `cxfsbwbwmwmgtqfonqth`, linked session, no secrets recorded |
+| Classification | HOSTED_MIGRATION (applied). Not `db push` |
+| Order of steps | (1) dry run in a transaction ended with `rollback;` (temporary copy, lock_timeout 3s): exit 0, nothing persisted. (2) Scoped predeploy backup `C:\RentLease-Backups\property-panoramas-predeploy-20261118-170430` (outside the repo, not committed or uploaded; catalog and row fingerprints unchanged, 0 hash mismatches). (3) Live `storage.objects` policies (26), buckets (6) and the `inspect` md5 recorded in `STORAGE_OBJECTS_POLICIES_BEFORE_PANORAMAS.md` (commit 9a62948). (4) Apply of the unmodified `supabase/migrations/20261119100000_property_panoramas.sql` with `supabase db query --linked -f`: exit 0. (5) `supabase migration repair --status applied 20261119100000` for that single version only; `migration list` then shows local and remote `20261119100000` |
+| Result | Verified read-only: table `public.property_panoramas` (RLS on, 8 columns, 0 rows; authenticated SELECT only; anon and service_role none); bucket `property-panoramas` public, 15728640, `image/jpeg`, `image/png`, `image/webp`; RPCs `set_property_panorama` and `remove_property_panorama` security definer, `search_path=pg_catalog`, owner postgres, EXECUTE for authenticated only (bodies md5 `445ee381083202d57bc2a5b7029b6e57` and `2d45667038d7220f17843f562dfd0aa4`); policies `property_panoramas_read_allowed` (table) and `storage_property_panoramas_insert_owner`, `_select_owner`, `_delete_owner`, `property_panoramas_immutable_update` (restrictive, UPDATE) on `storage.objects`; `rentlease_unfinished_posts.inspect` md5 `fd1bc6691ce65b03ae723d94a2d8a7c9`, posture unchanged (secdef, `search_path=pg_catalog`, owner postgres, no authenticated or anon EXECUTE); helper schema `rentlease_property_panorama` has one function, `folder_has_room`, executable by authenticated only |
+| Durable effect | Added the objects above. No existing policy, bucket or function other than `inspect` changed. No row data written |
+| Rollback/cleanup | `supabase/test-support/property_panoramas_rollback.sql` (data-retaining) and `property_panoramas_rollback_full.sql`; emptying or removing the bucket is a manual Storage API or Dashboard step, never SQL against `storage.objects` |
+| Security/RLS | As verified above. Behavior with real users (end-user JWT calls, an actual upload) is not yet tested on hosted: RUNTIME-UNVERIFIED |
+| Source-controlled backend file | `supabase/migrations/20261119100000_property_panoramas.sql` (its header comment still says "PREPARED LOCAL ONLY. NOT APPLIED"; the applied file is not edited) |
+| Android/client runtime | Not applicable; frontend not built. Generated database types not regenerated yet |
