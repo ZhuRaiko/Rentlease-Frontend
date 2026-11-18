@@ -1,3 +1,4 @@
+import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '../../../shared/services/supabase/database.types';
 import {readPublicPropertyPhotos} from '../../../shared/services/publicPropertyPhotos';
@@ -8,7 +9,7 @@ import type {RentalRelationship} from '../models/TenancyWorkspace';
 import {parseTenancyRelationship,TenancyReadError,type TenancyCardContext,type TenancyDetails} from '../models/TenancyDetails';
 const fields='id,property_id,listing_id,conversation_id,tenant_id,landlord_id,status,start_date,expected_end_date,actual_end_date,agreed_monthly_rent,rent_due_day';
 export function createTenancyDetailsService(client:()=>SupabaseClient<Database>,photoRead=readPublicPropertyPhotos){
- const identity=async(actor:string,signal:AbortSignal)=>{const {data,error}=await client().auth.getUser();if(error||data.user?.id!==actor||signal.aborted)throw new TenancyReadError('Your account changed or the request was canceled. Reopen Tenancy.');};
+ const identity=async(actor:string,signal:AbortSignal)=>{const {data,error}=await readSessionUser(client());if(error||data.user?.id!==actor||signal.aborted)throw new TenancyReadError('Your account changed or the request was canceled. Reopen Tenancy.');};
  const contexts=async(actor:string,rows:readonly RentalRelationship[],signal:AbortSignal)=>{
  const outer=signal,c=new AbortController(),cancel=()=>c.abort();if(outer.aborted)cancel();outer.addEventListener('abort',cancel,{once:true});const timer=setTimeout(cancel,15000);signal=c.signal;
  try{await identity(actor,signal);if(rows.some(t=>![t.tenant_id,t.landlord_id].includes(actor)))throw new TenancyReadError('Rental access could not be verified.');

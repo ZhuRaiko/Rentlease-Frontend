@@ -1,3 +1,4 @@
+import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '../../../shared/services/supabase/database.types';
 import {isUuid} from '../models/PersistentMessaging';
@@ -27,11 +28,13 @@ export interface ReservationWrite {id:string;conversationId?:string;reservationI
 export function createReservationService(getClient:()=>SupabaseClient<Database>){
  const user=async()=>{const {data,error}=await getClient().auth.getUser();if(error||!data.user)throw new ReservationError('Sign in again to review reservations.',true);return data.user.id;};
  const identity=async(actor:string)=>{if(await user()!==actor)throw new ReservationError('Your account changed. Reopen Reservations.',true);};
+ const readUser=async()=>{const {data,error}=await readSessionUser(getClient());if(error||!data.user)throw new ReservationError('Sign in again to review reservations.',true);return data.user.id;};
+ const readIdentity=async(actor:string)=>{if(await readUser()!==actor)throw new ReservationError('Your account changed. Reopen Reservations.',true);};
  async function request(actor:string,read:(signal:AbortSignal)=>PromiseLike<{data:unknown;error:unknown}>,signal?:AbortSignal,write=false){
-  await identity(actor);const c=new AbortController(),cancel=()=>c.abort();if(signal?.aborted)c.abort();signal?.addEventListener('abort',cancel,{once:true});const timer=setTimeout(cancel,20000);
-  try{const result=await read(c.signal);await identity(actor);if(result.error)throw reservationFailure(result.error,write);return result.data;}catch(e){throw e instanceof ReservationError?e:reservationFailure(e,write);}finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);}
+  await (write?identity:readIdentity)(actor);const c=new AbortController(),cancel=()=>c.abort();if(signal?.aborted)c.abort();signal?.addEventListener('abort',cancel,{once:true});const timer=setTimeout(cancel,20000);
+  try{const result=await read(c.signal);await (write?identity:readIdentity)(actor);if(result.error)throw reservationFailure(result.error,write);return result.data;}catch(e){throw e instanceof ReservationError?e:reservationFailure(e,write);}finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);}
  }
- return{user,
+ return{user:readUser,
   async list(actor:string,conversationId:string|null,offset:number,signal?:AbortSignal){if(conversationId&&!isUuid(conversationId))throw new ReservationError('Choose a valid conversation.');const data=await request(actor,s=>getClient().rpc('get_rental_reservations',{...(conversationId?{p_conversation_id:conversationId}:{}),p_offset:offset,p_limit:20}).abortSignal(s),signal);if(!Array.isArray(data))throw new ReservationError('The reservation response could not be verified.');return data.map(row=>parseReservation(row,actor));},
   async write(actor:string,op:ReservationWrite,signal?:AbortSignal){if(!isUuid(op.id)||(op.reservationId?!isUuid(op.reservationId):!isUuid(op.conversationId)))throw new ReservationError('Choose a valid reservation.');
    const data=await request(actor,s=>op.reservationId?getClient().rpc('respond_rental_reservation',{p_reservation_id:op.reservationId,p_operation_id:op.id,p_expected_revision:op.revision!,p_action:op.action!,p_note:op.message}).abortSignal(s):getClient().rpc('request_rental_reservation',{p_conversation_id:op.conversationId!,p_request_id:op.id,p_move_in_date:op.moveInDate!,p_duration_months:op.durationMonths!,p_message:op.message}).abortSignal(s),signal,true);

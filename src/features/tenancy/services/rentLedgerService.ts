@@ -1,3 +1,4 @@
+import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '../../../shared/services/supabase/database.types';
 import {parseRentLedger, parseRentWrite, RentLedgerError, validateRentOperation, type RentLedger, type RentOperation, type RentWriteResult} from '../models/RentLedger';
@@ -11,18 +12,19 @@ type Failure = {code?: string | null; message?: string | null} | null;
  * that fails without a definite server answer is reported as uncertain so the caller retries the SAME operation id (the server replays it).
  */
 export function createRentLedgerService(client: () => SupabaseClient<Database>) {
-  const identity = async (actor: string, signal: AbortSignal) => {
-    const {data, error} = await client().auth.getUser();
+  // `read` = a get_ read: the local session is enough. Every write keeps the network check.
+  const identity = async (actor: string, signal: AbortSignal, read = false) => {
+    const {data, error} = await (read ? readSessionUser(client()) : client().auth.getUser());
     if (error || data.user?.id !== actor || signal.aborted) throw new RentLedgerError('Your account changed or the request was canceled. Reopen the rent ledger.', null, false);
   };
   const definite = (e: Failure) => new RentLedgerError(e?.message ?? '', e?.code ?? null, false);
   return {
     async read(actor: string, tenancyId: string, offset: number, signal: AbortSignal): Promise<RentLedger> {
-      await identity(actor, signal);
+      await identity(actor, signal, true);
       let result;
       try { result = await client().rpc('get_rent_ledger', {p_tenancy_id: tenancyId, p_offset: offset}).abortSignal(signal); }
       catch { throw new RentLedgerError('The rent ledger could not load. Check your connection and retry.'); }
-      await identity(actor, signal);
+      await identity(actor, signal, true);
       if (result.error) {
         if (result.error.code === 'PGRST202') throw definite(result.error);
         if (DEFINITE.includes(result.error.code)) throw new RentLedgerError(result.error.code === '42501' ? "This isn't available right now." : 'The rent ledger could not load. Retry.', result.error.code);

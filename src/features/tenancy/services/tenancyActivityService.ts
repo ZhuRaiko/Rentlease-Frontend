@@ -1,3 +1,4 @@
+import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '../../../shared/services/supabase/database.types';
 import {parseReviewContext, type ReviewContext} from '../../../shared/models/RentalReview';
@@ -24,7 +25,7 @@ export const ACTIVITY_LIMIT = 12;
 
 export function createTenancyActivityService(client: () => SupabaseClient<Database>) {
   const identity = async (actor: string, signal: AbortSignal) => {
-    const {data, error} = await client().auth.getUser();
+    const {data, error} = await readSessionUser(client());
     if (error || data.user?.id !== actor || signal.aborted) throw new Error('Your account changed. Reopen Tenancy.');
   };
   const read = async <T>(actor: string, name: 'get_tenancy_care' | 'get_tenancy_lifecycle' | 'get_tenancy_reviews' | 'get_rent_ledger', id: string, parse: (value: unknown, actor: string, id: string) => T, signal: AbortSignal): Promise<T | null> => {

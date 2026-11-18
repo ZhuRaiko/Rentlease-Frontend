@@ -1,3 +1,4 @@
+import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import { portfolioDiagnostic, tracePortfolioDiagnostic, type PortfolioDiagnostic, type PortfolioStage } from './portfolioDiagnostics';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
@@ -14,7 +15,7 @@ export function createLandlordPortfolioService(getClient: () => SupabaseClient<D
     return new PortfolioError(message,identity);
   };
   const user = async () => {
-    let result; try { result = await getClient().auth.getUser(); } catch(error) { throw failed('auth',error,true); }
+    let result; try { result = await readSessionUser(getClient()); } catch(error) { throw failed('auth',error,true); }
     const { data, error } = result;
     if (error || !data.user) throw failed('auth',error,true);
     return data.user.id;

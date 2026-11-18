@@ -1,3 +1,4 @@
+import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '../../../shared/services/supabase/database.types';
 import {ExtensionError,parseExtension,parseExtensionWrite,parsePendingExtensions,validateExtensionOperation,type ExtensionOperation,type ExtensionRead,type ExtensionWrite,type PendingExtension} from '../models/TenancyExtension';
@@ -15,8 +16,9 @@ const rpc=(client:SupabaseClient<Database>):Rpc=>(name,args)=>(client as unknown
  * definite server answer is uncertain, so the caller retries the SAME operation id (the server replays its stored result).
  */
 export function createTenancyExtensionService(client:()=>SupabaseClient<Database>){
-  const identity=async(actor:string,signal:AbortSignal)=>{
-    const {data,error}=await client().auth.getUser();
+  // `read` = a get_ read: the local session is enough. Every write keeps the network check.
+  const identity=async(actor:string,signal:AbortSignal,read=false)=>{
+    const {data,error}=await (read?readSessionUser(client()):client().auth.getUser());
     if(error||data.user?.id!==actor||signal.aborted)throw new ExtensionError('Your account changed or the request was canceled.',null,false);
   };
   const definite=(e:Failure)=>new ExtensionError(e?.message??'',e?.code??null,false);
@@ -25,16 +27,16 @@ export function createTenancyExtensionService(client:()=>SupabaseClient<Database
   };
   return {
     async read(actor:string,tenancyId:string,signal:AbortSignal):Promise<ExtensionRead>{
-      await identity(actor,signal);
+      await identity(actor,signal,true);
       const result=await call('get_tenancy_extension',{p_tenancy_id:tenancyId},signal);
-      await identity(actor,signal);
+      await identity(actor,signal,true);
       if(result.error)throw result.error.code&&DEFINITE.includes(result.error.code)?definite(result.error):new ExtensionError('Request failed.',null,true);
       return parseExtension(result.data,tenancyId);
     },
     async pending(actor:string,signal:AbortSignal):Promise<PendingExtension[]>{
-      await identity(actor,signal);
+      await identity(actor,signal,true);
       const result=await call('get_pending_tenancy_extensions',undefined,signal);
-      await identity(actor,signal);
+      await identity(actor,signal,true);
       if(result.error)throw result.error.code&&DEFINITE.includes(result.error.code)?definite(result.error):new ExtensionError('Request failed.',null,true);
       return parsePendingExtensions(result.data);
     },

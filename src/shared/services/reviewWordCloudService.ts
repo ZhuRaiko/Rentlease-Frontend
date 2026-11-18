@@ -1,4 +1,5 @@
-﻿import {ReviewError,type ReviewRow} from '../models/RentalReview';
+﻿import { readSessionUser } from './supabase/sessionUser';
+import {ReviewError,type ReviewRow} from '../models/RentalReview';
 import type {ReviewCorpus} from '../models/ReviewWordCloud';
 import type {RentalReviewService} from './rentalReviewService';
 export async function loadPropertyReviewCorpus(service:Pick<RentalReviewService,'read'>,actor:string,propertyId:string,signal:AbortSignal):Promise<ReviewCorpus>{
@@ -19,7 +20,7 @@ export async function loadPropertyReviewCorpus(service:Pick<RentalReviewService,
 
 /** Mobile sends only a property reference. The Edge independently obtains all review text. */
 export function createReviewCloudProcessor(client:()=>import('@supabase/supabase-js').SupabaseClient<import('./supabase/database.types').Database>):import('../models/ReviewWordCloud').ReviewCloudProcessor{
- const identity=async(actor:string,signal:AbortSignal)=>{const response=await client().auth.getUser();if(signal.aborted||response.error||response.data.user?.id!==actor)throw new ReviewError('Your account changed. Reopen property reviews.');};
+ const identity=async(actor:string,signal:AbortSignal)=>{const response=await readSessionUser(client());if(signal.aborted||response.error||response.data.user?.id!==actor)throw new ReviewError('Your account changed. Reopen property reviews.');};
  return{async process(actor,corpus,signal){await identity(actor,signal);
   const response=await client().functions.invoke<unknown>('review-wordcloud',{body:{propertyId:corpus.propertyId},signal});
   await identity(actor,signal);

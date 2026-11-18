@@ -1,3 +1,4 @@
+import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '../../../shared/services/supabase/database.types';
 import {isUuid} from '../models/PersistentMessaging';
@@ -25,10 +26,12 @@ export interface ViewingWrite {id:string;conversationId?:string;viewingId?:strin
 export function createViewingService(getClient:()=>SupabaseClient<Database>){
  const user=async()=>{const {data,error}=await getClient().auth.getUser();if(error||!data.user)throw new ViewingError('Sign in again to view appointments.',true);return data.user.id;};
  const identity=async(actor:string)=>{if(await user()!==actor)throw new ViewingError('Your account changed. Reopen Viewings.',true);};
+ const readUser=async()=>{const {data,error}=await readSessionUser(getClient());if(error||!data.user)throw new ViewingError('Sign in again to view appointments.',true);return data.user.id;};
+ const readIdentity=async(actor:string)=>{if(await readUser()!==actor)throw new ViewingError('Your account changed. Reopen Viewings.',true);};
  async function request(actor:string,read:(signal:AbortSignal)=>PromiseLike<{data:unknown;error:unknown}>,signal?:AbortSignal,write=false){
- await identity(actor);const controller=new AbortController(),cancel=()=>controller.abort();if(signal?.aborted)controller.abort();signal?.addEventListener('abort',cancel,{once:true});const timer=setTimeout(cancel,20000);
- try{const result=await read(controller.signal);await identity(actor);if(result.error)throw viewingFailure(result.error,write);return result.data;}catch(e){throw e instanceof ViewingError?e:viewingFailure(e,write);}finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);}}
- return{user,
+ await (write?identity:readIdentity)(actor);const controller=new AbortController(),cancel=()=>controller.abort();if(signal?.aborted)controller.abort();signal?.addEventListener('abort',cancel,{once:true});const timer=setTimeout(cancel,20000);
+ try{const result=await read(controller.signal);await (write?identity:readIdentity)(actor);if(result.error)throw viewingFailure(result.error,write);return result.data;}catch(e){throw e instanceof ViewingError?e:viewingFailure(e,write);}finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);}}
+ return{user:readUser,
  async list(actor:string,conversationId:string|null,offset:number,signal?:AbortSignal){if(conversationId&&!isUuid(conversationId))throw new ViewingError('Choose a valid conversation.');const data=await request(actor,s=>getClient().rpc('get_property_viewings',{...(conversationId?{p_conversation_id:conversationId}:{}),p_offset:offset,p_limit:20}).abortSignal(s),signal);if(!Array.isArray(data))throw new ViewingError('The viewing response could not be verified.');return data.map(r=>parseViewing(r,actor));},
  async write(actor:string,op:ViewingWrite,signal?:AbortSignal){if(!isUuid(op.id)||(!op.viewingId&&!isUuid(op.conversationId))||(op.viewingId&&!isUuid(op.viewingId)))throw new ViewingError('Choose a valid viewing.');const data=await request(actor,s=>op.viewingId?getClient().rpc('respond_property_viewing',{p_viewing_id:op.viewingId,p_operation_id:op.id,p_expected_revision:op.revision!,p_action:op.action!,p_note:op.note,...(op.startsAt?{p_starts_at:op.startsAt,p_ends_at:op.endsAt!}:{})}).abortSignal(s):getClient().rpc('request_property_viewing',{p_conversation_id:op.conversationId!,p_request_id:op.id,p_starts_at:op.startsAt!,p_ends_at:op.endsAt!,p_note:op.note}).abortSignal(s),signal,true);try{return parseViewing(data,actor);}catch(e){if(e instanceof ViewingError&&e.denied)throw e;throw new ViewingError('The viewing receipt could not be verified. Retry the same request safely.',false,true);}}
  };

@@ -1,3 +1,4 @@
+import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import {readPublicPropertyPhotos} from '../../../shared/services/publicPropertyPhotos';
 import {parsePublicPoint} from '../../../shared/models/NearbyPlace';
 import {createNearbyPlacesService} from '../../../shared/services/maps/nearbyPlacesService';
@@ -14,7 +15,7 @@ export function searchAvailabilityDate(date = new Date()) {
   return ['year','month','day'].map(type => parts.find(part => part.type === type)!.value).join('-');
 }
 export function createManualSearchService(getClient: () => SupabaseClient<Database>, diagnose: (event:SearchDiagnostic)=>void = traceSearchDiagnostic) {
-  const user = async () => { const { data,error } = await getClient().auth.getUser(); if (error || !data.user) throw new ManualSearchError('Sign in again to search rentals.',true); return data.user.id; };
+  const user = async () => { const { data,error } = await readSessionUser(getClient()); if (error || !data.user) throw new ManualSearchError('Sign in again to search rentals.',true); return data.user.id; };
   const identity = async (owner: string) => { if (await user() !== owner) throw new ManualSearchError('Your account changed. Start a new search.',true); };
   const photoRows = async (owner: string, listings: readonly Pick<SearchListing,'propertyId'|'ownerId'>[], signal?: AbortSignal, coverOnly = false) => {
     try {const photos=await readPublicPropertyPhotos(getClient(),listings,signal,200,coverOnly);await identity(owner);return photos;}

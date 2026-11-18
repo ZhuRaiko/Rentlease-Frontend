@@ -1,3 +1,4 @@
+import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '../../../shared/services/supabase/database.types';
 import {readPublicPropertyPhotos} from '../../../shared/services/publicPropertyPhotos';
@@ -5,7 +6,7 @@ import {MessagingError,isUuid,type Conversation} from '../models/PersistentMessa
 import {propertyAvailability,type ConversationProperty} from '../models/ConversationProperty';
 import {parseReservation} from './reservationService';
 export function createConversationPropertyService(getClient:()=>SupabaseClient<Database>){
- const identity=async(owner:string)=>{const {data,error}=await getClient().auth.getUser();if(error||data.user?.id!==owner)throw new MessagingError('Your account changed. Reopen Chat.',true);};
+ const identity=async(owner:string)=>{const {data,error}=await readSessionUser(getClient());if(error||data.user?.id!==owner)throw new MessagingError('Your account changed. Reopen Chat.',true);};
  return{async load(owner:string,conversations:readonly Conversation[],signal?:AbortSignal):Promise<Record<string,ConversationProperty>>{
   if(!isUuid(owner))throw new MessagingError('Sign in again to use Chat.',true);
   await identity(owner);if(!conversations.length)return{};

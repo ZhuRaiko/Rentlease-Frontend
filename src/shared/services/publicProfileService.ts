@@ -1,3 +1,4 @@
+import { readSessionUser } from './supabase/sessionUser';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './supabase/database.types';
 import { identityUuid } from '../models/PublicIdentity';
@@ -18,10 +19,10 @@ export function createPublicProfileService(getClient: () => SupabaseClient<Datab
   async function load(actor: string, id: string): Promise<ProfileResult> {
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
     try {
-      const who = await getClient().auth.getUser();
+      const who = await readSessionUser(getClient());
       if (who.error || who.data.user?.id !== actor) throw new PublicProfileError('Your account changed. Reopen the profile.');
       const r = await getClient().rpc('get_public_profile', { p_user_id: id }).abortSignal(controller.signal);
-      const again = await getClient().auth.getUser();
+      const again = await readSessionUser(getClient());
       if (again.error || again.data.user?.id !== actor) throw new PublicProfileError('Your account changed. Reopen the profile.');
       if (r.error) {
         if (r.error.code === '42501') return { kind: 'denied' };

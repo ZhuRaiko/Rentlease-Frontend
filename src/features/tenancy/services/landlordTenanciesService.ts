@@ -1,3 +1,4 @@
+import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '../../../shared/services/supabase/database.types';
 import type {RentalRelationship} from '../models/TenancyWorkspace';
@@ -17,7 +18,7 @@ export class LandlordTenanciesError extends Error{constructor(message:string,rea
  */
 export function createLandlordTenanciesService(client:()=>SupabaseClient<Database>){
   const identity=async(actor:string,signal:AbortSignal)=>{
-    const {data,error}=await client().auth.getUser();
+    const {data,error}=await readSessionUser(client());
     if(error||data.user?.id!==actor||signal.aborted)throw new LandlordTenanciesError('Your account changed. Reload My properties.',true);
   };
   return {

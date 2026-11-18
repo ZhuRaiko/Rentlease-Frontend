@@ -1,3 +1,4 @@
+import { readSessionUser } from '../../../shared/services/supabase/sessionUser';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import { toSearchNearbyListingsRpcParams, mapSearchNearbyListingsRpcResponse } from '@rentlease/gps-local/rpc';
@@ -8,7 +9,7 @@ import { searchDiagnostic, traceSearchDiagnostic, type SearchDiagnostic } from '
 export function createGpsProximityService(getClient: () => SupabaseClient<Database>, diagnose: (event: SearchDiagnostic) => void = traceSearchDiagnostic) {
   const user = async () => {
     try {
-      const { data, error } = await getClient().auth.getUser();
+      const { data, error } = await readSessionUser(getClient());
       if (error || !data.user) throw new GpsError('identity', gpsErrorMessages.identity);
       return data.user.id;
     } catch { throw new GpsError('identity', gpsErrorMessages.identity); }
