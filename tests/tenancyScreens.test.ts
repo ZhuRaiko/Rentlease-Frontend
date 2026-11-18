@@ -335,7 +335,7 @@ test('your own review card is titled "Your review" for a property, and keeps the
 
 test('first load with nothing cached: placeholders stand where the tiles and sections will be, never "--" or "appear after loading"',()=>{
   const tree=renderWorkspace(vmFor(T,{},{busy:true})),all=texts(tree),blocks=nodes(tree).filter(n=>n.type==='SkeletonBlock');
-  assert.ok(blocks.length>=6,'three tile counts and the three sections');assert.ok(!all.includes('--'));assert.ok(!all.some(t=>/appear after loading succeeds/.test(t)));
+  assert.ok(blocks.length>=3,'three tile counts');assert.ok(nodes(tree).some(n=>n.type==='TenancyLoadingCards'),'the designed card placeholders stand under the tiles');assert.ok(!all.includes('--'));assert.ok(!all.some(t=>/appear after loading succeeds/.test(t)));
   assert.ok(!nodes(tree).some(n=>n.type==='ActivityIndicator'),'no spinner in place of content');
 });
 test('cached data on screen while it refreshes: the cards stay, the counts show, only a small refresh hint appears',()=>{
