@@ -527,3 +527,23 @@ test('edge fade bands: the right count, first band at the maximum, last at 0, ev
   const step = bands[0]! - bands[1]!; for (let i = 1; i < bands.length; i++) assert.ok(Math.abs(bands[i - 1]! - bands[i]! - step) < 1e-9);
   assert.deepEqual(edgeFadeOpacities(3, 0.6), [0.6, 0.3, 0]); assert.equal(edgeFadeOpacities(1, 0.5).length, 2); assert.equal(edgeFadeOpacities(8, 5)[0], 1);
 });
+
+// ---- viewer container layout (pure math; the insets come from the shared hooks) ----
+import { ROOM_TOUR_HEADER_EXTRA_TOP_DP, ROOM_TOUR_MIN_BOTTOM_GAP_DP, centeredStrip, footerBottomPadding, headerTopPadding } from '../src/features/search-discovery/viewModels/roomTourLayout';
+test('header top padding: below the status bar plus 12dp; a Modal that reports no inset falls back to the status bar height', () => {
+  assert.equal(ROOM_TOUR_HEADER_EXTRA_TOP_DP, 12);
+  assert.equal(headerTopPadding(24), 36); assert.equal(headerTopPadding(0, 24), 36); assert.equal(headerTopPadding(24, 30), 42); assert.equal(headerTopPadding(0, 0), 12);
+  for (const bad of [Number.NaN, -5, Infinity]) assert.equal(headerTopPadding(bad, 24), 36, 'a bad inset is ignored');
+});
+test('footer bottom padding: the shared clearance, and always at least the inset plus 16dp (3-button and gesture navigation)', () => {
+  assert.equal(ROOM_TOUR_MIN_BOTTOM_GAP_DP, 16);
+  for (const [inset, clearance] of [[0, 56], [24, 56], [48, 80], [64, 96]] as const) {   // clearance = spacing.lg + max(inset, spacing.xl), as the shared hook returns it
+    const padding = footerBottomPadding(inset, clearance);
+    assert.ok(padding >= clearance && padding - inset >= 16, `inset ${inset}: gap ${padding - inset}`);
+  }
+  assert.equal(footerBottomPadding(48, 10), 64, 'even a small clearance cannot go below the inset plus the gap'); assert.equal(footerBottomPadding(Number.NaN, 56), 56);
+});
+test('the strip is a 52% fraction of the USABLE height (between the header and the dial), centered in it', () => {
+  for (const usable of [300, 520, 700, 891]) { const { height, top } = centeredStrip(usable); assert.equal(height, Math.round(usable * 0.52)); assert.ok(Math.abs(top - (usable - height) / 2) < 1e-9); assert.ok(top >= 0 && top + height <= usable); }
+  assert.deepEqual(centeredStrip(0), { height: 0, top: 0 }); assert.deepEqual(centeredStrip(Number.NaN), { height: 0, top: 0 });
+});

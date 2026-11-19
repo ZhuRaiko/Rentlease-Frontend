@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, Animated, Image, Modal, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Animated, Image, Modal, Pressable, StatusBar, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppButton } from '../../../shared/components/AppButton';
+import { useBottomClearance } from '../../../shared/components/useBottomClearance';
 import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
@@ -10,6 +12,7 @@ import { clampPanOffset, maxPanOffset, panProgress, panoramaSideLabel, stripArea
 import { markDragHintSeen, openRoomTour, retrySide, selectSide, shouldShowDragHint, showSideSwitch, sideFailed, sideLoaded, switchEnabled, wrapToSide, type RoomTourViewerState } from '../viewModels/roomTourViewerState';
 import { RoomTourBackdrop, RoomTourEdgeFades } from './RoomTourBackdrop';
 import { RoomTourGlStrip } from './RoomTourGlStrip';
+import { footerBottomPadding, headerTopPadding } from '../viewModels/roomTourLayout';
 import { GL_FOV_DEGREES, GL_SPAN_DEGREES, ROOM_TOUR_GL_ENABLED, horizontalFov, panDistanceDp } from '../viewModels/roomTourGlGeometry';
 import { DIAL_SIZE, MOMENTUM_DECELERATION, SPRING_BACK_SPEED, WRAP_FADE_IN_MS, WRAP_FADE_OUT_MS, backdropMaxShift, dialArc, dialHalves, dialLabel, dragOffset, edgeOf, entryOffset, overshootOf, releaseVelocity, shouldCoast, shouldRefreshDialLabel, wrapChip, wrapTarget, wrapTriggered, type DialHalfState, type Edge } from '../viewModels/roomTourMotion';
 
@@ -46,6 +49,9 @@ function Session({ tour, onClose }: { tour: readonly PublicPropertyPanorama[]; o
   const [hint, setHint] = useState(shouldShowDragHint);
   const [chip, setChip] = useState<Chip | null>(null);
   const reduceMotion = useReduceMotion();
+  // The Modal is drawn edge to edge, so the system bars are on top of it: the header starts below the status bar and the footer clears the navigation bar (shared hook, not a new one).
+  const insets = useSafeAreaInsets(), bottomClearance = useBottomClearance();
+  const [usableHeight, setUsableHeight] = useState(0);   // the space between the header and the footer: the strip is a fraction of THIS, centered in it
   // The WebGL strip is used unless it is switched off or unavailable. Once it fails for any reason the flat strip is used for the rest of this session (no flip-flopping).
   const [glFallback, setGlFallback] = useState(false);
   const gl = ROOM_TOUR_GL_ENABLED && !glFallback;
@@ -85,19 +91,19 @@ function Session({ tour, onClose }: { tour: readonly PublicPropertyPanorama[]; o
   }, [view, reduceMotion, fade]);
   if (!view) return null;
   const current = tour.find(p => p.side === view.selected)!;
-  const areaHeight = stripAreaHeight(size.height), strip = stripWidth(areaHeight, current.width, current.height), max = maxPanOffset(strip, size.width);
+  const areaHeight = stripAreaHeight(usableHeight), strip = stripWidth(areaHeight, current.width, current.height), max = maxPanOffset(strip, size.width);
   const status = view.load[view.selected], name = panoramaSideLabel[view.selected], both = showSideSwitch(view);
   // How far a finger would drag to cross the whole photo: the flat strip's pan distance, or (GL) the span over the field of view. Feeds the backdrop drift and the dial.
-  const panMax = gl ? panDistanceDp(GL_SPAN_DEGREES, horizontalFov(GL_FOV_DEGREES, size.width / Math.max(1, size.height)), size.width) : max;
+  const panMax = gl ? panDistanceDp(GL_SPAN_DEGREES, horizontalFov(GL_FOV_DEGREES, size.width / Math.max(1, usableHeight || size.height)), size.width) : max;
   const onLayout = (event: LayoutChangeEvent) => setSize({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height });
   return <View style={styles.root} onLayout={onLayout}>
     {/* Decoration only, behind everything: a blurred, darkened copy of this side's image. Still with reduced motion. */}
     {size.width > 0 && size.height > 0 ? <RoomTourBackdrop key={current.url} url={current.url} width={size.width} height={size.height} maxShift={reduceMotion ? 0 : backdropMaxShift(panMax)} progress={progress} fade={fade} /> : null}
-    <View style={styles.header}>
+    <View style={[styles.header, { paddingTop: headerTopPadding(insets.top, StatusBar.currentHeight ?? 0) }]}>
       <Pressable accessibilityRole="button" accessibilityLabel="Close room tour" onPress={onClose} style={styles.closeTarget}><View accessible={false} style={styles.close}><Text style={styles.closeMark}>{'×'}</Text></View></Pressable>
       <Text accessibilityRole="header" style={styles.title}>Room tour</Text>
     </View>
-    <View style={styles.middle}>
+    <View style={styles.middle} onLayout={event => setUsableHeight(event.nativeEvent.layout.height)}>
       {gl ? <Animated.View style={[styles.glLayer, { opacity: fade }]}>
         <RoomTourGlStrip panorama={current} entry={entry.current} reduceMotion={reduceMotion} bothSides={both} onReady={side => setView(v => v && sideLoaded(v, side))} onUnavailable={toFlat}
           onPosition={t => { progress.setValue(t); if (positionMessages.current++ > 0) dismissHint(); }}
@@ -121,7 +127,7 @@ function Session({ tour, onClose }: { tour: readonly PublicPropertyPanorama[]; o
         {chip ? <View pointerEvents="none" style={[styles.center, { alignItems: chip.edge === 'left' ? 'flex-start' : 'flex-end' }]}><Text style={styles.chip}>{chip.text}</Text></View> : null}
       </View> : null}
     </View>
-    <View style={styles.footer}>
+    <View style={[styles.footer, { paddingBottom: footerBottomPadding(insets.bottom, bottomClearance) }]}>
       {status === 'loaded' && panMax > 0 ? <PositionDial progress={progress} side={view.selected} halves={dialHalves(view.sides, view.selected)} label={dial} /> : null}
       {both
         ? <View style={styles.switchTrack}>{view.sides.map(side => <SideButton key={side} side={side} selected={view.selected === side} disabled={!switchEnabled(view)} onPress={() => setView(v => v && selectSide(v, side))} />)}</View>
@@ -225,7 +231,7 @@ function SideButton({ side, selected, disabled, onPress }: { side: PanoramaSide;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.ink },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingTop: spacing.lg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.sm },
   closeTarget: { width: TARGET, height: TARGET, alignItems: 'center', justifyContent: 'center' },
   close: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.textSecondary, alignItems: 'center', justifyContent: 'center' },
   closeMark: { ...ui.pageTitle, color: colors.white, lineHeight: 26 },
@@ -240,7 +246,7 @@ const styles = StyleSheet.create({
   onDark: { ...ui.body, color: colors.white, textAlign: 'center' },
   hint: { ...ui.body, color: colors.white, fontWeight: '700', backgroundColor: colors.textSecondary, borderRadius: radius.pill, paddingVertical: spacing.xs, paddingHorizontal: spacing.md, overflow: 'hidden' },
   chip: { ...ui.supporting, color: colors.ink, fontWeight: '700', backgroundColor: colors.white, borderRadius: radius.pill, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, overflow: 'hidden', maxWidth: '80%' },
-  footer: { alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.lg },
+  footer: { alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md },
   dialRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dialWord: { ...ui.supporting, color: colors.white, fontWeight: '700', minWidth: 44, textAlign: 'center' },
   dialWordDim: { opacity: 0.6 },
