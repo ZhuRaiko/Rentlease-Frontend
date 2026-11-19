@@ -9,6 +9,8 @@ import type { PanoramaSide } from '../../../shared/models/PropertyPanorama';
 // ---- TUNING CONSTANTS: the numbers to adjust on the phone. Everything the feel depends on lives here, in one place. ----
 /** Animated.decay deceleration after the finger lifts (closer to 1 glides longer). */
 export const MOMENTUM_DECELERATION = 0.997;
+/** The fastest glide the page will start (px per millisecond); a glitchy timestamp cannot launch the photo. */
+export const MAX_FLING_VELOCITY = 6;
 /** A release slower than this (px per millisecond) does not glide at all. */
 export const MIN_FLING_VELOCITY = 0.05;
 /** Past an end the strip follows the finger by this fraction ... */

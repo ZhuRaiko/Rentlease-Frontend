@@ -1,10 +1,10 @@
 /// <reference types="node" />
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { GL_FOV_DEGREES, GL_PITCH_LIMIT_DEGREES, GL_SPAN_DEGREES, clampPitch, clampYaw, cylinderHeight, horizontalFov, panDistanceDp, positionFromYaw, yawLimit } from '../src/features/search-discovery/viewModels/roomTourGlGeometry';
+import { GL_FOV_DEGREES, GL_MAX_FRAME_MS, GL_PITCH_LIMIT_DEGREES, GL_SPAN_DEGREES, clampPitch, clampYaw, cylinderHeight, horizontalFov, panDistanceDp, positionFromYaw, yawLimit } from '../src/features/search-discovery/viewModels/roomTourGlGeometry';
 import { glNudgeCommand, glReducedMotionCommand, glSetSideCommand, isAllowedPanoramaImageUrl, parseGlMessage } from '../src/features/search-discovery/viewModels/roomTourGlBridge';
 import { GL_MATH_SOURCE, buildRoomTourGlHtml } from '../src/features/search-discovery/viewModels/roomTourGlHtml';
-import { RUBBER_BAND_FACTOR, RUBBER_BAND_MAX_DP, dragOffset } from '../src/features/search-discovery/viewModels/roomTourMotion';
+import { MAX_FLING_VELOCITY, RUBBER_BAND_FACTOR, RUBBER_BAND_MAX_DP, dragOffset } from '../src/features/search-discovery/viewModels/roomTourMotion';
 
 const uuid = (n: number) => `${String(n).padStart(8, '0')}-0000-4000-8000-000000000001`;
 const URL_OK = `https://abc.supabase.co/storage/v1/object/public/property-panoramas/${uuid(1)}/${uuid(2)}/${uuid(3)}.jpg`;
@@ -124,9 +124,9 @@ test('page: refuses a URL that is not allowed and a bad aspect; the script compi
 function runPage(options: { glNull?: boolean; maxTexture?: number; imageWidth?: number; reducedMotion?: boolean; entry?: 'left' | 'right'; imageFails?: boolean; bothSides?: boolean } = {}) {
   const html = buildRoomTourGlHtml({ imageUrl: URL_OK, aspect: 4.28, reducedMotion: !!options.reducedMotion, bothSides: !!options.bothSides, entry: options.entry ?? 'left' });
   const cfgText = /<script type="application\/json" id="cfg">([\s\S]*?)<\/script>/.exec(html)![1]!;
-  const messages: any[] = [], listeners: Record<string, (event: any) => void> = {}, frames: ((now: number) => void)[] = [], timers: (() => void)[] = [], drawn = { arrays: 0, downscaled: 0, textures: 0, clears: 0 };
+  const messages: any[] = [], listeners: Record<string, (event: any) => void> = {}, frames: ((now: number) => void)[] = [], timers: (() => void)[] = [], drawn = { arrays: 0, downscaled: 0, textures: 0, clears: 0 }, matrices: number[][] = [];
   let now = 0;
-  const gl: any = new Proxy({}, { get: (_t, key: string) => key === 'getParameter' ? () => options.maxTexture ?? 8192 : key === 'getShaderParameter' || key === 'getProgramParameter' ? () => true : key === 'clear' ? () => { drawn.clears++; } : key === 'drawArrays' ? () => { drawn.arrays++; } : key === 'texImage2D' ? () => { drawn.textures++; } : /^[A-Z_0-9]+$/.test(key) ? 1 : () => 1 });
+  const gl: any = new Proxy({}, { get: (_t, key: string) => key === 'getParameter' ? () => options.maxTexture ?? 8192 : key === 'getShaderParameter' || key === 'getProgramParameter' ? () => true : key === 'uniformMatrix4fv' ? (_loc: unknown, _t: unknown, m: ArrayLike<number>) => { matrices.push(Array.from(m)); } : key === 'clear' ? () => { drawn.clears++; } : key === 'drawArrays' ? () => { drawn.arrays++; } : key === 'texImage2D' ? () => { drawn.textures++; } : /^[A-Z_0-9]+$/.test(key) ? 1 : () => 1 });
   const canvas = { clientWidth: 400, clientHeight: 700, width: 0, height: 0, addEventListener: (type: string, fn: (event: any) => void) => { listeners[type] = fn; }, getContext: () => options.glNull ? null : gl, setPointerCapture: () => {} };
   const document = { getElementById: (id: string) => id === 'cfg' ? { textContent: cfgText } : canvas, createElement: () => ({ width: 0, height: 0, getContext: () => ({ drawImage: () => { drawn.downscaled++; } }) }) };
   const images: any[] = [];
@@ -139,7 +139,7 @@ function runPage(options: { glNull?: boolean; maxTexture?: number; imageWidth?: 
   const loadImage = () => { const img = images.shift(); if (options.imageFails) img.onerror(); else img.onload(); settle(); };
   const pointer = (type: string, x: number, y: number, t: number) => { now = t; listeners[type]?.({ type, pointerId: 1, clientX: x, clientY: y, timeStamp: t }); };
   const positions = () => messages.filter(m => m.type === 'position').map(m => m.t as number);
-  return { messages, positions, frame, loadImage, pointer, drawn, images, window, frames, clock: () => now };
+  return { messages, positions, frame, loadImage, pointer, drawn, images, window, frames, clock: () => now, matrices };
 }
 const maxPx = () => { const hf = math.hFov!(GL_FOV_DEGREES, 400 / 700), limit = math.yawLimit!(GL_SPAN_DEGREES, hf); return 2 * limit / (hf / 400); };
 
@@ -226,4 +226,79 @@ test('page (fake GL): asking for another side clears the old picture at once (no
   const page = runPage(); page.loadImage(); const arrays = page.drawn.arrays, clears = page.drawn.clears;
   page.window.__roomTour.setSide(URL_BACK, 4.1, 'left'); assert.equal(page.drawn.arrays, arrays, 'nothing is drawn for the new side until it has loaded'); assert.equal(page.drawn.clears, clears + 1, 'the canvas is cleared');
   assert.ok(page.images.length === 1, 'the new image is loading');
+});
+
+// ---- stability on a slow renderer (a software emulator drops frames and its timestamps can disagree with the clock) ----
+// Reads yaw and pitch back from the matrix the page really drew with: M = P * Rx(-pitch) * Ry(yaw), so V = P^-1 * M can be taken apart.
+function view(m: number[], aspect = 400 / 700) {
+  const f = 1 / Math.tan(GL_FOV_DEGREES * Math.PI / 360), at = (r: number, c: number) => m[c * 4 + r]!;
+  const v = (r: number, c: number) => r === 0 ? at(0, c) * aspect / f : r === 1 ? at(1, c) / f : -at(3, c);
+  const phi = Math.asin(Math.max(-1, Math.min(1, v(2, 1)))), yaw = Math.atan2(v(0, 2), v(2, 2) / Math.cos(phi));
+  return { yaw: yaw * 180 / Math.PI, pitch: -phi * 180 / Math.PI };
+}
+function limits() { const hf = math.hFov!(GL_FOV_DEGREES, 400 / 700), limit = math.yawLimit!(GL_SPAN_DEGREES, hf), degPerPx = hf / 400; return { limit, cap: RUBBER_BAND_MAX_DP * degPerPx, degPerPx }; }
+function assertBounded(matrices: number[][], label: string) {
+  const { limit, cap } = limits(); assert.ok(matrices.length > 0, `${label}: something was drawn`);
+  matrices.forEach((m, index) => {
+    assert.ok(m.every(Number.isFinite), `${label}: frame ${index} has a NaN or infinity`);
+    const { yaw, pitch } = view(m);
+    assert.ok(Math.abs(pitch) <= GL_PITCH_LIMIT_DEGREES + 1e-3, `${label}: frame ${index} pitch ${pitch}`);
+    assert.ok(Math.abs(yaw) <= limit + cap + 0.05, `${label}: frame ${index} yaw ${yaw} (limit ${limit} + cap ${cap})`);
+  });
+}
+test('the page\u2019s matrix decoder agrees with the math (so the checks below mean something)', () => {
+  for (const [yaw, pitch] of [[0, 0], [30, 5], [-60, -8], [80, 3]] as const) { const out = view(math.mvp!(GL_FOV_DEGREES, 400 / 700, yaw, pitch) as unknown as number[]); near(out.yaw, yaw, 1e-6); near(out.pitch, pitch, 1e-6); }
+});
+test('time step: never negative, never above the maximum, and a bad number moves nothing', () => {
+  assert.equal(GL_MAX_FRAME_MS, 50);
+  const dt = new Function(`${GL_MATH_SOURCE}; return frameDt;`)() as (now: number, last: number, max: number) => number;
+  assert.equal(dt(116, 100, 50), 16); assert.equal(dt(1100, 100, 50), 50); assert.equal(dt(90, 100, 50), 0, 'time going backwards is not a negative step'); assert.equal(dt(Number.NaN, 100, 50), 0); assert.equal(dt(Infinity, 100, 50), 0);
+});
+test('the glide is the same at 60 fps and in 50 ms steps, and cannot grow', () => {
+  const fns = new Function(`${GL_MATH_SOURCE}; return { coast, limitPitch, limitOffset };`)() as Record<string, (...a: number[]) => any>;
+  const a = 1 - 0.997; let fine = [0, 2], coarse = [0, 2]; for (let i = 0; i < 100; i++) fine = fns.coast!(fine[0]!, fine[1]!, a, 16); for (let i = 0; i < 32; i++) coarse = fns.coast!(coarse[0]!, coarse[1]!, a, 50);
+  near(fine[0]!, coarse[0]!, 1e-6 + Math.abs(fine[0]!) * 0.001); assert.ok(Math.abs(fns.coast!(0, 3, a, 50)[1]) < 3, 'the velocity only ever shrinks');
+  assert.equal(fns.limitPitch!(500, 8, 1), 8); assert.equal(fns.limitPitch!(-500, 8, 1), -8); assert.equal(fns.limitPitch!(Number.NaN, 8, 1), 1); assert.equal(fns.limitOffset!(Infinity, 1000, 96, 7), 7); assert.equal(fns.limitOffset!(-9999, 1000, 96, 0), -96); assert.equal(fns.limitOffset!(9999, 1000, 96, 0), 1096);
+});
+for (const ms of [16, 100, 500]) {
+  test(`stability at ${ms} ms frames: yaw stays inside its range plus the rubber-band cap, pitch inside the limit, never NaN, and the spring settles`, () => {
+    const page = runPage(); page.loadImage(); const { limit } = limits();
+    // a fast fling toward the right end, then a long pull past the end and a release (spring back)
+    let t = page.clock();
+    page.pointer('pointerdown', 380, 300, t); for (let i = 1; i <= 6; i++) { t += 16; page.pointer('pointermove', 380 - i * 60, 300 + i * 10, t); }
+    page.pointer('pointerup', 20, 360, t + 1);
+    for (let i = 0; i < 600; i++) page.frame(ms);
+    t = page.clock(); page.pointer('pointerdown', 380, 300, t); for (let i = 1; i <= 40; i++) { t += 16; page.pointer('pointermove', 380 - i * 40, 300, t); page.frame(ms); }
+    page.pointer('pointerup', -1220, 300, page.clock() + 1);
+    for (let i = 0; i < 400; i++) page.frame(ms);
+    assertBounded(page.matrices, `${ms} ms`);
+    const last = view(page.matrices.at(-1)!); near(Math.abs(last.yaw), limit, 0.05); assert.ok(Math.abs(last.pitch) < 0.06, 'pitch is back at rest');
+    assert.equal(page.frames.length, 0, 'the animation stopped (the spring settled)');
+  });
+}
+test('stability: a burst of vertical and horizontal drags with huge distances stays inside the limits, ignores NaN, and settles', () => {
+  const page = runPage(); page.loadImage(); let t = page.clock();
+  page.pointer('pointerdown', 200, 300, t);
+  for (const [x, y] of [[200, 1e7], [1e12, -1e9], [Number.NaN, 300], [200, Number.NaN], [-1e12, 5e8], [200, -3e4], [Infinity, 0], [200, 1e6]] as const) { t += 8; page.pointer('pointermove', x, y, t); page.frame(16); assertBounded(page.matrices, `burst ${x},${y}`); }
+  page.pointer('pointerup', 200, 1e6, t + 1);
+  for (let i = 0; i < 300; i++) page.frame(16);
+  assertBounded(page.matrices, 'after the burst'); assert.ok(Math.abs(view(page.matrices.at(-1)!).pitch) < 0.06, 'pitch eased back to 0'); assert.equal(page.frames.length, 0);
+});
+test('stability: time that goes backwards (a clock or timestamp glitch) cannot make anything grow', () => {
+  const page = runPage(); page.loadImage(); let t = page.clock();
+  page.pointer('pointerdown', 200, 300, t); t += 16; page.pointer('pointermove', 200, 2000, t); page.pointer('pointerup', 200, 2000, t + 1);   // pitch is at its limit
+  for (let i = 0; i < 400; i++) { page.frame(16); page.frame(-30); }
+  assertBounded(page.matrices, 'backwards time'); assert.ok(Math.abs(view(page.matrices.at(-1)!).pitch) <= GL_PITCH_LIMIT_DEGREES + 1e-3);
+});
+test('stability: a glitchy release cannot launch the photo faster than the maximum glide', () => {
+  const page = runPage(); page.loadImage(); let t = page.clock();
+  page.pointer('pointerdown', 380, 300, t); page.pointer('pointermove', 20, 300, t + 1); page.pointer('pointerup', 20, 300, t + 2);   // 360 px in 1 ms
+  for (let i = 0; i < 300; i++) page.frame(16);
+  assertBounded(page.matrices, 'fling'); assert.equal(MAX_FLING_VELOCITY, 6);
+});
+test('redraw only when something changed: holding a finger still draws nothing new', () => {
+  const page = runPage(); page.loadImage(); const before = page.drawn.arrays;
+  page.pointer('pointerdown', 200, 300, page.clock()); for (let i = 0; i < 10; i++) page.frame(16);
+  assert.equal(page.drawn.arrays, before, 'no new draw while nothing moved');
+  page.pointer('pointermove', 150, 300, page.clock() + 8); page.frame(16); assert.ok(page.drawn.arrays > before, 'a move draws');
 });

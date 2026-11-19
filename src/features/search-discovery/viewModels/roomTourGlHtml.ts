@@ -1,6 +1,6 @@
 import { isAllowedPanoramaImageUrl } from './roomTourGlBridge';
-import { GL_FOV_DEGREES, GL_PITCH_DEG_PER_PX, GL_PITCH_LIMIT_DEGREES, GL_POSITION_MAX_HZ, GL_SPAN_DEGREES } from './roomTourGlGeometry';
-import { MIN_FLING_VELOCITY, MOMENTUM_DECELERATION, RUBBER_BAND_FACTOR, RUBBER_BAND_MAX_DP, SPRING_BACK_SPEED, WRAP_THRESHOLD_DP, type Edge } from './roomTourMotion';
+import { GL_FOV_DEGREES, GL_MAX_FRAME_MS, GL_PITCH_DEG_PER_PX, GL_PITCH_LIMIT_DEGREES, GL_POSITION_MAX_HZ, GL_SPAN_DEGREES } from './roomTourGlGeometry';
+import { MAX_FLING_VELOCITY, MIN_FLING_VELOCITY, MOMENTUM_DECELERATION, RUBBER_BAND_FACTOR, RUBBER_BAND_MAX_DP, SPRING_BACK_SPEED, WRAP_THRESHOLD_DP, type Edge } from './roomTourMotion';
 
 /**
  * The WebGL room tour page: ONE self-contained HTML document with an inline script (no external script, no library). It draws the photo on the inside of a
@@ -23,6 +23,11 @@ function mul4(a, b) { var o = new Array(16); for (var c = 0; c < 4; c++) for (va
 function overshoot(raw, max) { if (raw < 0) return raw; if (raw > max) return raw - max; return 0; }
 function rubber(d, factor, cap) { if (d > 0) return Math.min(cap, d * factor); return 0; }
 function dragOff(raw, max, factor, cap) { var o = overshoot(raw, max); if (o < 0) return -rubber(-o, factor, cap); if (o > 0) return max + rubber(o, factor, cap); return raw; }
+function finite(v) { return typeof v === 'number' && isFinite(v); }
+function frameDt(now, last, max) { var d = now - last; if (!finite(d) || d < 0) return 0; if (d > max) return max; return d; }
+function limitPitch(v, lim, fallback) { if (!finite(v)) return fallback; return clamp(v, -lim, lim); }
+function limitOffset(v, maxPx, cap, fallback) { if (!finite(v)) return fallback; return clamp(v, -cap, maxPx + cap); }
+function coast(offset, vel, a, dt) { var f = Math.exp(-a * dt); return [offset + vel * (1 - f) / a, vel * f]; }
 function mvp(fovDeg, aspect, yawDeg, pitchDeg) { return mul4(perspective(fovDeg, aspect, 0.05, 10), mul4(rotX(-pitchDeg * Math.PI / 180), rotY(yawDeg * Math.PI / 180))); }
 `;
 
@@ -46,13 +51,16 @@ const RENDERER_SOURCE = String.raw`
   var aPos = gl.getAttribLocation(prog, 'aPos'), aUv = gl.getAttribLocation(prog, 'aUv'), uMvp = gl.getUniformLocation(prog, 'uMvp');
   var buf = gl.createBuffer(), tex = null, loaded = false, aspect = C.aspect, token = 0, readyPosted = false, reduced = !!C.reduced;
   var vw = 1, vh = 1, hf = 60, limit = 0, degPerPx = 0.1, maxPx = 0, offset = 0, pitch = 0, vel = 0, mode = 'idle', target = 0, drag = null, raf = 0, last = 0;
-  var lastT = -1, lastAt = 0, flushTimer = 0, origin = '';
+  var lastT = -1, lastAt = 0, flushTimer = 0, origin = '', goodOffset = 0, goodPitch = 0, drawnOffset = NaN, drawnPitch = NaN;
+  // Every write to the position goes through these: a bad number keeps the last good value, pitch is always inside its limit, and a pull past an end never shows more than the rubber band cap.
+  function setOffset(v) { offset = limitOffset(v, maxPx, C.rubberMax, goodOffset); goodOffset = offset; }
+  function setPitch(v) { pitch = limitPitch(v, C.pitchLimit, goodPitch); goodPitch = pitch; }
   try { origin = new URL(C.imageUrl).origin; } catch (e) { fail('url'); return; }
   function size() {
     var frac = 0, dpr = Math.min(window.devicePixelRatio || 1, 2); if (maxPx > 0) frac = offset / maxPx;
     vw = Math.max(1, canvas.clientWidth); vh = Math.max(1, canvas.clientHeight);
     canvas.width = Math.round(vw * dpr); canvas.height = Math.round(vh * dpr); gl.viewport(0, 0, canvas.width, canvas.height);
-    hf = hFov(C.fov, vw / vh); limit = yawLimit(C.span, hf); degPerPx = hf / vw; maxPx = 2 * limit / degPerPx; offset = clamp(frac * maxPx, 0, maxPx);
+    hf = hFov(C.fov, vw / vh); limit = yawLimit(C.span, hf); degPerPx = hf / vw; maxPx = 2 * limit / degPerPx; setOffset(clamp(frac * maxPx, 0, maxPx));
   }
   function mesh() {
     var hh = cylHeight(C.span, aspect) / 2, d = new Float32Array((N + 1) * 10);
@@ -77,7 +85,9 @@ const RENDERER_SOURCE = String.raw`
     gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); if (!loaded) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 20, 0); gl.enableVertexAttribArray(aUv); gl.vertexAttribPointer(aUv, 2, gl.FLOAT, false, 20, 12);
     gl.uniformMatrix4fv(uMvp, false, new Float32Array(mvp(C.fov, vw / vh, yaw(), pitch))); gl.drawArrays(gl.TRIANGLE_STRIP, 0, (N + 1) * 2);
+    drawnOffset = offset; drawnPitch = pitch;
   }
+  function redraw() { if (offset !== drawnOffset || pitch !== drawnPitch) draw(); }   // a frame is drawn only when something changed
   function report() {
     var t = posFromYaw(yaw(), limit), now = performance.now();
     if (Math.abs(t - lastT) < 0.0005) return;
@@ -87,24 +97,26 @@ const RENDERER_SOURCE = String.raw`
   function step(dt) {
     var moving = false;
     if (mode === 'coast') {
-      offset += vel * dt; vel *= Math.exp(-(1 - C.decel) * dt);
-      if (offset <= 0) { offset = 0; mode = 'idle'; } else if (offset >= maxPx) { offset = maxPx; mode = 'idle'; } else if (Math.abs(vel) < 0.005) mode = 'idle';
+      var r = coast(offset, vel, 1 - C.decel, dt);   // exact for any step: the same glide at 16 ms and at 50 ms
+      setOffset(r[0]); if (finite(r[1])) vel = r[1]; else { vel = 0; mode = 'idle'; }
+      if (offset <= 0) { setOffset(0); mode = 'idle'; } else if (offset >= maxPx) { setOffset(maxPx); mode = 'idle'; } else if (Math.abs(vel) < 0.005) mode = 'idle';
       moving = mode === 'coast';
     } else if (mode === 'spring') {
-      offset += (target - offset) * (1 - Math.exp(-dt * C.spring / 1000));
-      if (Math.abs(target - offset) < 0.5) { offset = target; mode = 'idle'; } moving = mode === 'spring';
+      setOffset(offset + (target - offset) * (1 - Math.exp(-dt * C.spring / 1000)));
+      if (Math.abs(target - offset) < 0.5) { setOffset(target); mode = 'idle'; } moving = mode === 'spring';
     }
-    if (mode !== 'drag' && pitch !== 0) { pitch *= Math.exp(-dt * 0.012); if (Math.abs(pitch) < 0.05) pitch = 0; moving = true; }
+    if (mode !== 'drag' && pitch !== 0) { setPitch(pitch * Math.exp(-dt * 0.012)); if (Math.abs(pitch) < 0.05) setPitch(0); moving = true; }
     return moving;
   }
-  function tick(now) { raf = 0; var dt = Math.min(50, now - last || 16); last = now; var moving = step(dt); draw(); report(); if (moving || mode === 'drag') schedule(); }
+  // The step comes from one clock (performance.now) and is kept between 0 and the maximum: the animation timestamp can be older than the clock on a slow renderer, and a negative step would make the damping grow.
+  function tick() { raf = 0; var t = performance.now(), dt = frameDt(t, last, C.maxDt); last = t; var moving = step(dt); redraw(); report(); if (moving || mode === 'drag') schedule(); }
   function schedule() { if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); } }
   function load(url, asp, entry) {
     var mine = ++token, img = new Image(); loaded = false; readyPosted = false; aspect = asp; img.crossOrigin = 'anonymous'; draw();   // draw() clears the canvas: the old side is not shown while the new one loads
     img.onload = function () {
       if (mine !== token) return;
       try { size(); mesh(); upload(img); } catch (e) { fail('texture'); return; }
-      loaded = true; offset = 0; if (entry === 'right') offset = maxPx; pitch = 0; vel = 0; mode = 'idle'; lastT = -1; draw(); report();
+      loaded = true; setOffset(0); if (entry === 'right') setOffset(maxPx); setPitch(0); vel = 0; mode = 'idle'; lastT = -1; draw(); report();
       if (!readyPosted) { readyPosted = true; post({ type: 'ready' }); }
     };
     img.onerror = function () { if (mine === token) fail('image'); };
@@ -122,14 +134,14 @@ const RENDERER_SOURCE = String.raw`
   }
   function samplesTrim(t) { while (drag.samples.length > 2 && t - drag.samples[0][0] > 100) drag.samples.shift(); }
   canvas.addEventListener('pointerdown', function (e) {
-    if (!loaded || drag) return;
+    if (!loaded || drag || !finite(e.clientX) || !finite(e.clientY)) return;
     try { canvas.setPointerCapture(e.pointerId); } catch (x) {}
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, start: clamp(offset, 0, maxPx), raw: offset, samples: [[e.timeStamp, e.clientX]] }; mode = 'drag'; vel = 0; schedule();
   });
   canvas.addEventListener('pointermove', function (e) {
-    if (!drag || e.pointerId !== drag.id) return;
-    drag.raw = drag.start - (e.clientX - drag.x); offset = dragOff(drag.raw, maxPx, C.rubberFactor, C.rubberMax);
-    pitch = clamp((e.clientY - drag.y) * C.pitchPerPx, -C.pitchLimit, C.pitchLimit); drag.samples.push([e.timeStamp, e.clientX]); samplesTrim(e.timeStamp); pull(overshoot(drag.raw, maxPx)); schedule();
+    if (!drag || e.pointerId !== drag.id || !finite(e.clientX) || !finite(e.clientY)) return;
+    drag.raw = drag.start - (e.clientX - drag.x); setOffset(dragOff(drag.raw, maxPx, C.rubberFactor, C.rubberMax));
+    setPitch((e.clientY - drag.y) * C.pitchPerPx); drag.samples.push([e.timeStamp, e.clientX]); samplesTrim(e.timeStamp); pull(overshoot(drag.raw, maxPx)); schedule();
   });
   function end(e) {
     if (!drag || e.pointerId !== drag.id) return;
@@ -137,10 +149,10 @@ const RENDERER_SOURCE = String.raw`
     var rel = 'right'; if (over < 0) rel = 'left';
     if (C.both && over !== 0 && e.type === 'pointerup') post({ type: 'release', edge: rel, dp: Math.abs(over) }); else pull(0);
     pullEdge = ''; pullDp = 0;
-    if (over !== 0) { target = maxPx; if (over < 0) target = 0; if (reduced) offset = target; else mode = 'spring'; }
+    if (over !== 0) { target = maxPx; if (over < 0) target = 0; if (reduced) setOffset(target); else mode = 'spring'; }
     else if (!reduced && d.samples.length > 1) {
       var a = d.samples[0], b = d.samples[d.samples.length - 1], dtm = b[0] - a[0];
-      if (dtm > 0) { vel = -(b[1] - a[1]) / dtm; if (Math.abs(vel) >= C.minFling) mode = 'coast'; else vel = 0; }
+      if (dtm > 0 && finite(dtm)) { vel = clamp(-(b[1] - a[1]) / dtm, -C.maxFling, C.maxFling); if (finite(vel) && Math.abs(vel) >= C.minFling) mode = 'coast'; else vel = 0; }
     }
     schedule();
   }
@@ -152,7 +164,7 @@ const RENDERER_SOURCE = String.raw`
       if (typeof asp !== 'number' || !(asp > 0) || asp > 100) return;
       if (entry === 'right') load(url, asp, 'right'); else load(url, asp, 'left');
     },
-    nudge: function (dir) { if (!loaded || (dir !== 1 && dir !== -1)) return; mode = 'idle'; vel = 0; offset = clamp(offset + dir * vw * 0.6, 0, maxPx); draw(); report(); },
+    nudge: function (dir) { if (!loaded || (dir !== 1 && dir !== -1)) return; mode = 'idle'; vel = 0; setOffset(clamp(offset + dir * vw * 0.6, 0, maxPx)); draw(); report(); },
     setReducedMotion: function (b) { reduced = !!b; if (reduced && mode === 'coast') { mode = 'idle'; vel = 0; } }
   };
   size(); load(C.imageUrl, C.aspect, C.entry);
@@ -181,7 +193,7 @@ export function buildRoomTourGlHtml(options: RoomTourGlOptions): string {
   const config = {
     imageUrl, aspect: options.aspect, span: options.spanDegrees ?? GL_SPAN_DEGREES, fov: options.fovDegrees ?? GL_FOV_DEGREES, pitchLimit: options.pitchLimitDegrees ?? GL_PITCH_LIMIT_DEGREES,
     reduced: !!options.reducedMotion, both: !!options.bothSides, entry: options.entry ?? 'left', hz: GL_POSITION_MAX_HZ, pitchPerPx: GL_PITCH_DEG_PER_PX,
-    decel: MOMENTUM_DECELERATION, minFling: MIN_FLING_VELOCITY, rubberFactor: RUBBER_BAND_FACTOR, rubberMax: RUBBER_BAND_MAX_DP, spring: SPRING_BACK_SPEED, wrapThreshold: WRAP_THRESHOLD_DP,
+    decel: MOMENTUM_DECELERATION, minFling: MIN_FLING_VELOCITY, maxFling: MAX_FLING_VELOCITY, maxDt: GL_MAX_FRAME_MS, rubberFactor: RUBBER_BAND_FACTOR, rubberMax: RUBBER_BAND_MAX_DP, spring: SPRING_BACK_SPEED, wrapThreshold: WRAP_THRESHOLD_DP,
   };
   const json = JSON.stringify(config).replace(/</g, '\\u003c');   // a "<" inside the data can never close the script tag
   return '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">'

@@ -16,6 +16,8 @@ export const GL_FOV_DEGREES = 60;
 export const GL_PITCH_LIMIT_DEGREES = 8;
 /** If the renderer has not reported its first frame within this time (milliseconds), the viewer falls back to the flat strip for the rest of the session. */
 export const GL_READY_TIMEOUT_MS = 8000;
+/** The longest time step (milliseconds) one frame may advance the motion by. A slow renderer (a software emulator) drops frames; the motion then runs slower instead of jumping. */
+export const GL_MAX_FRAME_MS = 50;
 /** The renderer reports the position at most this often (per second). */
 export const GL_POSITION_MAX_HZ = 30;
 /** Vertical drag tilts the camera by this many degrees per pixel; the tilt eases back to 0 on release. */
