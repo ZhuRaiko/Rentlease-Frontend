@@ -6,9 +6,10 @@ import type { Database } from '../src/shared/services/supabase/database.types';
 import { MAX_PANORAMA_BYTES, PANORAMA_UPLOAD_JPEG_QUALITY, PANORAMA_UPLOAD_MAX_WIDTH_PX, clampPanOffset, maxPanOffset, panProgress, propertyPanoramaObjectPath, propertyPanoramaPath, stripAreaHeight, stripWidth, visibleFraction } from '../src/shared/models/PropertyPanorama';
 import { readPublicPropertyPanoramas } from '../src/shared/services/publicPropertyPanoramas';
 import { checkPickedPanorama, panoramaProblemText, validatePanoramaAsset, type PanoramaAsset } from '../src/features/property-listing/models/PropertyPanoramaSelection';
-import { PropertyPanoramaError, createPropertyPanoramaService } from '../src/features/property-listing/services/propertyPanoramaService';
+import { createPanoramaShrinker } from '../src/features/property-listing/services/propertyPanoramaShrink';
+import { PropertyPanoramaError, createPropertyPanoramaService, type PanoramaDevice } from '../src/features/property-listing/services/propertyPanoramaService';
 import { createPropertyPanoramaWorkflow, roomTourBusy } from '../src/features/property-listing/viewModels/propertyPanoramaWorkflow';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ts from 'typescript';
 import { BACKDROP_PARALLAX_FACTOR, EDGE_FADE_MAX_OPACITY, EDGE_FADE_STEPS, backdropMaxShift, backdropShift, backdropWidth, edgeFadeOpacities, DIAL_LABEL_MIN_INTERVAL_MS, MIN_FLING_VELOCITY, RUBBER_BAND_FACTOR, RUBBER_BAND_MAX_DP, WRAP_THRESHOLD_DP, dialArc, dialHalves, dialLabel, dialPointerAngle, dragOffset, edgeOf, entryOffset, overshootOf, positionWords, releaseVelocity, rubberBand, shouldCoast, shouldRefreshDialLabel, wrapChip, wrapChipText, wrapTarget, wrapTriggered } from '../src/features/search-discovery/viewModels/roomTourMotion';
@@ -85,7 +86,7 @@ test('path model rejects another owner or property, a bad uuid, a bad extension,
 
 // ---- fake Supabase client (owner service) ----
 type Fail = { code?: string; message?: string } | null;
-function harness(options: { uploadError?: boolean; user?: string | null } = {}) {
+function harness(options: { uploadError?: boolean; user?: string | null; shrink?: PanoramaDevice['shrink'] } = {}) {
   const calls: string[] = [];
   let rpcResult: { data: unknown; error: Fail } = { data: null, error: null };
   const device: string[] = []; let ratio = 5, shrinkFails = false, bodyBytes = 24, shrinkOverride: { width: number; height: number } | null = null;
@@ -110,7 +111,7 @@ function harness(options: { uploadError?: boolean; user?: string | null } = {}) 
   const service = createPropertyPanoramaService(() => client, {
     read: async () => new ArrayBuffer(bodyBytes), uuid: () => file(n++),
     // Stands in for the native resize: never wider than the cap, never enlarged, aspect kept (unless a test forces a result).
-    shrink: async (_uri, max, original) => { device.push(`shrink:${max}:${original}`); if (shrinkFails) throw new Error('native failure'); const width = shrinkOverride?.width ?? Math.min(original, max); return { uri: 'file:///cache/shrunk.jpg', width, height: shrinkOverride?.height ?? Math.round(width / ratio) }; },
+    shrink: options.shrink ?? (async (_uri, max, original) => { device.push(`shrink:${max}:${original}`); if (shrinkFails) throw new Error('native failure'); const width = shrinkOverride?.width ?? Math.min(original, max); return { uri: 'file:///cache/shrunk.jpg', width, height: shrinkOverride?.height ?? Math.round(width / ratio) }; }),
     cleanup: async uri => { device.push(`cleanup:${uri}`); },
   });
   return { service, calls, device, ctx: { ownerId: owner, propertyId: property }, set: { ratio: (v: number) => { ratio = v; }, shrinkFails: (v: boolean) => { shrinkFails = v; }, bodyBytes: (v: number) => { bodyBytes = v; }, shrinkTo: (v: { width: number; height: number } | null) => { shrinkOverride = v; }, rpc: (v: { data: unknown; error: Fail }) => { rpcResult = v; }, rpcThrows: (v: boolean) => { rpcThrows = v; }, removeThrows: (v: boolean) => { removeThrows = v; }, rows: (v: Record<string, unknown>[]) => { rows = v; }, owns: (v: boolean) => { ownsProperty = v; }, gate: (v: Promise<void> | null) => { uploadGate = v; }, user: (v: string | null) => { user = v; } } };
@@ -546,4 +547,39 @@ test('footer bottom padding: the shared clearance, and always at least the inset
 test('the strip is a 52% fraction of the USABLE height (between the header and the dial), centered in it', () => {
   for (const usable of [300, 520, 700, 891]) { const { height, top } = centeredStrip(usable); assert.equal(height, Math.round(usable * 0.52)); assert.ok(Math.abs(top - (usable - height) / 2) < 1e-9); assert.ok(top >= 0 && top + height <= usable); }
   assert.deepEqual(centeredStrip(0), { height: 0, top: 0 }); assert.deepEqual(centeredStrip(Number.NaN), { height: 0, top: 0 });
+});
+
+// ---- the native image manipulator may be missing from a build: panoramas then fail with a plain problem tile and upload nothing ----
+test('missing module: the shrinker throws, so nothing can be uploaded from an unshrunk file', async () => {
+  const shrink = createPanoramaShrinker(() => null);
+  await assert.rejects(shrink('file:///cache/pano.jpg', 6144, 13344), /not available/);
+});
+test('shrinker with the module present: resizes only when wider, saves a JPEG at 0.8, releases the native objects', async () => {
+  const log: string[] = []; const JPEG = Symbol('jpeg'); let resized: unknown; let options: unknown;
+  const mod = { SaveFormat: { JPEG }, ImageManipulator: { manipulate: (uri: string) => { log.push(`manipulate:${uri}`); const ctx: any = { resize: (size: unknown) => { resized = size; return ctx; }, renderAsync: async () => ({ width: 6144, height: 1407, release: () => { log.push('ref'); }, saveAsync: async (o: unknown) => { options = o; return { uri: 'file:///cache/out.jpg', width: 6144, height: 1407 }; } }), release: () => { log.push('ctx'); } }; return ctx; } } };
+  const out = await createPanoramaShrinker(() => mod as never)('file:///cache/pano.jpg', 6144, 13344);
+  assert.deepEqual(resized, { width: 6144 }); assert.deepEqual(options, { format: JPEG, compress: 0.8 }); assert.deepEqual(out, { uri: 'file:///cache/out.jpg', width: 6144, height: 1407 }); assert.deepEqual(log.slice(-2).sort(), ['ctx', 'ref']);
+  resized = undefined; await createPanoramaShrinker(() => mod as never)('file:///cache/small.jpg', 6144, 4000); assert.equal(resized, undefined, 'a smaller original is not resized');
+});
+test('missing module: an owner who picks a panorama gets the plain "Couldn’t upload. Tap to try again." tile, and nothing is uploaded, saved or deleted', async () => {
+  const h = harness({ shrink: createPanoramaShrinker(() => null) });
+  const error = await h.service.upload(h.ctx, 'front', asset()).catch(e => e);
+  assert.ok(error instanceof PropertyPanoramaError && error.kind === 'upload');
+  assert.deepEqual(h.calls, [], 'no storage call and no RPC');
+  assert.deepEqual(panoramaProblemText.upload, { title: 'Couldn’t upload.', body: 'Tap to try again.' });
+});
+test('missing module, through the workflow: the side shows the upload problem, keeps any saved panorama, and the picker can be opened again', async () => {
+  const h = harness({ shrink: createPanoramaShrinker(() => null) }); let picks = 0;
+  const workflow = createPropertyPanoramaWorkflow(h.service, async () => { picks++; return asset(); });
+  workflow.setProperty(property); await settle();
+  await workflow.pick('front');
+  const front = workflow.getSnapshot().sides.front; assert.equal(front.status, 'error'); assert.equal(front.problem, 'upload'); assert.deepEqual(h.calls, []);
+  await workflow.pick('front'); assert.equal(picks, 2, 'tapping the problem tile opens the picker again');
+});
+test('no source file imports expo-image-manipulator at the top level (a build without it must not fail at launch)', () => {
+  // The one test that reads source text: "never a top-level import" cannot be observed any other way.
+  const files = (dir: string): string[] => readdirSync(dir).flatMap(name => { const path = `${dir}/${name}`; return statSync(path).isDirectory() ? files(path) : /\.tsx?$/.test(name) ? [path] : []; });
+  const offenders = files('src').filter(file => /^\s*(import|export)[^;]*from\s+['"]expo-image-manipulator['"]/m.test(readFileSync(file, 'utf8')));
+  assert.deepEqual(offenders, []);
+  assert.match(readFileSync('src/features/property-listing/services/propertyPanoramaDependencies.ts', 'utf8'), /try\s*\{\s*return require\('expo-image-manipulator'\)/);
 });
