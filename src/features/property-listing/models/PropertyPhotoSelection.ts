@@ -7,7 +7,7 @@ export function normalizeImagePickerSelections(assets: readonly GalleryAsset[], 
   return assets.map((asset, index) => {
     const selected: SelectedDocument = { uri: asset.uri, fileName: asset.fileName?.trim() || `Property photo ${index + 1}`, mimeType: asset.mimeType ?? null, size: asset.fileSize ?? null };
     try { validatePropertyPhoto(selected); if (!selected.uri.trim()) throw Error('Empty URI'); }
-    catch { throw new PropertyPhotoError('Choose JPEG, PNG or WebP photos no larger than 10 MB each.'); }
+    catch { throw new PropertyPhotoError('Choose JPEG, PNG or WebP photos no larger than 50 MB each.'); }
     return selected;
   });
 }

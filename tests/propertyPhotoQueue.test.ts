@@ -36,7 +36,7 @@ test('gallery adapter preserves every returned URI and supported metadata', () =
   const assets = files.map(f => ({ uri: f.uri, fileName: f.fileName, mimeType: f.mimeType, fileSize: f.size! }));
   assert.deepEqual(normalizeImagePickerSelections(assets, 6), files);
   assert.throws(() => normalizeImagePickerSelections(assets, 3));
-  for (const patch of [{ mimeType: 'image/heic' }, { fileSize: 10 * 1024 * 1024 + 1 }, { fileSize: -1 }, { fileSize: NaN }, { uri: '' }, { mimeType: null }]) assert.throws(() => normalizeImagePickerSelections([{ ...assets[0]!, ...patch }], 1));
+  for (const patch of [{ mimeType: 'image/heic' }, { fileSize: 50 * 1024 * 1024 + 1 }, { fileSize: -1 }, { fileSize: NaN }, { uri: '' }, { mimeType: null }]) assert.throws(() => normalizeImagePickerSelections([{ ...assets[0]!, ...patch }], 1));
   assert.equal(normalizeImagePickerSelections([{ uri: 'file:///cache/a.webp', mimeType: 'image/webp' }], 1)[0]?.size, null);
 });
 test('picker cancellation and invalid batches cause no write or partial selection', async () => {

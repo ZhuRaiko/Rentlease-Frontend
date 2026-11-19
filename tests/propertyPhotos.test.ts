@@ -5,6 +5,8 @@ import { test } from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../src/shared/services/supabase/database.types';
 import type { SelectedDocument } from '../src/shared/models/SelectedDocument';
+import { PHOTO_FAILED_MESSAGE } from '../src/features/property-listing/models/PropertyPhoto';
+import { PHOTO_ORIGINAL_MAX_BYTES } from '../src/features/property-listing/models/PropertyPhotoReencode';
 import { MAX_PHOTO_BYTES, PropertyPhotoError, orderedPropertyPhotos, propertyPhotoObjectPath, propertyPhotoPath, validatePropertyPhoto, type PropertyPhotoRow } from '../src/features/property-listing/models/PropertyPhoto';
 import { createPropertyPhotoService, type PhotoContext } from '../src/features/property-listing/services/propertyPhotoService';
 import { createPropertyPhotoWorkflow } from '../src/features/property-listing/viewModels/propertyPhotoWorkflow';
@@ -15,7 +17,7 @@ const row = (id = photoId, order = 0): PropertyPhotoRow => ({ id, property_id: p
 function harness() {
   let user = owner, rows: PropertyPhotoRow[] = [], error: { code: string; message: string } | null = null;
   let uploadError = false, removalError = false, refreshError = false, coverError = false, deletionError = false, storageFail = false;
-  let wait: Promise<void> | null = null, bytes = 24, pickerCount = 0, pickResult: SelectedDocument | null = file;
+  let wait: Promise<void> | null = null, bytes = 24, pickerCount = 0, pickResult: SelectedDocument | null = file, prepareOverride: ((f: SelectedDocument) => Promise<{ body: ArrayBuffer; mime: 'image/jpeg' }>) | null = null;
   const journal = new Map<string, string>(), calls: { name: string; value: unknown }[] = [];
   let unavailableContract=false;let unknownReceipt=false;let cancelConflict=false;let reorderUnavailable=false;
   let serial=1;const receipts=new Map<string,unknown>();let mediaVersion='50000000-0000-4000-8000-000000000001';
@@ -73,10 +75,10 @@ function harness() {
       remove: async (paths: string[]) => { calls.push({ name: 'removeObject', value: paths }); return { error: removalError ? { message: 'private cleanup failure' } : null }; },
     }; } },
   } as unknown as SupabaseClient<Database>;
-  const service = createPropertyPhotoService(() => client, { getItem: async k => journal.get(k) ?? null, setItem: async (k, v) => { if (storageFail) throw Error('private disk error'); journal.set(k, v); }, removeItem: async k => { journal.delete(k); } }, { uuid: () => `60000000-0000-4000-8000-${String(++serial).padStart(12,'0')}`, read: async () => new ArrayBuffer(bytes) });
+  const service = createPropertyPhotoService(() => client, { getItem: async k => journal.get(k) ?? null, setItem: async (k, v) => { if (storageFail) throw Error('private disk error'); journal.set(k, v); }, removeItem: async k => { journal.delete(k); } }, { uuid: () => `60000000-0000-4000-8000-${String(++serial).padStart(12,'0')}`, prepare: async (f: SelectedDocument) => prepareOverride ? prepareOverride(f) : ({ body: new ArrayBuffer(bytes), mime: 'image/jpeg' as const }) });   // stands in for the re-encode: the bytes that are uploaded
   const flow = createPropertyPhotoWorkflow(service, async () => { pickerCount++; return pickResult; });
   const ready = async () => { flow.setProperty(property); await flow.load(); };
-  return { reorderUnavailable:()=>{reorderUnavailable=true;}, cancelConflict:()=>{cancelConflict=true;}, unavailable:()=>{unavailableContract=true;}, unknownReceipt:()=>{unknownReceipt=true;}, service, flow, ready, calls, journal, rows: () => rows, setRows: (r: PropertyPhotoRow[]) => { rows = r; }, setUser: (u: string) => { user = u; }, setError: (e: typeof error) => { error = e; }, uploadFail: (v: boolean) => { uploadError = v; }, removeFail: (v: boolean) => { removalError = v; }, refreshFail: (v: boolean) => { refreshError = v; }, coverFail: (v: boolean) => { coverError = v; }, deleteFail: (v: boolean) => { deletionError = v; }, journalFail: () => { storageFail = true; }, bytes: (v: number) => { bytes = v; }, delay: (v: Promise<void>) => { wait = v; }, picks: () => pickerCount, pickResult: (v: SelectedDocument | null) => { pickResult = v; } };
+  return { setPrepare:(fn: typeof prepareOverride)=>{prepareOverride=fn;}, reorderUnavailable:()=>{reorderUnavailable=true;}, cancelConflict:()=>{cancelConflict=true;}, unavailable:()=>{unavailableContract=true;}, unknownReceipt:()=>{unknownReceipt=true;}, service, flow, ready, calls, journal, rows: () => rows, setRows: (r: PropertyPhotoRow[]) => { rows = r; }, setUser: (u: string) => { user = u; }, setError: (e: typeof error) => { error = e; }, uploadFail: (v: boolean) => { uploadError = v; }, removeFail: (v: boolean) => { removalError = v; }, refreshFail: (v: boolean) => { refreshError = v; }, coverFail: (v: boolean) => { coverError = v; }, deleteFail: (v: boolean) => { deletionError = v; }, journalFail: () => { storageFail = true; }, bytes: (v: number) => { bytes = v; }, delay: (v: Promise<void>) => { wait = v; }, picks: () => pickerCount, pickResult: (v: SelectedDocument | null) => { pickResult = v; } };
 }
 const callsOf = (h: ReturnType<typeof harness>, name: string) => h.calls.filter(c => c.name === name);
 
@@ -93,8 +95,8 @@ test('photo namespace uses owner/property/photo UUID with no duplicate bucket pr
 test('ordinary photos accept only JPEG PNG WebP and reject unknown MIME, videos and oversize metadata', () => {
   for (const mimeType of ['image/jpeg', 'image/png', 'image/webp']) assert.equal(validatePropertyPhoto({ ...file, mimeType }), mimeType);
   for (const mimeType of [null, 'video/mp4', 'image/heic', 'application/pdf', 'image/svg+xml', 'toString']) assert.throws(() => validatePropertyPhoto({ ...file, mimeType }));
-  assert.throws(() => validatePropertyPhoto({ ...file, size: MAX_PHOTO_BYTES + 1 }));
-  assert.equal(validatePropertyPhoto({ ...file, size: MAX_PHOTO_BYTES }), 'image/jpeg');
+  assert.throws(() => validatePropertyPhoto({ ...file, size: PHOTO_ORIGINAL_MAX_BYTES + 1 }));   // the ORIGINAL pick is only capped at 50 MB; the 10 MB limit applies to the re-encoded file
+  assert.equal(validatePropertyPhoto({ ...file, size: MAX_PHOTO_BYTES + 1 }), 'image/jpeg');
 });
 test('actual binary size is validated even if picker metadata is absent or misleading', async () => {
   for (const size of [0, MAX_PHOTO_BYTES + 1]) { const h = harness(); h.bytes(size); await assert.rejects(h.service.upload(context, { ...file, size: null }, '')); assert.equal(callsOf(h, 'upload').length, 0); }
@@ -304,4 +306,35 @@ test('grid reorder sends one complete atomic reorder_cover command, never separa
 });
 test('old deployed backend rejects new atomic action without falling back to two unsafe commands',async()=>{
  const h=harness();h.setRows([row()]);h.reorderUnavailable();await h.service.list(context);await assert.rejects(h.service.reorder(context,[photoId]),/not available right now/);assert.equal(callsOf(h,'manage_property_media').length,1);assert.equal(h.journal.size,0);
+});
+
+// ---- listing photos are re-encoded before upload: what is uploaded is a fresh JPEG, whatever was picked ----
+const reserveArgs = (h: ReturnType<typeof harness>) => callsOf(h, 'manage_property_media').filter(c => (c.value as any).p_action === 'reserve').map(c => (c.value as any).p_args);
+test('a PNG or WebP pick is reserved, typed and uploaded as a JPEG, so the type, the content type and the path extension all match', async () => {
+  for (const mimeType of ['image/png', 'image/webp']) {
+    const h = harness(); let received: SelectedDocument | null = null;
+    h.setPrepare(async f => { received = f; return { body: new ArrayBuffer(31), mime: 'image/jpeg' }; });
+    await h.service.upload(context, { ...file, mimeType, fileName: `pick.${mimeType.slice(6)}` }, '');
+    assert.equal(received!.mimeType, mimeType, 'the re-encode receives the pick');
+    assert.deepEqual(reserveArgs(h), [{ mime: 'image/jpeg' }], `${mimeType}: reserved as a JPEG`);
+    assert.deepEqual(callsOf(h, 'upload')[0]?.value, { path: `${owner}/${property}/${photoId}.jpg`, length: 31, options: { upsert: false, contentType: 'image/jpeg' } });
+  }
+});
+test('the bytes uploaded are the re-encoded ones, not the original pick', async () => {
+  const h = harness(); h.bytes(999); h.setPrepare(async () => ({ body: new ArrayBuffer(57), mime: 'image/jpeg' }));
+  await h.service.upload(context, { ...file, size: 5_000_000 }, '');
+  assert.equal((callsOf(h, 'upload')[0]?.value as any).length, 57);
+});
+test('fail closed: if the re-encode fails, nothing is reserved or uploaded and the existing failed-photo message is shown', async () => {
+  for (const failure of [new Error('native module missing'), new PropertyPhotoError(PHOTO_FAILED_MESSAGE)]) {
+    const h = harness(); h.setPrepare(async () => { throw failure; });
+    await assert.rejects(h.service.upload(context, file, ''), (error: unknown) => error instanceof PropertyPhotoError && error.message === PHOTO_FAILED_MESSAGE && !error.reconcile);
+    assert.equal(reserveArgs(h).length, 0, 'nothing reserved'); assert.equal(callsOf(h, 'upload').length, 0, 'nothing uploaded'); assert.equal(h.journal.size, 0, 'no pending marker left');
+  }
+});
+test('the 10 MB limit applies to the re-encoded file; a large original is not rejected up front', async () => {
+  const h = harness(); h.setPrepare(async () => ({ body: new ArrayBuffer(MAX_PHOTO_BYTES), mime: 'image/jpeg' }));
+  await h.service.upload(context, { ...file, size: 30 * 1024 * 1024 }, ''); assert.equal(callsOf(h, 'upload').length, 1);
+  const big = harness(); big.setPrepare(async () => ({ body: new ArrayBuffer(MAX_PHOTO_BYTES + 1), mime: 'image/jpeg' }));
+  await assert.rejects(big.service.upload(context, file, ''), /10 MB/); assert.equal(reserveArgs(big).length, 0);
 });

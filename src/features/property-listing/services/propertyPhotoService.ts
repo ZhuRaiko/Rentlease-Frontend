@@ -3,13 +3,14 @@ import type { Json } from '../../../shared/services/supabase/database.types';
 import type { Database } from '../../../shared/services/supabase/database.types';
 import type { SelectedDocument } from '../../../shared/models/SelectedDocument';
 import { isPropertyUuid } from '../models/DraftProperty';
-import { MAX_PHOTO_BYTES, MAX_PROPERTY_PHOTOS, PROPERTY_PHOTO_BUCKET, PropertyPhotoError, orderedPropertyPhotos, propertyPhotoObjectPath, validatePropertyPhoto, type PropertyPhoto, type PropertyPhotoRow } from '../models/PropertyPhoto';
+import { MAX_PHOTO_BYTES, MAX_PROPERTY_PHOTOS, PHOTO_FAILED_MESSAGE, PROPERTY_PHOTO_BUCKET, PropertyPhotoError, orderedPropertyPhotos, propertyPhotoObjectPath, validatePropertyPhoto, type PropertyPhoto, type PropertyPhotoRow } from '../models/PropertyPhoto';
 
 interface Journal { getItem(key: string): Promise<string | null>; setItem(key: string, value: string): Promise<void>; removeItem(key: string): Promise<void> }
 interface PendingPhoto { kind: 'upload' | 'delete' | 'cleanup' | 'command'; photoId: string; path: string; requestId?: string; version?: string; action?: string; args?: Json }
 interface MediaReceipt { property_id: string; media_version: string; action: string; photo_id: string | null; path: string | null }
 export interface PhotoContext { ownerId: string; propertyId: string }
-export interface PhotoDevice { read(file: SelectedDocument): Promise<ArrayBuffer>; uuid(): string }
+/** `prepare` returns the bytes that are uploaded: a fresh JPEG made from the pick (never the original bytes). It throws when it cannot, and then nothing is uploaded. */
+export interface PhotoDevice { prepare(file: SelectedDocument): Promise<{ body: ArrayBuffer; mime: 'image/jpeg' }>; uuid(): string }
 const inFlight = new Set<string>();
 const columns = 'id,property_id,storage_path,alt_text,sort_order,is_cover,created_at';
 const uncertain = () => new PropertyPhotoError('The photo operation could not be confirmed. Check photo status before making further changes.', true);
@@ -116,9 +117,13 @@ export function createPropertyPhotoService(getClient: () => SupabaseClient<Datab
     hasPending: async (c: PhotoContext) => !!await readPending(c),
     async upload(c:PhotoContext,file:SelectedDocument,altText:string){
       return lock(c,async()=>{
-        const mime=validatePropertyPhoto(file),existing=await list(c);
+        validatePropertyPhoto(file);const existing=await list(c);   // the pick must be a JPEG, PNG or WebP; whatever it was, the upload below is always a re-encoded JPEG
         if(existing.length>=MAX_PROPERTY_PHOTOS)throw new PropertyPhotoError('This property already has 10 photos.');
-        const body=await device.read(file);if(!body.byteLength||body.byteLength>MAX_PHOTO_BYTES)throw new PropertyPhotoError('Choose a photo no larger than 10 MB.');
+        // Re-encode BEFORE reserving, so a failure leaves nothing reserved or uploaded. The reserved type, the content type and the server-chosen path extension all follow the new JPEG.
+        let prepared:{body:ArrayBuffer;mime:'image/jpeg'};
+        try{prepared=await device.prepare(file);}catch(error){throw error instanceof PropertyPhotoError?error:new PropertyPhotoError(PHOTO_FAILED_MESSAGE);}
+        const body=prepared.body,mime=prepared.mime;
+        if(!body.byteLength||body.byteLength>MAX_PHOTO_BYTES)throw new PropertyPhotoError('Choose a photo no larger than 10 MB.');
         const reserved=await command(c,'reserve',{mime});
         if(!reserved.photo_id||!reserved.path)throw uncertain();
         const pending:PendingPhoto={kind:'upload',photoId:reserved.photo_id,path:reserved.path};
