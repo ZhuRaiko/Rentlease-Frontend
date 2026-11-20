@@ -7,9 +7,9 @@ import ts from 'typescript';
 import {recommendedMatchingPreferences as base} from '../src/features/search-discovery/models/SearchDiscovery';
 
 // Renders MatchingPreferencesView with stand-in children: every imported component is an element named after itself, so the tree can be inspected.
-export function render(open: string | null, over: Record<string, unknown> = {}, tight = false) {
+export function render(open: string | null, over: Record<string, unknown> = {}, tight = false, tabField = 'factorRanking') {
   const file = resolve('src/features/search-discovery/views/MatchingPreferencesView.tsx'), mod = {exports: {} as any};
-  const form = {open, toggle() {}, show() {}, tab: {id: 'factors', label: 'Factors', field: 'factorRanking'}, setTab() {}};
+  const form = {open, toggle() {}, show() {}, tab: {id: tabField, label: tabField, field: tabField}, setTab() {}};
   const mock = (key: string): any => {
     if (key === 'react/jsx-runtime') { const jsx = (type: any, props: any) => (typeof type === 'function' ? type(props) : {type, props}); return {jsx, jsxs: jsx}; }
     if (key === 'react-native') return new Proxy({StyleSheet: {create: (x: any) => x}, useWindowDimensions: () => ({width: tight ? 320 : 411, fontScale: tight ? 1.5 : 1}), Platform: {OS: 'android'}}, {get: (x: any, k) => x[k] ?? k});
@@ -57,4 +57,12 @@ test('the nearby-essentials switch is on every state, and the footer Save sits o
 test('tight layouts (320dp or large text) give each length-of-stay card its own line', () => {
   assert.ok(ofType(render('about', {}, true), 'StayChoice').every(n => n.props.full === true));
   assert.ok(ofType(render('about'), 'StayChoice').every(n => n.props.full === false));
+});
+
+test('What matters most: the card shows the ranking of the chosen tab, with the three tabs', () => {
+  for (const field of ['factorRanking', 'unitSpecificationRanking', 'amenityRanking'] as const) {
+    const tree = render('matters', {}, false, field);
+    assert.deepEqual(ofType(tree, 'RankingList')[0].props.values, base[field], field);
+  }
+  assert.deepEqual(ofType(render('matters'), 'RankingTabs')[0].props.tabs.map((t: any) => t.label), ['Factors', 'Unit specs', 'Amenities']);
 });

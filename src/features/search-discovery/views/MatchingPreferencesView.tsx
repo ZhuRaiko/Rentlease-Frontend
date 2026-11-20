@@ -9,13 +9,14 @@ import {spacing} from '../../../shared/theme/spacing';
 import {typography} from '../../../shared/theme/typography';
 import {ui} from '../../../shared/theme/ui';
 import {AboutFolded, ChoicePill, GroupTitle, NearbySwitchRow, PreferenceCard, PreferencePanel, StayChoice} from '../components/PreferenceCards';
+import {RankingList, RankingTabs} from '../components/RankingList';
 import {PropertyPreferences} from '../components/PropertyPreferences';
 import {CloseMark, ListMark, WalletMark} from '../components/PreferenceIcons';
-import {aboutSummary, budgetSummary, cityLabel, mattersSummary, propertySummary, stayParts} from '../models/MatchingPreferenceForm';
+import {aboutSummary, budgetSummary, cityLabel, mattersSummary, propertySummary, rankingTabs, stayParts} from '../models/MatchingPreferenceForm';
 import {renterProfiles, stayLengths} from '../models/SearchDiscovery';
 import type {SearchDiscoveryViewModel} from '../viewModels/useSearchDiscoveryViewModel';
 import {useMatchingPreferencesForm} from '../viewModels/useMatchingPreferencesForm';
-import {LegacyBudgetBody, LegacyMattersBody} from './LegacyPreferenceSections';
+import {LegacyBudgetBody} from './LegacyPreferenceSections';
 
 const CITIES = ['Imus', 'Dasmariñas', 'Tagaytay'];
 
@@ -59,7 +60,8 @@ export function MatchingPreferencesView({viewModel, onClose}: {viewModel: Search
         <LegacyBudgetBody preferences={preferences} viewModel={viewModel} />
       </PreferenceCard>
       <PreferenceCard hint="Drag a row or use the arrows. Top matters most." icon={<ListMark />} onToggle={() => form.toggle('matters')} open={form.open === 'matters'} roomy={aboutOpen} summary={mattersSummary(preferences)} title="What matters most">
-        <LegacyMattersBody preferences={preferences} viewModel={viewModel} />
+        <RankingTabs activeId={form.tab.id} onSelect={form.setTab} tabs={rankingTabs} />
+        <RankingList onMove={(index, direction) => viewModel.movePreferenceItem(form.tab.field, index, direction)} values={preferences[form.tab.field]} />
       </PreferenceCard>
 
       <Text style={[ui.supporting, styles.optionalNote]}>Property, budget and what matters most are optional. They narrow your Discover results and shape your For You recommendations.</Text>

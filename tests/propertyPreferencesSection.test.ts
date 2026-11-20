@@ -67,3 +67,15 @@ test('single choice and multi-select look different: single is a radio role with
   assert.ok(multi.some(n => n.type === 'CheckMark'));
   assert.ok(!nodes(cards.ChoicePill({label: 'Wi-fi', multi: true, selected: false, onPress() {}})).some(n => n.type === 'CheckMark'), 'no check until chosen');
 });
+
+test('a closed card shows its summary and no body; an open card shows the body and no summary line', () => {
+  const props = {title: 'Budget', summary: 'SUMMARY', icon: 'icon', roomy: false, onToggle() {}, children: 'BODY'};
+  const closed = nodes(cards.PreferenceCard({...props, open: false})), open = nodes(cards.PreferenceCard({...props, open: true, hint: 'HINT'}));
+  const texts = (tree: any[]) => tree.flatMap(n => [n.props?.children].flat(Infinity)).filter(c => typeof c === 'string');
+  assert.ok(texts(closed).includes('SUMMARY') && !texts(closed).includes('BODY'));
+  assert.ok(texts(open).includes('BODY') && texts(open).includes('HINT') && !texts(open).includes('SUMMARY'));
+  assert.equal(closed[1].props.accessibilityState.expanded, false);
+  assert.equal(open[1].props.accessibilityState.expanded, true);
+  assert.ok(texts(closed).every(t => t !== 'Optional'), 'compact closed card: no tag while another card is open');
+  assert.ok(texts(nodes(cards.PreferenceCard({...props, roomy: true, open: false}))).includes('Optional'), 'first-open layout shows the Optional tag on closed cards');
+});
