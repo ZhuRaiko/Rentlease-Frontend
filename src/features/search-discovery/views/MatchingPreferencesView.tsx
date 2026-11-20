@@ -9,12 +9,13 @@ import {spacing} from '../../../shared/theme/spacing';
 import {typography} from '../../../shared/theme/typography';
 import {ui} from '../../../shared/theme/ui';
 import {AboutFolded, ChoicePill, GroupTitle, NearbySwitchRow, PreferenceCard, PreferencePanel, StayChoice} from '../components/PreferenceCards';
+import {PropertyPreferences} from '../components/PropertyPreferences';
 import {CloseMark, ListMark, WalletMark} from '../components/PreferenceIcons';
 import {aboutSummary, budgetSummary, cityLabel, mattersSummary, propertySummary, stayParts} from '../models/MatchingPreferenceForm';
 import {renterProfiles, stayLengths} from '../models/SearchDiscovery';
 import type {SearchDiscoveryViewModel} from '../viewModels/useSearchDiscoveryViewModel';
 import {useMatchingPreferencesForm} from '../viewModels/useMatchingPreferencesForm';
-import {LegacyBudgetBody, LegacyMattersBody, LegacyPropertyBody} from './LegacyPreferenceSections';
+import {LegacyBudgetBody, LegacyMattersBody} from './LegacyPreferenceSections';
 
 const CITIES = ['Imus', 'Dasmariñas', 'Tagaytay'];
 
@@ -52,7 +53,7 @@ export function MatchingPreferencesView({viewModel, onClose}: {viewModel: Search
       </PreferencePanel> : <AboutFolded summary={aboutSummary(preferences)} onChange={() => form.show('about')} />}
 
       <PreferenceCard icon={<GlyphIcon kind="house" size={24} />} onToggle={() => form.toggle('property')} open={form.open === 'property'} roomy={aboutOpen} summary={propertySummary(preferences)} title="Property">
-        <LegacyPropertyBody preferences={preferences} viewModel={viewModel} />
+        <PropertyPreferences onChange={update} onToggleAmenity={viewModel.togglePreferenceAmenity} onToggleKind={viewModel.togglePreferencePropertyKind} preferences={preferences} />
       </PreferenceCard>
       <PreferenceCard hint="Your monthly range for rent." icon={<WalletMark />} onToggle={() => form.toggle('budget')} open={form.open === 'budget'} roomy={aboutOpen} summary={budgetSummary(preferences)} title="Budget">
         <LegacyBudgetBody preferences={preferences} viewModel={viewModel} />

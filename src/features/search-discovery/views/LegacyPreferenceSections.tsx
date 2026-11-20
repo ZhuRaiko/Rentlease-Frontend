@@ -5,8 +5,7 @@ import { colors } from '../../../shared/theme/colors';
 import { radius } from '../../../shared/theme/radius';
 import { spacing } from '../../../shared/theme/spacing';
 import { typography } from '../../../shared/theme/typography';
-import { DiscoveryCounter } from '../components/DiscoveryControls';
-import { discoveryAmenities, propertyKinds, type MatchingPreferences } from '../models/SearchDiscovery';
+import type { MatchingPreferences } from '../models/SearchDiscovery';
 import type { SearchDiscoveryViewModel } from '../viewModels/useSearchDiscoveryViewModel';
 
 // Transitional: the previous controls, kept working inside the new section cards until each section is rebuilt. Removed section by section.
@@ -111,68 +110,6 @@ function PreferenceRanking({
   );
 }
 
-
-export function LegacyPropertyBody({preferences, viewModel}: {preferences: MatchingPreferences; viewModel: SearchDiscoveryViewModel}) {
-  return (
-    <>
-      <PreferenceSection title="What type of property are you currently looking for?">
-        <View style={styles.preferenceChoices}>
-          {propertyKinds.map((kind) => (
-            <PreferenceChoice
-              key={kind}
-              label={kind === 'House' ? 'House For Rent' : kind}
-              onPress={() => viewModel.togglePreferencePropertyKind(kind)}
-              selected={preferences.propertyKinds.includes(kind)}
-              tone="dark"
-              wide
-            />
-          ))}
-        </View>
-      </PreferenceSection>
-
-      <PreferenceSection
-        body="Tap the controls to set the unit specifications you prioritize most."
-        title="Unit specifications"
-      >
-        <View style={styles.specificationCard}>
-          <DiscoveryCounter
-            label="Land Area (sqm)"
-            onDecrease={() => viewModel.updateMatchingPreference('minimumLandArea', Math.max(0, preferences.minimumLandArea - 10))}
-            onIncrease={() => viewModel.updateMatchingPreference('minimumLandArea', preferences.minimumLandArea + 10)}
-            value={preferences.minimumLandArea}
-          />
-          <DiscoveryCounter
-            label="Bedrooms"
-            onDecrease={() => viewModel.updateMatchingPreference('minimumBedrooms', Math.max(0, preferences.minimumBedrooms - 1))}
-            onIncrease={() => viewModel.updateMatchingPreference('minimumBedrooms', preferences.minimumBedrooms + 1)}
-            value={preferences.minimumBedrooms}
-          />
-          <DiscoveryCounter
-            label="Bathrooms"
-            onDecrease={() => viewModel.updateMatchingPreference('minimumBathrooms', Math.max(0, preferences.minimumBathrooms - 1))}
-            onIncrease={() => viewModel.updateMatchingPreference('minimumBathrooms', preferences.minimumBathrooms + 1)}
-            value={preferences.minimumBathrooms}
-          />
-        </View>
-      </PreferenceSection>
-
-      <PreferenceSection body="Select or remove amenities to match your needs." title="Amenities">
-        <View style={styles.preferenceChoices}>
-          {discoveryAmenities.map((amenity) => (
-            <PreferenceChoice
-              key={amenity}
-              label={amenity}
-              onPress={() => viewModel.togglePreferenceAmenity(amenity)}
-              selected={preferences.amenities.includes(amenity)}
-              tone="orange"
-            />
-          ))}
-        </View>
-      </PreferenceSection>
-
-    </>
-  );
-}
 
 export function LegacyMattersBody({preferences, viewModel}: {preferences: MatchingPreferences; viewModel: SearchDiscoveryViewModel}) {
   return (
