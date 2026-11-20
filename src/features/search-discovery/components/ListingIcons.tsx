@@ -1,4 +1,5 @@
 import {View} from 'react-native';
+import Svg, {Path} from 'react-native-svg';
 import {colors} from '../../../shared/theme/colors';
 
 /**
@@ -44,10 +45,10 @@ export function ArrowRight({size = 12, color = colors.primaryAction}: {size?: nu
   </View>;
 }
 
-/** A star drawn from two squares turned 0 and 45 degrees (an eight-point star; the design's five-point star is approximated). */
-export function StarMark({size = 16, color = colors.white}: {size?: number; color?: string}) {
-  const square = (turn: number) => <View key={turn} style={{position: 'absolute', width: size * 0.7, height: size * 0.7, backgroundColor: color, transform: [{rotate: `${turn}deg`}]}} />;
-  return <View {...hidden} style={{width: size, height: size, alignItems: 'center', justifyContent: 'center'}}>{[0, 45].map(square)}</View>;
+/** The star from the design pack (board 2, "Top match"), on a 24 x 24 grid. */
+export const STAR_PATH = 'm12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z';
+export function StarMark({size = 14, color = colors.white}: {size?: number; color?: string}) {
+  return <Svg accessible={false} height={size} importantForAccessibility="no-hide-descendants" viewBox="0 0 24 24" width={size}><Path d={STAR_PATH} fill={color} /></Svg>;
 }
 
 export function SlidersMark({size = 20, color = colors.ink}: {size?: number; color?: string}) {

@@ -1,7 +1,15 @@
-import {View} from 'react-native';
+import Svg, {Path} from 'react-native-svg';
 import {colors} from '../theme/colors';
-/** Native rounded lobes and point, independent of system glyph fonts. */
-export function HeartIcon({filled=false,size=24,color=colors.ink,background=colors.background}:{filled?:boolean;size?:number;color?:string;background?:string}){
- const shape=(scale:number,tint:string)=><View style={{position:'absolute',width:size*scale,height:size*scale,left:size*(1-scale)/2,top:size*(1-scale)/2}}><View style={{position:'absolute',width:size*scale*.55,height:size*scale*.55,left:size*scale*.225,top:size*scale*.32,backgroundColor:tint,transform:[{rotate:'-45deg'}]}}><View style={{position:'absolute',backgroundColor:tint,width:'100%',height:'100%',borderRadius:size,left:0,top:'-50%'}}/><View style={{position:'absolute',backgroundColor:tint,width:'100%',height:'100%',borderRadius:size,left:'50%',top:0}}/></View></View>;
- return <View accessible={false} importantForAccessibility="no-hide-descendants" style={{width:size,height:size}}>{shape(1,color)}{!filled?shape(.76,background):null}</View>;
+
+/** The one heart shape from the design pack (docs/design/discover-foryou, board 5): even round lobes and a soft point, drawn on a 24 x 24 grid. */
+export const HEART_PATH = 'M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z';
+
+/**
+ * Outline when not saved (stroke in `color`), filled when saved (fill and stroke in `color`). Decorative: the button around it carries the name and
+ * the saved state, so it is hidden from screen readers. `background` is kept for older callers and is not needed any more.
+ */
+export function HeartIcon({filled = false, size = 24, color = colors.ink}: {filled?: boolean; size?: number; color?: string; background?: string}) {
+  return <Svg accessible={false} height={size} importantForAccessibility="no-hide-descendants" viewBox="0 0 24 24" width={size}>
+    <Path d={HEART_PATH} fill={filled ? color : 'none'} stroke={color} strokeLinejoin="round" strokeWidth={filled ? 1.6 : 1.8} />
+  </Svg>;
 }

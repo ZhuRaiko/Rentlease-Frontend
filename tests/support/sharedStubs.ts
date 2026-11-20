@@ -9,7 +9,7 @@
 //
 // so anything it does not special-case is stubbed here instead of reaching the real `require`.
 //
-// What it stubs: `react-native`, `react-native-safe-area-context`, and any other `.tsx` module imported by the file under test.
+// What it stubs: `react-native`, `react-native-safe-area-context`, `react-native-svg`, and any other `.tsx` module imported by the file under test.
 // A `.tsx` module becomes an object whose PascalCase exports are string tags (the component name), so a rendered tree can be
 // searched by `type`. Non-component exports of a `.tsx` module (hooks, helpers, constants) are NOT provided: a test that needs
 // one must stub it explicitly, and gets a clear "is not a function" instead of silently wrong behavior.
@@ -83,6 +83,8 @@ const samePath = (a: string, b: string) => resolve(a).toLowerCase() === resolve(
 export function sharedStub(underTest: string, request: string): unknown {
   if (request === 'react-native') return reactNativeStub();
   if (request === 'react-native-safe-area-context') return safeAreaStub();
+  // react-native-svg: every shape is a string tag named after itself (Svg, Path, ...), so a rendered tree can be searched by `type` and its props read.
+  if (request === 'react-native-svg') return new Proxy({__esModule: true, default: 'Svg'} as Record<string, unknown>, {get: (target, key) => typeof key === 'string' && key in target ? target[key] : typeof key === 'string' && /^[A-Z]/.test(key) ? key : undefined});
   const target = tsxTarget(underTest, request);
   if (target && !samePath(target, underTest)) return componentExports(target);
   return undefined;
