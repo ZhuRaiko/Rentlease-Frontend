@@ -73,3 +73,14 @@ test('Discover, For You, Saved listings, search results and the nearby list all 
   uses('src/features/search-discovery/components/NearbyListingCard.tsx', 'ListingCard');
   for (const file of ['SearchListingCard', 'NearbyListingCard']) assert.doesNotMatch(readFileSync(`src/features/search-discovery/components/${file}.tsx`, 'utf8'), /StyleSheet|<Image|<Pressable/, `${file} draws nothing of its own`);
 });
+
+test('the body button label carries what is inside it: price, place, chips, notes and the reasons it fits', () => {
+  const label = (props: object) => nodes(cardHarness()({onPress() {}, ...props})).filter(n => n.type === 'Pressable').map(n => n.props.accessibilityLabel).find(l => /^View /.test(l ?? ''));
+  assert.equal(label({model: base}), 'View Condo, PHP 3,050 per month, Maharlika West, Tagaytay, 1 bedroom, 1 bathroom');
+  assert.match(label({model: base, fit: ['Preferred city', 'Within your budget']}), /, Why it fits: Preferred city, Within your budget$/);
+  assert.match(label({model: {...base, notes: ['250 m away']}}), /1 bathroom, 250 m away$/);
+  assert.equal(label({model: {...base, rent: null, bedrooms: 0, bathrooms: null, location: ''}}), 'View Condo, Rent not provided');
+});
+test('the Top match star is drawn, not a text glyph', () => {
+  assert.doesNotMatch(readFileSync('src/features/search-discovery/components/ListingIcons.tsx', 'utf8'), /\u2605|★/);
+});

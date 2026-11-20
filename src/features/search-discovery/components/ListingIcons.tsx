@@ -1,4 +1,4 @@
-import {Text, View} from 'react-native';
+import {View} from 'react-native';
 import {colors} from '../../../shared/theme/colors';
 
 /**
@@ -44,8 +44,10 @@ export function ArrowRight({size = 12, color = colors.primaryAction}: {size?: nu
   </View>;
 }
 
-export function StarMark({size = 14, color = colors.white}: {size?: number; color?: string}) {
-  return <Text {...hidden} allowFontScaling={false} style={{color, fontSize: size, lineHeight: size + 2}}>{'★'}</Text>;
+/** A star drawn from two squares turned 0 and 45 degrees (an eight-point star; the design's five-point star is approximated). */
+export function StarMark({size = 16, color = colors.white}: {size?: number; color?: string}) {
+  const square = (turn: number) => <View key={turn} style={{position: 'absolute', width: size * 0.7, height: size * 0.7, backgroundColor: color, transform: [{rotate: `${turn}deg`}]}} />;
+  return <View {...hidden} style={{width: size, height: size, alignItems: 'center', justifyContent: 'center'}}>{[0, 45].map(square)}</View>;
 }
 
 export function SlidersMark({size = 20, color = colors.ink}: {size?: number; color?: string}) {

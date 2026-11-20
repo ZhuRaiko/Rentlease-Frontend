@@ -25,8 +25,10 @@ function Fact({icon, text}: {icon: 'bed' | 'bath'; text: string}) {
 export function ListingCard({model, onPress, save, rank, fit = []}: {model: ListingCardModel; onPress: () => void; save?: SaveControl | undefined; rank?: string | undefined; fit?: readonly string[]}) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [model.thumbnailUrl]);
-  const beds = bedroomsText(model.bedrooms), baths = bathroomsText(model.bathrooms), price = rentText(model.rent);
+  const beds = bedroomsText(model.bedrooms), baths = bathroomsText(model.bathrooms), price = rentText(model.rent), rent = model.rent;
   const showPhoto = !!model.thumbnailUrl && !failed;
+  // The body is one button, so its label stands in for everything inside it: say the facts, the reasons and the notes too.
+  const bodyLabel = [`View ${model.title}`, rent === null ? price : `${price} per month`, model.location, beds, baths, ...model.notes, fit.length ? `Why it fits: ${fit.join(', ')}` : null].filter(Boolean).join(', ');
   return <View style={styles.card}>
     <View style={styles.media}>
       <Pressable accessible={false} onPress={onPress} style={styles.photoTarget}>
@@ -38,7 +40,7 @@ export function ListingCard({model, onPress, save, rank, fit = []}: {model: List
       {rank ? <View pointerEvents="none" style={styles.rank}>{rank === 'Top match' ? <StarMark /> : null}<Text style={styles.rankText}>{rank}</Text></View> : null}
       {save ? <View style={styles.heart}><SaveListingButton control={save} /></View> : null}
     </View>
-    <Pressable accessibilityLabel={`View ${model.title}, ${price}${model.rent === null ? '' : ' per month'}${model.location ? `, ${model.location}` : ''}`} accessibilityRole="button" onPress={onPress} style={({pressed}) => [styles.body, pressed && styles.pressed]}>
+    <Pressable accessibilityLabel={bodyLabel} accessibilityRole="button" onPress={onPress} style={({pressed}) => [styles.body, pressed && styles.pressed]}>
       <Text style={styles.price}>{price}{model.rent === null ? '' : <Text style={styles.period}>{' / month'}</Text>}</Text>
       <Text style={styles.title}>{model.title}</Text>
       <View style={styles.place}><PinMark /><Text style={styles.placeText}>{model.location || 'Public location unavailable'}</Text></View>

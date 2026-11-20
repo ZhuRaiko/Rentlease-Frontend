@@ -57,7 +57,7 @@ export function ExplanationBox({children}: {children: ReactNode}) {
 
 const styles = StyleSheet.create({
   hero: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', columnGap: spacing.sm, rowGap: spacing.sm, paddingTop: spacing.xs},
-  heroCopy: {flexGrow: 1, flexShrink: 1, gap: 6, minWidth: 0},
+  heroCopy: {flexGrow: 1, flexShrink: 1, flexBasis: 200, minWidth: 200, gap: 6},
   eyebrow: {...ui.supporting, color: colors.primaryAction, fontWeight: '600'},
   headline: {...ui.pageTitle, fontSize: 26, lineHeight: 33, color: colors.ink},
   pill: {minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.controlBorder, backgroundColor: colors.background},

@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import {test} from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {coverageNote, forYouState, infoBoxText, PREFERENCES_SAVED_NOTICE, rankLabel, SUGGESTIONS_NOTE} from '../src/features/search-discovery/models/ForYouPresentation';
 import {createRecommendationWorkflow} from '../src/features/search-discovery/viewModels/recommendationWorkflow';
@@ -57,4 +58,12 @@ test('no scorable preferences means the unavailable state, with no request', asy
   wf.configure({...prefs, city: '', minimumRent: 0, maximumRent: 0, propertyKinds: [], minimumBedrooms: 0, minimumBathrooms: 0, furnishedOnly: false, amenities: []}, defaultSearchFilters(), '');
   await new Promise(r => setImmediate(r));
   assert.equal(loads, 0); assert.equal(wf.getSnapshot().phase, 'unavailable');
+});
+
+// At 320dp / 150% the title once broke letter by letter because the Edit preferences pill squeezed it; it needs a width of its own so the pill wraps below instead.
+test('the hero title keeps a minimum width, so the Edit preferences pill wraps below it rather than squeezing it', () => {
+  const source = readFileSync('src/features/search-discovery/components/ForYouParts.tsx', 'utf8');
+  assert.match(source, /hero: \{[^}]*flexWrap: 'wrap'/);
+  assert.match(source, /heroCopy: \{[^}]*minWidth: 200/);
+  assert.match(source, /pill: \{minHeight: 48/);
 });
