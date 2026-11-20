@@ -9,14 +9,14 @@ import {spacing} from '../../../shared/theme/spacing';
 import {typography} from '../../../shared/theme/typography';
 import {ui} from '../../../shared/theme/ui';
 import {AboutFolded, ChoicePill, GroupTitle, NearbySwitchRow, PreferenceCard, PreferencePanel, StayChoice} from '../components/PreferenceCards';
+import {BudgetPreferences} from '../components/BudgetPreferences';
 import {RankingList, RankingTabs} from '../components/RankingList';
 import {PropertyPreferences} from '../components/PropertyPreferences';
 import {CloseMark, ListMark, WalletMark} from '../components/PreferenceIcons';
-import {aboutSummary, budgetSummary, cityLabel, mattersSummary, propertySummary, rankingTabs, stayParts} from '../models/MatchingPreferenceForm';
+import {BUDGET_SAVE_HINT, aboutSummary, budgetSummary, cityLabel, mattersSummary, propertySummary, rankingTabs, stayParts} from '../models/MatchingPreferenceForm';
 import {renterProfiles, stayLengths} from '../models/SearchDiscovery';
 import type {SearchDiscoveryViewModel} from '../viewModels/useSearchDiscoveryViewModel';
 import {useMatchingPreferencesForm} from '../viewModels/useMatchingPreferencesForm';
-import {LegacyBudgetBody} from './LegacyPreferenceSections';
 
 const CITIES = ['Imus', 'Dasmariñas', 'Tagaytay'];
 
@@ -25,7 +25,7 @@ export function MatchingPreferencesView({viewModel, onClose}: {viewModel: Search
   const preferences = viewModel.matchingPreferences, form = useMatchingPreferencesForm(), bottom = useBottomClearance();
   const {width, fontScale} = useWindowDimensions(), tight = fontScale > 1.2 || width < 360;
   const update = viewModel.updateMatchingPreference, busy = viewModel.isCompletingIntroduction;
-  const aboutOpen = form.open === 'about';
+  const aboutOpen = form.open === 'about', budgetError = viewModel.matchingBudgetError;
   return <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.screen}>
     <View style={styles.header}>
       <Text accessibilityRole="header" style={styles.title}>Matching preferences</Text>
@@ -57,7 +57,7 @@ export function MatchingPreferencesView({viewModel, onClose}: {viewModel: Search
         <PropertyPreferences onChange={update} onToggleAmenity={viewModel.togglePreferenceAmenity} onToggleKind={viewModel.togglePreferencePropertyKind} preferences={preferences} />
       </PreferenceCard>
       <PreferenceCard hint="Your monthly range for rent." icon={<WalletMark />} onToggle={() => form.toggle('budget')} open={form.open === 'budget'} roomy={aboutOpen} summary={budgetSummary(preferences)} title="Budget">
-        <LegacyBudgetBody preferences={preferences} viewModel={viewModel} />
+        <BudgetPreferences error={budgetError} maximum={preferences.maximumRent} minimum={preferences.minimumRent} mode={preferences.budgetMode} onMaximum={amount => update('maximumRent', amount)} onMinimum={amount => update('minimumRent', amount)} onMode={mode => update('budgetMode', mode)} />
       </PreferenceCard>
       <PreferenceCard hint="Drag a row or use the arrows. Top matters most." icon={<ListMark />} onToggle={() => form.toggle('matters')} open={form.open === 'matters'} roomy={aboutOpen} summary={mattersSummary(preferences)} title="What matters most">
         <RankingTabs activeId={form.tab.id} onSelect={form.setTab} tabs={rankingTabs} />
@@ -69,7 +69,8 @@ export function MatchingPreferencesView({viewModel, onClose}: {viewModel: Search
     </ScrollView>
     <View style={styles.footer}>
       <FeedbackNotice tone="error" message={viewModel.introductionError} />
-      <AppButton label={busy ? 'Saving...' : viewModel.introductionPending ? 'Save and continue' : 'Save preferences'} disabled={busy} onPress={() => void viewModel.saveMatchingPreferences()} />
+      <AppButton label={busy ? 'Saving...' : viewModel.introductionPending ? 'Save and continue' : 'Save preferences'} disabled={busy || !!budgetError} onPress={() => void viewModel.saveMatchingPreferences()} />
+      {budgetError ? <Pressable accessibilityHint="Opens the budget" accessibilityRole="button" onPress={() => form.show('budget')} style={styles.hint}><Text style={styles.hintText}>{BUDGET_SAVE_HINT}</Text></Pressable> : null}
       {viewModel.introductionPending ? <Pressable accessibilityRole="button" accessibilityState={{disabled: busy}} disabled={viewModel.isCompletingIntroduction} style={styles.skip} onPress={() => void viewModel.skipMatchingIntroduction()}><Text style={styles.skipLabel}>Skip for now</Text></Pressable> : null}
     </View>
   </KeyboardAvoidingView>;
@@ -87,6 +88,8 @@ const styles = StyleSheet.create({
   wrap: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
   optionalNote: {paddingHorizontal: spacing.xxs},
   footer: {alignSelf: 'center', maxWidth: 460, width: '100%', gap: spacing.xs, paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xs, backgroundColor: colors.background, borderTopColor: colors.outline, borderTopWidth: 1},
+  hint: {minHeight: 48, alignItems: 'center', justifyContent: 'center'},
+  hintText: {color: colors.textSecondary, fontFamily: typography.family, fontSize: 14},
   skip: {alignItems: 'center', justifyContent: 'center', minHeight: 48},
   skipLabel: {color: colors.primaryAction, fontFamily: typography.family, fontSize: 14, fontWeight: '700'},
 });
