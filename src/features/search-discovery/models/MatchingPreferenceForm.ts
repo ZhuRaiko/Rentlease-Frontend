@@ -70,3 +70,11 @@ export function dragTarget(index: number, dragDistance: number, rowHeight: numbe
 }
 export const canMoveUp = (index: number): boolean => index > 0;
 export const canMoveDown = (index: number, length: number): boolean => index < length - 1;
+
+/** Where the Matching preferences screen was opened from: "workspace" = as the first screen of the Discovery flow (from Profile, or the first-run offer); "discover" = from inside the flow (For You, Edit preferences). */
+export type PreferencesOrigin = 'workspace' | 'discover';
+export type PreferencesExit = 'skip-introduction' | 'close-workspace' | 'back-in-flow';
+/** What Close does on the Matching preferences screen: carry on with the first-run skip, leave the whole Discovery flow (back to Profile), or go back one screen inside it (back to For You). */
+export function preferencesExit(introductionPending: boolean, origin: PreferencesOrigin): PreferencesExit {
+  return introductionPending ? 'skip-introduction' : origin === 'workspace' ? 'close-workspace' : 'back-in-flow';
+}

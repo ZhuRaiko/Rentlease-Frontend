@@ -9,7 +9,7 @@ import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigat
 import {propertyOwnerLabel} from '../../../shared/models/PublicInquiryIdentity';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { gpsProximityDependencies } from '../services/gpsProximityDependencies';
-import { budgetRangeError, preferencesChanged } from '../models/MatchingPreferenceForm';
+import { budgetRangeError, preferencesChanged, preferencesExit, type PreferencesOrigin } from '../models/MatchingPreferenceForm';
 import { createGpsProximityWorkflow } from './gpsProximityWorkflow';
 import { manualSearchService } from '../services/manualSearchDependencies';
 import { createManualSearchWorkflow } from './manualSearchWorkflow';
@@ -33,6 +33,8 @@ export function useSearchDiscoveryViewModel(
 ) {
   const [screen, setScreen] = useState<DiscoveryScreen>(initialScreen);
   const [history, setHistory] = useState<DiscoveryScreen[]>([]);
+  // Where Matching preferences was opened from decides where Close returns to; see preferencesExit.
+  const [preferencesOrigin, setPreferencesOrigin] = useState<PreferencesOrigin>(initialScreen === 'matchingPreferences' ? 'workspace' : 'discover');
   const [homeTab,setHomeTab]=useState<'discover'|'forYou'>('discover');
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<DiscoveryFilters>(() => options.initialPreferences ? matchingPreferenceFilters(options.initialPreferences) : defaultDiscoveryFilters);
@@ -99,7 +101,7 @@ export function useSearchDiscoveryViewModel(
     }
     gps.reset();
     if (screen === 'propertyDetails') manual.cancelDetail();
-    if (screen === 'matchingPreferences') setMatchingPreferences(savedPreferences.current);
+    if (screen === 'matchingPreferences') { setMatchingPreferences(savedPreferences.current); setPreferencesOrigin('discover'); }
     setHistory((current) => {
       const previous = current.at(-1) ?? 'home';
       setScreen(previous);
@@ -215,13 +217,13 @@ export function useSearchDiscoveryViewModel(
     savedPreferences.current = matchingPreferences;
     options.onSavePreferences?.(matchingPreferences);
     if (!await finishIntroduction()) return;
-    setFilters(preferenceFilters); setQuery(''); setScreen('home'); setHistory([]);
+    setFilters(preferenceFilters); setQuery(''); setScreen('home'); setHistory([]); setPreferencesOrigin('discover');
     setCommittedPreferences({owner:options.accountId,value:matchingPreferences});
     setNotice('Preferences kept for this session. Recommendations use your selected preferences.');
   };
   const skipMatchingIntroduction = async () => {
     if (!await finishIntroduction()) return;
-    setMatchingPreferences(savedPreferences.current); setScreen('home'); setHistory([]);
+    setMatchingPreferences(savedPreferences.current); setScreen('home'); setHistory([]); setPreferencesOrigin('discover');
   };
 
   const chooseSort = (nextSort: SortOption) => {
@@ -279,7 +281,7 @@ export function useSearchDiscoveryViewModel(
     suggestedCity.current = false;
     gps.reset();
     if (screen === 'propertyDetails') manual.cancelDetail();
-    if (screen === 'matchingPreferences') setMatchingPreferences(savedPreferences.current);
+    if (screen === 'matchingPreferences') { setMatchingPreferences(savedPreferences.current); setPreferencesOrigin('discover'); }
     if (introductionPending) setIntroductionPending(false);
     setScreen('home');
     setHistory([]);
@@ -289,11 +291,16 @@ export function useSearchDiscoveryViewModel(
 
   const openMatchingPreferences = () => {
     gps.reset();
+    setPreferencesOrigin('discover');
     setScreen('matchingPreferences');
     setHistory([]);
   };
 
-  const closeFromWorkspace = (onClose: () => void) => { if (!completionInFlight.current) navigation.requestNavigation(introductionPending ? () => { void skipMatchingIntroduction(); } : onClose); };
+  const closeFromWorkspace = (onClose: () => void) => {
+    if (completionInFlight.current) return;
+    const exit = preferencesExit(introductionPending, screen === 'matchingPreferences' ? preferencesOrigin : 'workspace');
+    navigation.requestNavigation(exit === 'skip-introduction' ? () => { void skipMatchingIntroduction(); } : exit === 'back-in-flow' ? goBack : onClose);
+  };
 
   return {
     ...navigation,
@@ -307,7 +314,7 @@ export function useSearchDiscoveryViewModel(
       if (completionInFlight.current) return;
       if (introductionPending) navigation.requestNavigation(() => { void skipMatchingIntroduction(); });
       else if (screen === 'home') navigation.requestNavigation(onRootBack);
-      else if (initialScreen === 'matchingPreferences' && screen === 'matchingPreferences' && history.length === 0) navigation.requestNavigation(onClose);
+      else if (initialScreen === 'matchingPreferences' && screen === 'matchingPreferences' && history.length === 0 && preferencesOrigin === 'workspace') navigation.requestNavigation(onClose);
       else navigation.requestNavigation(goBack);
     },
     screen,
