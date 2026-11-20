@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Matching preferences · what matters most</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#32743C}a:hover{color:#172C27}
+button,input{font-family:Roboto,sans-serif}
+.sec{width:100%;background:#FFFFFF;border:1px solid #DCE5DD;border-radius:20px;padding:14px;display:flex;align-items:center;gap:12px;text-align:left;color:#172C27;min-height:76px;box-sizing:border-box}
+.ic{width:44px;height:44px;border-radius:100px;background:#EDF8EE;display:flex;align-items:center;justify-content:center;flex:none}
+.g{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.tt{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.tag{height:22px;padding:0 8px;border-radius:100px;background:#F5F5F5;color:#4F5B54;font-size:11px;font-weight:500;display:inline-flex;align-items:center}
+.sm{font-size:13px;color:#606A63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rk{display:flex;align-items:center;gap:6px;min-height:64px;border-bottom:1px solid #EEF1EE}
+.rk:last-child{border-bottom:0}
+.n{width:28px;height:28px;border-radius:100px;background:#172C27;color:#FFFFFF;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+.rk .l{flex:1;font-size:15px;font-weight:500}
+.hd2{width:40px;height:48px;border:0;background:transparent;padding:0;display:flex;align-items:center;justify-content:center}
+.ab{width:48px;height:48px;border-radius:100px;border:1px solid #DCE5DD;background:#FFFFFF;padding:0;display:flex;align-items:center;justify-content:center}
+.ab:disabled{opacity:0.35}
+.tab{flex:1;height:44px;border-radius:100px;border:0;background:transparent;color:#172C27;font-size:13px;font-weight:500}
+.tab.on{background:#172C27;color:#FFFFFF}
+</style>
+</helmet>
+<div style="width: 411px; height: 891px; box-sizing: border-box; background: #F7F9F5; font-family: Roboto, sans-serif; color: #172C27; position: relative; overflow: hidden">
+  <div style="padding: 20px 16px 8px 16px; display: flex; align-items: center; gap: 12px">
+    <h1 style="margin: 0; flex: 1; font-size: 18px; font-weight: 600; color: #4F5B54">Matching preferences</h1>
+    <button aria-label="Close" style="width: 48px; height: 48px; border-radius: 100px; border: 1px solid #DCE5DD; background: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+    </button>
+  </div>
+
+  <div style="padding: 4px 16px 0 16px; display: flex; flex-direction: column; gap: 12px">
+    <div class="sec" style="min-height: 64px; padding: 8px 8px 8px 14px">
+      <span class="g"><span style="font-size: 15px; font-weight: 700">About you</span><span class="sm">Student · Long-term · Imus City</span></span>
+      <button style="height: 48px; padding: 0 16px; border-radius: 100px; border: 0; background: transparent; color: #32743C; font-size: 14px; font-weight: 600">Change</button>
+    </div>
+    <button class="sec" aria-expanded="false" style="min-height: 64px">
+      <span class="g"><span class="tt">Property</span><span class="sm">House, Apartment · 40 sqm · 1 bed · 1 bath</span></span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+    </button>
+
+    <section style="background: #FFFFFF; border: 1px solid #DCE5DD; border-radius: 20px; padding: 14px 16px 8px 16px; display: flex; flex-direction: column; gap: 12px">
+      <button aria-expanded="true" style="display: flex; align-items: center; gap: 12px; border: 0; background: transparent; padding: 0; text-align: left; color: #172C27; min-height: 48px">
+        <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#32743C" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M10 6h10M10 12h10M10 18h10M4 6h1M4 12h1M4 18h1"></path></svg></span>
+        <span class="g"><span class="tt">What matters most <span class="tag">Optional</span></span><span style="font-size: 13px; color: #606A63">Drag a row or use the arrows. Top matters most.</span></span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m18 15-6-6-6 6"></path></svg>
+      </button>
+
+      <div role="tablist" aria-label="Which list to rank" style="display: flex; padding: 4px; border-radius: 100px; background: #F5F5F5">
+        <button class="tab on" role="tab" aria-selected="true">Factors</button>
+        <button class="tab" role="tab" aria-selected="false">Unit specs</button>
+        <button class="tab" role="tab" aria-selected="false">Amenities</button>
+      </div>
+
+      <div role="list" aria-label="Rank the factors">
+        <div class="rk" role="listitem"><span class="n">1</span><button class="hd2" aria-label="Drag Location"><svg width="16" height="20" viewBox="0 0 16 20" fill="#68716A" aria-hidden="true"><circle cx="5" cy="4" r="1.6"></circle><circle cx="11" cy="4" r="1.6"></circle><circle cx="5" cy="10" r="1.6"></circle><circle cx="11" cy="10" r="1.6"></circle><circle cx="5" cy="16" r="1.6"></circle><circle cx="11" cy="16" r="1.6"></circle></svg></button><span class="l">Location</span><button class="ab" disabled aria-label="Move Location up"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m18 15-6-6-6 6"></path></svg></button><button class="ab" aria-label="Move Location down"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button></div>
+        <div class="rk" role="listitem" style="background: #EDF8EE; border-radius: 14px; margin: 0 -8px; padding: 0 8px; border-bottom-color: transparent"><span class="n">2</span><button class="hd2" aria-label="Drag Budget"><svg width="16" height="20" viewBox="0 0 16 20" fill="#256030" aria-hidden="true"><circle cx="5" cy="4" r="1.6"></circle><circle cx="11" cy="4" r="1.6"></circle><circle cx="5" cy="10" r="1.6"></circle><circle cx="11" cy="10" r="1.6"></circle><circle cx="5" cy="16" r="1.6"></circle><circle cx="11" cy="16" r="1.6"></circle></svg></button><span class="l">Budget</span><button class="ab" aria-label="Move Budget up"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m18 15-6-6-6 6"></path></svg></button><button class="ab" aria-label="Move Budget down"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button></div>
+        <div class="rk" role="listitem"><span class="n">3</span><button class="hd2" aria-label="Drag Unit specifications"><svg width="16" height="20" viewBox="0 0 16 20" fill="#68716A" aria-hidden="true"><circle cx="5" cy="4" r="1.6"></circle><circle cx="11" cy="4" r="1.6"></circle><circle cx="5" cy="10" r="1.6"></circle><circle cx="11" cy="10" r="1.6"></circle><circle cx="5" cy="16" r="1.6"></circle><circle cx="11" cy="16" r="1.6"></circle></svg></button><span class="l">Unit specifications</span><button class="ab" aria-label="Move Unit specifications up"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m18 15-6-6-6 6"></path></svg></button><button class="ab" aria-label="Move Unit specifications down"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button></div>
+        <div class="rk" role="listitem"><span class="n">4</span><button class="hd2" aria-label="Drag Amenities"><svg width="16" height="20" viewBox="0 0 16 20" fill="#68716A" aria-hidden="true"><circle cx="5" cy="4" r="1.6"></circle><circle cx="11" cy="4" r="1.6"></circle><circle cx="5" cy="10" r="1.6"></circle><circle cx="11" cy="10" r="1.6"></circle><circle cx="5" cy="16" r="1.6"></circle><circle cx="11" cy="16" r="1.6"></circle></svg></button><span class="l">Amenities</span><button class="ab" aria-label="Move Amenities up"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m18 15-6-6-6 6"></path></svg></button><button class="ab" disabled aria-label="Move Amenities down"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button></div>
+      </div>
+      <span style="font-size: 12px; line-height: 17px; color: #606A63; padding-bottom: 6px">Unit specs tab: Bedrooms, Bathrooms, Land Area, Kitchen, Floors. Amenities tab: Wi-fi, Parking Space, Airconditioning, Pet friendly. Same row pattern.</span>
+    </section>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 72px; background: #FFFFFF; border-top: 1px solid #DCE5DD; padding: 12px 16px">
+    <button style="width: 100%; height: 54px; border-radius: 100px; border: 0; background: #32743C; color: #FFFFFF; font-size: 16px; font-weight: 600">Save preferences</button>
+  </div>
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 72px; background: #E9E9E9; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #606A63">Existing bottom navigation · unchanged</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":411,"height":891}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

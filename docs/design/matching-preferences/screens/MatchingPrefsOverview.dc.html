@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Matching preferences · first open</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#32743C}a:hover{color:#172C27}
+button,input{font-family:Roboto,sans-serif}
+.chip{min-height:48px;padding:0 16px;border-radius:100px;border:1px solid #DCE5DD;background:#FFFFFF;color:#172C27;font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.chip.on{background:#172C27;border-color:#172C27;color:#FFFFFF}
+.opt{min-height:60px;border-radius:16px;border:1px solid #DCE5DD;background:#FFFFFF;padding:8px 14px;text-align:left;display:flex;flex-direction:column;justify-content:center;gap:2px;font-size:15px;font-weight:600;color:#172C27}
+.opt small{font-size:12px;font-weight:400;color:#606A63}
+.opt.on{background:#172C27;border-color:#172C27;color:#FFFFFF}.opt.on small{color:#D7E2DA}
+.sec{width:100%;background:#FFFFFF;border:1px solid #DCE5DD;border-radius:20px;padding:14px;display:flex;align-items:center;gap:12px;text-align:left;color:#172C27;min-height:76px;box-sizing:border-box}
+.ic{width:44px;height:44px;border-radius:100px;background:#EDF8EE;display:flex;align-items:center;justify-content:center;flex:none}
+.g{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.tt{font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px}
+.tag{height:22px;padding:0 8px;border-radius:100px;background:#F5F5F5;color:#4F5B54;font-size:11px;font-weight:500;display:inline-flex;align-items:center}
+.sm{font-size:13px;color:#606A63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lab{margin:0 0 10px 0;font-size:15px;font-weight:600}
+</style>
+</helmet>
+<div style="width: 411px; height: 891px; box-sizing: border-box; background: #F7F9F5; font-family: Roboto, sans-serif; color: #172C27; position: relative; overflow: hidden">
+  <div style="padding: 20px 16px 8px 16px; display: flex; align-items: center; gap: 12px">
+    <h1 style="margin: 0; flex: 1; font-size: 18px; font-weight: 600; color: #4F5B54">Matching preferences</h1>
+    <button aria-label="Close" style="width: 48px; height: 48px; border-radius: 100px; border: 1px solid #DCE5DD; background: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+    </button>
+  </div>
+
+  <div style="padding: 4px 16px 0 16px; display: flex; flex-direction: column; gap: 12px">
+    <div>
+      <h2 style="margin: 0; font-size: 24px; line-height: 30px; font-weight: 700">A place that fits your needs</h2>
+      <p style="margin: 6px 0 0 0; font-size: 14px; line-height: 20px; color: #606A63">Every choice is optional. They are kept only while the app is open, set your Discover filters and For You picks, and can be edited later from Profile.</p>
+    </div>
+
+    <section style="background: #FFFFFF; border: 1px solid #DCE5DD; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 18px">
+      <div>
+        <h3 class="lab">What type of renter are you?</h3>
+        <div role="radiogroup" aria-label="Renter type" style="display: flex; flex-wrap: wrap; gap: 8px">
+          <button class="chip on" role="radio" aria-checked="true">Student</button>
+          <button class="chip" role="radio" aria-checked="false">Working Professionally</button>
+          <button class="chip" role="radio" aria-checked="false">Living with a Housemate</button>
+          <button class="chip" role="radio" aria-checked="false">Family</button>
+        </div>
+      </div>
+      <div>
+        <h3 class="lab">Preferred length of stay</h3>
+        <div role="radiogroup" aria-label="Length of stay" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+          <button class="opt" role="radio" aria-checked="false">Transient<small>Short-term</small></button>
+          <button class="opt" role="radio" aria-checked="false">Short-term<small>Less than 1 month</small></button>
+          <button class="opt" role="radio" aria-checked="false">Medium-term<small>1–6 months</small></button>
+          <button class="opt on" role="radio" aria-checked="true">Long-term<small>6+ months</small></button>
+        </div>
+      </div>
+      <div>
+        <h3 class="lab">City or area in Cavite</h3>
+        <div role="radiogroup" aria-label="City" style="display: flex; flex-wrap: wrap; gap: 8px">
+          <button class="chip on" role="radio" aria-checked="true">Imus City</button>
+          <button class="chip" role="radio" aria-checked="false">City of Dasmariñas</button>
+          <button class="chip" role="radio" aria-checked="false">Tagaytay City</button>
+        </div>
+      </div>
+    </section>
+
+    <button class="sec" aria-expanded="false">
+      <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#32743C" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7v9H3z"></path><path d="M10 20v-5h4v5"></path></svg></span>
+      <span class="g"><span class="tt">Property <span class="tag">Optional</span></span><span class="sm">House, Apartment · 40 sqm · 1 bed · 1 bath · Wi-fi, Parking</span></span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+    </button>
+    <button class="sec" aria-expanded="false">
+      <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#32743C" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="3"></rect><path d="M16 12.5h2M3 10h18"></path></svg></span>
+      <span class="g"><span class="tt">Budget <span class="tag">Optional</span></span><span class="sm">₱15,000 to ₱65,000 a month</span></span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+    </button>
+    <button class="sec" aria-expanded="false">
+      <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#32743C" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M10 6h10M10 12h10M10 18h10M4 6h1M4 12h1M4 18h1"></path></svg></span>
+      <span class="g"><span class="tt">What matters most <span class="tag">Optional</span></span><span class="sm">Location, Budget, Unit specs, Amenities</span></span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+    </button>
+    <div class="sec">
+      <span class="g"><span class="tt">Prioritize nearby essentials</span><span style="font-size: 13px; line-height: 18px; color: #606A63">Schools, hospitals, malls and transport terminals.</span></span>
+      <button role="switch" aria-checked="true" aria-label="Prioritize nearby essentials" style="width: 52px; height: 48px; border: 0; background: transparent; padding: 0; display: flex; align-items: center; flex: none">
+        <span style="width: 52px; height: 32px; border-radius: 100px; background: #32743C; position: relative; display: block"><span style="position: absolute; right: 3px; top: 3px; width: 26px; height: 26px; border-radius: 100px; background: #FFFFFF; display: block"></span></span>
+      </button>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 72px; background: #FFFFFF; border-top: 1px solid #DCE5DD; padding: 12px 16px">
+    <button style="width: 100%; height: 54px; border-radius: 100px; border: 0; background: #32743C; color: #FFFFFF; font-size: 16px; font-weight: 600">Save preferences</button>
+  </div>
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 72px; background: #E9E9E9; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #606A63">Existing bottom navigation · unchanged</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":411,"height":891}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

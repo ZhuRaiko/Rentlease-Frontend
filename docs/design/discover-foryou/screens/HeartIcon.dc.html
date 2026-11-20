@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Heart icon</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#32743C}a:hover{color:#172C27}
+.cardx{background:#FFFFFF;border:1px solid #DCE5DD;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.h3{margin:0;font-size:15px;font-weight:700}
+.row{display:flex;align-items:center;gap:16px}
+.cap{font-size:12px;color:#606A63;text-align:center}
+.cell{display:flex;flex-direction:column;align-items:center;gap:6px}
+.circ{width:48px;height:48px;border-radius:100px;background:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.16)}
+</style>
+</helmet>
+<div style="width: 411px; height: 891px; box-sizing: border-box; background: #F7F9F5; font-family: Roboto, sans-serif; color: #172C27; position: relative; overflow: hidden; padding: 20px 16px; display: flex; flex-direction: column; gap: 12px">
+  <div style="display: flex; flex-direction: column; gap: 4px">
+    <h1 style="margin: 0; font-size: 22px; font-weight: 700">One heart, everywhere</h1>
+    <p style="margin: 0; font-size: 13px; line-height: 19px; color: #606A63">Same shape in the header (opens Saved listings) and on every card (save or unsave). Even round lobes, soft point, 1.8 stroke, round joins.</p>
+  </div>
+
+  <div class="cardx" style="flex-direction: row; justify-content: center; gap: 40px; padding: 22px 16px">
+    <div class="cell">
+      <svg width="96" height="96" viewBox="0 0 24 24" fill="none" role="img" aria-label="Heart outline"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" stroke="#172C27" stroke-width="1.4" stroke-linejoin="round"></path></svg>
+      <span class="cap">Not saved · ink outline</span>
+    </div>
+    <div class="cell">
+      <svg width="96" height="96" viewBox="0 0 24 24" role="img" aria-label="Heart filled"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" fill="#32743C" stroke="#32743C" stroke-width="1.4" stroke-linejoin="round"></path></svg>
+      <span class="cap">Saved · filled green</span>
+    </div>
+  </div>
+
+  <section class="cardx">
+    <h2 class="h3">In the header · 28 px icon, 48 px tap area</h2>
+    <div class="row" style="justify-content: center; gap: 28px">
+      <div class="cell">
+        <span style="width: 48px; height: 48px; border-radius: 100px; outline: 1.5px dashed #7D9383; display: flex; align-items: center; justify-content: center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" stroke="#172C27" stroke-width="1.8" stroke-linejoin="round"></path></svg></span>
+        <span class="cap">Dashed = tap area</span>
+      </div>
+      <span style="font-size: 13px; line-height: 19px; color: #4F5B54; max-width: 190px">Always outline here. It is a shortcut to Saved listings, not a save state.</span>
+    </div>
+  </section>
+
+  <section class="cardx">
+    <h2 class="h3">On a listing card · 24 px icon in a 48 px white circle</h2>
+    <div class="row" style="justify-content: space-around">
+      <div class="cell"><span class="circ"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" stroke="#172C27" stroke-width="1.8" stroke-linejoin="round"></path></svg></span><span class="cap">Not saved</span></div>
+      <div class="cell"><span class="circ"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" fill="#32743C" stroke="#32743C" stroke-width="1.6" stroke-linejoin="round"></path></svg></span><span class="cap">Saved</span></div>
+      <div class="cell"><span style="width: 76px; height: 64px; border-radius: 12px; background: #3B4A44; display: flex; align-items: center; justify-content: center"><span class="circ"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" stroke="#172C27" stroke-width="1.8" stroke-linejoin="round"></path></svg></span></span><span class="cap">On a dark photo</span></div>
+    </div>
+    <span style="font-size: 12px; line-height: 18px; color: #4F5B54">The white circle keeps it readable on any photo. Labels: “Save rental” / “Saved. Tap to remove”.</span>
+  </section>
+
+  <section class="cardx">
+    <h2 class="h3">Sizes</h2>
+    <div class="row" style="justify-content: space-around; align-items: flex-end">
+      <div class="cell"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" stroke="#172C27" stroke-width="1.8" stroke-linejoin="round"></path></svg><span class="cap">20</span></div>
+      <div class="cell"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" stroke="#172C27" stroke-width="1.8" stroke-linejoin="round"></path></svg><span class="cap">24 · card</span></div>
+      <div class="cell"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" stroke="#172C27" stroke-width="1.8" stroke-linejoin="round"></path></svg><span class="cap">28 · header</span></div>
+      <div class="cell"><svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" fill="#32743C" stroke="#32743C" stroke-width="1.6" stroke-linejoin="round"></path></svg><span class="cap">32</span></div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":411,"height":891}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

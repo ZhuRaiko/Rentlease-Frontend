@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>For You</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#32743C}a:hover{color:#172C27}
+button,input{font-family:Roboto,sans-serif}
+.ib{width:48px;height:48px;border:0;background:transparent;border-radius:100px;display:flex;align-items:center;justify-content:center;position:relative;padding:0}
+.bdg{position:absolute;top:4px;right:2px;min-width:20px;height:20px;border-radius:100px;background:#32743C;color:#FFFFFF;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;box-sizing:border-box}
+.tab{flex:1;height:48px;border:0;background:transparent;font-size:15px;color:#606A63}
+.tab.on{color:#32743C;font-weight:700;box-shadow:inset 0 -3px 0 #32743C}
+.lc{background:#FFFFFF;border:1px solid #DCE5DD;border-radius:20px;overflow:hidden}
+.ph{position:relative;height:190px;background:#DCE5DD}
+.ty{position:absolute;left:12px;top:12px;height:32px;padding:0 12px;border-radius:100px;background:#FFFFFF;color:#172C27;font-size:13px;font-weight:600;display:flex;align-items:center}
+.hb{position:absolute;right:8px;top:8px;width:48px;height:48px;border-radius:100px;border:0;background:#FFFFFF;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 1px 4px rgba(0,0,0,0.16)}
+.rank{position:absolute;left:12px;bottom:12px;height:30px;padding:0 12px;border-radius:100px;background:#172C27;color:#FFFFFF;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px}
+.bd{padding:14px 16px 16px 16px;display:flex;flex-direction:column;gap:8px}
+.pr{font-size:22px;line-height:28px;font-weight:800;color:#172C27}
+.pr span{font-size:13px;font-weight:500;color:#606A63}
+.ti{margin:0;font-size:17px;line-height:23px;font-weight:700}
+.lo{display:flex;gap:6px;align-items:center;font-size:14px;color:#606A63}
+.sp{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.sc{height:40px;padding:0 14px 0 5px;border-radius:100px;border:1px solid #DCE5DD;display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:500;box-sizing:border-box}
+.sc i{width:30px;height:30px;border-radius:100px;background:#EDF8EE;display:flex;align-items:center;justify-content:center}
+.cta{height:48px;border-radius:100px;border:0;background:#EDF8EE;color:#256030;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:4px}
+.why{border-top:1px solid #EEF1EE;margin-top:6px;padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.w{height:28px;padding:0 10px;border-radius:100px;background:#EDF8EE;color:#256030;font-size:12px;font-weight:500;display:inline-flex;align-items:center;gap:5px}
+</style>
+</helmet>
+<div style="width: 411px; height: 891px; box-sizing: border-box; background: #F7F9F5; font-family: Roboto, sans-serif; color: #172C27; position: relative; overflow: hidden">
+  <div style="background: #FFFFFF; padding: 14px 12px 6px 16px; display: flex; align-items: center; gap: 2px">
+    <span style="flex: 1; display: flex; align-items: center; gap: 6px; font-size: 22px; font-weight: 800; color: #1F3A2B">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 11h3v10h14V11h3z" fill="#32743C"></path><rect x="10" y="14" width="4" height="7" fill="#FFFFFF"></rect></svg>RentLease
+    </span>
+    <button class="ib" aria-label="Saved listings"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" stroke="#172C27" stroke-width="1.8" stroke-linejoin="round"></path></svg></button>
+    <button class="ib" aria-label="Notifications, 25 unread"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 1 1 12 0c0 6 2 7.5 2 7.5H4S6 15 6 9zM10 20a2 2 0 0 0 4 0"></path></svg><span class="bdg">25</span></button>
+    <button class="ib" aria-label="Profile"><span style="width: 38px; height: 38px; border-radius: 100px; background: #245A38; color: #FFFFFF; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center">JD</span></button>
+  </div>
+  <div role="tablist" style="display: flex; background: #FFFFFF; border-bottom: 1px solid #DCE5DD">
+    <button class="tab" role="tab" aria-selected="false">Discover</button>
+    <button class="tab on" role="tab" aria-selected="true">For You</button>
+  </div>
+
+  <div style="padding: 18px 16px 0 16px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: flex-end; gap: 12px">
+      <div style="flex: 1">
+        <span style="font-size: 14px; font-weight: 500; color: #32743C">A more personal search</span>
+        <h1 style="margin: 2px 0 0 0; font-size: 26px; line-height: 32px; font-weight: 700">Rentals for you.</h1>
+      </div>
+      <button style="height: 48px; padding: 0 16px 0 12px; border-radius: 100px; border: 1px solid #7D9383; background: #FFFFFF; color: #172C27; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex: none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg>Edit preferences
+      </button>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px">
+      <h2 style="margin: 0; font-size: 18px; line-height: 24px; font-weight: 700">Recommended rentals</h2>
+      <a href="#how" style="min-height: 48px; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; text-decoration: none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#32743C" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.6 9.4a2.5 2.5 0 1 1 3.6 2.2c-.8.5-1.2.9-1.2 1.9M12 16.8v.2"></path></svg>How it works
+      </a>
+    </div>
+    <div style="display: flex; gap: 10px; background: #EEF1EE; border-radius: 14px; padding: 10px 12px; font-size: 12px; line-height: 18px; color: #4F5B54">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4F5B54" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex: none; margin-top: 1px"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8v.5"></path></svg>
+      <span>Recommendations are suggestions, not guarantees. Ranking covers 4 loaded listings. Preferences kept for this session. Recommendations use your selected preferences.</span>
+    </div>
+
+    <article class="lc">
+      <div class="ph">
+        <svg width="100%" height="100%" viewBox="0 0 379 190" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Cover photo placeholder" style="display: block">
+          <rect width="379" height="190" fill="#E9E3D8"></rect><rect y="150" width="379" height="40" fill="#C9D8C4"></rect>
+          <rect x="105" y="40" width="170" height="115" fill="#FFFFFF"></rect><polygon points="95,42 190,8 285,42" fill="#6B5444"></polygon>
+          <rect x="125" y="62" width="34" height="28" fill="#A8C7D8"></rect><rect x="221" y="62" width="34" height="28" fill="#A8C7D8"></rect><rect x="174" y="104" width="32" height="51" fill="#8A6A50"></rect>
+        </svg>
+        <span class="ty">Apartment</span>
+        <button class="hb" aria-label="Saved. Tap to remove" aria-pressed="true"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.4C5.6 16.2 3 12.9 3 9.5 3 6.9 5 5 7.4 5c1.9 0 3.5 1 4.6 2.7C13.1 6 14.7 5 16.6 5 19 5 21 6.9 21 9.5c0 3.4-2.6 6.7-9 10.9z" fill="#32743C" stroke="#32743C" stroke-width="1.6" stroke-linejoin="round"></path></svg></button>
+        <span class="rank"><svg width="12" height="12" viewBox="0 0 24 24" fill="#FFFFFF" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg>Top match</span>
+      </div>
+      <div class="bd">
+        <span class="pr">PHP 22,000 <span>/ month</span></span>
+        <h3 class="ti">Modern Apartment In Imus</h3>
+        <span class="lo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#606A63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>Anabu II-A, Imus</span>
+        <div class="sp">
+          <span class="sc"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#32743C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18V7M3 14h18v4M21 14v-2.5A2.5 2.5 0 0 0 18.5 9H11v5"></path><circle cx="7" cy="11" r="1.6"></circle></svg></i>2 bedrooms</span>
+          <span class="sc"><i><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#32743C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18v2a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5v-2zM6 12V6.5A2.5 2.5 0 0 1 11 6.2"></path></svg></i>1 bathroom</span>
+        </div>
+        <div class="why">
+          <span style="font-size: 12px; font-weight: 600; color: #4F5B54">Why it fits</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px">
+            <span class="w"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#256030" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Preferred city</span>
+            <span class="w"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#256030" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Within your budget</span>
+            <span class="w"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#256030" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Preferred property type</span>
+            <span class="w"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#256030" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Selected amenities</span>
+          </div>
+        </div>
+        <button class="cta">View rental details <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#256030" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg></button>
+      </div>
+    </article>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 72px; background: #E9E9E9; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #606A63">Existing bottom navigation · unchanged</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":411,"height":891}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
