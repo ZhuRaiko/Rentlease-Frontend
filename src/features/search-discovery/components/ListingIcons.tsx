@@ -1,0 +1,52 @@
+import {View} from 'react-native';
+import {colors} from '../../../shared/theme/colors';
+
+/**
+ * Small icons for the listing card, drawn from native Views (the app has no icon library and none may be added). All are decorative: the text
+ * beside each one carries the meaning, so they are hidden from screen readers.
+ */
+const hidden = {accessible: false, importantForAccessibility: 'no-hide-descendants'} as const;
+
+export function PinMark({size = 18, color = colors.textSecondary}: {size?: number; color?: string}) {
+  return <View {...hidden} style={{width: size, height: size, alignItems: 'center', justifyContent: 'center'}}>
+    <View style={{width: size * 0.62, height: size * 0.62, borderRadius: size * 0.31, borderBottomRightRadius: 0, borderWidth: 1.8, borderColor: color, transform: [{rotate: '45deg'}], alignItems: 'center', justifyContent: 'center', marginTop: -size * 0.08}}>
+      <View style={{width: size * 0.18, height: size * 0.18, borderRadius: size * 0.09, backgroundColor: color}} />
+    </View>
+  </View>;
+}
+
+export function BedMark({size = 20, color = colors.primaryAction}: {size?: number; color?: string}) {
+  return <View {...hidden} style={{width: size, height: size, justifyContent: 'flex-end'}}>
+    <View style={{position: 'absolute', left: 0, top: size * 0.12, width: 2, height: size * 0.8, borderRadius: 1, backgroundColor: color}} />
+    <View style={{position: 'absolute', right: 0, bottom: size * 0.08, width: 2, height: size * 0.34, borderRadius: 1, backgroundColor: color}} />
+    <View style={{height: size * 0.34, marginLeft: 2, borderWidth: 1.8, borderColor: color, borderRadius: 3, marginBottom: size * 0.08}} />
+    <View style={{position: 'absolute', left: 4, top: size * 0.34, width: size * 0.26, height: size * 0.18, borderRadius: 2, backgroundColor: color}} />
+  </View>;
+}
+
+export function BathMark({size = 20, color = colors.primaryAction}: {size?: number; color?: string}) {
+  return <View {...hidden} style={{width: size, height: size, justifyContent: 'flex-end', alignItems: 'center'}}>
+    <View style={{position: 'absolute', left: size * 0.16, top: size * 0.14, width: size * 0.34, height: size * 0.34, borderTopLeftRadius: size * 0.17, borderTopWidth: 1.8, borderLeftWidth: 1.8, borderColor: color}} />
+    <View style={{width: size, height: size * 0.36, marginBottom: size * 0.16, borderWidth: 1.8, borderColor: color, borderTopWidth: 1.8, borderBottomLeftRadius: size * 0.3, borderBottomRightRadius: size * 0.3}} />
+  </View>;
+}
+
+export function PhotoMark({size = 40, color = colors.textSecondary}: {size?: number; color?: string}) {
+  return <View {...hidden} style={{width: size, height: size * 0.8, borderWidth: 2, borderColor: color, borderRadius: size * 0.12, overflow: 'hidden', justifyContent: 'flex-end'}}>
+    <View style={{position: 'absolute', top: size * 0.12, left: size * 0.16, width: size * 0.16, height: size * 0.16, borderRadius: size * 0.08, backgroundColor: color}} />
+    <View style={{width: size * 0.5, height: size * 0.3, marginLeft: size * 0.3, backgroundColor: color, borderTopLeftRadius: size * 0.25, borderTopRightRadius: size * 0.25}} />
+  </View>;
+}
+
+export function ArrowRight({size = 12, color = colors.primaryAction}: {size?: number; color?: string}) {
+  return <View {...hidden} style={{width: size * 1.4, height: size * 1.4, alignItems: 'center', justifyContent: 'center'}}>
+    <View style={{width: size, height: size, borderRightWidth: 2, borderTopWidth: 2, borderColor: color, transform: [{rotate: '45deg'}], marginLeft: -size * 0.25}} />
+  </View>;
+}
+
+export function StarMark({size = 14, color = colors.white}: {size?: number; color?: string}) {
+  return <View {...hidden} style={{width: size, height: size, alignItems: 'center', justifyContent: 'center'}}>
+    <View style={{width: size * 0.62, height: size * 0.62, backgroundColor: color, transform: [{rotate: '45deg'}]}} />
+    <View style={{position: 'absolute', width: size * 0.62, height: size * 0.62, backgroundColor: color}} />
+  </View>;
+}

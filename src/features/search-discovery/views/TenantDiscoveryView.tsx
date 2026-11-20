@@ -35,7 +35,7 @@ export function TenantDiscoveryView({avatarUrl,avatarKey='anonymous',notificatio
     </View>
 
  <FlatList data={rows} keyExtractor={row=>row.listingId} style={styles.feedScroll} contentContainerStyle={styles.listContent}
- renderItem={({item})=><View><SearchListingCard discovery listing={item} save={vm.savedControl?.(item.listingId)} onPress={()=>vm.openProperty(item.listingId)}/>{personalized?<Text style={styles.copy}>{r?.recommended.find(row=>row.candidate.listing.listingId===item.listingId)?.reasons.join(' | ')||'Selected property preferences'}</Text>:null}</View>}
+ renderItem={({item})=><View><SearchListingCard listing={item} save={vm.savedControl?.(item.listingId)} onPress={()=>vm.openProperty(item.listingId)}/>{personalized?<Text style={styles.copy}>{r?.recommended.find(row=>row.candidate.listing.listingId===item.listingId)?.reasons.join(' | ')||'Selected property preferences'}</Text>:null}</View>}
  refreshing={personalized?r?.phase==='loading':!!s.refreshing} onRefresh={()=>{if(personalized)void vm.recommendations.load();else if(vm.refreshDiscover)vm.refreshDiscover();else void vm.discover.refresh();}}
  onEndReached={()=>{if(!personalized)void vm.discover.loadMore();}} onEndReachedThreshold={0.4}
  ListHeaderComponent={<View style={styles.searchPad}>

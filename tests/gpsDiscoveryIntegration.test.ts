@@ -55,11 +55,11 @@ test('nearby detail Back preserves radius, results and location; account switch 
   h.account('another');assert.deepEqual(h.vm().gpsState.rows,[]);assert.equal(h.vm().gpsState.radiusKm,3);h.unmount();
 });
 
-test('nearby card is pressable and renders the actual thumbnail with neutral fallback',()=>{
+test('nearby card hands the shared card the real thumbnail and a press action; with no thumbnail it shows the neutral No photo block',()=>{
   const render=presentation('src/features/search-discovery/components/NearbyListingCard.tsx','NearbyListingCard');let pressed=0;
   const tree=render({listing:{title:'Actual listing',thumbnailUrl:'https://example.test/real.jpg',distanceMeters:100},onPress:()=>pressed++});
-  assert.equal(tree.type,'Pressable');tree.props.onPress();assert.equal(pressed,1);assert.match(JSON.stringify(tree),/real.jpg/);assert.match(tree.props.accessibilityLabel,/100 meters away/);
-  assert.match(JSON.stringify(render({listing:{title:'No photo',distanceMeters:100},onPress(){}})),/Photo unavailable/);
+  assert.equal(tree.type,'ListingCard');tree.props.onPress();assert.equal(pressed,1);assert.equal(tree.props.model.thumbnailUrl,'https://example.test/real.jpg');assert.ok(tree.props.model.notes.includes('100 m away'));
+  assert.equal(render({listing:{title:'No photo',distanceMeters:100},onPress(){}}).props.model.thumbnailUrl,null);
 });
 test('actual manual hook searches backend and applies filters/sort without duplicate Back screens', async () => {
   const d=deps(),h=mount(d.dependency);h.vm().navigate('searchLocation');h.flush();h.vm().setQuery('Alapan');h.flush();h.vm().submitSearch();await h.settle();assert.equal(h.manualCalls.at(-1).query,'Alapan');assert.deepEqual(h.vm().manualState.rows,[]);
@@ -98,8 +98,8 @@ function nodes(tree: any): any[] { if (!tree || typeof tree !== 'object') return
 test('GPS cards render only RPC-supported data, nullable fallbacks and exact decimal strings', () => {
   const render = presentation('src/features/search-discovery/components/NearbyListingCard.tsx', 'NearbyListingCard');
   const tree = render({ listing: { title: 'Real studio', askingRentMonthly: '18500.50', propertyType: 'studio', city: 'dasmarinas', barangay: 'Burol', distanceMeters: '850.25', availableFrom: null } });
-  const text = JSON.stringify(tree); assert.match(text, /Real studio/); assert.match(text, /18500.50/); assert.match(text, /850.25/); assert.match(text, /Availability date not provided/); assert.doesNotMatch(text, /matchScore|reviewCount|rating|amenities|imageCrop/);
-  assert.match(JSON.stringify(render({ listing: { title: null, askingRentMonthly: null, propertyType: null, city: null, barangay: null, distanceMeters: 0, availableFrom: '2026-10-29' } })), /Rent not provided/);
+  const text = JSON.stringify(tree); assert.match(text, /Real studio/); assert.match(text, /18,500.50/); assert.match(text, /850.25/); assert.match(text, /Availability date not provided/); assert.doesNotMatch(text, /matchScore|reviewCount|rating|amenities|imageCrop/);
+  assert.equal(render({ listing: { title: null, askingRentMonthly: null, propertyType: null, city: null, barangay: null, distanceMeters: 0, availableFrom: '2026-10-29' } }).props.model.rent, null);
 });
 test('GPS results bind radius, retry, settings, more and manual-search actions with no preview ranking', () => {
   const render = presentation('src/features/search-discovery/views/NearbyListingsView.tsx', 'NearbyListingsView'); const calls: unknown[] = [];

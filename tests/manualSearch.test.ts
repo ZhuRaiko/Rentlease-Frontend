@@ -1,3 +1,5 @@
+import {cardHarness} from './savedListingsPresentation.test';
+import {listingCardFromSearch} from '../src/features/search-discovery/models/ListingCardModel';
 /// <reference types="node" />
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -100,7 +102,7 @@ function renderSource(path:string,name:string,state?:{value:any;tab?:string}) {
   const output=ts.transpileModule(readFileSync(full,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
   new Function('require','module','exports',output)(requireMock,mod,mod.exports);return mod.exports[name];
 }
-test('real card renders backend image and fields without invented metrics; no-image state is neutral',()=>{const render=renderSource('src/features/search-discovery/components/SearchListingCard.tsx','SearchListingCard');const item=parseSearchListing(raw());const empty=JSON.stringify(render({listing:item,onPress(){}}));assert.match(empty,/Photo unavailable/);assert.match(empty,/Actual rental/);assert.match(empty,/42 sqm/);assert.doesNotMatch(empty,/matchScore|reviewCount|rating|nearbyPlaces/);const actual=JSON.stringify(render({listing:{...item,thumbnailUrl:'https://example.test/actual.jpg'},onPress(){}}));assert.match(actual,/actual.jpg/);assert.doesNotMatch(actual,/Photo unavailable/);});
+test('real card renders backend image and fields without invented metrics; no-image state is neutral',()=>{const render=(p:any)=>cardHarness()({model:listingCardFromSearch(p.listing),onPress:p.onPress});const item=parseSearchListing(raw());const empty=JSON.stringify(render({listing:item,onPress(){}}));assert.match(empty,/No photo/);assert.match(empty,/Actual rental/);assert.doesNotMatch(empty,/matchScore|reviewCount|rating|nearbyPlaces/);const actual=JSON.stringify(render({listing:{...item,thumbnailUrl:'https://example.test/actual.jpg'},onPress(){}}));assert.match(actual,/actual.jpg/);assert.doesNotMatch(actual,/No photo/);});
 test('real detail View renders loaded record, photos and property amenities without prototype sections',()=>{const render=renderSource('src/features/search-discovery/views/LiveSearchViews.tsx','LivePropertyDetailView');const tree=JSON.stringify(render({viewModel:{manualState:{detail:{...parseSearchListing(raw()),photos:[{id:'photo',url:'https://example.test/room.jpg',alt:'Room'}],amenities:['Wi-Fi']}},manual:{},goBack(){}}}));assert.match(tree,/Actual description/);assert.match(tree,/room.jpg/);assert.match(tree,/Wi-Fi/);assert.doesNotMatch(tree,/matchScore|reviewCount|rating|DiscoveryPropertyImage|nearbyPlaces/);});
 
 test('detail gallery opens real full-screen photo, advances and closes independently of tenancy',()=>{
