@@ -9,6 +9,7 @@ import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigat
 import {propertyOwnerLabel} from '../../../shared/models/PublicInquiryIdentity';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { gpsProximityDependencies } from '../services/gpsProximityDependencies';
+import { budgetRangeError, preferencesChanged } from '../models/MatchingPreferenceForm';
 import { createGpsProximityWorkflow } from './gpsProximityWorkflow';
 import { manualSearchService } from '../services/manualSearchDependencies';
 import { createManualSearchWorkflow } from './manualSearchWorkflow';
@@ -54,7 +55,7 @@ export function useSearchDiscoveryViewModel(
   const [isCompletingIntroduction, setIsCompletingIntroduction] = useState(false);
   const completionInFlight = useRef(false);
   const suggestedCity = useRef(false);
-  const navigation = useNavigationConfirmation(screen === 'matchingPreferences' && JSON.stringify(matchingPreferences) !== JSON.stringify(savedPreferences.current));
+  const navigation = useNavigationConfirmation(screen === 'matchingPreferences' && preferencesChanged(matchingPreferences, savedPreferences.current));
   const [sortOption, setSortOption] = useState<SortOption>('Recommended');
   const gps = useMemo(() => createGpsProximityWorkflow(gpsProximityDependencies), [options.accountId]);
   const nearbyMapStyle = useMemo(()=>{try{return gpsProximityDependencies.mapStyle?.()??null;}catch{return null;}},[gps]);
@@ -209,7 +210,7 @@ export function useSearchDiscoveryViewModel(
     finally { completionInFlight.current = false; setIsCompletingIntroduction(false); }
   };
   const saveMatchingPreferences = async () => {
-    if (completionInFlight.current) return;
+    if (completionInFlight.current || budgetRangeError(matchingPreferences)) return;
     const preferenceFilters = matchingPreferenceFilters(matchingPreferences);
     savedPreferences.current = matchingPreferences;
     options.onSavePreferences?.(matchingPreferences);
@@ -297,6 +298,7 @@ export function useSearchDiscoveryViewModel(
   return {
     ...navigation,
     introductionPending,
+    matchingBudgetError: budgetRangeError(matchingPreferences),
     closeFromWorkspace,
     skipMatchingIntroduction,
     introductionError,

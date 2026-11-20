@@ -49,7 +49,7 @@ test('Profile retains essential account destinations and marketplace access with
 });
 
 test('Matching Preferences Save and Skip stay outside the scrolling form and retain guarded VM actions', () => {
-  const path = 'src/features/search-discovery/views/DiscoveryFilterView.tsx';
+  const path = 'src/features/search-discovery/views/MatchingPreferencesView.tsx';
   const file = ts.createSourceFile(path, read(path), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const callbacks: ts.JsxAttribute[] = [];
   const visit = (node: ts.Node) => {
@@ -106,10 +106,10 @@ test('shared navigation has wrapping titles and compact visuals with Android tou
 });
 
 test('Matching Preferences copy describes the real behavior: session-only, and used by Discover filters and For You', () => {
-  const screen = read('src/features/search-discovery/views/DiscoveryFilterView.tsx');
+  const screen = read('src/features/search-discovery/views/MatchingPreferencesView.tsx');
   assert.doesNotMatch(screen, /sample listings|not connected/i);
   assert.match(screen, /kept only while the app is open/);
-  assert.match(screen, /Discover filters and your For You recommendations/);
+  assert.match(screen, /Discover filters and For You picks/);
 });
 
 // Guards against a lost character in copy: a "?" inside a string, template text or JSX text that sits mid-word ("property?s"),
