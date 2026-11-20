@@ -13,7 +13,7 @@ export function RankingTabs({tabs, activeId, onSelect}: {tabs: readonly {id: str
     {tabs.map(tab => {
       const active = tab.id === activeId;
       return <Pressable key={tab.id} accessibilityRole="tab" accessibilityState={{selected: active}} onPress={() => onSelect(tab.id)} style={[styles.tab, active && styles.tabActive]}>
-        <Text numberOfLines={1} style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
+        <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{tab.label}</Text>
       </Pressable>;
     })}
   </View>;
@@ -72,10 +72,10 @@ export function RankingList({values, onMove}: {values: readonly string[]; onMove
 }
 
 const styles = StyleSheet.create({
-  tabs: {flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.pill, padding: spacing.xxs},
-  tab: {flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, paddingHorizontal: spacing.xs},
+  tabs: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xxs, backgroundColor: colors.surface, borderRadius: radius.card, padding: spacing.xxs},
+  tab: {flexGrow: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill, paddingHorizontal: spacing.xs},
   tabActive: {backgroundColor: colors.ink},
-  tabLabel: {color: colors.ink, fontFamily: typography.family, fontSize: 14, fontWeight: '500'},
+  tabLabel: {flexShrink: 0, color: colors.ink, fontFamily: typography.family, fontSize: 14, fontWeight: '500'},
   tabLabelActive: {color: colors.white},
   slot: {borderRadius: radius.card},
   slotRule: {borderBottomWidth: 1, borderBottomColor: colors.outline},
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   rowDragging: {backgroundColor: colors.primaryPale},
   number: {width: 28, height: 28, borderRadius: 14, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center'},
   numberText: {color: colors.white, fontFamily: typography.family, fontSize: 13, fontWeight: '700'},
-  label: {flexGrow: 1, flexShrink: 1, flexBasis: 140, minWidth: 0, color: colors.ink, fontFamily: typography.family, fontSize: 15, lineHeight: 21},
+  label: {flexGrow: 1, flexShrink: 1, flexBasis: 140, minWidth: 140, color: colors.ink, fontFamily: typography.family, fontSize: 15, lineHeight: 21},
   controls: {flexDirection: 'row', alignItems: 'center', gap: spacing.xxs, marginLeft: 'auto'},
   handle: {width: 40, height: 48, alignItems: 'center', justifyContent: 'center'},
   arrow: {width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center'},

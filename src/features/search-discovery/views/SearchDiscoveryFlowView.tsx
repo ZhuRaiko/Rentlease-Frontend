@@ -96,7 +96,7 @@ export function SearchDiscoveryFlowView({
     <ScreenContainer includeBottomInset={immersiveMap} padded={false}>
       <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <View style={styles.content}>{content}</View>
-      <NavigationConfirmation visible={viewModel.navigationConfirmation} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
+      <NavigationConfirmation visible={viewModel.navigationConfirmation && viewModel.screen !== 'matchingPreferences'} onCancel={viewModel.cancelNavigation} onConfirm={viewModel.confirmNavigation} />
       {!immersiveMap?<RentLeaseBottomNavigation
         disabled={viewModel.isCompletingIntroduction}
         active={viewModel.screen === 'matchingPreferences' ? null : 'discover'}

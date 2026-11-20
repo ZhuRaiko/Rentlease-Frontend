@@ -12,6 +12,7 @@ export function render(open: string | null, over: Record<string, unknown> = {}, 
   const form = {open, toggle() {}, show() {}, tab: {id: tabField, label: tabField, field: tabField}, setTab() {}};
   const mock = (key: string): any => {
     if (key === 'react/jsx-runtime') { const jsx = (type: any, props: any) => (typeof type === 'function' ? type(props) : {type, props}); return {jsx, jsxs: jsx}; }
+    if (key === 'react') return {useRef: (value: unknown) => ({current: value}), useEffect() {}};
     if (key === 'react-native') return new Proxy({StyleSheet: {create: (x: any) => x}, useWindowDimensions: () => ({width: tight ? 320 : 411, fontScale: tight ? 1.5 : 1}), Platform: {OS: 'android'}}, {get: (x: any, k) => x[k] ?? k});
     if (key.endsWith('/useBottomClearance')) return {useBottomClearance: () => 40};
     if (key.endsWith('/useMatchingPreferencesForm')) return {useMatchingPreferencesForm: () => form};
@@ -65,4 +66,9 @@ test('What matters most: the card shows the ranking of the chosen tab, with the 
     assert.deepEqual(ofType(tree, 'RankingList')[0].props.values, base[field], field);
   }
   assert.deepEqual(ofType(render('matters'), 'RankingTabs')[0].props.tabs.map((t: any) => t.label), ['Factors', 'Unit specs', 'Amenities']);
+});
+
+test('closed summaries use one line, or two on tight layouts so large text does not hide the values', () => {
+  assert.deepEqual(ofType(render('about'), 'PreferenceCard').map(c => c.props.summaryLines), [1, 1, 1]);
+  assert.deepEqual(ofType(render('about', {}, true), 'PreferenceCard').map(c => c.props.summaryLines), [2, 2, 2]);
 });

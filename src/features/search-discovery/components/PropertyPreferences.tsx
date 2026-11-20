@@ -54,9 +54,9 @@ const styles = StyleSheet.create({
   wrap: {flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs},
   specs: {borderWidth: 1, borderColor: colors.outline, borderRadius: radius.card, paddingHorizontal: spacing.sm},
   divider: {height: 1, backgroundColor: colors.outline},
-  row: {flexDirection: 'row', alignItems: 'center', gap: spacing.xs, minHeight: 64},
-  label: {flex: 1, minWidth: 0, color: colors.ink, fontFamily: typography.family, fontSize: 15, lineHeight: 21},
-  controls: {flexDirection: 'row', alignItems: 'center'},
+  row: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: spacing.xs, minHeight: 64, paddingVertical: spacing.xxs},
+  label: {flexGrow: 1, flexShrink: 1, flexBasis: 132, minWidth: 132, color: colors.ink, fontFamily: typography.family, fontSize: 15, lineHeight: 21},
+  controls: {flexDirection: 'row', alignItems: 'center', marginLeft: 'auto'},
   button: {width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center'},
   value: {minWidth: 44, textAlign: 'center', color: colors.ink, fontFamily: typography.family, fontSize: 17, fontWeight: '700'},
 });

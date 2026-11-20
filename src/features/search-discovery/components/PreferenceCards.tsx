@@ -29,7 +29,7 @@ export function AboutFolded({summary, onChange}: {summary: string; onChange: () 
  * Property, Budget and What matters most: a card with a live one-line summary. Closed it shows the summary (and, while About you is the open card,
  * the icon and the Optional tag); open it shows its icon, title, Optional tag and the controls.
  */
-export function PreferenceCard({title, summary, hint, icon, open, roomy, onToggle, children}: {title: string; summary: string; hint?: string; icon: ReactNode; open: boolean; roomy: boolean; onToggle: () => void; children: ReactNode}) {
+export function PreferenceCard({title, summary, summaryLines = 1, hint, icon, open, roomy, onToggle, children}: {title: string; summary: string; /** Lines the closed summary may use before it is cut with an ellipsis; two on tight layouts so large text does not hide the values. */ summaryLines?: number; hint?: string; icon: ReactNode; open: boolean; roomy: boolean; onToggle: () => void; children: ReactNode}) {
   const showIcon = open || roomy;
   return <View style={styles.panel}>
     <Pressable accessibilityLabel={`${title}, optional. ${summary}`} accessibilityRole="button" accessibilityState={{expanded: open}} onPress={onToggle} style={styles.cardHead}>
@@ -39,7 +39,7 @@ export function PreferenceCard({title, summary, hint, icon, open, roomy, onToggl
           <Text style={styles.cardTitle}>{title}</Text>
           {showIcon ? <View style={styles.tag}><Text style={styles.tagText}>Optional</Text></View> : null}
         </View>
-        {open ? (hint ? <Text style={ui.supporting}>{hint}</Text> : null) : <Text numberOfLines={1} ellipsizeMode="tail" style={ui.supporting}>{summary}</Text>}
+        {open ? (hint ? <Text style={ui.supporting}>{hint}</Text> : null) : <Text numberOfLines={summaryLines} ellipsizeMode="tail" style={ui.supporting}>{summary}</Text>}
       </View>
       <Chevron up={open} />
     </Pressable>
@@ -104,10 +104,10 @@ const styles = StyleSheet.create({
   pillLabelMulti: {color: colors.primaryAction, fontWeight: '600'},
   stay: {flexBasis: '48%', flexGrow: 1, minHeight: 60, justifyContent: 'center', gap: spacing.xxs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.card, borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.background},
   stayFull: {flexBasis: '100%'},
-  stayTitle: {color: colors.ink, fontFamily: typography.family, fontSize: 15, lineHeight: 20, fontWeight: '600'},
+  stayTitle: {color: colors.ink, fontFamily: typography.family, fontSize: 15, lineHeight: 20, fontWeight: '700'},
   stayDetail: {lineHeight: 16},
   stayDetailOn: {color: colors.outline},
-  groupTitle: {color: colors.ink, fontFamily: typography.family, fontSize: 15, lineHeight: 22, fontWeight: '600'},
+  groupTitle: {color: colors.ink, fontFamily: typography.family, fontSize: 15, lineHeight: 22, fontWeight: '700'},
   groupNote: {color: colors.textSecondary, fontWeight: '400', fontSize: 13},
   switchRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 64},
   pressed: {opacity: 0.72},

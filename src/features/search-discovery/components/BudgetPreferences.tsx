@@ -29,7 +29,7 @@ function Amount({label, name, value, invalid, onChange}: {label: string; name: s
  * The Budget card: two radio cards. "Estimate it for me" stores budgetMode "estimate"; "I will enter my own" stores "own" and shows the peso fields.
  * The two amounts are the same minimumRent and maximumRent as before, and choosing a mode never changes them.
  */
-export function BudgetPreferences({mode, minimum, maximum, error, onMode, onMinimum, onMaximum}: {mode: BudgetMode; minimum: number; maximum: number; error: string | null; onMode: (mode: BudgetMode) => void; onMinimum: (amount: number) => void; onMaximum: (amount: number) => void}) {
+export function BudgetPreferences({mode, minimum, maximum, error, stacked = false, onMode, onMinimum, onMaximum}: {stacked?: boolean; mode: BudgetMode; minimum: number; maximum: number; error: string | null; onMode: (mode: BudgetMode) => void; onMinimum: (amount: number) => void; onMaximum: (amount: number) => void}) {
   return <View style={styles.stack}>
     <Pressable accessibilityRole="radio" accessibilityState={{selected: mode === 'estimate'}} onPress={() => onMode('estimate')} style={[styles.option, mode === 'estimate' && styles.optionOn]}>
       <Radio on={mode === 'estimate'} />
@@ -43,7 +43,7 @@ export function BudgetPreferences({mode, minimum, maximum, error, onMode, onMini
       {mode === 'own' ? <>
         <View style={styles.amounts}>
           <Amount invalid={!!error} label="From" name="Minimum preferred monthly rent" onChange={onMinimum} value={minimum} />
-          <Text accessible={false} style={styles.dash}>–</Text>
+          {stacked ? null : <Text accessible={false} style={styles.dash}>–</Text>}
           <Amount invalid={!!error} label="To" name="Maximum preferred monthly rent" onChange={onMaximum} value={maximum} />
         </View>
         {error ? <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={styles.error}><AlertMark /><Text style={styles.errorText}>{error}</Text></View> : null}
