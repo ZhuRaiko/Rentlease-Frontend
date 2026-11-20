@@ -28,7 +28,8 @@ test('one info box keeps the same words and the real listing count', () => {
   assert.equal(ranked, `${SUGGESTIONS_NOTE} Ranking covers 4 loaded listings. ${PREFERENCES_SAVED_NOTICE}`);
   assert.match(infoBoxText('ranked', 1, false)!, /Ranking covers 1 loaded listing\./);
   assert.match(infoBoxText('ranked', 100, true)!, /Ranking covers the first 100 recent filtered listings\./);
-  assert.match(infoBoxText('empty', 0, false)!, /Ranking covers 0 loaded listings\./);
+  assert.doesNotMatch(infoBoxText('empty', 0, false)!, /Ranking covers/, 'nothing scanned, nothing to count');
+  assert.match(infoBoxText('empty', 12, false)!, /Ranking covers 12 loaded listings\./);
   for (const state of ['loading', 'error', 'unavailable'] as const) assert.doesNotMatch(infoBoxText(state, 0, false)!, /Ranking covers/, state);
   assert.equal(coverageNote(2, false), 'Ranking covers 2 loaded listings.');
 });

@@ -1,4 +1,4 @@
-import {View} from 'react-native';
+import {Text, View} from 'react-native';
 import {colors} from '../../../shared/theme/colors';
 
 /**
@@ -45,10 +45,7 @@ export function ArrowRight({size = 12, color = colors.primaryAction}: {size?: nu
 }
 
 export function StarMark({size = 14, color = colors.white}: {size?: number; color?: string}) {
-  return <View {...hidden} style={{width: size, height: size, alignItems: 'center', justifyContent: 'center'}}>
-    <View style={{width: size * 0.62, height: size * 0.62, backgroundColor: color, transform: [{rotate: '45deg'}]}} />
-    <View style={{position: 'absolute', width: size * 0.62, height: size * 0.62, backgroundColor: color}} />
-  </View>;
+  return <Text {...hidden} allowFontScaling={false} style={{color, fontSize: size, lineHeight: size + 2}}>{'★'}</Text>;
 }
 
 export function SlidersMark({size = 20, color = colors.ink}: {size?: number; color?: string}) {

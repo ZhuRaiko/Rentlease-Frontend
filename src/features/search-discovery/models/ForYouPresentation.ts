@@ -18,7 +18,7 @@ export const coverageNote = (scanned: number, limited: boolean): string =>
 /** The one info box under "Recommended rentals": the same sentences the separate notices used, with the real count. The coverage sentence appears once a ranking exists. */
 export function infoBoxText(state: ForYouState, scanned: number, limited: boolean): string | null {
   if (state === 'no-preferences') return null;
-  const ranked = state === 'ranked' || state === 'empty';
+  const ranked = (state === 'ranked' || state === 'empty') && (scanned > 0 || limited);
   return [SUGGESTIONS_NOTE, ranked ? coverageNote(scanned, limited) : null, PREFERENCES_SAVED_NOTICE].filter(Boolean).join(' ');
 }
 

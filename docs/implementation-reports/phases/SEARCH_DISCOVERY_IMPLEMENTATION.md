@@ -403,3 +403,7 @@ Validation: 90 focused cases passed, then one new spotlight case plus 26 affecte
 ### November 20, 2026: Matching preferences screen redesign
 
 Rebuilt the Matching preferences screen from `docs/design/matching-preferences/` in five commits on `feature/matching-preferences-redesign`: page structure and summary cards, Property, What matters most (ranking tabs with drag), Budget with range validation, and the discard sheet with the pinned Save. Presentation only; preference state, session-only storage, Discover filters and For You are unchanged. The old section views were replaced; no control or stored option label was removed (the Budget choice labels follow the design). Details and known differences are in `docs/features/SEARCH_DISCOVERY.md`. No backend interaction occurred; the backend ledger is unchanged.
+
+### November 20, 2026: Discover and For You redesign
+
+Five-part change on `feature/discover-foryou-redesign`: the Matching preferences Close now returns to its origin (cause: Close always called the workspace close, which is Profile); one shared listing card with proper property type labels and bedroom/bathroom grammar for Discover, For You, Saved, search results and nearby; For You shows the ranked list directly with one info box, rank labels, per-listing reasons and designed states; the heart icon was skipped because `react-native-svg` is not installed; critique fixes at 320dp/150%. Details and known differences are in `docs/features/SEARCH_DISCOVERY.md`. No backend interaction; the backend ledger is unchanged.
