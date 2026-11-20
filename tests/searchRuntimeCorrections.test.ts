@@ -55,6 +55,7 @@ function presentation(path:string,name:string){const full=resolve(path),actual=c
   if(/\.png$/.test(key))return 1;
   if(key.endsWith('/DiscoveryControls'))return{DiscoveryButton:'DiscoveryButton',DiscoveryHeader:'DiscoveryHeader',DiscoverySearchBar:'DiscoverySearchBar'};
   if(key.endsWith('/SearchListingCard'))return{SearchListingCard:'SearchListingCard'};
+ if(key.endsWith('/ForYouParts'))return{ExplanationBox:'ExplanationBox',ForYouHero:'ForYouHero',ForYouStateCard:'ForYouStateCard',InfoBox:'InfoBox',RecommendedHeading:'RecommendedHeading'};
   if(key.endsWith('/InterfaceIcon'))return{InterfaceIcon:'InterfaceIcon'};
   if(key.endsWith('/DiscoveryIcon'))return{DiscoveryIcon:'DiscoveryIcon'};
   if(key.endsWith('/HeartIcon'))return{HeartIcon:'HeartIcon'};
@@ -83,23 +84,22 @@ function forYou(overrides:Record<string,unknown>,calls:string[]=[]){
   const list=nodes(tree).find(n=>n.type==='FlatList');
   return {tree,list,header:nodes(list.props.ListHeaderComponent),empty:list.props.ListEmptyComponent?nodes(list.props.ListEmptyComponent):[],textOf:(parts:any[])=>JSON.stringify(parts)};
 }
-test('For You lists ranked recommendations in order with their reasons, and has no GPS or fabricated content',()=>{
+test('For You lists ranked recommendations in order with rank labels and their own reasons, and has no GPS or fabricated content',()=>{
   const calls:string[]=[];
-  const recommended=[rankedRow('listing-b',['Within budget','Pet friendly']),rankedRow('listing-a',[])];
+  const recommended=[rankedRow('listing-b',['Within your budget','Selected amenities']),rankedRow('listing-a',[])];
   const {tree,list,header,textOf}=forYou({recommendationState:{phase:'success',recommended,scanned:2,limited:false,error:null}},calls);
   // Ranked results: the list data is the ranking order, unchanged (the view does not re-sort or filter it).
   assert.deepEqual(list.props.data.map((row:any)=>row.listingId),['listing-b','listing-a']);
   assert.equal(list.props.keyExtractor(list.props.data[0]),'listing-b');
-  // Each row renders a listing card plus the reasons the ranking gave, or the fallback line when it gave none.
-  const first=nodes(list.props.renderItem({item:list.props.data[0]}));const second=nodes(list.props.renderItem({item:list.props.data[1]}));
-  assert.ok(first.some(n=>n.type==='SearchListingCard'&&n.props.listing.listingId==='listing-b'));
-  assert.ok(first.some(n=>n.props?.children==='Within budget | Pet friendly'));
-  assert.ok(second.some(n=>n.props?.children==='Selected property preferences'));
-  first.find(n=>n.type==='SearchListingCard').props.onPress();assert.deepEqual(calls,['openProperty:listing-b']);
-  // The For You header: personalized title, section title, edit-preferences action, ranked-results action and the coverage line.
-  const text=textOf(header);assert.match(text,/Rentals for you\./);assert.match(text,/Recommended rentals/);assert.match(text,/Ranking covers 2 loaded listings\./);assert.match(text,/Edit preferences/);
-  calls.length=0;header.find(n=>n.props?.label==='View ranked rentals').props.onPress();header.find(n=>n.props?.children==='Edit preferences'&&n.type==='Text');assert.deepEqual(calls,['openRecommendedResults']);
-  calls.length=0;header.find(n=>n.props?.accessibilityRole==='button'&&nodes(n).some(c=>c.props?.children==='Edit preferences')).props.onPress();assert.deepEqual(calls,['openMatchingPreferences']);
+  // Each row renders the shared card with its rank label and only the reasons the ranking gave THAT listing (none invented when it gave none).
+  const card=(index:number)=>nodes(list.props.renderItem({item:list.props.data[index],index})).find(n=>n.type==='SearchListingCard');
+  assert.equal(card(0).props.listing.listingId,'listing-b');assert.equal(card(0).props.rank,'Top match');assert.deepEqual(card(0).props.fit,['Within your budget','Selected amenities']);
+  assert.equal(card(1).props.rank,'#2');assert.deepEqual(card(1).props.fit,[]);
+  card(0).props.onPress();assert.deepEqual(calls,['openProperty:listing-b']);
+  // The For You header: the hero with the edit action, the section heading and ONE info box with the real count; no View ranked rentals button.
+  const text=textOf(header);assert.match(text,/Ranking covers 2 loaded listings\./);assert.doesNotMatch(text,/View ranked rentals/);
+  assert.equal(header.filter(n=>n.type==='InfoBox').length,1);assert.ok(header.some(n=>n.type==='RecommendedHeading'));
+  calls.length=0;const hero=header.find(n=>n.type==='ForYouHero');assert.equal(hero.props.editLabel,'Edit preferences');hero.props.onEdit();assert.deepEqual(calls,['openMatchingPreferences']);
   // No community placeholder, no fabricated scores or reviews, and nothing read from or sent to GPS.
   assert.doesNotMatch(JSON.stringify(tree)+text,/No community posts yet|RentLease community|Recommendations are not available yet|matchScore|reviewCount|previewDiscovery|gpsState|latitude|longitude/);
   assert.ok(!header.some(n=>n.props?.accessibilityLabel==='Nearby rentals'),'For You must not offer the GPS action');
@@ -147,10 +147,10 @@ test('For You empty states fill the screen as a scrollable list and tell the use
   // Pull to refresh reloads the recommendations (not Discover) while For You is open.
   const calls:string[]=[];forYou({recommendationState:idleState},calls).list.props.onRefresh();assert.deepEqual(calls,['recommendations.load']);
   // No saved preferences: the header invites setting them and the list body is empty, with no "no matches" claim.
-  const prefsText=noPreferences.textOf(noPreferences.header);assert.match(prefsText,/Set matching preferences/);assert.match(prefsText,/Save matching preferences to find rentals based on what matters to you\./);
+  const prefsText=noPreferences.textOf(noPreferences.header);assert.equal(noPreferences.header.find(n=>n.type==='ForYouHero').props.editLabel,'Set matching preferences');assert.match(prefsText,/Save matching preferences to find rentals based on what matters to you\./);
   assert.equal(noPreferences.list.props.ListEmptyComponent,null);assert.doesNotMatch(prefsText,/No matching rentals yet|View ranked rentals/);
   const setCalls:string[]=[];const setter=forYou({hasRecommendationPreferences:false,recommendationState:idleState},setCalls);
-  setter.header.find(n=>n.props?.accessibilityRole==='button'&&nodes(n).some(c=>c.props?.children==='Set matching preferences')).props.onPress();assert.deepEqual(setCalls,['openMatchingPreferences']);
+  setter.header.find(n=>n.type==='ForYouHero').props.onEdit();assert.deepEqual(setCalls,['openMatchingPreferences']);
   // Preferences saved and a finished search with no results: the empty component explains and says how to change it.
   const empty=forYou({recommendationState:{...idleState,phase:'success'}});
   const emptyText=empty.textOf(empty.empty);assert.match(emptyText,/No matching rentals yet/);assert.match(emptyText,/Try changing your preferences or filters\./);
@@ -161,6 +161,19 @@ test('For You empty states fill the screen as a scrollable list and tell the use
   assert.ok(nodes(empty.tree).some(n=>n.props?.children==='For You'));
 });
 
+test('For You unavailable and error states use the state card, with an action that does what it says',()=>{
+  const calls:string[]=[];
+  const unavailable=forYou({recommendationState:{...idleState,phase:'unavailable'}},calls);
+  const card=unavailable.header.find(n=>n.type==='ForYouStateCard');
+  assert.match(card.props.body,/Choose a supported location, budget, property type/);assert.equal(card.props.actionLabel,'Edit preferences');card.props.onAction();assert.deepEqual(calls,['openMatchingPreferences']);
+  assert.equal(unavailable.list.props.ListEmptyComponent,null);
+  calls.length=0;
+  const failed=forYou({recommendationState:{...idleState,phase:'error',error:'Recommendations could not load. Please retry.'}},calls);
+  const errorCard=failed.header.find(n=>n.type==='ForYouStateCard');
+  assert.equal(errorCard.props.alert,true);assert.equal(errorCard.props.body,'Recommendations could not load. Please retry.');assert.equal(errorCard.props.actionLabel,'Retry recommendations');errorCard.props.onAction();assert.deepEqual(calls,['recommendations.load']);
+  const emptyCard=nodes(forYou({recommendationState:{...idleState,phase:'success'}}).list.props.ListEmptyComponent).find(n=>n.type==='ForYouStateCard');
+  assert.equal(emptyCard.props.title,'No matching rentals yet');assert.equal(emptyCard.props.actionLabel,'Edit preferences');
+});
 test('Available Locations does not call an unknown error a verified network failure',()=>{
  assert.equal(searchDiagnostic('available_locations',{code:'',message:'unspecified'}).classification,'unknown');assert.equal(searchDiagnostic('available_locations',{code:'42703',message:'private SQL'}).classification,'query');assert.equal(searchDiagnostic('available_locations',{message:'TypeError: Network request failed'}).classification,'network');assert.equal(searchDiagnostic('available_locations',{message:'TypeError: Failed to fetch'}).classification,'network');
 });

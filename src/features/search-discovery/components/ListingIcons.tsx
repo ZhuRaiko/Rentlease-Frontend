@@ -50,3 +50,28 @@ export function StarMark({size = 14, color = colors.white}: {size?: number; colo
     <View style={{position: 'absolute', width: size * 0.62, height: size * 0.62, backgroundColor: color}} />
   </View>;
 }
+
+export function SlidersMark({size = 20, color = colors.ink}: {size?: number; color?: string}) {
+  const row = (knob: number) => <View style={{height: 8, justifyContent: 'center'}}>
+    <View style={{height: 2, borderRadius: 1, backgroundColor: color}} />
+    <View style={{position: 'absolute', left: size * knob, width: 8, height: 8, borderRadius: 4, borderWidth: 2, borderColor: color, backgroundColor: colors.background}} />
+  </View>;
+  return <View {...hidden} style={{width: size, height: size, justifyContent: 'center', gap: size * 0.2}}>{row(0.55)}{row(0.15)}</View>;
+}
+
+/** A ring with a mark inside: a question mark's stem and dot (help), or an "i" (information). */
+export function RingMark({kind, size = 20, color = colors.primaryAction}: {kind: 'help' | 'info'; size?: number; color?: string}) {
+  return <View {...hidden} style={{width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: color, alignItems: 'center', justifyContent: 'center'}}>
+    <View style={{width: 2, height: size * 0.3, borderRadius: 1, backgroundColor: color, marginTop: kind === 'info' ? size * 0.14 : 0}} />
+    <View style={{position: 'absolute', top: kind === 'info' ? size * 0.16 : undefined, bottom: kind === 'help' ? size * 0.16 : undefined, width: 2.4, height: 2.4, borderRadius: 1.2, backgroundColor: color}} />
+  </View>;
+}
+
+export function SearchOffMark({size = 36, color = colors.primaryAction}: {size?: number; color?: string}) {
+  return <View {...hidden} style={{width: size, height: size, alignItems: 'center', justifyContent: 'center'}}>
+    <View style={{width: size * 0.62, height: size * 0.62, borderRadius: size * 0.31, borderWidth: 2.5, borderColor: color, alignItems: 'center', justifyContent: 'center', marginRight: size * 0.08, marginBottom: size * 0.08}}>
+      <View style={{width: size * 0.26, height: 2.5, borderRadius: 1, backgroundColor: color}} />
+    </View>
+    <View style={{position: 'absolute', right: size * 0.1, bottom: size * 0.16, width: size * 0.26, height: 2.5, borderRadius: 1, backgroundColor: color, transform: [{rotate: '45deg'}]}} />
+  </View>;
+}

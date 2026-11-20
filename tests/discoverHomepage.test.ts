@@ -24,6 +24,7 @@ function renderHome(info={value:false}){const full=resolve('src/features/search-
  if(key.endsWith('/DiscoveryControls'))return{DiscoveryButton:'DiscoveryButton',DiscoveryHeader:'DiscoveryHeader',DiscoverySearchBar:'DiscoverySearchBar'};
  if(key.endsWith('/SaveListingButton'))return{SavedListingsFeedback:'SavedListingsFeedback'};
  if(key.endsWith('/SearchListingCard'))return{SearchListingCard:'SearchListingCard'};
+ if(key.endsWith('/ForYouParts'))return{ExplanationBox:'ExplanationBox',ForYouHero:'ForYouHero',ForYouStateCard:'ForYouStateCard',InfoBox:'InfoBox',RecommendedHeading:'RecommendedHeading'};
  if(key.endsWith('/HeartIcon'))return{HeartIcon:'HeartIcon'};
  if(key.endsWith('/DiscoveryIcon'))return{DiscoveryIcon:'DiscoveryIcon'};
  if(key.endsWith('/InterfaceIcon'))return{InterfaceIcon:'InterfaceIcon'};
@@ -57,7 +58,7 @@ test('For You owns real recommendations and Discover retains its rental feed',()
  let list=nodes(render({viewModel:vm})).find(n=>n.type==='FlatList');assert.equal(list.props.data[0],listing);assert.doesNotMatch(JSON.stringify(list.props.ListHeaderComponent),/80%|Recommended rentals/);
  list=nodes(render({viewModel:{...vm,homeTab:'forYou'}})).find(n=>n.type==='FlatList');assert.equal(list.props.data.length,3);const card=nodes(list.props.renderItem({item:list.props.data[0]})).find(n=>n.type==='SearchListingCard');card.props.onPress();assert.deepEqual(opened,['7']);assert.doesNotMatch(JSON.stringify(list.props.ListHeaderComponent),/80%|guarantee property/);
 });
-test('without saved preferences only the compact entry opens the existing editor',()=>{const render=renderHome();let opened=0;const vm={screen:'home',homeTab:'forYou',discoverState:{phase:'success',rows:[]},hasRecommendationPreferences:false,openMatchingPreferences(){opened++;},discover:{}};const list=nodes(render({viewModel:vm})).find(n=>n.type==='FlatList'),header=nodes(list.props.ListHeaderComponent);const entry=header.find(n=>n.props?.onPress===vm.openMatchingPreferences);assert.equal(nodes(entry).find(n=>n.type==='Text').props.children,'Set matching preferences');entry.props.onPress();assert.equal(opened,1);assert.ok(!header.some(n=>n.type==='ScrollView'&&n.props.horizontal));assert.doesNotMatch(JSON.stringify(header),/Save and show matches|DiscoverPreferenceSetup/);});
+test('without saved preferences only the compact entry opens the existing editor',()=>{const render=renderHome();let opened=0;const vm={screen:'home',homeTab:'forYou',discoverState:{phase:'success',rows:[]},hasRecommendationPreferences:false,openMatchingPreferences(){opened++;},discover:{}};const list=nodes(render({viewModel:vm})).find(n=>n.type==='FlatList'),header=nodes(list.props.ListHeaderComponent);const entry=header.find(n=>n.type==='ForYouHero');assert.equal(entry.props.editLabel,'Set matching preferences');entry.props.onEdit();assert.equal(opened,1);assert.ok(!header.some(n=>n.type==='ScrollView'&&n.props.horizontal));assert.doesNotMatch(JSON.stringify(header),/Save and show matches|DiscoverPreferenceSetup/);});
 
 
 test('Saved Listings has a dedicated route without changing marketplace navigation',()=>{
@@ -102,7 +103,7 @@ test('Discovery header uses the supplied account avatar and retains Profile acti
 
 test('How it works is contextual to For You and preserves actual 80/10/10 disclosure',()=>{
  const info={value:false},render=renderHome(info),vm:any={screen:'home',homeTab:'forYou',hasRecommendationPreferences:false,discoverState:{rows:[]},discover:{},openMatchingPreferences(){}};
- let list=nodes(render({viewModel:vm})).find(n=>n.type==='FlatList');const action=nodes(list.props.ListHeaderComponent).find(n=>n.props?.accessibilityLabel==='How recommendations work');assert.equal(action.props.accessibilityState.expanded,false);action.props.onPress();
+ let list=nodes(render({viewModel:vm})).find(n=>n.type==='FlatList');const action=nodes(list.props.ListHeaderComponent).find(n=>n.type==='RecommendedHeading');assert.equal(action.props.expanded,false);action.props.onToggle();
  list=nodes(render({viewModel:vm})).find(n=>n.type==='FlatList');assert.match(JSON.stringify(list.props.ListHeaderComponent),/80%.*10%.*10%/);assert.match(JSON.stringify(list.props.ListHeaderComponent),/does not guarantee property ownership or safety/);
 });
 test('confirmed save toast overlays Discovery while unknown actions retain actionable errors',()=>{

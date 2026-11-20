@@ -9,6 +9,7 @@ import { useNavigationConfirmation } from '../../../shared/viewModels/useNavigat
 import {propertyOwnerLabel} from '../../../shared/models/PublicInquiryIdentity';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { gpsProximityDependencies } from '../services/gpsProximityDependencies';
+import { PREFERENCES_SAVED_NOTICE } from '../models/ForYouPresentation';
 import { budgetRangeError, preferencesChanged, preferencesExit, type PreferencesOrigin } from '../models/MatchingPreferenceForm';
 import { createGpsProximityWorkflow } from './gpsProximityWorkflow';
 import { manualSearchService } from '../services/manualSearchDependencies';
@@ -219,7 +220,7 @@ export function useSearchDiscoveryViewModel(
     if (!await finishIntroduction()) return;
     setFilters(preferenceFilters); setQuery(''); setScreen('home'); setHistory([]); setPreferencesOrigin('discover');
     setCommittedPreferences({owner:options.accountId,value:matchingPreferences});
-    setNotice('Preferences kept for this session. Recommendations use your selected preferences.');
+    setNotice(PREFERENCES_SAVED_NOTICE);
   };
   const skipMatchingIntroduction = async () => {
     if (!await finishIntroduction()) return;

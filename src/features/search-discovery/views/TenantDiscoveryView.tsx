@@ -10,7 +10,9 @@ import {typography} from '../../../shared/theme/typography';
 import {DiscoveryButton,DiscoveryHeader,DiscoverySearchBar} from '../components/DiscoveryControls';
 import {DiscoveryIcon} from '../components/DiscoveryIcon';
 import {SavedListingsFeedback} from '../components/SaveListingButton';
+import {ExplanationBox,ForYouHero,ForYouStateCard,InfoBox,RecommendedHeading} from '../components/ForYouParts';
 import {SearchListingCard} from '../components/SearchListingCard';
+import {forYouState,infoBoxText,PREFERENCES_SAVED_NOTICE,rankLabel} from '../models/ForYouPresentation';
 import type {SearchDiscoveryViewModel} from '../viewModels/useSearchDiscoveryViewModel';
 const rentLeaseHome=require('../../../assets/authentication/rentlease-home.png');
 interface TenantDiscoveryViewProps {avatarUrl?:string|null|undefined;avatarKey?:string;notificationUnread?:number|null;viewModel:SearchDiscoveryViewModel;onClose:()=>void;onOpenNotifications:()=>void}
@@ -20,6 +22,7 @@ export function TenantDiscoveryView({avatarUrl,avatarKey='anonymous',notificatio
  const viewModel=vm,personalized=vm.homeTab==='forYou',s=vm.discoverState,r=vm.recommendationState;
  const rows=personalized?(r?.recommended??[]).map(row=>row.candidate.listing):(vm.discoverRows??s.rows);
  const loading=personalized?vm.hasRecommendationPreferences&&(r?.phase==='idle'||r?.phase==='loading'):s.phase==='idle'||s.phase==='loading';
+ const forYou=forYouState(vm.hasRecommendationPreferences,r?.phase,rows.length),infoText=personalized?infoBoxText(forYou,r?.scanned??0,!!r?.limited):null;
  return <View style={styles.screen}>
     <View style={styles.feedHeader}>
       <View style={styles.wordmark}><Text accessibilityRole="header" adjustsFontSizeToFit maxFontSizeMultiplier={1.2} minimumFontScale={0.75} numberOfLines={1} style={styles.wordmarkText}>RentLease</Text><Image resizeMode="contain" source={rentLeaseHome} style={styles.wordmarkIcon}/></View>
@@ -35,19 +38,20 @@ export function TenantDiscoveryView({avatarUrl,avatarKey='anonymous',notificatio
     </View>
 
  <FlatList data={rows} keyExtractor={row=>row.listingId} style={styles.feedScroll} contentContainerStyle={styles.listContent}
- renderItem={({item})=><View><SearchListingCard listing={item} save={vm.savedControl?.(item.listingId)} onPress={()=>vm.openProperty(item.listingId)}/>{personalized?<Text style={styles.copy}>{r?.recommended.find(row=>row.candidate.listing.listingId===item.listingId)?.reasons.join(' | ')||'Selected property preferences'}</Text>:null}</View>}
+ renderItem={({item,index})=><SearchListingCard listing={item} save={vm.savedControl?.(item.listingId)} onPress={()=>vm.openProperty(item.listingId)} rank={personalized?rankLabel(index):undefined} fit={personalized?r?.recommended[index]?.reasons:undefined}/>}
  refreshing={personalized?r?.phase==='loading':!!s.refreshing} onRefresh={()=>{if(personalized)void vm.recommendations.load();else if(vm.refreshDiscover)vm.refreshDiscover();else void vm.discover.refresh();}}
  onEndReached={()=>{if(!personalized)void vm.discover.loadMore();}} onEndReachedThreshold={0.4}
  ListHeaderComponent={<View style={styles.searchPad}>
- <View style={styles.hero}><Text style={styles.eyebrow}>{personalized?'A more personal search':'Find your next place'}</Text><Text accessibilityRole="header" style={styles.headline}>{personalized?'Rentals for you.':'A home that fits your everyday.'}</Text></View>
+ {!personalized?<View style={styles.hero}><Text style={styles.eyebrow}>Find your next place</Text><Text accessibilityRole="header" style={styles.headline}>A home that fits your everyday.</Text></View>:null}
  {personalized?<>
-  <Pressable accessibilityRole="button" onPress={vm.openMatchingPreferences} style={styles.preferenceAction}><Text style={styles.preferenceText}>{vm.hasRecommendationPreferences?'Edit preferences':'Set matching preferences'}</Text></Pressable>
-  <View style={styles.headingRow}><Text accessibilityRole="header" style={styles.sectionTitle}>Recommended rentals</Text><Pressable accessibilityRole="button" accessibilityLabel="How recommendations work" accessibilityState={{expanded:matchingInfo}} onPress={()=>setMatchingInfo(!matchingInfo)} style={styles.infoAction}><Text style={styles.preferenceText}>How it works</Text></Pressable></View>
-  {matchingInfo?<View style={styles.explanation}><Text style={styles.copy}>Recommended ordering uses your preferences (80%), confirmed owner Tier 2 identity verification (10%), and listing completeness (10%). Listings without confirmed verification remain eligible. Verification does not guarantee property ownership or safety.</Text><Text style={styles.copy}>Based on saved preferences and current filters, within a limited pool of recent listings. Not a price prediction. Unknown owner verification earns no bonus.</Text></View>:null}
-  <Text style={styles.copy}>{vm.hasRecommendationPreferences?'Recommendations are suggestions, not guarantees.':'Save matching preferences to find rentals based on what matters to you.'}</Text>
-  {r?.phase==='success'&&vm.hasRecommendationPreferences?<><Text style={styles.copy}>{r.limited?'Ranking covers the first 100 recent filtered listings.':`Ranking covers ${r.scanned} loaded listings.`}</Text><DiscoveryButton label="View ranked rentals" tone="outline" onPress={vm.openRecommendedResults}/></>:null}
-  {r?.phase==='unavailable'?<Text style={styles.copy}>Choose a supported location, budget, property type, room count, furnishing, or amenity preference to enable ranking.</Text>:null}
-  {r?.error?<View><Text accessibilityRole="alert" style={styles.error}>{r.error}</Text><DiscoveryButton label="Retry recommendations" tone="outline" onPress={()=>void vm.recommendations.load()}/></View>:null}
+  <ForYouHero editLabel={vm.hasRecommendationPreferences?'Edit preferences':'Set matching preferences'} onEdit={vm.openMatchingPreferences}/>
+  <RecommendedHeading expanded={matchingInfo} onToggle={()=>setMatchingInfo(!matchingInfo)}/>
+  {matchingInfo?<ExplanationBox><Text style={styles.copy}>Recommended ordering uses your preferences (80%), confirmed owner Tier 2 identity verification (10%), and listing completeness (10%). Listings without confirmed verification remain eligible. Verification does not guarantee property ownership or safety.</Text><Text style={styles.copy}>Based on saved preferences and current filters, within a limited pool of recent listings. Not a price prediction. Unknown owner verification earns no bonus.</Text></ExplanationBox>:null}
+  {infoText?<InfoBox text={infoText}/>:null}
+  {forYou==='no-preferences'?<ForYouStateCard kind="info" body="Save matching preferences to find rentals based on what matters to you."/>:null}
+  {forYou==='unavailable'?<ForYouStateCard kind="info" body="Choose a supported location, budget, property type, room count, furnishing, or amenity preference to enable ranking." actionLabel="Edit preferences" onAction={vm.openMatchingPreferences}/>:null}
+  {forYou==='error'?<ForYouStateCard alert kind="info" body={r?.error??'Recommendations could not load. Please retry.'} actionLabel="Retry recommendations" onAction={()=>void vm.recommendations.load()}/>:null}
+  {forYou==='loading'?<ForYouStateCard kind="loading" body="Finding matching rentals..."/>:null}
  </>:<>
   <DiscoverySearchBar value="" onChangeText={vm.setQuery} onFocus={()=>vm.navigate('searchLocation')} onSubmit={()=>vm.navigate('searchLocation')} placeholder="Search a city or barangay"/>
   <Pressable accessibilityRole="button" accessibilityLabel="Nearby rentals" onPress={vm.requestCurrentLocation} style={styles.nearbyAction}><DiscoveryIcon name="location" color={colors.primaryAction} size={20}/><Text style={styles.nearbyLabel}>Explore nearby rentals</Text><Text style={styles.preferenceText}>Use my location</Text></Pressable>
@@ -55,10 +59,10 @@ export function TenantDiscoveryView({avatarUrl,avatarKey='anonymous',notificatio
   {s.error?<View accessibilityRole="alert"><Text style={styles.error}>{s.error}</Text><DiscoveryButton label="Retry listings" tone="outline" disabled={s.refreshing||s.more} onPress={()=>void vm.discover.retry()}/></View>:null}
  </>}
  {vm.savedState?.error?<SavedListingsFeedback error={vm.savedState.error} notice={null} pending={!!vm.savedState.pending} busy={!!vm.savedState.working} onRetry={vm.savedRetry}/>:null}
- {vm.notice?<Text style={styles.feedNotice}>{vm.notice}</Text>:null}
- {loading?<View style={styles.loading}><ActivityIndicator accessibilityLabel={personalized?'Loading recommendations':'Loading rentals'} color={colors.primaryAction}/><Text style={styles.copy}>{personalized?'Finding matching rentals...':'Loading rentals...'}</Text></View>:null}
+ {vm.notice&&!(personalized&&vm.notice===PREFERENCES_SAVED_NOTICE)?<Text style={styles.feedNotice}>{vm.notice}</Text>:null}
+ {loading&&!personalized?<View style={styles.loading}><ActivityIndicator accessibilityLabel={personalized?'Loading recommendations':'Loading rentals'} color={colors.primaryAction}/><Text style={styles.copy}>{personalized?'Finding matching rentals...':'Loading rentals...'}</Text></View>:null}
  </View>}
- ListEmptyComponent={personalized?r?.phase==='success'&&vm.hasRecommendationPreferences?<View style={styles.empty}><Text style={styles.sectionTitle}>No matching rentals yet</Text><Text style={styles.copy}>Try changing your preferences or filters.</Text></View>:null:s.phase==='success'&&!s.refreshing&&!s.error?<View style={styles.empty}><Text style={styles.sectionTitle}>No available rentals yet.</Text><Text style={styles.copy}>Published rentals will appear here when they are available.</Text></View>:null}
+ ListEmptyComponent={personalized?forYou==='empty'?<ForYouStateCard kind="search" title="No matching rentals yet" body="Try changing your preferences or filters." actionLabel="Edit preferences" onAction={vm.openMatchingPreferences}/>:null:s.phase==='success'&&!s.refreshing&&!s.error?<View style={styles.empty}><Text style={styles.sectionTitle}>No available rentals yet.</Text><Text style={styles.copy}>Published rentals will appear here when they are available.</Text></View>:null}
  ListFooterComponent={<View style={styles.loading}>{!personalized?(s.more?<ActivityIndicator accessibilityLabel="Loading more rentals" color={colors.primaryAction}/>:s.hasMore&&!s.error?<DiscoveryButton label="Load more rentals" tone="outline" disabled={s.refreshing} onPress={()=>void vm.discover.loadMore()}/>:null):null}</View>}/>
  {vm.saveToast?<View pointerEvents="none" accessibilityLiveRegion="polite" style={styles.toast}><Text style={styles.toastText}>{vm.saveToast}</Text></View>:null}
  </View>;
