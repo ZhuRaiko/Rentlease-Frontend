@@ -9,4 +9,5 @@ import { ui } from '../theme/ui';
 export function HighlightedText({ segments, style }: { segments: readonly { text: string; marked: boolean }[]; style?: StyleProp<TextStyle> }) {
   return <Text style={[ui.body, style]}>{segments.map((part, index) => part.marked ? <Text key={index} style={styles.marked}>{part.text}</Text> : part.text)}</Text>;
 }
-const styles = StyleSheet.create({ marked: { fontWeight: '700', color: colors.ink, backgroundColor: colors.primaryPale } });
+// Amber (the review stars' orange) so the matched words stand out on the white review card; ink on it is about 7:1. Bold as well, so the mark never relies on colour alone.
+const styles = StyleSheet.create({ marked: { fontWeight: '700', color: colors.ink, backgroundColor: colors.reviewOrange } });
