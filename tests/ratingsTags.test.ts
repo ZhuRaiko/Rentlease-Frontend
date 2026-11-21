@@ -218,9 +218,10 @@ const nodes = (t: any) => flat(t).filter(n => typeof n === 'object');
 const text = (t: any) => flat(t).filter(n => typeof n === 'string').join('|');
 const styleOf = (n: any) => Object.assign({}, ...[n.props?.style].flat(Infinity).filter(Boolean));
 const idle = { busy: false, saving: false, ready: true, pending: null, error: null, notice: null, offset: 0, workflow: {} };
+const HIDDEN_CLOUD = { view: { kind: 'hidden' }, chips: [], matching: [], selected: null, highlight: () => null, select() {}, retry() {}, workflow: {} };
 const section = (summaryValue: ReviewSummary | null, rows: any[], over: { summary?: object; rows?: object; cloud?: object } = {}, preset: any[] = []) => harness(scope => scope.mode === 'summary'
   ? { ...idle, data: summaryValue ? { type: 'summary', value: summaryValue } : null, ...over.summary }
-  : scope.mode === 'cloud' ? { status: 'success', error: null, cloud: null, corpus: null, selected: null, workflow: {}, ...over.cloud }
+  : scope.mode === 'cloud' ? { ...HIDDEN_CLOUD, ...over.cloud }
   : { ...idle, data: { type: 'public', value: { kind: 'property', targetId: PROP, count: summaryValue?.count ?? 0, average: summaryValue?.average ?? null, rows } }, ...over.rows }, preset)
   .render('src/shared/components/RentalFeedbackSection.tsx', 'RentalFeedbackSection', { accountId: TENANT, propertyId: PROP });
 const approvedRow = (n: number, over: object = {}) => parsePublishedReviews({ kind: 'property', targetId: PROP, count: 1, average: 4, rows: [row({ id: U(100 + n), status: 'approved', reviewerRole: 'tenant', ...over })] }, 'property', PROP).rows[0]!;
@@ -249,12 +250,12 @@ test('listing ratings: only the first three reviews show, then "See all N review
   const expanded = text(section(parseReviewSummary(summary(), 'property', PROP), rows, {}, [ 'Reviews', true ]));
   assert.ok(expanded.includes('Review 5'));
 });
-test('listing ratings, Themes: the tag cloud comes from the summary counts alone; the free-text word cloud is not part of the screen', () => {
+test('listing ratings, Themes: the tag cloud comes from the summary counts alone; the free-text word cloud is a separate addition', () => {
   const seen: string[] = [];
-  const tree = harness(scope => { seen.push(scope.mode); return scope.mode === 'summary' ? { ...idle, data: { type: 'summary', value: parseReviewSummary(summary(), 'property', PROP) } } : { ...idle, data: { type: 'public', value: { kind: 'property', targetId: PROP, count: 18, average: 4.6, rows: [] } } }; })
+  const tree = harness(scope => { seen.push(scope.mode); return scope.mode === 'cloud' ? HIDDEN_CLOUD : scope.mode === 'summary' ? { ...idle, data: { type: 'summary', value: parseReviewSummary(summary(), 'property', PROP) } } : { ...idle, data: { type: 'public', value: { kind: 'property', targetId: PROP, count: 18, average: 4.6, rows: [] } } }; })
     .render('src/shared/components/RentalFeedbackSection.tsx', 'RentalFeedbackSection', { accountId: TENANT, propertyId: PROP }), t = text(tree);
   assert.ok(t.includes('What tenants mention') && t.includes('Clean') && t.includes('Good wifi'));
-  assert.ok(!seen.includes('cloud'), 'the word-cloud service is never asked');
+  assert.ok(seen.includes('cloud'), 'the section asks the word cloud view model (it loads once, and only when there are reviews)');
   assert.doesNotMatch(t, /Refresh review themes|Not available right now|Frequently mentioned/);
   const word = (label: string) => styleOf(nodes(tree).find(n => n.type === 'Text' && flat(n.props.children).includes(label)));
   assert.ok(word('Clean').fontSize > word('Good wifi').fontSize, 'a word used by more reviews is bigger (12 vs 9)');

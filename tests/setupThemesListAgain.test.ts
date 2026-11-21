@@ -124,7 +124,7 @@ test('the old wording is gone: no "Refresh setup status", "Create a new listing"
   for(const phrase of ['Refresh setup status','Create a new listing','Owner: confirmed','Propose tenancy','No payment processing, billing ledger'])
     assert.deepEqual(files.filter(f=>readFileSync(f,'utf8').includes(phrase)),[],phrase);
   assert.deepEqual(files.filter(f=>readFileSync(f,'utf8').includes('Refresh review themes')&&!f.endsWith('PropertyReviewWordCloud.tsx')),[]);
-  const section=readFileSync('src/shared/components/RentalFeedbackSection.tsx','utf8');assert.ok(!/<PropertyReviewWordCloud/.test(section)&&!section.includes("from './PropertyReviewWordCloud'"),'the section no longer renders the word cloud');
+  const section=readFileSync('src/shared/components/RentalFeedbackSection.tsx','utf8');assert.ok(/<ReviewWordCloudCard/.test(section)&&!section.includes('PropertyReviewWordCloud'),'the section renders the word cloud card (the old component is gone)');
 });
 
 // ---------------------------------------------------------------- hooks: the same hooks on every render
@@ -207,7 +207,8 @@ test('Themes section: loading, then tabs, then reviews only, then an empty secti
   const FILE='src/shared/components/RentalFeedbackSection.tsx';
   let summary:any=null,failed=false;
   const idle={busy:false,saving:false,ready:true,pending:null,offset:0,notice:null,workflow:{}};
-  const h=harness({useRentalReviews:count=>({useRentalReviews:(_a:any,scope:any)=>{count();return scope.mode==='summary'?{...idle,busy:!summary&&!failed,error:failed?'x':null,data:summary?{type:'summary',value:summary}:null}:{...idle,error:null,data:{type:'public',value:{kind:'property',targetId:U(50),count:4,average:4.5,rows:[]}}};}})});
+  const cloudVm={view:{kind:'hidden'},chips:[],matching:[],selected:null,highlight:()=>null,select(){},retry(){},workflow:{}};
+  const h=harness({useReviewWordCloud:count=>({useReviewWordCloud:()=>{count();return cloudVm;}}),useRentalReviews:count=>({useRentalReviews:(_a:any,scope:any)=>{count();return scope.mode==='summary'?{...idle,busy:!summary&&!failed,error:failed?'x':null,data:summary?{type:'summary',value:summary}:null}:{...idle,error:null,data:{type:'public',value:{kind:'property',targetId:U(50),count:4,average:4.5,rows:[]}}};}})});
   const sum=(tags:{tag:string;count:number}[],count=4)=>({kind:'property',targetId:U(50),count,average:count?4.5:null,distribution:[0,0,0,2,2],tags});
   const render=()=>h.render(FILE,'RentalFeedbackSection',{accountId:OWNER,propertyId:U(50)});
   const loading=render();assert.equal(nodes(loading.tree).filter(n=>n.props?.accessibilityRole==='tab').length,0);
