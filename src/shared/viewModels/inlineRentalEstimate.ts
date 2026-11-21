@@ -1,8 +1,9 @@
-import {PredictionError,type PredictionReceipt,type PredictionTarget} from '../models/RentalPrediction';
+import {PredictionError,type PredictionTarget} from '../models/RentalPrediction';
+import type {EstimateReceipt} from '../models/RentalExactEstimate';
 import type {RentalEstimateEligibility} from '../models/RentalEstimateEligibility';
 import type {PricePredictionClient} from '../services/ml/priceEstimationClient';
 export function createInlineRentalEstimate(client:PricePredictionClient,accountId:string|undefined,target:PredictionTarget,eligibility?:RentalEstimateEligibility){
- let state:{busy:boolean;result:PredictionReceipt|null;error:string|null;errorCode:string|null;retryable:boolean}={busy:false,result:null,error:null,errorCode:null,retryable:true};
+ let state:{busy:boolean;result:EstimateReceipt|null;error:string|null;errorCode:string|null;retryable:boolean}={busy:false,result:null,error:null,errorCode:null,retryable:true};
  let disposed=false,generation=0,controller:AbortController|undefined;
  const listeners=new Set<()=>void>();
  const update=(patch:Partial<typeof state>)=>{if(!disposed){state={...state,...patch};listeners.forEach(fn=>fn());}};

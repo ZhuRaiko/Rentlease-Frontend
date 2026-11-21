@@ -16,6 +16,8 @@ function EstimateBridge({result,onResult,autoPredict,ready,workflow}:{result:Pre
 export function InlineRentalEstimate({accountId,target,property,onReview,variant='details',onUseRent,disabled=false,askingRent,onResult,autoPredict=false,appliedRent}:{appliedRent?:number|null|undefined;onResult?:((result:PredictionReceipt|null)=>void)|undefined;autoPredict?:boolean;askingRent?:number|undefined;variant?:'details'|'guidance'|'posting'|'spotlight';onUseRent?:((rent:number)=>void)|undefined;disabled?:boolean;accountId:string|undefined;target:PredictionTarget;property?:Record<string,unknown>|null;onReview?:(()=>void)|undefined}){
  const vm=useInlineRentalEstimate(accountId,target,property),result=vm.eligibility?.eligible===false?null:vm.result;
  const range=result?.illustrativeRange??null;
+ // What the Statistical analysis sheet needs: the property type picks the accuracy group, and `exact` is the model's exact estimate and band (null when not available).
+ const statistics=(variant:'button'|'chip')=>({variant,propertyType:property?.property_type,city:property?.city,exact:result?.exact??null});
  // The rent shown against the range: the one the caller passes (the owner's field), else the listing's own.
  const rent=Number.isFinite(askingRent)&&askingRent!>0?askingRent!:result?.askingRent??null;
  const bridge=onResult||autoPredict?<EstimateBridge result={result??null} onResult={onResult} autoPredict={autoPredict} ready={vm.eligibility?.eligible===true&&!vm.busy} workflow={vm.workflow}/>:null;
@@ -26,7 +28,7 @@ export function InlineRentalEstimate({accountId,target,property,onReview,variant
  if(variant==='spotlight')return <View style={styles.featureArea}>
  <View style={styles.featureHead}><View style={{flex:1,gap:4}}><Text accessibilityRole="header" style={styles.featureTitle}>Typical rent for similar places</Text></View><View accessible={false} style={styles.featureSymbol}><Text style={styles.symbolText}>{'₱'}</Text></View></View>
  <View style={styles.priceSpotlight}>
- {range?<RangeEstimateCard range={range} rent={rent} subject="listing" showTitle={false}/>:null}
+ {range?<RangeEstimateCard range={range} rent={rent} subject="listing" showTitle={false} statistics={statistics('chip')}/>:null}
  {noRange}
  {vm.eligibility?.eligible===false?<Text style={styles.featureDescription}>{vm.eligibility.reason}</Text>:!(vm.error&&vm.retryable===false)?<Pressable accessibilityRole="button" accessibilityState={{busy:vm.busy,disabled:vm.busy}} disabled={vm.busy} onPress={()=>void vm.workflow.predict()} style={({pressed})=>[styles.featurePrimary,pressed?{opacity:.8}:null]}><Text style={styles.featurePrimaryText}>{vm.busy?'Estimating...':vm.error?'Retry estimate':result?'Estimate again':SHOW_RANGE_LABEL}</Text></Pressable>:null}
  {vm.busy?<ActivityIndicator accessibilityLabel="Estimating rental price"/>:null}
@@ -38,7 +40,7 @@ export function InlineRentalEstimate({accountId,target,property,onReview,variant
  {variant==='guidance'?<Text accessibilityRole="header" style={styles.guidanceHeading}>Rental price guidance</Text>:null}
  {vm.eligibility?.eligible===false?<Text style={ui.supporting}>{vm.eligibility.reason}</Text>:<>
  {(!result||vm.busy)&&(!vm.error||vm.retryable!==false)?<View style={styles.guidanceActions}><Pressable accessibilityRole="button" accessibilityLabel={vm.error?'Retry estimate':SHOW_RANGE_LABEL} accessibilityState={{disabled:disabled||vm.busy,busy:vm.busy}} disabled={disabled||vm.busy} onPress={()=>void vm.workflow.predict()} style={styles.smallAction}><Text style={styles.actionText}>{vm.busy?'Estimating…':vm.error?'Retry estimate':SHOW_RANGE_LABEL}</Text></Pressable>{vm.busy?<ActivityIndicator accessibilityLabel="Estimating rental price"/>:null}</View>:null}
- {range&&!vm.busy?<RangeEstimateCard range={range} rent={rent} onUseRent={onUseRent} appliedRent={appliedRent} disabled={disabled||vm.busy}/>:null}
+ {range&&!vm.busy?<RangeEstimateCard range={range} rent={rent} onUseRent={onUseRent} appliedRent={appliedRent} disabled={disabled||vm.busy} statistics={statistics('button')}/>:null}
  {!vm.busy?noRange:null}
  </>}
  {vm.error?<Text accessibilityRole="alert" style={ui.supporting}>{vm.error}</Text>:null}
@@ -48,7 +50,7 @@ export function InlineRentalEstimate({accountId,target,property,onReview,variant
  {vm.eligibility?.eligible===false?<View style={{gap:6}}><Text style={ui.supporting}>{vm.eligibility.reason}</Text>{onReview?<AppButton variant="secondary" label="Review property details" onPress={onReview}/>:null}</View>:null}
  {vm.eligibility?.eligible!==false&&!(vm.error&&vm.retryable===false)?<AppButton label={vm.busy?'Estimating…':vm.error?'Retry estimate':result?'Estimate again':SHOW_RANGE_LABEL} disabled={vm.busy} onPress={()=>void vm.workflow.predict()}/>:null}
  {vm.busy?<View accessibilityLiveRegion="polite" style={{gap:6}}><ActivityIndicator accessibilityLabel="Estimating rental price"/><Text style={ui.supporting}>Render may take up to a minute to start.</Text></View>:null}
- {range?<RangeEstimateCard range={range} rent={rent}/>:null}
+ {range?<RangeEstimateCard range={range} rent={rent} statistics={statistics('button')}/>:null}
  {noRange}
  {vm.error?<View style={{gap:4}}><Text accessibilityRole="alert" style={ui.supporting}>{vm.error}</Text>{vm.retryable===false?<Text style={ui.supporting}>Review saved details or account eligibility before estimating again.</Text>:null}</View>:null}
  </View>;

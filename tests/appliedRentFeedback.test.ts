@@ -189,5 +189,6 @@ test('the ViewModel says whether a rent was applied, so nothing is announced for
 test('the standalone estimate flow has no apply action, so it has no applied state', () => {
   const view = readFileSync('src/features/rental-price-estimation/views/RentalPriceEstimationView.tsx', 'utf8');
   assert.ok(!/onUseRent|appliedRent|Use ₱/.test(view));
-  assert.match(view, /<RangeEstimateCard range=\{result\.illustrativeRange\} rent=\{result\.askingRent\} subject="listing"\/>/);
+  // The card still takes the range and the asking rent and has no apply prop; it now also passes what the Statistical analysis sheet needs.
+  assert.match(view, /<RangeEstimateCard range=\{result\.illustrativeRange\} rent=\{result\.askingRent\} subject="listing" statistics=\{\{variant:'button',propertyType:property\.propertyType,exact:result\.exact\?\?null\}\}\/>/);
 });

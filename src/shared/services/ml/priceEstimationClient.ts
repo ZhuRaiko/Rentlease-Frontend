@@ -1,6 +1,7 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {Database} from '../supabase/database.types';
 import {parsePredictionTarget,parsePredictionReceipt,PredictionError,type PredictionTarget} from '../../models/RentalPrediction';
+import {withExactEstimate} from '../../models/RentalExactEstimate';
 const messages:Record<string,string>={auth:'Sign in again to estimate rent.',eligibility:'An active Tier 1 account is required.',access:'This property is unavailable or is not accessible to your account.',input:'Review the saved property details: use a supported house, apartment, or condominium and a positive floor area. Measurements must be valid.',model_input:'The model rejected the saved property inputs. Review the property type, measurements, furnishing, and city before estimating again.',configuration:'Price estimation needs its server configuration before it can be used.',busy:'An estimate is already in progress. Wait before retrying.',rate_limit:'The estimator is busy. Wait before retrying.',timeout:'The estimator took too long to start. It may be waking up on Render. Please retry.',invalid_result:'The estimator returned an invalid result. Please retry.',upstream:'The prediction service is temporarily unavailable. Please retry.',unavailable:'The estimator could not be reached. Please retry.'};
 export function createPricePredictionClient(getClient:()=>SupabaseClient<Database>){
  return {async predict(actor:string,target:PredictionTarget,signal:AbortSignal){
@@ -15,7 +16,7 @@ export function createPricePredictionClient(getClient:()=>SupabaseClient<Databas
  if(typeof transport?.json==='function'){try{const body=await (typeof transport.clone==='function'?transport.clone():transport).json!();if(body&&typeof body==='object'&&'code' in body&&typeof body.code==='string'&&Object.prototype.hasOwnProperty.call(messages,body.code))code=body.code;}catch{/* Never expose raw provider bodies. */}}
  if(status===504)code='timeout';
  throw new PredictionError(messages[code]!,code);}
- return parsePredictionReceipt(data,target);
+ return withExactEstimate(parsePredictionReceipt(data,target),data);
  }};
 }
 export type PricePredictionClient=ReturnType<typeof createPricePredictionClient>;

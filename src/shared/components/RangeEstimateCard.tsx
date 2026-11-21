@@ -7,6 +7,8 @@ import {ui} from '../theme/ui';
 import {formatPeso} from '../models/Currency';
 import {LISTING_DISCLAIMER,RANGE_DISCLAIMER,SLIDE_HINT,RELATION_HELP,ballValue,pickedAfterRentChange,appliedButtonShows,RELATION_TEXT,fractionOfValue,listingRelationSentence,rangeRelation,type RentalRange} from '../models/RentalRange';
 import {RangeSlider} from './RangeSlider';
+import {statsGroupFor,type StatisticsInput} from '../models/RentalStatistics';
+import {RentalStatisticsButton} from './RentalStatisticsButton';
 
 /** What the estimate is, in plain words. The only place the model's name appears. */
 export const HOW_ESTIMATED_TITLE='How is this estimated?';
@@ -47,12 +49,16 @@ export function RangeBar({range,rent}:{range:RentalRange;rent?:number|null|undef
  * The range card. With `onUseRent` the owner can slide along the range and apply a value; without it the bar is read-only (tenants, the
  * standalone flow). The relation line compares the rent only with the ends of the range. No point value exists to show.
  */
-export function RangeEstimateCard({range,rent,onUseRent,disabled=false,subject='asking',basisText,appliedRent,showTitle=true}:{showTitle?:boolean;range:RentalRange;rent?:number|null|undefined;onUseRent?:((rent:number)=>void)|undefined;disabled?:boolean;subject?:'asking'|'listing';basisText?:string|undefined;appliedRent?:number|null|undefined}){
+export function RangeEstimateCard({range,rent,onUseRent,disabled=false,subject='asking',basisText,appliedRent,showTitle=true,statistics}:{showTitle?:boolean;range:RentalRange;rent?:number|null|undefined;onUseRent?:((rent:number)=>void)|undefined;disabled?:boolean;subject?:'asking'|'listing';basisText?:string|undefined;appliedRent?:number|null|undefined;
+  /** What the Statistical analysis sheet needs. Without it (or for a property type it does not cover) the card shows no Statistics entry. `chip` sits next to "How is this estimated?"; `button` is the owner's outlined button under it. */
+  statistics?:(Omit<StatisticsInput,'asking'>&{variant:'button'|'chip'})|undefined}){
   const [picked,setPicked]=useState<number|null>(null);
   // Typing a different rent hands the ball back to the field; sliding is only the owner's own trial value.
   useEffect(()=>{setPicked(p=>pickedAfterRentChange(p,rent));},[rent]);
   const shown=ballValue(picked,rent),relation=rangeRelation(rent,range),warn=relation==='above'||relation==='below';
   const sentence=subject==='listing'?listingRelationSentence(rent,range):relation?RELATION_TEXT[relation]:null;
+  // The sheet is offered only where there is a range to explain (this card exists only then) and a property type the accuracy figures cover.
+  const stats=statistics&&statsGroupFor(statistics.propertyType)?{variant:statistics.variant,input:{propertyType:statistics.propertyType,exact:statistics.exact,city:statistics.city,asking:rent}}:null;
   return <View style={styles.card}>
     {showTitle?<Text accessibilityRole="header" style={ui.sectionTitle}>Typical rent for similar places</Text>:null}
     {onUseRent?<RangeSlider range={range} value={shown} disabled={disabled} tone={warn&&picked===null?'warning':'normal'} applied={appliedButtonShows(shown,rent,appliedRent)} onChange={setPicked} onUse={r=>{onUseRent(r);}}/>:<RangeBar range={range} rent={rent}/>}
@@ -60,11 +66,14 @@ export function RangeEstimateCard({range,rent,onUseRent,disabled=false,subject='
     {relation&&subject==='asking'&&RELATION_HELP[relation]?<Text style={ui.supporting}>{RELATION_HELP[relation]}</Text>:null}
     <Text style={ui.supporting}>{onUseRent?SLIDE_HINT:subject==='listing'?LISTING_DISCLAIMER:RANGE_DISCLAIMER}</Text>
     {basisText?<Text style={ui.supporting}>Based on: {basisText}</Text>:null}
-    <HowEstimated/>
+    {stats&&stats.variant==='chip'?<View style={styles.howRow}><HowEstimated/><RentalStatisticsButton input={stats.input} variant="chip"/></View>:<>
+      <HowEstimated/>
+      {stats?<RentalStatisticsButton input={stats.input} variant="button"/>:null}
+    </>}
   </View>;
 }
 const styles=StyleSheet.create({
-  card:{gap:spacing.xs},flex:{flex:1},
+  card:{gap:spacing.xs},flex:{flex:1},howRow:{flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:spacing.xs},
   barWrap:{gap:spacing.xs},ends:{flexDirection:'row',justifyContent:'space-between'},endText:{...ui.body,fontWeight:'700'},
   bar:{height:32,marginHorizontal:spacing.xs,justifyContent:'center'},rail:{height:10,borderRadius:5,backgroundColor:colors.primaryPale,borderWidth:1,borderColor:colors.outline},
   marker:{position:'absolute',top:2,width:20,height:20,marginLeft:-10,borderRadius:10,backgroundColor:colors.primaryAction,borderWidth:3,borderColor:colors.white},markerWarn:{backgroundColor:colors.warning},

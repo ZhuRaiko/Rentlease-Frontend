@@ -21,7 +21,7 @@ export function ManagePriceCheck({ accountId, listingId, property, rent }: { acc
     <View style={styles.head}><Text accessibilityRole="header" style={[ui.sectionTitle, styles.grow]}>Price check</Text>{chip ? <StatusChip chip={chip} /> : null}</View>
     {range ? <>
       <Text style={ui.supporting}>{relation ? RELATION_TEXT[relation] : 'Typical rent range for similar places'}</Text>
-      <RangeEstimateCard range={range} rent={rent} subject="listing" showTitle={false} />
+      <RangeEstimateCard range={range} rent={rent} subject="listing" showTitle={false} statistics={{ variant: 'button', propertyType: property?.property_type, city: property?.city, exact: result?.exact ?? null }} />
     </> : <Text style={ui.supporting}>See the typical rent range for similar places.</Text>}
     {vm.busy ? <ActivityIndicator accessibilityLabel="Estimating rental price" color={colors.primaryAction} /> : null}
     {vm.error ? <Text accessibilityRole="alert" style={ui.supporting}>{vm.error}</Text> : null}

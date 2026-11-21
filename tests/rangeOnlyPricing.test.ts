@@ -64,7 +64,7 @@ const walk = (dir: string, ext: RegExp): string[] => readdirSync(dir).flatMap(f 
 test('no screen, ViewModel or component reads the point value, and its wording is gone from the screens', () => {
   const files = walk('src', /\.(ts|tsx)$/).filter(f => !f.endsWith('database.types.ts'));
   const readers = files.filter(f => /estimatedMonthlyRent|estimated_rent_monthly/.test(readFileSync(f, 'utf8'))).map(f => f.replace(/\\/g, '/'));
-  assert.deepEqual(readers, ['src/shared/models/RentalPrediction.ts'], 'only the parse layer touches the point value');
+  assert.deepEqual(readers, ['src/shared/models/RentalExactEstimate.ts', 'src/shared/models/RentalPrediction.ts'], 'only the parse layers touch the point value: the receipt parser (which drops it) and the exact-estimate parser that feeds the Statistical analysis sheet only');
   const screens = files.filter(f => f.endsWith('.tsx'));
   const bad = /Use estimate|model estimate|Model estimate|XGBoost estimated|Estimated monthly rent|Predicted monthly rent|point estimate|Model's point|above the estimate|below the estimate|Matches the estimate/;
   assert.deepEqual(screens.filter(f => bad.test(readFileSync(f, 'utf8'))), []);
