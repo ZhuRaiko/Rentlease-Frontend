@@ -31,7 +31,7 @@ export type AttentionAction =
 export interface AttentionItem {
   key: string;
   role: Role;
-  kind: 'confirm_terms' | 'start_setup' | 'end_request' | 'maintenance' | 'extension_request';
+  kind: 'confirm_terms' | 'start_setup' | 'end_request' | 'maintenance' | 'extension_request' | 'move_in_request';
   title: string;
   subtitle: string;
   chip: Chip;
@@ -51,6 +51,10 @@ export function attentionItems(i: WorkspaceInput): AttentionItem[] {
     const link = i.links?.find(l => l.tenancy_id === t.id);
     if (tenantNeedsOk(t, i.actor) && link) out.push({rank: 0, key: `ok:${t.id}`, role: 'tenant', kind: 'confirm_terms', title: 'Confirm your tenancy terms',
       subtitle: `${titleOf(i, t)} · move-in ${shortDate(t.start_date)}. ${nameOf(i, t.landlord_id, 'tenant')} shared the terms.`, chip: CHIP.needsOk, buttonLabel: 'Review terms', action: {kind: 'setup', reservationId: link.reservation_id}});
+    // The other person asked to move in earlier (get_pending_tenancy_move_ins). It opens the Tenancy setup screen, which shows the Move-in request.
+    const askedMoveIn = (i.activity.moveIns ?? []).find(x => x.tenancyId === t.id);
+    if (askedMoveIn && link) out.push({rank: 1, key: `movein:${askedMoveIn.requestId}`, role: roleOf(i.actor, t), kind: 'move_in_request', title: 'Move-in request',
+      subtitle: `${titleOf(i, t)} · ${nameOf(i, otherId(i.actor, t), roleOf(i.actor, t))} asks to move in ${shortDate(askedMoveIn.requestedStartDate)}`, chip: {label: 'Needs your OK', tone: 'warning'}, buttonLabel: 'Review', action: {kind: 'setup', reservationId: link.reservation_id}});
   }
   for (const r of sections.upcoming) {
     if (r.landlordId !== i.actor) continue;

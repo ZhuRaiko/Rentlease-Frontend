@@ -158,8 +158,10 @@ function harness(mocks:Record<string,(count:()=>void)=>any>={}){
 const nodes=(v:any):any[]=>v&&typeof v==='object'?[v,...[v.props?.children].flat(Infinity).flatMap(nodes)]:[];
 const texts=(tree:any)=>nodes(tree).filter(n=>n.type==='Text').map(n=>[n.props.children].flat(Infinity).join(''));
 const SETUP='src/features/tenancy/views/TenancySetupView.tsx';
+// The setup view also reads the early move-in request (a separate hook). These tests are about the setup states, so it is idle here; the move-in rules have their own tests.
+const MOVE_IN_IDLE={read:null,ready:false,loadFailed:false,busy:false,saving:false,error:null,conflictDate:null,notice:null,pending:null,workflow:{load:async()=>true,retry:async()=>true,checkStatus:async()=>true,withdraw:async()=>true,accept:async()=>true,decline:async()=>true,request:async()=>true}};
 function setupVm(c:SetupContext|null,actor:string,over:any={}){
-  const calls:string[]=[],workflow={submit:async(a:string)=>{calls.push(`submit:${a}`);},getSnapshot:()=>({notice:null}),load:async()=>{calls.push('load');},retry:async()=>{calls.push('retry');},setDraft(){}};
+  const calls:string[]=[],workflow={submit:async(a:string)=>{calls.push(`submit:${a}`);},getSnapshot:()=>({notice:null}),load:async()=>{calls.push('load');},retry:async()=>{calls.push('retry');},setDraft(){},setStartDate(){}};
   return{calls,vm:{context:c,draft:{rent:'25000',dueDay:''},busy:!c,saving:false,uncertain:false,error:null,notice:null,actions:c?setupActions(c,actor):[],workflow,...over}};
 }
 test('setup view: loading, then every state, then the cancel sheet, run the same hooks; pull to refresh; no Refresh button; help is collapsed',()=>{
@@ -169,7 +171,7 @@ test('setup view: loading, then every state, then the cancel sheet, run the same
   ];
   for(const [label,c,actor] of states){
     const messages:string[]=[];let current=setupVm(null,actor);
-    const h=harness({useTenancyEstablishmentViewModel:count=>({useTenancyEstablishmentViewModel:()=>{count();return current.vm;}})});
+    const h=harness({useTenancyEstablishmentViewModel:count=>({useTenancyEstablishmentViewModel:()=>{count();return current.vm;}}),useTenancyMoveInViewModel:count=>({useTenancyMoveInViewModel:()=>{count();return MOVE_IN_IDLE;}})});
     const render=()=>h.render(SETUP,'TenancySetupView',{accountId:actor,reservationId:RES,onBack(){},onChanged(){},conversationId:CONV,names,onMessage:(id:string)=>messages.push(id)});
     const loading=render();
     current=setupVm(c,actor);const loaded=render();
@@ -188,7 +190,7 @@ test('setup view: loading, then every state, then the cancel sheet, run the same
 });
 test('setup view: pressing the main action asks first; Message opens the chat; cancel goes through the sheet and sends only on confirm; uncertain and error states have plain buttons',async()=>{
   const messages:string[]=[],c=ctx({tenancy:tn(),setupRevision:U(9)});let current=setupVm(c,RENTER);
-  const h=harness({useTenancyEstablishmentViewModel:count=>({useTenancyEstablishmentViewModel:()=>{count();return current.vm;}})});
+  const h=harness({useTenancyEstablishmentViewModel:count=>({useTenancyEstablishmentViewModel:()=>{count();return current.vm;}}),useTenancyMoveInViewModel:count=>({useTenancyMoveInViewModel:()=>{count();return MOVE_IN_IDLE;}})});
   const render=()=>h.render(SETUP,'TenancySetupView',{accountId:RENTER,reservationId:RES,onBack(){},onChanged(){},conversationId:CONV,names,onMessage:(id:string)=>messages.push(id)});
   let tree=render().tree;
   nodes(tree).find(n=>n.props?.label==='Confirm terms').props.onPress();

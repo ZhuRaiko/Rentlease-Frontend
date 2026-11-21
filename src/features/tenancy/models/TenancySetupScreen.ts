@@ -25,7 +25,9 @@ export interface SetupScreen {
   cancel:boolean;cancelStyle:'button'|'link';
   note:string|null;reason:string|null;
 }
-export interface SetupInput {ctx:SetupContext;actor:string;actions:readonly SetupAction[];names:{owner:string;renter:string};conversationId:string|null}
+export interface SetupInput {ctx:SetupContext;actor:string;actions:readonly SetupAction[];names:{owner:string;renter:string};conversationId:string|null;
+  /** The tenancy's real start date (get_tenancy_move_in). When absent the reservation's date in the setup context is used, which is only right before an early move-in is accepted. */
+  startDate?:string|null}
 
 const SUMMARY_TAIL=/(bedrooms|bathrooms|sqm)$/;
 /** "condominium, tagaytay, Maharlika West, 1 bedrooms, ..." becomes "Condominium · Maharlika West, Tagaytay". An unreadable summary is shown as it is. */
@@ -50,10 +52,10 @@ export function stayLength(start:string,end:string):string{
 const longDay=(date:string)=>`${shortDate(date)}, ${date.slice(0,4)}`;
 
 export function setupScreen(i:SetupInput):SetupScreen{
-  const {ctx,actor,actions,names}=i,t=ctx.tenancy,owner=actor===ctx.landlordId,today=philippineDate(Date.parse(ctx.serverNow));
-  const base={property:{name:ctx.listingTitle,line:propertyLine(ctx.propertySummary)},stay:{start:longDay(ctx.startDate),end:longDay(ctx.endDate),length:stayLength(ctx.startDate,ctx.endDate)},reason:!ctx.eligible?ctx.reason:null};
+  const {ctx,actor,actions,names}=i,t=ctx.tenancy,owner=actor===ctx.landlordId,today=philippineDate(Date.parse(ctx.serverNow)),startDate=t&&i.startDate?i.startDate:ctx.startDate;
+  const base={property:{name:ctx.listingTitle,line:propertyLine(ctx.propertySummary)},stay:{start:longDay(startDate),end:longDay(ctx.endDate),length:stayLength(startDate,ctx.endDate)},reason:!ctx.eligible?ctx.reason:null};
   const none={form:false,facts:null,steps:null,main:null,message:false,cancel:false,cancelStyle:'link' as const,note:null,prompt:null,chip:null};
-  const facts=t?[{label:'Rent',value:`${pesos(t.rent)} / month`},{label:'Rent due',value:`The ${ordinalDay(t.dueDay)} of each month`},{label:'Stay',value:`${shortDate(ctx.startDate)} – ${shortDate(ctx.endDate)} (${stayLength(ctx.startDate,ctx.endDate)})`}]:null;
+  const facts=t?[{label:'Rent',value:`${pesos(t.rent)} / month`},{label:'Rent due',value:`The ${ordinalDay(t.dueDay)} of each month`},{label:'Stay',value:`${shortDate(startDate)} – ${shortDate(ctx.endDate)} (${stayLength(startDate,ctx.endDate)})`}]:null;
   const cancel=actions.includes('cancel'),message=!!i.conversationId;
 
   if(!t){
@@ -67,7 +69,7 @@ export function setupScreen(i:SetupInput):SetupScreen{
   // A proposal is waiting on someone.
   const stale=t.propertyVersion!==ctx.propertyVersion||t.identityRevision!==ctx.identityRevision;
   const steps=(rows:[string,string,SetupStep['state'],(string|undefined)?][]):SetupStep[]=>rows.map(([key,label,state,detail])=>({key,label,state,detail:detail??''}));
-  const moveIn=`Move-in ${shortDate(ctx.startDate)}`;
+  const moveIn=`Move-in ${shortDate(startDate)}`;
   if(!ctx.eligible)return {...none,...base,state:'not_eligible',headerTitle:'Tenancy setup',chip:{label:'On hold',tone:'warning'},facts,cancel,cancelStyle:'link'};
   if(stale){
     return owner
@@ -75,9 +77,9 @@ export function setupScreen(i:SetupInput):SetupScreen{
       :{...none,...base,state:'property_changed',headerTitle:'Tenancy setup',chip:{label:'Property changed',tone:'warning'},facts,prompt:{tone:'warning',title:`The property was edited after ${names.owner} proposed`,text:`Waiting for ${names.owner} to review the update. Nothing to do now.`},cancel,cancelStyle:'link',message};
   }
   if(t.ownerConfirmed&&t.tenantConfirmed){
-    const reached=ctx.startDate<=today,start:SetupMain=reached&&actions.includes('activate')?{action:'activate',label:'Start stay',tone:'primary',disabled:false}:{action:null,label:`Start stay · available ${shortDate(ctx.startDate)}`,tone:'primary',disabled:true};
-    const stepRows=steps([['sent','Terms sent','done'],['owner',owner?'You confirmed':`${names.owner} confirmed`,'done'],['renter',owner?`${names.renter} confirmed`:'You confirmed','done'],['move','Move-in',reached?'done':'current',reached?undefined:`${shortDate(ctx.startDate)} · ${inDays(ctx.startDate,Date.parse(ctx.serverNow))}`]]);
-    return {...none,...base,state:reached?'start_now':'ready',headerTitle:'Tenancy setup',chip:reached?{label:'Ready to start',tone:'info'}:{label:`Ready · starts ${inDays(ctx.startDate,Date.parse(ctx.serverNow))}`,tone:'info'},facts,steps:stepRows,main:start,cancel,cancelStyle:'link'};
+    const reached=startDate<=today,start:SetupMain=reached&&actions.includes('activate')?{action:'activate',label:'Start stay',tone:'primary',disabled:false}:{action:null,label:`Start stay · available ${shortDate(startDate)}`,tone:'primary',disabled:true};
+    const stepRows=steps([['sent','Terms sent','done'],['owner',owner?'You confirmed':`${names.owner} confirmed`,'done'],['renter',owner?`${names.renter} confirmed`:'You confirmed','done'],['move','Move-in',reached?'done':'current',reached?undefined:`${shortDate(startDate)} · ${inDays(startDate,Date.parse(ctx.serverNow))}`]]);
+    return {...none,...base,state:reached?'start_now':'ready',headerTitle:'Tenancy setup',chip:reached?{label:'Ready to start',tone:'info'}:{label:`Ready · starts ${inDays(startDate,Date.parse(ctx.serverNow))}`,tone:'info'},facts,steps:stepRows,main:start,cancel,cancelStyle:'link'};
   }
   if(owner){
     return {...none,...base,state:'owner_waiting',headerTitle:'Tenancy setup',chip:{label:`Waiting for ${names.renter}`,tone:'warning'},facts,steps:steps([['sent','Terms sent','done'],['owner','You confirmed','done'],['renter',`${names.renter} confirms`,'current','Waiting. Check back or message them'],['move',moveIn,'upcoming']]),message,cancel,cancelStyle:'link'};

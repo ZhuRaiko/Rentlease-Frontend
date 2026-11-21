@@ -10,10 +10,15 @@ import {radius} from '../../../shared/theme/radius';
 import {spacing} from '../../../shared/theme/spacing';
 import {ui} from '../../../shared/theme/ui';
 import {useTenancyEstablishmentViewModel} from '../viewModels/useTenancyEstablishmentViewModel';
-import type {SetupAction} from '../models/TenancyEstablishment';
+import {useTenancyMoveInViewModel} from '../viewModels/useTenancyMoveInViewModel';
+import {setupActions,type SetupAction} from '../models/TenancyEstablishment';
+import {COPY,moveInScreen,moveInSheetView} from '../models/TenancyMoveIn';
 import {HOW_IT_WORKS,UNCERTAIN_COPY,setupScreen,type SetupScreen} from '../models/TenancySetupScreen';
 import {StepList} from '../components/MaintenanceParts';
 import {SetupCancelSheet} from '../components/SetupCancelSheet';
+import {MoveInBanner,MoveInStatusBlock} from '../components/MoveInBanner';
+import {MoveInSheet} from '../components/MoveInSheet';
+import {MoveInRequestActions,MoveInRequestBody} from './MoveInRequestPanel';
 
 const titles:Record<Exclude<SetupAction,'cancel'>,string>={create:'Send terms',confirm:'Confirm terms',activate:'Start stay',review:'Review updated property'};
 // The one existing confirmation wording, kept for every step that asks before it sends.
@@ -26,18 +31,27 @@ export function TenancySetupView({accountId,reservationId,onBack,onChanged,regis
  // Every hook runs before anything is returned: the screen renders loading, loaded and sheet states with the same hooks.
  const vm=useTenancyEstablishmentViewModel(accountId,reservationId),ctx=vm.context,locked=vm.busy||vm.saving||vm.uncertain;
  const bottom=useBottomClearance();
- const [howOpen,setHowOpen]=useState(false),[cancelOpen,setCancelOpen]=useState(false);
- const back=()=>{if(vm.saving)return;if(vm.uncertain){Alert.alert('We could not confirm it went through','Try again, or check the saved status. You can also leave and open this reservation again.',[{text:'Keep reviewing',style:'cancel'},{text:'Leave setup',onPress:onBack}]);}else onBack();};
+ const [howOpen,setHowOpen]=useState(false),[cancelOpen,setCancelOpen]=useState(false),[askOpen,setAskOpen]=useState(false),[declineNote,setDeclineNote]=useState('');
+ // Early move-in: read for a tenancy that still waits for its start date. The tenancy's real start date comes from here, never from the reservation (which stays old after an accept).
+ const waiting=!!ctx?.tenancy&&['proposed','pending_confirmation'].includes(ctx.tenancy.status),moveIn=useTenancyMoveInViewModel(accountId,ctx?.tenancy?.id??'',waiting,onChanged);
+ const partner=accountId&&ctx&&accountId===ctx.landlordId?names.renter:names.owner,stay={moveOut:ctx?.endDate??null,rent:ctx?.tenancy?.rent??null,dueDay:ctx?.tenancy?.dueDay??null};
+ const mv=moveInScreen({read:moveIn.read,enabled:waiting,busy:moveIn.busy,ready:moveIn.ready,loadFailed:moveIn.loadFailed,partnerName:partner,stay,now:Date.now()}),startDate=mv.start;
+ useEffect(()=>{vm.workflow.setStartDate(startDate);},[vm.workflow,startDate]);
+ const movingBusy=moveIn.saving;
+ const back=()=>{if(vm.saving||movingBusy)return;if(vm.uncertain){Alert.alert('We could not confirm it went through','Try again, or check the saved status. You can also leave and open this reservation again.',[{text:'Keep reviewing',style:'cancel'},{text:'Leave setup',onPress:onBack}]);}else onBack();};
  useEffect(()=>{registerBackAction?.(back);return()=>registerBackAction?.(null);});
  const send=async(action:SetupAction)=>{await vm.workflow.submit(action);if(vm.workflow.getSnapshot().notice)onChanged();};
  const act=(action:SetupAction)=>{
   if(action==='cancel'){setCancelOpen(true);return;}
   Alert.alert(titles[action],CONFIRM_BODY,[{text:'Keep reviewing',style:'cancel'},{text:titles[action],onPress:()=>void send(action)}]);
  };
- const screen:SetupScreen|null=ctx&&accountId?setupScreen({ctx,actor:accountId,actions:vm.actions,names,conversationId}):null;
+ const actions=ctx&&accountId?setupActions(ctx,accountId,startDate):vm.actions;
+ const screen:SetupScreen|null=ctx&&accountId?setupScreen({ctx,actor:accountId,actions,names,conversationId,startDate}):null;
  const canMessage=!!screen?.message&&!!conversationId&&!!onMessage;
+ const respond=mv.respond,askVisible=mv.ask&&screen?.state==='ready',unconfirmed=moveIn.pending&&moveIn.pending.action==='request'?moveIn.pending.payload.requestedStartDate??null:null;
+ const messagePerson=()=>{if(conversationId)onMessage?.(conversationId);};
  return <View style={styles.root}>
-  <ScreenHeader title={screen?.headerTitle??'Tenancy setup'} onBack={back} disabled={vm.saving}/>
+  <ScreenHeader title={respond?COPY.requestTitle:screen?.headerTitle??'Tenancy setup'} onBack={back} disabled={vm.saving||movingBusy} action={respond&&canMessage?<Pressable accessibilityRole="button" accessibilityLabel={`${COPY.message} ${partner}`} onPress={messagePerson} style={styles.headerAction}><Text style={styles.headerActionText}>{COPY.message}</Text></Pressable>:undefined}/>
   <KeyboardAwareScrollView contentContainerStyle={[styles.content,{paddingBottom:bottom}]} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={vm.busy&&!!ctx} onRefresh={()=>void vm.workflow.load()} colors={[colors.primaryAction]}/>}>
    {vm.busy&&!ctx?<ActivityIndicator accessibilityLabel="Loading tenancy setup" color={colors.primaryAction}/>:null}
    {vm.error&&!vm.uncertain?<View accessibilityRole="alert" style={styles.alertRed}><Text style={styles.alertRedTitle}>{vm.error}</Text>
@@ -45,7 +59,10 @@ export function TenancySetupView({accountId,reservationId,onBack,onChanged,regis
    {vm.uncertain?<View accessibilityRole="alert" style={styles.alertRed}><Text style={styles.alertRedTitle}>{UNCERTAIN_COPY.title}</Text><Text style={ui.supporting}>{UNCERTAIN_COPY.text}</Text>
     <ButtonRow><Slot><StatusButton label={UNCERTAIN_COPY.retry} disabled={vm.saving} onPress={()=>void vm.workflow.retry()}/></Slot><Slot><StatusButton label={UNCERTAIN_COPY.check} disabled={vm.saving} onPress={()=>void vm.workflow.load()}/></Slot></ButtonRow></View>:null}
    {vm.notice?<Text accessibilityLiveRegion="polite" style={ui.body}>{vm.notice}</Text>:null}
-   {screen?<>
+   {screen&&waiting?<MoveInStatusBlock loading={mv.load==='loading'} loadFailed={mv.load==='failed'} error={moveIn.error} notice={moveIn.notice} uncertain={!!moveIn.pending&&!moveIn.saving} saving={movingBusy} onReload={()=>void moveIn.workflow.load()} onRetry={()=>void moveIn.workflow.retry()} onCheck={()=>void moveIn.workflow.checkStatus()}/>:null}
+   {respond&&screen?<MoveInRequestBody view={respond} property={`${screen.property.name}${screen.property.line?` · ${screen.property.line}`:''}`} note={declineNote} onNote={setDeclineNote} saving={movingBusy}/>:null}
+   {screen&&!respond?<>
+    {mv.banner?<MoveInBanner banner={mv.banner} saving={movingBusy} onWithdraw={()=>void moveIn.workflow.withdraw()}/>:null}
     <View style={styles.card}>
      <Text accessibilityRole="header" style={ui.sectionTitle}>{screen.property.name}</Text>
      {screen.property.line?<Text style={ui.supporting}>{screen.property.line}</Text>:null}
@@ -73,14 +90,18 @@ export function TenancySetupView({accountId,reservationId,onBack,onChanged,regis
     {howOpen?<View style={styles.card}>{HOW_IT_WORKS.map(line=><Text key={line} style={ui.body}>{line}</Text>)}</View>:null}
    </>:null}
   </KeyboardAwareScrollView>
-  {screen&&(screen.main||canMessage||screen.cancel)?<PinnedFooter>
+  {respond?<PinnedFooter><MoveInRequestActions view={respond} saving={movingBusy} onAccept={()=>void moveIn.workflow.accept()} onDecline={()=>{void moveIn.workflow.decline(declineNote).then(ok=>{if(ok)setDeclineNote('');});}}/></PinnedFooter>:null}
+  {!respond&&screen&&(screen.main||askVisible||canMessage||screen.cancel)?<PinnedFooter>
    {screen.main?<StatusButton tone={screen.main.tone} label={vm.saving&&screen.main.action?'Saving…':screen.main.label} disabled={screen.main.disabled||locked||!screen.main.action} onPress={()=>{if(screen.main?.action)act(screen.main.action);}}/>:null}
+   {askVisible?<StatusButton label={COPY.ask} disabled={locked||movingBusy} onPress={()=>setAskOpen(true)}/>:null}
    {screen.cancelStyle==='button'&&(canMessage||screen.cancel)?<ButtonRow>
     {canMessage?<Slot><StatusButton label="Message" disabled={vm.saving} onPress={()=>{if(conversationId)onMessage?.(conversationId);}}/></Slot>:null}
     {screen.cancel?<Slot><StatusButton tone="dangerOutline" label="Cancel setup" disabled={locked} onPress={()=>act('cancel')}/></Slot>:null}</ButtonRow>:null}
    {screen.cancelStyle==='link'&&canMessage?<StatusButton label="Message" disabled={vm.saving} onPress={()=>{if(conversationId)onMessage?.(conversationId);}}/>:null}
    {screen.cancelStyle==='link'&&screen.cancel?<Pressable accessibilityRole="button" accessibilityLabel="Cancel setup" accessibilityState={{disabled:locked}} disabled={locked} onPress={()=>act('cancel')} style={styles.link}><Text style={styles.linkText}>Cancel setup</Text></Pressable>:null}
   </PinnedFooter>:null}
+  <MoveInSheet visible={askOpen&&!!moveIn.read} view={moveInSheetView(moveIn.read,stay,partner)} start={startDate} saving={movingBusy} error={moveIn.error} conflictDate={moveIn.conflictDate} unconfirmed={unconfirmed}
+   onSend={(date)=>moveIn.workflow.request(date)} onRetry={()=>moveIn.workflow.retry()} onCheck={async()=>{await moveIn.workflow.checkStatus();return !moveIn.workflow.getSnapshot().pending;}} onClose={()=>setAskOpen(false)}/>
   <SetupCancelSheet visible={cancelOpen} saving={vm.saving} onKeep={()=>setCancelOpen(false)} onConfirm={()=>{setCancelOpen(false);void send('cancel');}}/>
  </View>;
 }
@@ -96,4 +117,5 @@ const styles=StyleSheet.create({
  disclosure:{minHeight:48,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:spacing.md,borderRadius:radius.control,borderWidth:1,borderColor:colors.border,backgroundColor:colors.background},
  disclosureTitle:{...ui.body,fontWeight:'700'},disclosureAction:{...ui.supporting,color:colors.primaryAction,fontWeight:'700'},
  link:{minHeight:48,alignItems:'center',justifyContent:'center'},linkText:{...ui.body,fontWeight:'700',color:colors.restricted},
+ headerAction:{minHeight:48,minWidth:48,paddingHorizontal:spacing.sm,alignItems:'center',justifyContent:'center'},headerActionText:{...ui.body,fontWeight:'700',color:colors.primaryAction},
 });

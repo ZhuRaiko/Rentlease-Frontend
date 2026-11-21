@@ -22,7 +22,7 @@ import {ButtonRow,Cell,CellRow,Slot,StatusButton,StatusChip} from '../../../shar
 import {HeroPhoto,PersonRow,Stars,Thumb} from '../components/TenancyParts';
 import type {TenancyDetailsPanel} from '../viewModels/tenancyDetailsWorkflow';
 type Details={actor:string|undefined;id:string;sourceId:string|null;panel?:TenancyDetailsPanel;requestId?:string};
-const ICON={confirm_terms:'upcoming',start_setup:'upcoming',end_request:'history',extension_request:'upcoming',maintenance:'maintenance'} as const;
+const ICON={confirm_terms:'upcoming',start_setup:'upcoming',end_request:'history',extension_request:'upcoming',move_in_request:'upcoming',maintenance:'maintenance'} as const;
 interface Props {
   accountId:string|undefined;onBack:()=>void;onDiscover:()=>void;onListings:()=>void;onPost:()=>void;onChat:()=>void;registerBackAction:(action:(()=>void)|null)=>void;onOpenConversation?:((id:string)=>void)|undefined;
   /** Opens the reservation request for a conversation after the held reservation was released. */
