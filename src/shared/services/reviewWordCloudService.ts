@@ -1,6 +1,7 @@
 ﻿import { readSessionUser } from './supabase/sessionUser';
 import {ReviewError,type ReviewRow} from '../models/RentalReview';
 import type {ReviewCorpus} from '../models/ReviewWordCloud';
+import {cloudErrorCopy,cloudErrorKindForStatus,type CloudErrorKind} from '../models/reviewCloudPresentation';
 import type {RentalReviewService} from './rentalReviewService';
 export async function loadPropertyReviewCorpus(service:Pick<RentalReviewService,'read'>,actor:string,propertyId:string,signal:AbortSignal):Promise<ReviewCorpus>{
  const scan=async()=>{let count:number|null=null;const rows:ReviewRow[]=[],seen=new Set<string>();
@@ -18,13 +19,16 @@ export async function loadPropertyReviewCorpus(service:Pick<RentalReviewService,
  const first=await scan(),second=await scan();if(first.version!==second.version||first.count!==second.count)throw new ReviewError('Published reviews changed while loading. Refresh.');return second;
 }
 
+/** A failed call to the word cloud function, with what it means to the person (never the raw error text, never any review text). */
+export class CloudCallError extends ReviewError{constructor(readonly kind:CloudErrorKind,readonly status:number|null=null){super(cloudErrorCopy[kind]);}}
+
 /** Mobile sends only a property reference. The Edge independently obtains all review text. */
 export function createReviewCloudProcessor(client:()=>import('@supabase/supabase-js').SupabaseClient<import('./supabase/database.types').Database>):import('../models/ReviewWordCloud').ReviewCloudProcessor{
  const identity=async(actor:string,signal:AbortSignal)=>{const response=await readSessionUser(client());if(signal.aborted||response.error||response.data.user?.id!==actor)throw new ReviewError('Your account changed. Reopen property reviews.');};
  return{async process(actor,corpus,signal){await identity(actor,signal);
   const response=await client().functions.invoke<unknown>('review-wordcloud',{body:{propertyId:corpus.propertyId},signal});
   await identity(actor,signal);
-  if(response.error)throw new ReviewError(response.response?.status===404?'This feature is not available right now. Try again later.':'Review themes are unavailable or changed. Refresh to retry.');
-  if(response.data===null)throw new ReviewError('Review themes could not be verified.');return response.data;
+  if(response.error){const status=response.response?.status??null;throw new CloudCallError(cloudErrorKindForStatus(status),status);}
+  if(response.data===null)throw new CloudCallError('generic');return response.data;
  }};
 }

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from './AppButton';
+import { HighlightedText } from './HighlightedText';
+import { ReviewWordCloudCard } from './ReviewWordCloudCard';
 import { StarRow, TagPills } from './ReviewParts';
 import { NO_REVIEWS_CARD, PREVIEW_ROWS, STAYS_WITH_PROPERTY, cloudWords, feedbackLayout, publishedRowView, seeAllLabel, summaryView, type FeedbackTab } from '../models/ReviewPresentation';
 import { colors } from '../theme/colors';
@@ -8,14 +10,15 @@ import { radius } from '../theme/radius';
 import { spacing } from '../theme/spacing';
 import { ui } from '../theme/ui';
 import { useRentalReviews } from '../viewModels/useRentalReviews';
+import { useReviewWordCloud } from '../viewModels/useReviewWordCloud';
 
 const TABS: readonly FeedbackTab[] = ['Themes', 'Reviews'];
 
 /**
  * Listing ratings (f4b v10). The summary (average, count, tag counts) comes from get_review_summary('property'). Once it has loaded the
  * layout is decided by feedbackLayout: no reviews -> one muted card; fewer than three tag selections -> the reviews only, no tabs;
- * otherwise tabs that open on Themes (a sized tag cloud). The free-text word cloud (PropertyReviewWordCloud) is no longer shown here:
- * its file is kept but nothing renders it, so the Edge function is not called from this screen.
+ * otherwise tabs that open on Themes (a sized tag cloud). The free-text word cloud (ReviewWordCloudCard) sits directly below the Themes, never above them, and mines only the
+ * written comments; the Themes do not depend on it and do not move when it loads. It is asked for once per property view (see useReviewWordCloud) and only when there are reviews to read.
  */
 export function RentalFeedbackSection({ accountId, propertyId }: { accountId: string | undefined; propertyId: string }) {
   const [picked, setPicked] = useState<FeedbackTab | null>(null);
@@ -31,6 +34,9 @@ export function RentalFeedbackSection({ accountId, propertyId }: { accountId: st
   const shown = all ? rows : rows.slice(0, PREVIEW_ROWS);
   const showReviews = layout.mode === 'reviews_only' || (layout.mode === 'tabs' && tab === 'Reviews');
   const words = view ? cloudWords(view.tags) : [];
+  const cloudOn = !!accountId && !!view && !view.empty && (layout.mode === 'tabs' || layout.mode === 'reviews_only');
+  const cloud = useReviewWordCloud(accountId, propertyId, { enabled: cloudOn });
+  const cloudCard = cloudOn ? <ReviewWordCloudCard view={cloud.view} chips={cloud.chips} selectedId={cloud.selected} matching={cloud.matching} onSelect={cloud.select} onClear={() => cloud.select(null)} onRetry={cloud.retry} /> : null;
   return <View style={styles.wrap}>
     <Text accessibilityRole="header" style={ui.sectionTitle}>Ratings and reviews</Text>
     {!accountId ? <Text style={ui.supporting}>Sign in to see reviews from past tenants.</Text> : <>
@@ -54,15 +60,17 @@ export function RentalFeedbackSection({ accountId, propertyId }: { accountId: st
             {words.map(w => <Text key={w.code} style={[styles.word, { fontSize: w.fontSize, lineHeight: Math.round(w.fontSize * 1.25), fontWeight: w.bold ? '700' : '400' }]}>{w.label}</Text>)}
           </View>
         </View>
+        {cloudCard}
         {rows.length > 0 || (published?.count ?? 0) > 0 ? <AppButton label={seeAllLabel(published?.count ?? rows.length)} variant="secondary" onPress={() => { setAll(true); setPicked('Reviews'); }} /> : null}
       </> : null}
       {layout.mode === 'reviews_only' && view ? <View style={[styles.card, styles.muted]}><Text style={ui.supporting}>Themes appear once a few tenants have added tags.</Text></View> : null}
+      {layout.mode === 'reviews_only' ? cloudCard : null}
       {showReviews ? <>
         {rowsVm.busy && !published ? <ActivityIndicator accessibilityLabel="Loading reviews" color={colors.primaryAction} /> : null}
         {rowsVm.error ? <View style={styles.card}><Text accessibilityRole="alert" style={ui.supporting}>Reviews are not available right now.</Text><AppButton label="Retry" variant="secondary" disabled={rowsVm.busy} onPress={() => void rowsVm.workflow.load()} /></View> : null}
         {shown.map(r => <View key={r.key} style={styles.card}>
           <View style={styles.rowHead}><View accessible accessibilityLabel={`${r.stars} out of 5 stars`}><StarRow filled={r.stars} /></View><Text style={ui.supporting}>{[r.role, r.month].filter(Boolean).join(' · ')}</Text></View>
-          {r.text ? <Text style={ui.body}>{r.text}</Text> : null}
+          {r.text ? (cloud.highlight(r.key, r.text) ? <HighlightedText segments={cloud.highlight(r.key, r.text)!} /> : <Text style={ui.body}>{r.text}</Text>) : null}
           <TagPills labels={r.tags} />
         </View>)}
         {!all && rows.length > PREVIEW_ROWS ? <AppButton label={seeAllLabel(published?.count ?? rows.length)} variant="secondary" onPress={() => setAll(true)} /> : null}
