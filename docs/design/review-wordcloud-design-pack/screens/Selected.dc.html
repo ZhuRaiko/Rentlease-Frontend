@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A word is selected</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#32743C}a:hover{color:#172C27}
+button{font-family:Roboto,sans-serif}
+.card{background:#FFFFFF;border:1px solid #DCE5DD;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.seg{flex:1;height:44px;border-radius:100px;border:0;background:transparent;color:#172C27;font-size:14px;font-weight:500}
+.seg.on{background:#172C27;color:#FFFFFF;font-weight:600}
+.cw{display:flex;flex-wrap:wrap;gap:0 8px;align-items:center}
+.wd{min-height:48px;border:0;background:transparent;padding:0;display:inline-flex;align-items:center;font-family:Roboto,sans-serif}
+.p{display:inline-flex;align-items:center;gap:8px;border-radius:100px;border:1.5px solid;padding:0 6px 0 14px;font-weight:600;white-space:nowrap;box-sizing:border-box}
+.p small{min-width:24px;height:24px;border-radius:100px;background:rgba(255,255,255,0.85);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;box-sizing:border-box}
+.s1{font-size:14px;height:38px}.s2{font-size:16px;height:40px}.s3{font-size:18px;height:44px}.s4{font-size:21px;height:48px}
+.c-blue{background:#EAF2FB;border-color:#C5DAF0;color:#1F5FA8}
+.c-green{background:#EDF8EE;border-color:#BFE0C4;color:#256030}
+.c-orange{background:#FFF1E3;border-color:#F2CFA6;color:#8A4B0B}
+.c-purple{background:#F1EAFA;border-color:#D9C8EE;color:#5B3A87}
+.c-pink{background:#FBEAF1;border-color:#EFC3D6;color:#9B2F5E}
+.sel{background:#172C27;border-color:#172C27;color:#FFFFFF;padding-left:10px}
+.sel small{background:#FFFFFF;color:#172C27}
+.dim{opacity:0.55}
+.rv{display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid #EEF1EE}
+mark{background:#FFE9A8;color:#172C27;border-radius:4px;padding:0 2px;font-weight:600}
+</style>
+</helmet>
+<div style="width: 411px; height: 891px; box-sizing: border-box; background: #F7F9F5; font-family: Roboto, sans-serif; color: #172C27; position: relative; overflow: hidden">
+  <div style="background: #FFFFFF; border-bottom: 1px solid #DCE5DD; padding: 16px 16px 12px 16px; display: flex; align-items: center; gap: 12px">
+    <button aria-label="Back" style="width: 48px; height: 48px; border-radius: 100px; border: 1px solid #DCE5DD; background: #FFFFFF; display: flex; align-items: center; justify-content: center; padding: 0; flex: none">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div style="display: flex; flex-direction: column"><span style="font-size: 17px; font-weight: 700">Miguel House</span><span style="font-size: 13px; color: #606A63">Bayan Luma, Tagaytay</span></div>
+  </div>
+
+  <div style="padding: 12px 16px 0 16px; display: flex; flex-direction: column; gap: 12px">
+    <div role="tablist" aria-label="Ratings and reviews" style="display: flex; padding: 4px; border-radius: 100px; background: #FFFFFF; border: 1px solid #DCE5DD">
+      <button class="seg on" role="tab" aria-selected="true">Themes</button>
+      <button class="seg" role="tab" aria-selected="false">Reviews</button>
+    </div>
+
+    <section class="card">
+      <div>
+        <h3 style="margin: 0; font-size: 17px; font-weight: 700">What tenants wrote</h3>
+        <span style="font-size: 13px; color: #606A63">Tap a word to see the reviews that use it.</span>
+      </div>
+      <div class="cw">
+        <button class="wd" aria-pressed="true" aria-label="wifi, 7 reviews, selected"><span class="p s4 sel"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>wifi<small>7</small></span></button>
+        <button class="wd" aria-pressed="false" aria-label="room clean, 5 reviews"><span class="p s3 c-blue dim">room clean<small>5</small></span></button>
+        <button class="wd" aria-pressed="false" aria-label="landlord, 4 reviews"><span class="p s3 c-orange dim">landlord<small>4</small></span></button>
+        <button class="wd" aria-pressed="false" aria-label="quiet, 4 reviews"><span class="p s3 c-purple dim">quiet<small>4</small></span></button>
+        <button class="wd" aria-pressed="false" aria-label="fast, 3 reviews"><span class="p s2 c-pink dim">fast<small>3</small></span></button>
+        <button class="wd" aria-pressed="false" aria-label="parking, 3 reviews"><span class="p s2 c-blue dim">parking<small>3</small></span></button>
+        <button class="wd" aria-pressed="false" aria-label="malinis, 2 reviews"><span class="p s1 c-green dim">malinis<small>2</small></span></button>
+        <button class="wd" aria-pressed="false" aria-label="near market, 2 reviews"><span class="p s1 c-orange dim">near market<small>2</small></span></button>
+      </div>
+    </section>
+
+    <section class="card" aria-live="polite" style="border-color: #172C27">
+      <div style="display: flex; align-items: center; gap: 8px">
+        <h3 style="margin: 0; flex: 1; font-size: 15px; font-weight: 700">7 of 18 reviews mention “wifi”</h3>
+        <button style="height: 44px; padding: 0 14px; border-radius: 100px; border: 1px solid #DCE5DD; background: #FFFFFF; color: #172C27; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#172C27" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>Clear
+        </button>
+      </div>
+      <div class="rv">
+        <div style="display: flex; align-items: center; gap: 8px"><span role="img" aria-label="5 stars" style="color: #9A6414; font-size: 14px; letter-spacing: 1px">★★★★★</span><span style="font-size: 12px; color: #606A63">Stayed 6 months · Sep 2026</span></div>
+        <p style="margin: 0; font-size: 14px; line-height: 21px"><mark>Wifi</mark> was fast and the landlord is friendly. Quiet street at night.</p>
+      </div>
+      <div class="rv">
+        <div style="display: flex; align-items: center; gap: 8px"><span role="img" aria-label="4 stars" style="color: #9A6414; font-size: 14px; letter-spacing: 1px">★★★★<span style="color: #C9D3CB">★</span></span><span style="font-size: 12px; color: #606A63">Stayed 3 months · Aug 2026</span></div>
+        <p style="margin: 0; font-size: 14px; line-height: 21px">Fast <mark>wifi</mark>, clean room, helpful landlord.</p>
+      </div>
+      <button style="height: 44px; border-radius: 100px; border: 0; background: #EDF8EE; color: #256030; font-size: 14px; font-weight: 600">Show 5 more</button>
+    </section>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 72px; background: #E9E9E9; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #606A63">Existing bottom navigation · unchanged</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":411,"height":891}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
