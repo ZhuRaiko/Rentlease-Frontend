@@ -1,3 +1,5 @@
+import { colors } from '../src/shared/theme/colors';
+import { sharedStub } from './support/sharedStubs';
 /// <reference types="node" />
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -192,7 +194,7 @@ function harness(vmFor: (scope: any) => any, preset: any[] = []) {
   let cursor = 0;
   const native: any = { StyleSheet: { create: (s: any) => s, flatten: (s: any) => Object.assign({}, ...[s].flat(Infinity).filter(Boolean)) }, Platform: { OS: 'android' } };
   for (const n of ['ActivityIndicator', 'Pressable', 'Text', 'TextInput', 'View']) native[n] = n;
-  native.Alert = { alert() {} };
+  native.Alert = { alert() {} }; native.useWindowDimensions = () => ({ width: 411, height: 800, scale: 1, fontScale: 1 });
   const cache = new Map<string, any>();
   const load = (abs: string): any => {
     if (cache.has(abs)) return cache.get(abs);
@@ -204,6 +206,7 @@ function harness(vmFor: (scope: any) => any, preset: any[] = []) {
       if (name.endsWith('/useRentalReviews')) return { useRentalReviews: (_a: any, scope: any) => vmFor(scope) };
       if (name.endsWith('/useReviewWordCloud')) return { useReviewWordCloud: () => vmFor({ mode: 'cloud' }) };
       if (name.endsWith('/AppButton')) return { AppButton: 'Button' };
+      if (name === 'react-native-svg') return sharedStub(abs, name);   // native module: stubbed like the other shared test shims
       if (name.startsWith('.') && existsSync(resolve(dirname(abs), name) + '.tsx')) return load(resolve(dirname(abs), name) + '.tsx');
       return actual(name);
     };
@@ -226,10 +229,10 @@ const section = (summaryValue: ReviewSummary | null, rows: any[], over: { summar
   .render('src/shared/components/RentalFeedbackSection.tsx', 'RentalFeedbackSection', { accountId: TENANT, propertyId: PROP });
 const approvedRow = (n: number, over: object = {}) => parsePublishedReviews({ kind: 'property', targetId: PROP, count: 1, average: 4, rows: [row({ id: U(100 + n), status: 'approved', reviewerRole: 'tenant', ...over })] }, 'property', PROP).rows[0]!;
 
-test('listing ratings: opens on Themes (average, count, the promise, a tag cloud); Reviews holds the published reviews with role, month and tags', () => {
+test('listing ratings: opens on Themes (average, count, the promise, the tags tenants picked); Reviews holds the published reviews with role, month and tags', () => {
   const rows = [approvedRow(1, { text: 'Nice property, the wifi was good.', tags: ['clean', 'good_wifi'] })];
   const themes = section(parseReviewSummary(summary(), 'property', PROP), rows), t = text(themes);
-  for (const s of ['Ratings and reviews', 'Themes', 'Reviews', '4.6', '18 reviews from past tenants', 'Reviews stay with this property, even when it is listed again.', 'What tenants mention', 'Clean', 'Good wifi']) assert.ok(t.includes(s), s);
+  for (const s of ['Ratings and reviews', 'Themes', 'Reviews', '4.6', '18 reviews from past tenants', 'Reviews stay with this property, even when it is listed again.', 'Tags tenants picked', 'Clean', 'Good wifi']) assert.ok(t.includes(s), s);
   assert.deepEqual(nodes(themes).filter(n => n.props?.accessibilityRole === 'tab').map(n => text(n)), ['Themes', 'Reviews'], 'Themes first, no Landlord tab');
   assert.ok(!t.includes('Nice property, the wifi was good.'), 'the written reviews are on the other tab');
   const reviews = text(section(parseReviewSummary(summary(), 'property', PROP), rows, {}, ['Reviews']));
@@ -250,15 +253,37 @@ test('listing ratings: only the first three reviews show, then "See all N review
   const expanded = text(section(parseReviewSummary(summary(), 'property', PROP), rows, {}, [ 'Reviews', true ]));
   assert.ok(expanded.includes('Review 5'));
 });
-test('listing ratings, Themes: the tag cloud comes from the summary counts alone; the free-text word cloud is a separate addition', () => {
+test('listing ratings, Themes: the tags card comes from the summary counts alone; the free-text word cloud is a separate addition', () => {
   const seen: string[] = [];
   const tree = harness(scope => { seen.push(scope.mode); return scope.mode === 'cloud' ? HIDDEN_CLOUD : scope.mode === 'summary' ? { ...idle, data: { type: 'summary', value: parseReviewSummary(summary(), 'property', PROP) } } : { ...idle, data: { type: 'public', value: { kind: 'property', targetId: PROP, count: 18, average: 4.6, rows: [] } } }; })
     .render('src/shared/components/RentalFeedbackSection.tsx', 'RentalFeedbackSection', { accountId: TENANT, propertyId: PROP }), t = text(tree);
-  assert.ok(t.includes('What tenants mention') && t.includes('Clean') && t.includes('Good wifi'));
+  assert.ok(t.includes('Tags tenants picked') && t.includes('Clean') && t.includes('Good wifi'));
   assert.ok(seen.includes('cloud'), 'the section asks the word cloud view model (it loads once, and only when there are reviews)');
   assert.doesNotMatch(t, /Refresh review themes|Not available right now|Frequently mentioned/);
-  const word = (label: string) => styleOf(nodes(tree).find(n => n.type === 'Text' && flat(n.props.children).includes(label)));
-  assert.ok(word('Clean').fontSize > word('Good wifi').fontSize, 'a word used by more reviews is bigger (12 vs 9)');
+  // The tags are read-only chips with the number of reviews that chose each, most chosen first (12 before 9).
+  const chips = nodes(tree).filter(n => /^(Clean|Good wifi), chosen in/.test(n.props?.accessibilityLabel ?? '')).map(n => n.props.accessibilityLabel);
+  assert.deepEqual(chips.slice(0, 2), ['Clean, chosen in 12 reviews', 'Good wifi, chosen in 9 reviews']);
+  assert.ok(!nodes(tree).some(n => n.type === 'Pressable' && /chosen in/.test(n.props?.accessibilityLabel ?? '')), 'the tags were never tappable and are not now');
+});
+const cloudChip = (id: string, text: string, count: number) => ({ id, text, reviewCount: count, fontSize: 15, color: '#000', tint: { background: '#fff', text: '#000', border: '#ccc' }, accessibilityLabel: `${text}, in ${count} reviews` });
+test('listing ratings, Themes: two tabs only; the word cloud card comes first, then Tags tenants picked, in every cloud state', () => {
+  const states: [string, object][] = [
+    ['ready', { view: { kind: 'ready' }, chips: [cloudChip('t1', 'wifi', 7)] }],
+    ['loading', { view: { kind: 'loading' } }],
+    ['notice', { view: { kind: 'notice', message: 'The word cloud appears once 2 or more reviews share words.' } }],
+    ['error', { view: { kind: 'error', message: 'Check your connection and try again.' } }],
+    ['hidden', { view: { kind: 'hidden' } }],
+  ];
+  for (const [name, cloud] of states) {
+    const tree = section(parseReviewSummary(summary(), 'property', PROP), [], { cloud }), t = text(tree);
+    assert.deepEqual(nodes(tree).filter(n => n.props?.accessibilityRole === 'tab').map(n => text(n)), ['Themes', 'Reviews'], `${name}: two tabs only`);
+    assert.ok(t.includes('Tags tenants picked') && t.includes('Clean') && t.includes('Good wifi'), `${name}: the tags card is always there`);
+    if (name !== 'hidden') assert.ok(t.indexOf(name === 'loading' ? 'Finding the words tenants wrote' : name === 'error' ? 'Couldn’t load what tenants wrote' : 'What tenants wrote') < t.indexOf('Tags tenants picked'), `${name}: the cloud card is above the tags card`);
+  }
+});
+test('listing ratings: the Reviews tab has no word cloud card and the Themes tab has no old tag cloud title', () => {
+  const reviews = text(section(parseReviewSummary(summary(), 'property', PROP), [approvedRow(1, { text: 'Nice' })], { cloud: { view: { kind: 'ready' }, chips: [cloudChip('t1', 'wifi', 7)] } }, ['Reviews']));
+  assert.ok(!reviews.includes('What tenants wrote') && !reviews.includes('Tags tenants picked') && !reviews.includes('What tenants mention'));
 });
 test('listing ratings: a failed summary read keeps the reviews and offers Retry; a failed list read offers Retry', () => {
   const t1 = section(null, [approvedRow(1, { text: 'Still here' })], { summary: { error: 'Reviews could not load. Retry.', ready: true } });
@@ -298,4 +323,13 @@ test('review rules: one person cannot be both sides, stars stop at five, a revie
   assert.equal(sentDateLabel('2026-11-16T03:00:00Z', now), 'Today');
   const view = summaryView({ kind: 'property', targetId: PROP, count: 2, average: 4.5, distribution: [0, 0, 0, 1, 1], tags: [{ tag: 'clean', count: 1 }, { tag: 'mystery', count: 1 }] });
   assert.deepEqual(view.tags.map(t => t.code), ['clean']);
+});
+
+test('listing ratings: the selected tab is a dark filled pill with light bold text, and both tabs keep a 48dp target', () => {
+  const tabs = nodes(section(parseReviewSummary(summary(), 'property', PROP), [])).filter(n => n.props?.accessibilityRole === 'tab');
+  assert.equal(tabs.length, 2);
+  for (const tab of tabs) assert.ok((styleOf(tab).minHeight ?? 0) >= 48);
+  assert.equal(styleOf(tabs[0]!).backgroundColor, colors.ink); assert.equal(styleOf(tabs[1]!).backgroundColor, undefined);
+  assert.equal(tabs[0]!.props.accessibilityState.selected, true);
+  assert.deepEqual([styleOf(nodes(tabs[0]).find(n => n.type === 'Text')).color, styleOf(nodes(tabs[0]).find(n => n.type === 'Text')).fontWeight], [colors.white, '700']);
 });

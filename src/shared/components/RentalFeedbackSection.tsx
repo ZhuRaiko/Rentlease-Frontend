@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from './AppButton';
 import { HighlightedText } from './HighlightedText';
+import { ReviewTagsCard } from './ReviewTagsCard';
 import { ReviewWordCloudCard } from './ReviewWordCloudCard';
 import { StarRow, TagPills } from './ReviewParts';
 import { NO_REVIEWS_CARD, PREVIEW_ROWS, STAYS_WITH_PROPERTY, cloudWords, feedbackLayout, publishedRowView, seeAllLabel, summaryView, type FeedbackTab } from '../models/ReviewPresentation';
@@ -17,8 +18,8 @@ const TABS: readonly FeedbackTab[] = ['Themes', 'Reviews'];
 /**
  * Listing ratings (f4b v10). The summary (average, count, tag counts) comes from get_review_summary('property'). Once it has loaded the
  * layout is decided by feedbackLayout: no reviews -> one muted card; fewer than three tag selections -> the reviews only, no tabs;
- * otherwise tabs that open on Themes (a sized tag cloud). The free-text word cloud (ReviewWordCloudCard) sits directly below the Themes, never above them, and mines only the
- * written comments; the Themes do not depend on it and do not move when it loads. It is asked for once per property view (see useReviewWordCloud) and only when there are reviews to read.
+ * otherwise two tabs, Themes and Reviews, opening on Themes. Themes shows the word cloud FIRST ("What tenants wrote": the words in the written comments, loaded once per property
+ * view, see useReviewWordCloud) and then "Tags tenants picked" (the tag counts from the summary). The tags card does not depend on the cloud and is shown in every cloud state.
  */
 export function RentalFeedbackSection({ accountId, propertyId }: { accountId: string | undefined; propertyId: string }) {
   const [picked, setPicked] = useState<FeedbackTab | null>(null);
@@ -36,7 +37,7 @@ export function RentalFeedbackSection({ accountId, propertyId }: { accountId: st
   const words = view ? cloudWords(view.tags) : [];
   const cloudOn = !!accountId && !!view && !view.empty && (layout.mode === 'tabs' || layout.mode === 'reviews_only');
   const cloud = useReviewWordCloud(accountId, propertyId, { enabled: cloudOn });
-  const cloudCard = cloudOn ? <ReviewWordCloudCard view={cloud.view} chips={cloud.chips} selectedId={cloud.selected} matching={cloud.matching} onSelect={cloud.select} onClear={() => cloud.select(null)} onRetry={cloud.retry} /> : null;
+  const cloudCard = cloudOn ? <ReviewWordCloudCard view={cloud.view} chips={cloud.chips} selectedId={cloud.selected} matching={cloud.matching} reviewCount={cloud.corpus?.count ?? 0} onSelect={cloud.select} onClear={() => cloud.select(null)} onRetry={cloud.retry} /> : null;
   return <View style={styles.wrap}>
     <Text accessibilityRole="header" style={ui.sectionTitle}>Ratings and reviews</Text>
     {!accountId ? <Text style={ui.supporting}>Sign in to see reviews from past tenants.</Text> : <>
@@ -44,7 +45,7 @@ export function RentalFeedbackSection({ accountId, propertyId }: { accountId: st
       {summaryVm.error && !summary ? <View style={styles.card}><Text accessibilityRole="alert" style={ui.supporting}>Ratings are not available right now.</Text><AppButton label="Retry" variant="secondary" disabled={summaryVm.busy} onPress={() => void summaryVm.workflow.load()} /></View> : null}
       {layout.mode === 'empty' ? <View style={[styles.card, styles.muted]}><Text style={ui.body}>{NO_REVIEWS_CARD}</Text></View> : null}
       {view && !view.empty ? <>
-        {layout.mode === 'tabs' ? <View accessibilityRole="tablist" style={styles.tabs}>{TABS.map(label => <Pressable key={label} accessibilityRole="tab" accessibilityState={{ selected: tab === label }} onPress={() => setPicked(label)} style={[styles.tab, tab === label && styles.tabOn]}><Text style={[ui.body, tab === label && { fontWeight: '700' }]}>{label}</Text></Pressable>)}</View> : null}
+        {layout.mode === 'tabs' ? <View accessibilityRole="tablist" style={styles.tabs}>{TABS.map(label => <Pressable key={label} accessibilityRole="tab" accessibilityState={{ selected: tab === label }} onPress={() => setPicked(label)} style={[styles.tab, tab === label && styles.tabOn]}><Text style={[ui.body, tab === label ? styles.tabTextOn : null]}>{label}</Text></Pressable>)}</View> : null}
         <View style={styles.card}>
           <View style={styles.summary}>
             <Text accessibilityLabel={`Average ${view.average} out of 5`} style={styles.average}>{view.average}</Text>
@@ -54,13 +55,8 @@ export function RentalFeedbackSection({ accountId, propertyId }: { accountId: st
         </View>
       </> : null}
       {layout.mode === 'tabs' && tab === 'Themes' ? <>
-        <View style={styles.card}>
-          <Text accessibilityRole="header" style={[ui.body, { fontWeight: '700' }]}>What tenants mention</Text>
-          <View accessibilityLabel={words.map(w => `${w.label}, ${w.count}`).join('. ')} accessible style={styles.cloud}>
-            {words.map(w => <Text key={w.code} style={[styles.word, { fontSize: w.fontSize, lineHeight: Math.round(w.fontSize * 1.25), fontWeight: w.bold ? '700' : '400' }]}>{w.label}</Text>)}
-          </View>
-        </View>
         {cloudCard}
+        <ReviewTagsCard tags={words} />
         {rows.length > 0 || (published?.count ?? 0) > 0 ? <AppButton label={seeAllLabel(published?.count ?? rows.length)} variant="secondary" onPress={() => { setAll(true); setPicked('Reviews'); }} /> : null}
       </> : null}
       {layout.mode === 'reviews_only' && view ? <View style={[styles.card, styles.muted]}><Text style={ui.supporting}>Themes appear once a few tenants have added tags.</Text></View> : null}
@@ -86,14 +82,14 @@ export function RentalFeedbackSection({ accountId, propertyId }: { accountId: st
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
   grow: { flex: 1, minWidth: 0, gap: spacing.xxs },
-  tabs: { flexDirection: 'row', gap: spacing.xxs, padding: spacing.xxs, borderRadius: radius.control, backgroundColor: colors.surface },
-  tab: { flex: 1, minHeight: 48, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
-  tabOn: { backgroundColor: colors.background },
+  tabs: { flexDirection: 'row', gap: spacing.xxs, padding: spacing.xxs, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.background },
+  tab: { flex: 1, minHeight: 48, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  // The selected tab is a dark filled pill with light bold text (design pack); the label also gets heavier, so it never relies on colour alone.
+  tabOn: { backgroundColor: colors.ink },
+  tabTextOn: { color: colors.white, fontWeight: '700' },
   card: { ...ui.panel, padding: spacing.md, gap: spacing.sm, borderRadius: radius.card },
   summary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' },
   average: { ...ui.pageTitle, fontSize: 40, lineHeight: 48 },
   muted: { backgroundColor: colors.surface },
-  cloud: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', columnGap: spacing.md, rowGap: spacing.xxs, paddingVertical: spacing.xs },
-  word: { color: colors.primaryAction },
   rowHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing.xs },
 });
