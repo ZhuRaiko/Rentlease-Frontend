@@ -288,3 +288,8 @@ test('card, icon states: at large text or on a narrow screen the icon stacks abo
   }
   Object.assign(window, { width: 411, fontScale: 1 });
 });
+// Layout rule kept as a source check (the harness has no layout engine): the "N of M" heading keeps its own width so Clear wraps below it at 320dp / 150% instead of squeezing it to four short lines.
+test('card, selected: the heading keeps a minimum width so the Clear button wraps below it on a narrow screen with large text', () => {
+  const source = readFileSync('src/shared/components/ReviewWordCloudCard.tsx', 'utf8');
+  assert.match(source, /matchHead: \{[^}]*flexWrap: 'wrap'/); assert.match(source, /matchTitle: \{[^}]*minWidth: 200/);
+});

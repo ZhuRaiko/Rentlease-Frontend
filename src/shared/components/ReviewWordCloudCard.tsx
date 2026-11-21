@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   skeleton: { height: 40, maxWidth: '100%', borderRadius: radius.pill, backgroundColor: colors.surface },
   matches: { ...ui.panel, borderColor: colors.ink, borderWidth: 1.5, padding: spacing.md, gap: spacing.sm, borderRadius: radius.card },
   matchHead: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: spacing.sm, rowGap: spacing.xs },
-  matchTitle: { ...ui.sectionTitle, fontWeight: '700', flexGrow: 1, flexShrink: 1, flexBasis: 200 },
+  matchTitle: { ...ui.sectionTitle, fontWeight: '700', flexGrow: 1, flexShrink: 1, flexBasis: 200, minWidth: 200 },
   clear: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.controlBorder, backgroundColor: colors.background },
   clearText: { fontFamily: typography.family, fontSize: 15, fontWeight: '700', color: colors.ink },
   review: { gap: spacing.xs, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.outline },
