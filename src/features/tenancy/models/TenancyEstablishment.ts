@@ -14,7 +14,8 @@ export function setupTerms(draft:SetupDraft){
  if(!/^\d+$/.test(draft.dueDay)||!Number.isInteger(dueDay)||dueDay<1||dueDay>28)throw new TenancySetupError('Choose a monthly rent day from 1 to 28.');
  return {rent,dueDay};
 }
-export function setupActions(ctx:SetupContext,actor:string):SetupAction[]{
+/** `startDate` is the tenancy's real start date when it is known (get_tenancy_move_in). The setup context's startDate is the RESERVATION's move-in date, which stays old after an early move-in is accepted. */
+export function setupActions(ctx:SetupContext,actor:string,startDate?:string|null):SetupAction[]{
  if(![ctx.landlordId,ctx.tenantId].includes(actor))return [];
  const t=ctx.tenancy,owner=actor===ctx.landlordId;
  if(!t)return ctx.eligible&&owner?['create']:[];
@@ -23,7 +24,7 @@ export function setupActions(ctx:SetupContext,actor:string):SetupAction[]{
  const stale=t.propertyVersion!==ctx.propertyVersion||t.identityRevision!==ctx.identityRevision;
  if(stale)return owner?['review','cancel']:['cancel'];
  if(!owner&&!t.tenantConfirmed&&t.ownerConfirmed)return ['confirm','cancel'];
- if(t.ownerConfirmed&&t.tenantConfirmed&&ctx.startDate<=philippineDate(Date.parse(ctx.serverNow)))return ['activate','cancel'];
+ if(t.ownerConfirmed&&t.tenantConfirmed&&(startDate??ctx.startDate)<=philippineDate(Date.parse(ctx.serverNow)))return ['activate','cancel'];
  return ['cancel'];
 }
 export function parseSetupContext(value:unknown,actor:string,reservationId:string):SetupContext {

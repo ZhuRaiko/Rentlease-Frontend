@@ -8,6 +8,8 @@ import {parseRentLedger, type RentLedger} from '../models/RentLedger';
 import type {RentalRelationship} from '../models/TenancyWorkspace';
 import type {PendingExtension} from '../models/TenancyExtension';
 import {createTenancyExtensionService} from './tenancyExtensionService';
+import type {PendingMoveIn} from '../models/TenancyMoveIn';
+import {createTenancyMoveInService} from './tenancyMoveInService';
 
 /** What the Tenancy tab needs beyond the list itself: open maintenance, pending end requests and review state. Existing RPCs only, read-only. */
 export interface TenancyActivity {
@@ -18,6 +20,8 @@ export interface TenancyActivity {
   rent: Record<string, RentLedger | null>;
   /** The owner's pending extension requests (get_pending_tenancy_extensions); empty for a tenant, or when that read failed or the function is not deployed. */
   extensions?: PendingExtension[];
+  /** Early move-in requests the OTHER person made and this person has to answer (get_pending_tenancy_move_ins); empty when that read failed. */
+  moveIns?: PendingMoveIn[];
 }
 export const emptyActivity = (): TenancyActivity => ({care: {}, lifecycle: {}, reviews: {}, rent: {}});
 /** Bounds: the most recent rentals only. A failed read leaves that entry null, so the tab shows nothing for it instead of an error. */
@@ -37,6 +41,7 @@ export function createTenancyActivityService(client: () => SupabaseClient<Databa
     } catch { return null; }
   };
   const extensions = createTenancyExtensionService(client);
+  const moveIns = createTenancyMoveInService(client);
   return {
     async read(actor: string, tenancies: readonly RentalRelationship[], signal: AbortSignal): Promise<TenancyActivity> {
       await identity(actor, signal);
@@ -48,6 +53,7 @@ export function createTenancyActivityService(client: () => SupabaseClient<Databa
         ...active.map(async t => { out.lifecycle[t.id] = await read(actor, 'get_tenancy_lifecycle', t.id, parseLifecycle, signal); }),
         ...active.map(async t => { out.rent[t.id] = await read(actor, 'get_rent_ledger', t.id, parseRentLedger, signal); }),
         ...ended.map(async t => { out.reviews[t.id] = await read(actor, 'get_tenancy_reviews', t.id, parseReviewContext, signal); }),
+        ...(tenancies.some(t => t.status === 'pending_confirmation') ? [moveIns.pending(actor, signal).then(rows => { out.moveIns = rows; }).catch(() => { out.moveIns = []; })] : []),
         ...(active.some(t => t.landlord_id === actor) ? [extensions.pending(actor, signal).then(rows => { out.extensions = rows; }).catch(() => { out.extensions = []; })] : []),
       ]);
       await identity(actor, signal);
