@@ -2,8 +2,10 @@ export class ModelAttributeError extends Error {constructor(public readonly fiel
 export interface PropertyModelAttributeDraft {propertySubtype?:string;lotAreaSqm?:string;parkingSpaces?:string}
 export const modelSubtypeOptions=(type:string|null):readonly string[]=>type==='house'?['house','townhouse','beach_house','villa']:type==='apartment'||type==='condominium'?['apartment','room','condominium','studio','loft','penthouse','condotel']:[];
 /** The subtype chips offered for a type. Narrower than what validation accepts: a standalone room is not an apartment or a condominium. */
-export const offeredSubtypeOptions=(type:string|null):readonly string[]=>type==='house'?['house','townhouse','beach_house','villa']:type==='apartment'?['apartment','studio','loft','penthouse']:type==='condominium'?['condominium','studio','loft','penthouse','condotel']:[];
-export const subtypeLabel=(value:string)=>value.replace(/_/g,' ');
+export const offeredSubtypeOptions=(type:string|null):readonly string[]=>type==='house'?['house','townhouse','beach_house']:type==='apartment'?['apartment']:type==='condominium'?['condominium','studio','loft','penthouse','condotel']:[];
+/** The subtype to SHOW as selected: a saved value that is no longer offered for the type shows as "Not specified". Display only: the stored value is not changed or re-sent unless the user picks a chip. */
+export const shownSubtype=(type:string|null,saved:string|null|undefined):string=>{const value=saved?.trim()||'';return value&&offeredSubtypeOptions(type).includes(value)?value:'';};
+export const subtypeLabel = (value: string): string => value === 'apartment' ? 'Standard Apartment' : value === 'house' ? 'Standard House' : value === 'condominium' ? 'Standard Condominium' :value.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 export function propertyModelAttributes(type:string|null,d:PropertyModelAttributeDraft){
  const subtype=d.propertySubtype?.trim()||null;
  if(subtype&&!modelSubtypeOptions(type).includes(subtype))throw new ModelAttributeError('propertySubtype','Choose a subtype for this property category, or leave it unspecified.');

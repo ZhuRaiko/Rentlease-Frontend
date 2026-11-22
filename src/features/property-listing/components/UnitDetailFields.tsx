@@ -3,7 +3,7 @@ import {ui} from '../../../shared/theme/ui';
 import {spacing} from '../../../shared/theme/spacing';
 import {ChoiceChip,ListingField} from './ListingControls';
 import {FieldLabel} from './FieldLabel';
-import {offeredSubtypeOptions,subtypeLabel} from '../models/PropertyModelAttributes';
+import {offeredSubtypeOptions,shownSubtype,subtypeLabel} from '../models/PropertyModelAttributes';
 import {MORE_LABELS,unitFields,type MoreField} from '../models/PropertyReadiness';
 import type {DraftProperty} from '../models/DraftProperty';
 import type {PropertyFormFocus} from './usePropertyFormFocus';
@@ -15,8 +15,8 @@ const PLACEHOLDERS:Record<'lotAreaSqm'|'parkingSpaces'|'floorNumber',string>={lo
  */
 export function UnitDetailFields({draft:d,disabled,focus,error,onChange,onBlur}:{draft:DraftProperty;disabled:boolean;focus?:PropertyFormFocus|undefined;error:(field:string)=>string|null|undefined;onChange:(field:MoreField,value:string)=>void;onBlur?:((field:MoreField)=>void)|undefined}){
   const type=d.propertyType,fields=unitFields(type),labels=MORE_LABELS(type);
-  // A stored subtype that does not fit stays visible (selected) so it can be cleared.
-  const offered=offeredSubtypeOptions(type),current=d.propertySubtype?.trim()||'',options=current&&!offered.includes(current)&&offered.length?[...offered,current]:offered;
+  // Only offered subtypes are chips, always the same list for a type. A saved subtype that is no longer offered shows as "Not specified" (the chip row never gains or loses a chip because of the saved value).
+  const options=offeredSubtypeOptions(type),shown=shownSubtype(type,d.propertySubtype);
   const numbers=fields.filter((f):f is 'lotAreaSqm'|'parkingSpaces'|'floorNumber'=>f!=='propertySubtype');
   return <View style={styles.wrap}>
     <View style={styles.grid}>{numbers.map(field=><View key={field} collapsable={false} ref={focus?.section(`detail:${field}`)} style={styles.cell}>
@@ -26,8 +26,8 @@ export function UnitDetailFields({draft:d,disabled,focus,error,onChange,onBlur}:
       <FieldLabel label={labels.propertySubtype}/>
       {error('propertySubtype')?<Text accessibilityRole="alert" style={ui.supporting}>{error('propertySubtype')}</Text>:null}
       <View style={styles.chips}>
-        <ChoiceChip comfortable role="radio" label="Not specified" selected={!d.propertySubtype} disabled={disabled} onPress={()=>onChange('propertySubtype','')}/>
-        {options.map(value=><ChoiceChip comfortable role="radio" key={value} label={subtypeLabel(value)} selected={d.propertySubtype===value} disabled={disabled} onPress={()=>onChange('propertySubtype',value)}/>)}
+        <ChoiceChip comfortable role="radio" label="Not specified" selected={!shown} disabled={disabled} onPress={()=>onChange('propertySubtype','')}/>
+        {options.map(value=><ChoiceChip comfortable role="radio" key={value} label={subtypeLabel(value)} selected={shown===value} disabled={disabled} onPress={()=>onChange('propertySubtype',value)}/>)}
       </View>
     </View>:null}
   </View>;

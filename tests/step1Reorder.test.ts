@@ -137,14 +137,14 @@ test('the long consent sheet is gone from the Price step; the estimate still ref
 
 // ---- Subtype chips are valid for the chosen type
 test('an apartment is never offered "room"; each type offers only values that fit it', () => {
-  assert.deepEqual(offeredSubtypeOptions('apartment'), ['apartment', 'studio', 'loft', 'penthouse']);
+  assert.deepEqual(offeredSubtypeOptions('apartment'), ['apartment']);
   assert.deepEqual(offeredSubtypeOptions('condominium'), ['condominium', 'studio', 'loft', 'penthouse', 'condotel']);
-  assert.deepEqual(offeredSubtypeOptions('house'), ['house', 'townhouse', 'beach_house', 'villa']);
+  assert.deepEqual(offeredSubtypeOptions('house'), ['house', 'townhouse', 'beach_house']);
   for (const type of ['apartment', 'condominium', 'house']) assert.ok(!offeredSubtypeOptions(type).includes('room'), type);
   for (const type of [null, 'boarding_house', 'bedspace', 'room', 'studio', 'other']) assert.deepEqual(offeredSubtypeOptions(type), [], String(type));
   assert.ok(!offeredSubtypeOptions('apartment').includes('condominium') && !offeredSubtypeOptions('condominium').includes('apartment'));
   assert.ok(!offeredSubtypeOptions('apartment').includes('townhouse'));
-  assert.equal(subtypeLabel('beach_house'), 'beach house');
+  assert.equal(subtypeLabel('beach_house'), 'Beach House');
 });
 test('saved data never becomes invalid: validation still accepts the older, broader list', () => {
   assert.ok(modelSubtypeOptions('apartment').includes('room'));
@@ -306,14 +306,13 @@ test('the amenity chips: Show all reveals the rest, a tap toggles through the pa
 const attrs = (type: string | null, subtype = '') => expand(load('src/features/property-listing/components/PropertyModelAttributeFields.tsx', { ListingControls: { ChoiceChip: 'ChoiceChip', ListingField: 'ListingField', EstimateMarker: 'EstimateMarker' } }).PropertyModelAttributeFields({ type, draft: { propertySubtype: subtype, lotAreaSqm: '', parkingSpaces: '' }, disabled: false, onChange() {}, compact: true, marker: true }));
 test('the subtype chips offer only values valid for the chosen type', () => {
   const labels = (t: any) => nodes(t).filter(n => n.type === 'ChoiceChip').map(n => n.props.label);
-  assert.deepEqual(labels(attrs('apartment')), ['Not specified', 'apartment', 'studio', 'loft', 'penthouse']);
+  assert.deepEqual(labels(attrs('apartment')), ['Not specified', 'Standard Apartment']);
   assert.ok(!labels(attrs('apartment')).includes('room'));
-  assert.deepEqual(labels(attrs('condominium')), ['Not specified', 'condominium', 'studio', 'loft', 'penthouse', 'condotel']);
-  assert.deepEqual(labels(attrs('house')), ['Not specified', 'house', 'townhouse', 'beach house', 'villa']);
+  assert.deepEqual(labels(attrs('condominium')), ['Not specified', 'Standard Condominium', 'Studio', 'Loft', 'Penthouse', 'Condotel']);
+  assert.deepEqual(labels(attrs('house')), ['Not specified', 'Standard House', 'Townhouse', 'Beach House']);
   assert.deepEqual(labels(attrs('bedspace')), []);
-  assert.ok(labels(attrs('apartment', 'room')).includes('room'), 'a stored value that no longer fits stays visible so it can be changed');
-  assert.equal(nodes(attrs('apartment', 'room')).find(n => n.type === 'ChoiceChip' && n.props.label === 'room').props.selected, true);
-  assert.equal(nodes(attrs('apartment', 'studio')).find(n => n.type === 'ChoiceChip' && n.props.label === 'studio').props.selected, true);
+  // A saved value that is no longer offered is not a chip: the row is the same list for every saved value, and "Not specified" shows as selected.
+  for (const stale of ['room', 'studio']) { assert.deepEqual(labels(attrs('apartment', stale)), ['Not specified', 'Standard Apartment'], stale); const chips = nodes(attrs('apartment', stale)).filter(n => n.type === 'ChoiceChip'); assert.deepEqual(chips.map(n => n.props.selected), [true, false], stale); }
   const fields = (type: string) => nodes(attrs(type)).filter(n => n.type === 'ListingField').map(n => n.props.label);
   assert.deepEqual(fields('apartment'), ['Parking spaces (optional)'], 'lot area never appears for an apartment');
   assert.deepEqual(fields('condominium'), ['Parking spaces (optional)']);
