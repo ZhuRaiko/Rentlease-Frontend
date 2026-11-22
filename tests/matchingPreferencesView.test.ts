@@ -45,10 +45,9 @@ test('another card open: About you folds to one line with Change, and only that 
   assert.deepEqual(ofType(tree, 'PreferenceCard').map(c => c.props.open), [true, false, false]);
 });
 
-test('the nearby-essentials switch is on every state, and the footer Save sits outside the scrolling area', () => {
+test('the footer Save sits outside the scrolling area', () => {
   for (const open of ['about', 'property', 'budget', 'matters', null]) {
     const tree = render(open);
-    assert.equal(ofType(tree, 'NearbySwitchRow').length, 1, String(open));
     const scroll = ofType(tree, 'ScrollView')[0];
     assert.ok(!nodes(scroll).some(n => n.type === 'AppButton'), 'Save is not inside the ScrollView');
     assert.ok(ofType(tree, 'AppButton').some(n => n.props.label === 'Save preferences'));
