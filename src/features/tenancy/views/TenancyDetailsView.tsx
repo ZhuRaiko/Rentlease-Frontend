@@ -50,7 +50,7 @@ function Timeline({items}:{items:NonNullable<DetailsScreen['timeline']>}){return
 export function TenancyDetailsView({accountId,tenancyId,reservationId,onBack,onOpenConversation,externalPanelOpen=false,registerBackAction,initialPanel,initialRequestId,onOpenProperty,leaveOnPanelBack=false}:Props){
  const vm=useTenancyDetailsViewModel(accountId,tenancyId,reservationId,externalPanelOpen),d=vm.data,t=d?.tenancy;
  const bottom=useBottomClearance();
- const care=useTenancyCareViewModel(accountId,tenancyId),life=useTenancyLifecycleViewModel(accountId,tenancyId),reviews=useRentalReviews(accountId,{mode:'tenancy',id:tenancyId});
+ const care=useTenancyCareViewModel(accountId,tenancyId),life=useTenancyLifecycleViewModel(accountId,tenancyId),reviews=useRentalReviews(accountId,{mode:'tenancy',id:tenancyId},vm.panel==='details');
  // The extension request is read only for an active tenancy; every hook of this screen runs before it returns anything.
  const ext=useTenancyExtensionViewModel(accountId,tenancyId,t?.status==='active'),[sheetOpen,setSheetOpen]=useState(false);
  const [reviewTitle,setReviewTitle]=useState('Ratings'),[careTitle,setCareTitle]=useState('My maintenance requests');

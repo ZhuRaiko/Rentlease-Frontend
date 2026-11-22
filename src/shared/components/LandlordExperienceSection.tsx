@@ -6,8 +6,8 @@ import { ui } from '../theme/ui';
 import { useRentalReviews } from '../viewModels/useRentalReviews';
 
 /** Profile section: what landlords said about this person, from published reviews. Hidden until there is one. No reviewer names (rows carry none). */
-export function LandlordExperienceSection({ accountId }: { accountId: string }) {
-  const vm = useRentalReviews(accountId, { mode: 'user', id: accountId });
+export function LandlordExperienceSection({ accountId, visible = true }: { accountId: string; visible?: boolean }) {
+  const vm = useRentalReviews(accountId, { mode: 'user', id: accountId }, visible);
   const view = landlordExperienceView(vm.data?.type === 'public' ? vm.data.value : null);
   if (!view) return null;
   return <View style={{ ...ui.panel, padding: spacing.md, gap: spacing.sm }}>
