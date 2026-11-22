@@ -4,7 +4,7 @@
 -- This migration only ADDS objects. No existing function, trigger or grant is replaced. rental_reservations has no triggers; tenancies keeps its 7.
 -- Rule (trigger and one-time cleanup use the same function): the APPROVED reservations of the SAME conversation and the SAME tenant become 'cancelled' with the note 'Stay ended',
 -- unless that conversation still has another tenancy in pending_confirmation or active. Reservations of other tenants or other conversations are never touched.
--- Each change follows what a normal cancel does (respond_rental_reservation): revision+1, responded_by, updated_at, and one rentlease_reservations.events row (action 'cancel').
+-- Each change follows what a normal cancel does (respond_rental_reservation): revision+1, responded_by, updated_at, and one rentlease_reservations.events row (action 'cancel'). It creates NO notification (see the delete below).
 -- Rollback: supabase/test-support/end_closes_reservation_rollback.sql (removes the trigger and functions; cancelled reservations stay cancelled, and can be listed from the events).
 begin;
 
@@ -24,7 +24,7 @@ revoke all on schema rentlease_tenancy_close from public,anon,authenticated,serv
 -- Closes the approved reservations of an ended tenancy. Idempotent: it only touches rows that are still approved, so a second call changes nothing. Returns how many rows it closed.
 create function rentlease_tenancy_close.close_reservations(p_tenancy uuid,p_actor uuid) returns integer
 language plpgsql security definer set search_path=pg_catalog as $$
-declare t public.tenancies; r public.rental_reservations; n integer:=0; who uuid;
+declare t public.tenancies; r public.rental_reservations; n integer:=0; who uuid; op uuid;
 begin
  select * into t from public.tenancies where id=p_tenancy;
  if t.id is null or t.status<>'ended' then return 0;end if;
@@ -32,9 +32,11 @@ begin
  if exists(select 1 from public.tenancies o where o.conversation_id=t.conversation_id and o.id<>t.id and o.status in('pending_confirmation','active')) then return 0;end if;
  perform pg_advisory_xact_lock(hashtextextended(t.property_id::text,0));
  for r in select * from public.rental_reservations x where x.conversation_id=t.conversation_id and x.tenant_id=t.tenant_id and x.status='approved' order by x.created_at,x.id for update loop
-  who:=coalesce(p_actor,t.landlord_id);
+  who:=coalesce(p_actor,t.landlord_id);op:=gen_random_uuid();
   update public.rental_reservations set status='cancelled',response_note='Stay ended',responded_by=who,revision=revision+1,updated_at=clock_timestamp() where id=r.id returning * into r;
-  insert into rentlease_reservations.events(operation_id,reservation_id,actor_id,action,input,snapshot) values(gen_random_uuid(),r.id,who,'cancel',jsonb_build_object('reason','stay_ended','tenancy',t.id),to_jsonb(r));
+  insert into rentlease_reservations.events(operation_id,reservation_id,actor_id,action,input,snapshot) values(op,r.id,who,'cancel',jsonb_build_object('reason','stay_ended','tenancy',t.id),to_jsonb(r));
+  -- The event is the audit record, as for any cancel. Its insert fires inapp_reservation, which would notify people about a reservation they no longer see; the tenancy-ended notice already exists, so this one row is removed (its key is exactly 'reservation:'||operation id).
+  delete from public.notifications where event_key='reservation:'||op;
   n:=n+1;
  end loop;
  return n;
