@@ -1,7 +1,15 @@
-import type {MatchingPreferences} from '../../search-discovery/models/SearchDiscovery';
+import {stayLengths,type MatchingPreferences} from '../../search-discovery/models/SearchDiscovery';
+import {stayParts} from '../../search-discovery/models/MatchingPreferenceForm';
 import type {SearchListing} from '../../search-discovery/models/ManualSearch';
 export const recommendationWeights=Object.freeze({preference:0.8,tier2:0.1,completeness:0.1});
 export const recommendationPoolLimit=100;
+/** The longest minimum stay (months) a renter's intended length of stay can meet. Built from the stay choices on the preferences screen, so a new choice is neutral until it is listed here. */
+const STAY_CEILING_MONTHS:Readonly<Record<string,number>>={Transient:1,'Short-term':1,'Medium-term':6,'Long-term':Infinity};
+const stayCeiling=new Map<string,number>(stayLengths.map(label=>[label,STAY_CEILING_MONTHS[stayParts(label).title]??Infinity]));
+/** A listing's minimum stay above this is treated as a data error and capped. */
+export const MAX_STAY_MONTHS=24;
+/** A listing whose minimum stay is longer than the renter's intended stay keeps 70% of its preference score. */
+export const STAY_MISFIT_FACTOR=0.7;
 export type RecommendationSort='Recommended'|'Best Match';
 export interface OwnerVerification {ownerId:string;status:'approved'|'pending'|'rejected'|'revoked'|'expired'|'unknown';active:boolean;authoritative:boolean;expiresAt:string|null}
 export interface RecommendationCandidate {listing:SearchListing;amenities:string[]|null;completeness:number|null;publishedAt:string;ownerVerification:OwnerVerification|null}
@@ -23,7 +31,9 @@ export function scoreRecommendation(c:RecommendationCandidate,p:MatchingPreferen
  if(units.length)groups.push({name:'Unit specifications',value:units.reduce((sum,v)=>sum+v.value*v.weight,0)/units.reduce((sum,v)=>sum+v.weight,0)});
  const wanted=[...new Map(p.amenities.filter(a=>a.trim()).map(a=>[normalize(a),a])).entries()];
  if(wanted.length){const available=c.amenities===null?null:new Set(c.amenities.map(normalize));let matched=0,total=0;for(const [key,label] of wanted){const weight=priority(label,p.amenityRanking);total+=weight;if(available?.has(key))matched+=weight;}groups.push({name:'Amenities',value:matched/total});if(matched)reasons.push('Selected amenities');}
- const total=groups.reduce((sum,g)=>sum+priority(g.name,p.factorRanking),0),preference=total?groups.reduce((sum,g)=>sum+g.value*priority(g.name,p.factorRanking),0)/total:0;
+ const total=groups.reduce((sum,g)=>sum+priority(g.name,p.factorRanking),0),base=total?groups.reduce((sum,g)=>sum+g.value*priority(g.name,p.factorRanking),0)/total:0;
+ // Soft length-of-stay fit: no minimum stay (or an unknown choice) is neutral; there is no bonus above 1, and a base of 0 stays 0.
+ const stay=typeof l.minimumStay==='number'&&Number.isFinite(l.minimumStay)?Math.min(l.minimumStay,MAX_STAY_MONTHS):null,preference=base*(stay!==null&&stay>(stayCeiling.get(p.stayLength)??Infinity)?STAY_MISFIT_FACTOR:1);
  const v=c.ownerVerification,tier2=v?.ownerId===l.ownerId&&v.status==='approved'&&v.active===true&&v.authoritative===true&&(v.expiresAt===null||(Number.isFinite(Date.parse(v.expiresAt))&&Date.parse(v.expiresAt)>now))?1:0;
  const completeness=number(c.completeness)&&c.completeness<=1?c.completeness:null;
  return {preference,tier2,completeness,score:recommendationWeights.preference*preference+recommendationWeights.tier2*tier2+recommendationWeights.completeness*(completeness??0),factors:groups.length,reasons};
