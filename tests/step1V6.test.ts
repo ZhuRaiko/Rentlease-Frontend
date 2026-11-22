@@ -266,22 +266,22 @@ const unit = (over?: any, extra?: any) => fields('src/features/property-listing/
 const more = (over?: any, extra?: any) => fields('src/features/property-listing/components/MoreDetailsFields.tsx', 'MoreDetailsFields', over, extra);
 test('the unit group: an apartment or condominium has unit floor, parking and subtype chips, and never lot area', () => {
   const a = unit({ propertyType: 'apartment' });
-  assert.deepEqual(a.list.map(f => f.props.label), ['Unit floor', 'Parking spaces']); assert.deepEqual(a.chips, ['Not specified', 'apartment', 'studio', 'loft', 'penthouse']);
-  assert.deepEqual(unit({ propertyType: 'condominium' }).chips, ['Not specified', 'condominium', 'studio', 'loft', 'penthouse', 'condotel']);
+  assert.deepEqual(a.list.map(f => f.props.label), ['Unit floor', 'Parking spaces']); assert.deepEqual(a.chips, ['Not specified', 'Standard Apartment']);
+  assert.deepEqual(unit({ propertyType: 'condominium' }).chips, ['Not specified', 'Standard Condominium', 'Studio', 'Loft', 'Penthouse', 'Condotel']);
   for (const t of ['apartment', 'condominium']) assert.ok(!unit({ propertyType: t }).list.some(f => /lot/i.test(f.props.label)), t);
 });
 test('the lot group: a house has lot area, parking and subtype chips, and never a unit floor; "room" is never a chip', () => {
   const h = unit({ propertyType: 'house' });
-  assert.deepEqual(h.list.map(f => f.props.label), ['Lot area (sqm)', 'Parking spaces']); assert.deepEqual(h.chips, ['Not specified', 'house', 'townhouse', 'beach house', 'villa']);
+  assert.deepEqual(h.list.map(f => f.props.label), ['Lot area (sqm)', 'Parking spaces']); assert.deepEqual(h.chips, ['Not specified', 'Standard House', 'Townhouse', 'Beach House']);
   assert.ok(!h.list.some(f => /unit floor/i.test(f.props.label)));
   for (const t of ['apartment', 'condominium', 'house']) assert.ok(!unit({ propertyType: t }).chips.includes('room'), t);
-  const stale = unit({ propertyType: 'apartment', propertySubtype: 'room' }); assert.ok(stale.chips.includes('room'), 'a stored value that no longer fits stays so it can be cleared');
+  const stale = unit({ propertyType: 'apartment', propertySubtype: 'room' }); assert.ok(!stale.chips.includes('room') && !stale.chips.includes('Room'), 'a stored value that is no longer offered is not a chip: the row is the same list for every saved value');
 });
 test('the unit group: no chips where the type offers no subtype; typing, leaving and choosing report the field; no dots anywhere', () => {
   assert.deepEqual(unit({ propertyType: 'bedspace' }).chips, []);
   const u = unit({ propertyType: 'apartment' }); const parking = u.list.find(f => f.props.label === 'Parking spaces');
   parking.props.onChangeText('2'); parking.props.onBlur(); assert.deepEqual(u.changes, [['parkingSpaces', '2']]); assert.deepEqual(u.blurs, ['parkingSpaces']);
-  nodes(u.tree).find(n => n.type === 'ChoiceChip' && n.props.label === 'loft').props.onPress(); assert.deepEqual(u.changes.at(-1), ['propertySubtype', 'loft']);
+  nodes(u.tree).find(n => n.type === 'ChoiceChip' && n.props.label === 'Standard Apartment').props.onPress(); assert.deepEqual(u.changes.at(-1), ['propertySubtype', 'apartment']);
   assert.ok(u.list.every(f => f.props.usedInEstimate === undefined), 'no dot prop');
   const err = unit({ propertyType: 'apartment' }, { error: (f: string) => (f === 'parkingSpaces' ? 'Enter a whole number.' : null) }); assert.equal(err.list.find(f => f.props.label === 'Parking spaces').props.error, 'Enter a whole number.');
   assert.ok(unit({ propertyType: 'apartment' }, { disabled: true }).list.every(f => f.props.editable === false));
@@ -318,7 +318,7 @@ test('the range card holds all eight details: floor area, bedrooms, bathrooms, u
   const { groups } = composer(), details = groups.find(g => g.props.group === 'details')!;
   const labels = nodes(details).filter(n => n.type === 'ListingField').map(n => n.props.label);
   assert.deepEqual(labels, ['Floor area (sqm)', 'Bedrooms', 'Bathrooms', 'Unit floor', 'Parking spaces']);
-  assert.ok(nodes(details).some(n => n.type === 'ChoiceChip' && n.props.label === 'studio'), 'subtype chips'); assert.ok(nodes(details).some(n => n.type === 'PostingChoices' && n.props.label === 'Furnishing'));
+  assert.ok(nodes(details).some(n => n.type === 'ChoiceChip' && n.props.label === 'Standard Apartment'), 'subtype chips'); assert.ok(nodes(details).some(n => n.type === 'PostingChoices' && n.props.label === 'Furnishing'));
   assert.ok(nodes(details).some(n => n.type === 'AmenitiesStub'), 'amenities'); assert.ok(!groups.some(g => g.props.group === 'amenities'), 'no card of their own');
   const more = groups.find(g => g.props.group === 'more')!; assert.ok(nodes(more).some(n => n.type === 'ListingField' && n.props.label === 'Floors in building')); assert.ok(!nodes(more).some(n => n.type === 'AmenitiesStub'));
   const count = nodes(details).find(n => n.type === 'Text' && /^\d of 8$/.test(deepText(n))); assert.ok(count);
