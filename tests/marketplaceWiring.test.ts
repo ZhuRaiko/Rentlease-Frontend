@@ -40,7 +40,7 @@ test('preference Skip and discarded internal Back restore the saved snapshot wit
     assert.match(body, /setMatchingPreferences\(savedPreferences.current\)/);
     assert.doesNotMatch(body, /onSavePreferences|fetch\(|supabase/);
   }
-  assert.match(functionBody(file, 'saveMatchingPreferences'), /options.onSavePreferences\?\.\(matchingPreferences\)/);
+  assert.match(functionBody(file, 'saveMatchingPreferences'), /options.onSavePreferences\?\.\(toSave\)/);
 });
 test('navigation changes preserve backend boundaries and feature isolation', () => {
   for (const path of ['App.tsx', 'src/features/property-listing/viewModels/usePropertyListingViewModel.ts', 'src/features/search-discovery/viewModels/useSearchDiscoveryViewModel.ts', 'src/features/property-listing/views/PropertyListingFlowView.tsx', 'src/features/search-discovery/views/SearchDiscoveryFlowView.tsx']) {

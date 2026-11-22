@@ -70,7 +70,7 @@ export function MatchingPreferencesView({viewModel, onClose}: {viewModel: Search
       </View>
       <View {...place('budget')}>
         <PreferenceCard hint="Your monthly range for rent." icon={<WalletMark />} onToggle={() => form.toggle('budget')} open={form.open === 'budget'} roomy={aboutOpen} summaryLines={tight ? 2 : 1} summary={budgetSummary(preferences)} title="Budget">
-          <BudgetPreferences error={budgetError} stacked={tight} maximum={preferences.maximumRent} minimum={preferences.minimumRent} mode={preferences.budgetMode} onMaximum={amount => update('maximumRent', amount)} onMinimum={amount => update('minimumRent', amount)} onMode={mode => update('budgetMode', mode)} />
+          <BudgetPreferences error={budgetError} stacked={tight} maximum={preferences.maximumRent} minimum={preferences.minimumRent} onMaximum={amount => update('maximumRent', amount)} onMinimum={amount => update('minimumRent', amount)} />
         </PreferenceCard>
       </View>
       <View {...place('matters')}>

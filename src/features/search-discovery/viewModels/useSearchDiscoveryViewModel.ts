@@ -214,12 +214,14 @@ export function useSearchDiscoveryViewModel(
   };
   const saveMatchingPreferences = async () => {
     if (completionInFlight.current || budgetRangeError(matchingPreferences)) return;
-    const preferenceFilters = matchingPreferenceFilters(matchingPreferences);
-    savedPreferences.current = matchingPreferences;
-    options.onSavePreferences?.(matchingPreferences);
+    // The estimate option is gone: every save stores budgetMode "own" (an older "estimate" save keeps its amounts and is re-saved as "own").
+    const toSave = matchingPreferences.budgetMode === 'own' ? matchingPreferences : {...matchingPreferences, budgetMode: 'own' as const};
+    const preferenceFilters = matchingPreferenceFilters(toSave);
+    savedPreferences.current = toSave;
+    options.onSavePreferences?.(toSave);
     if (!await finishIntroduction()) return;
     setFilters(preferenceFilters); setQuery(''); setScreen('home'); setHistory([]); setPreferencesOrigin('discover');
-    setCommittedPreferences({owner:options.accountId,value:matchingPreferences});
+    setCommittedPreferences({owner:options.accountId,value:toSave});
     setNotice(PREFERENCES_SAVED_NOTICE);
   };
   const skipMatchingIntroduction = async () => {

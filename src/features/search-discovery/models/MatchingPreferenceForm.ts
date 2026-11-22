@@ -41,9 +41,8 @@ export function propertySummary(p: Summarized): string {
   return parts.join(' · ');
 }
 
-/** "₱15,000–₱65,000 a month", or "Estimated for you" when RentLease estimates it. */
+/** "₱15,000–₱65,000 a month". A preference saved earlier in "estimate" mode is read the same way, from its stored amounts. */
 export function budgetSummary(p: Summarized): string {
-  if (p.budgetMode === 'estimate') return 'Estimated for you';
   const {minimumRent: low, maximumRent: high} = p;
   if (low > 0 && high > 0) return budgetRangeError(p) ? 'Check the range' : `${formatPeso(low)}–${formatPeso(high)} a month`;
   if (high > 0) return `Up to ${formatPeso(high)} a month`;
@@ -56,9 +55,9 @@ export const mattersSummary = (p: Summarized): string => p.factorRanking.slice(0
 
 export const BUDGET_RANGE_MESSAGE = '“From” can’t be higher than “To”. Swap them or change one.';
 export const BUDGET_SAVE_HINT = 'Fix the budget range to save';
-/** Only the amounts the user can see and edit are checked: "I will enter my own", with both set. An empty field is "no limit". */
+/** Both amounts set are checked, whatever budgetMode an older save carries. An empty field is "no limit". */
 export const budgetRangeError = (p: Pick<MatchingPreferences, 'budgetMode' | 'minimumRent' | 'maximumRent'>): string | null =>
-  p.budgetMode === 'own' && p.minimumRent > 0 && p.maximumRent > 0 && p.minimumRent > p.maximumRent ? BUDGET_RANGE_MESSAGE : null;
+  p.minimumRent > 0 && p.maximumRent > 0 && p.minimumRent > p.maximumRent ? BUDGET_RANGE_MESSAGE : null;
 
 /** True when the form differs from the last saved (or opening) values. This is what decides whether Close asks first. */
 export const preferencesChanged = (current: MatchingPreferences, saved: MatchingPreferences): boolean => JSON.stringify(current) !== JSON.stringify(saved);

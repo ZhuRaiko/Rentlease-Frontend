@@ -23,7 +23,7 @@ test('live summaries: About you, Property, Budget and What matters most follow t
   assert.equal(propertySummary({...base, propertyKinds: ['Studio'], minimumLandArea: 0, minimumBedrooms: 2, minimumBathrooms: 3}), 'Studio · 2 beds · 3 baths');
   assert.equal(propertySummary({...base, propertyKinds: [], minimumLandArea: 0, minimumBedrooms: 0, minimumBathrooms: 0}), 'Any type');
   assert.equal(budgetSummary(base), '₱15,000–₱65,000 a month');
-  assert.equal(budgetSummary({...base, budgetMode: 'estimate'}), 'Estimated for you');
+  assert.equal(budgetSummary({...base, budgetMode: 'estimate'}), budgetSummary({...base, budgetMode: 'own'}), 'an older estimate-mode save reads from its stored amounts like any other');
   assert.equal(budgetSummary({...base, minimumRent: 0}), 'Up to ₱65,000 a month');
   assert.equal(budgetSummary({...base, maximumRent: 0}), 'From ₱15,000 a month');
   assert.equal(budgetSummary({...base, minimumRent: 0, maximumRent: 0}), 'Not set');

@@ -26,16 +26,16 @@ const backwards = {...base, budgetMode: 'own' as const, minimumRent: 65000, maxi
 
 function budget(over: Record<string, unknown> = {}) {
   const calls: [string, unknown][] = [];
-  const props = {mode: 'own', minimum: 15000, maximum: 65000, error: null, onMode: (m: string) => calls.push(['mode', m]), onMinimum: (a: number) => calls.push(['min', a]), onMaximum: (a: number) => calls.push(['max', a]), ...over};
+  const props = {minimum: 15000, maximum: 65000, error: null, onMinimum: (a: number) => calls.push(['min', a]), onMaximum: (a: number) => calls.push(['max', a]), ...over};
   return {all: nodes(BudgetPreferences(props)), calls};
 }
 
-test('From higher than To is an error only while "I will enter my own" is chosen; equal, empty or estimate mode are fine', () => {
+test('From higher than To is an error; equal or empty is fine; an older "estimate" save is checked by its stored amounts too', () => {
   assert.equal(budgetRangeError(backwards), BUDGET_RANGE_MESSAGE);
   assert.equal(budgetRangeError({...backwards, minimumRent: 15000}), null, 'equal is allowed');
   assert.equal(budgetRangeError({...backwards, maximumRent: 0}), null, 'an empty To means no upper limit');
   assert.equal(budgetRangeError({...backwards, minimumRent: 0}), null);
-  assert.equal(budgetRangeError({...backwards, budgetMode: 'estimate'}), null, 'the fields are hidden, so they are not checked');
+  assert.equal(budgetRangeError({...backwards, budgetMode: 'estimate'}), BUDGET_RANGE_MESSAGE, 'the fields always show, so an older estimate-mode save is checked like any other');
   assert.equal(budgetRangeError(base), null);
 });
 
@@ -50,14 +50,12 @@ test('a backwards range turns both fields red, shows the message, and keeps the 
   assert.ok(nodes(budget().all).every(n => n.props?.accessibilityRole !== 'alert'), 'no message when the range is fine');
 });
 
-test('the peso fields appear only for "I will enter my own"; choosing a mode never touches the amounts', () => {
-  assert.equal(budget({mode: 'estimate'}).all.filter(n => n.type === 'TextInput').length, 0);
-  assert.equal(budget({mode: 'own'}).all.filter(n => n.type === 'TextInput').length, 2);
-  const h = budget({mode: 'own'});
-  const radios = h.all.filter(n => n.props?.accessibilityRole === 'radio');
-  assert.deepEqual(radios.map(n => n.props.accessibilityState.selected), [false, true]);
-  radios[0].props.onPress(); radios[1].props.onPress();
-  assert.deepEqual(h.calls, [['mode', 'estimate'], ['mode', 'own']], 'only the mode changes');
+test('the Budget card opens straight to the two peso fields: no radio choice and no "Estimate it for me"', () => {
+  const h = budget();
+  assert.equal(h.all.filter(n => n.type === 'TextInput').length, 2);
+  assert.equal(h.all.filter(n => n.props?.accessibilityRole === 'radio').length, 0);
+  assert.ok(!JSON.stringify(h.all.map(n => n.props?.children)).includes('Estimate it for me'));
+  assert.deepEqual(budget({minimum: 0, maximum: 0}).all.filter(n => n.type === 'TextInput').map(n => n.props.value), ['', ''], 'empty fields are allowed (the section is optional)');
 });
 
 test('typing digits stores a number; other characters are ignored', () => {
