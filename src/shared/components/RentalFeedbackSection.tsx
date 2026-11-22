@@ -36,7 +36,7 @@ export function RentalFeedbackSection({ accountId, propertyId, visible = true }:
   const showReviews = layout.mode === 'reviews_only' || (layout.mode === 'tabs' && tab === 'Reviews');
   const words = view ? cloudWords(view.tags) : [];
   const cloudOn = !!accountId && !!view && !view.empty && (layout.mode === 'tabs' || layout.mode === 'reviews_only');
-  const cloud = useReviewWordCloud(accountId, propertyId, { enabled: cloudOn });
+  const cloud = useReviewWordCloud(accountId, propertyId, { enabled: cloudOn && !!published, ...(published ? { count: published.count } : {}) });
   const cloudCard = cloudOn ? <ReviewWordCloudCard view={cloud.view} chips={cloud.chips} selectedId={cloud.selected} matching={cloud.matching} reviewCount={cloud.corpus?.count ?? 0} onSelect={cloud.select} onClear={() => cloud.select(null)} onRetry={cloud.retry} /> : null;
   return <View style={styles.wrap}>
     <Text accessibilityRole="header" style={ui.sectionTitle}>Ratings and reviews</Text>

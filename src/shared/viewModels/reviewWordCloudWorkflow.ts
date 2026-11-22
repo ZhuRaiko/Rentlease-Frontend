@@ -38,11 +38,11 @@ export function createReviewWordCloudWorkflow(read:(signal:AbortSignal)=>Promise
     return{corpus:current,cloud,status:'ready' as const};
    };
    const result=await Promise.race([work(),new Promise<never>((_,reject)=>{timeout=setTimeout(()=>{timedOut=true;c.abort();reject(Error('timeout'));},timeoutMs);})]);
-   if(!disposed&&g===generation&&!c.signal.aborted){if(result.status==='ready'&&result.cloud)cache?.set({corpus:result.corpus,cloud:result.cloud});publish({...initial(),...result,selected:keep(result.cloud,previous)});}
+   if(!disposed&&g===generation&&!c.signal.aborted){if(result.status==='ready'&&result.cloud&&result.corpus.count>0)cache?.set({corpus:result.corpus,cloud:result.cloud});publish({...initial(),...result,selected:keep(result.cloud,previous)});}
   }catch(e){if(!disposed&&g===generation){const errorKind:CloudErrorKind=timedOut?'timeout':kindOf(e);publish({...initial(),status:'error',errorKind,error:cloudErrorCopy[errorKind]});}}finally{clearTimeout(timeout);}
  };
- /** Shows what the session already has, and asks the network only when it has nothing. */
- const ensure=async()=>{if(disposed)return;const hit=cache?.get();if(hit){controller?.abort();generation++;publish({...initial(),status:'ready',corpus:hit.corpus,cloud:hit.cloud,selected:keep(hit.cloud,state.selected)});return;}if(state.status==='loading'||state.status==='ready')return;return load();};
+ /** Shows what the session already has, and asks the network only when it has nothing. With `expectCount`, a kept cloud is reused only if it was made from that many reviews. */
+ const ensure=async(expectCount?:number)=>{if(disposed)return;const hit=cache?.get();if(hit&&(expectCount===undefined||hit.corpus.count===expectCount)){controller?.abort();generation++;publish({...initial(),status:'ready',corpus:hit.corpus,cloud:hit.cloud,selected:keep(hit.cloud,state.selected)});return;}if(state.status==='loading'||state.status==='ready')return;return load();};
  return{getSnapshot:()=>state,subscribe(f:()=>void){listeners.add(f);return()=>{listeners.delete(f);};},load,ensure,clear,activate(){disposed=false;},dispose(){disposed=true;clear();},
   /** Choosing a term is local: it never starts a request. Choosing the selected term again clears it. */
   select(id:string|null){if(state.status!=='ready')return;publish({...state,selected:keep(state.cloud,nextSelection(state.selected,id))});}};

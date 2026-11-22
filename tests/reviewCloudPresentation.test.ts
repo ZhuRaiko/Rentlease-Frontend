@@ -293,3 +293,13 @@ test('card, selected: the heading keeps a minimum width so the Clear button wrap
   const source = readFileSync('src/shared/components/ReviewWordCloudCard.tsx', 'utf8');
   assert.match(source, /matchHead: \{[^}]*flexWrap: 'wrap'/); assert.match(source, /matchTitle: \{[^}]*minWidth: 200/);
 });
+
+test('a kept cloud made from 3 reviews is not reused when 4 reviews are expected', async () => {
+  const seed = cache(), probe = flow({ cache: seed }); await probe.workflow.ensure();
+  const kept = seed.peek()!, stale: CloudCacheEntry = { corpus: { ...kept.corpus, count: 3 }, cloud: kept.cloud };
+  const shared = cache(); shared.set(stale);
+  const reused = flow({ cache: shared }); await reused.workflow.ensure(3);
+  assert.equal(reused.calls.process, 0, 'same count: the kept cloud is reused');
+  const asked = flow({ cache: shared }); await asked.workflow.ensure(4);
+  assert.equal(asked.calls.process, 1, 'different count: asked again');
+});

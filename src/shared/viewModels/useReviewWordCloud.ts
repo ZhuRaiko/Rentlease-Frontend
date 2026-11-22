@@ -16,11 +16,11 @@ const cacheFor=(key:string):CloudCache=>({get:()=>sessionCache.get(key),set:entr
  * The property review word cloud for one property view. `enabled` says whether the cloud is on screen; it loads the first time it is, once, and then comes from the session cache.
  * The View only renders what this returns (the card state, the chips, the matching reviews and the highlight for a review); choosing a term makes no request.
  */
-export function useReviewWordCloud(actor:string|undefined,propertyId:string,options:{enabled?:boolean;processor?:ReviewCloudProcessor}={}){
- const enabled=options.enabled??true,processor=options.processor??liveProcessor;
+export function useReviewWordCloud(actor:string|undefined,propertyId:string,options:{enabled?:boolean;count?:number;processor?:ReviewCloudProcessor}={}){
+ const enabled=(options.enabled??true)&&options.count!==undefined,count=options.count,processor=options.processor??liveProcessor;
  const workflow=useMemo(()=>createReviewWordCloudWorkflow(signal=>actor?loadPropertyReviewCorpus(service,actor,propertyId,signal):Promise.reject(Error('signed out')),actor&&processor?(corpus,signal)=>processor.process(actor,corpus,signal):undefined,{cache:cacheFor(`${actor??'-'}:${propertyId}`)}),[actor,propertyId,processor]);
  const state=useSyncExternalStore(workflow.subscribe,workflow.getSnapshot,workflow.getSnapshot);
- useEffect(()=>{workflow.activate();if(actor&&enabled)void workflow.ensure();return()=>{workflow.dispose();};},[actor,enabled,workflow]);
+ useEffect(()=>{workflow.activate();if(actor&&enabled)void workflow.ensure(count);return()=>{workflow.dispose();};},[actor,enabled,count,workflow]);
  const term=state.cloud?.terms.find(t=>t.id===state.selected)??null;
  return{...state,term,workflow,
   view:cloudView({signedIn:!!actor,status:state.status,cloud:state.cloud,errorKind:state.errorKind}),
