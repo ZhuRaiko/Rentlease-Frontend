@@ -56,10 +56,22 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
   const [reviews, setReviews] = useState<{ owner: string | undefined; byProperty: Record<string, { average: number; count: number } | null> }>({ owner: undefined, byProperty: {} });
   const [revision, setRevision] = useState(0);
   const requested = useRef(new Set<string>());
+  const asked = useRef<{ owner: string | undefined; ids: Set<string> }>({ owner: undefined, ids: new Set() });   // properties whose rating was asked for: read again whenever the management data is read again (app resume, refresh)
+  const readRating = useCallback((propertyId: string) => {
+    if (!accountId) return;
+    requested.current.add(propertyId); asked.current.ids.add(propertyId);
+    const c = new AbortController();
+    void reviewService.read(accountId, { mode: 'property', id: propertyId }, 0, c.signal).then(data => {
+      if (data.type === 'public') setReviews(old => old.owner === accountId ? { owner: accountId, byProperty: { ...old.byProperty, [propertyId]: { average: data.value.average ?? 0, count: data.value.count } } } : old);
+    }).catch(() => { requested.current.delete(propertyId); });   // a failed read can be asked again
+  }, [accountId]);
   useEffect(() => {
     const c = new AbortController();
     setState(prev => beginManagementRefresh(prev, accountId, managementCache.peek(accountId), emptyActivity));
-    requested.current = new Set(); setReviews({ owner: accountId, byProperty: {} });
+    // A new read of the management data (account change, app resume, refresh) forgets the loaded ratings, so the ones already asked for are read again; the view only asks once per property.
+    const again = asked.current.owner === accountId ? [...asked.current.ids] : [];
+    requested.current = new Set(); asked.current = { owner: accountId, ids: new Set() }; setReviews({ owner: accountId, byProperty: {} });
+    again.forEach(readRating);
     if (!accountId) return () => c.abort();
     (async () => {
       const token = managementCache.begin();
@@ -76,7 +88,7 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
     })();
     const sub = AppState.addEventListener('change', s => { if (s === 'active') setRevision(v => v + 1); });
     return () => { c.abort(); sub.remove(); };
-  }, [accountId, revision]);
+  }, [accountId, revision, readRating]);
   const current = state.owner === accountId ? state : seedManagement(accountId, managementCache.peek(accountId), emptyActivity);
   const reservations = snapshot.owner === accountId ? snapshot.reservations.filter(r => r.landlordId === accountId && effectiveReservationStatus(r, snapshot.now) === 'pending') : [];
   const identities = usePublicIdentitiesViewModel(accountId, [...current.tenancies.map(t => t.tenant_id), ...reservations.map(r => r.tenantId)]);
@@ -101,14 +113,7 @@ export function usePropertyManagement(accountId: string | undefined, snapshot: R
     return out;
   }, [current, reservations, identities, reviews, accountId]);
   const refresh = useCallback(() => { setRevision(v => v + 1); void snapshot.refresh(); }, [snapshot.refresh]);
-  const loadReviews = useCallback((propertyId: string) => {
-    if (!accountId || requested.current.has(propertyId)) return;
-    requested.current.add(propertyId);
-    const c = new AbortController();
-    void reviewService.read(accountId, { mode: 'property', id: propertyId }, 0, c.signal).then(data => {
-      if (data.type === 'public') setReviews(old => old.owner === accountId ? { owner: accountId, byProperty: { ...old.byProperty, [propertyId]: { average: data.value.average ?? 0, count: data.value.count } } } : old);
-    }).catch(() => { requested.current.delete(propertyId); });
-  }, [accountId]);
+  const loadReviews = useCallback((propertyId: string) => { if (!accountId || requested.current.has(propertyId)) return; readRating(propertyId); }, [accountId, readRating]);
   const decline = useCallback(async (propertyId: string, reservationId: string): Promise<string | null> => {
     const row = snapshot.reservations.find(r => r.id === reservationId && r.propertyId === propertyId && r.landlordId === accountId);
     if (!accountId || !row) return 'This request is no longer available.';

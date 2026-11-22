@@ -106,3 +106,5 @@ export function landlordExperienceView(d: PublishedReviews | null | undefined, l
   const rows = [...mine].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, limit);
   return { title: LANDLORD_EXPERIENCE_TITLE, average: `${average.toFixed(1)} / 5`, countLabel: `${mine.length} ${mine.length === 1 ? 'review' : 'reviews'}`, rows };
 }
+/** True only at the moment a hidden screen turns visible again: that is when its reviews are read again. The first mount already loads, so it never counts. */
+export const becameVisible=(was:boolean,now:boolean)=>!was&&now;

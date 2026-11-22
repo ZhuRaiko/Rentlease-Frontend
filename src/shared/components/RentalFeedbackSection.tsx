@@ -21,11 +21,11 @@ const TABS: readonly FeedbackTab[] = ['Themes', 'Reviews'];
  * otherwise two tabs, Themes and Reviews, opening on Themes. Themes shows the word cloud FIRST ("What tenants wrote": the words in the written comments, loaded once per property
  * view, see useReviewWordCloud) and then "Tags tenants picked" (the tag counts from the summary). The tags card does not depend on the cloud and is shown in every cloud state.
  */
-export function RentalFeedbackSection({ accountId, propertyId }: { accountId: string | undefined; propertyId: string }) {
+export function RentalFeedbackSection({ accountId, propertyId, visible = true }: { accountId: string | undefined; propertyId: string; visible?: boolean }) {
   const [picked, setPicked] = useState<FeedbackTab | null>(null);
   const [all, setAll] = useState(false);
-  const summaryVm = useRentalReviews(accountId, { mode: 'summary', kind: 'property', id: propertyId });
-  const rowsVm = useRentalReviews(accountId, { mode: 'property', id: propertyId });
+  const summaryVm = useRentalReviews(accountId, { mode: 'summary', kind: 'property', id: propertyId }, visible);
+  const rowsVm = useRentalReviews(accountId, { mode: 'property', id: propertyId }, visible);
   const summary = summaryVm.data?.type === 'summary' ? summaryVm.data.value : null;
   const view = summary ? summaryView(summary, 'property') : null;
   const layout = feedbackLayout(view, !!summaryVm.error);
@@ -45,7 +45,7 @@ export function RentalFeedbackSection({ accountId, propertyId }: { accountId: st
       {summaryVm.error && !summary ? <View style={styles.card}><Text accessibilityRole="alert" style={ui.supporting}>Ratings are not available right now.</Text><AppButton label="Retry" variant="secondary" disabled={summaryVm.busy} onPress={() => void summaryVm.workflow.load()} /></View> : null}
       {layout.mode === 'empty' ? <View style={[styles.card, styles.muted]}><Text style={ui.body}>{NO_REVIEWS_CARD}</Text></View> : null}
       {view && !view.empty ? <>
-        {layout.mode === 'tabs' ? <View accessibilityRole="tablist" style={styles.tabs}>{TABS.map(label => <Pressable key={label} accessibilityRole="tab" accessibilityState={{ selected: tab === label }} onPress={() => setPicked(label)} style={[styles.tab, tab === label && styles.tabOn]}><Text style={[ui.body, tab === label ? styles.tabTextOn : null]}>{label}</Text></Pressable>)}</View> : null}
+        {layout.mode === 'tabs' ? <View accessibilityRole="tablist" style={styles.tabs}>{TABS.map(label => <Pressable key={label} accessibilityRole="tab" accessibilityState={{ selected: tab === label }} onPress={() => { if (label === 'Reviews' && tab !== 'Reviews') { void rowsVm.workflow.load(); void summaryVm.workflow.load(); } setPicked(label); }} style={[styles.tab, tab === label && styles.tabOn]}><Text style={[ui.body, tab === label ? styles.tabTextOn : null]}>{label}</Text></Pressable>)}</View> : null}
         <View style={styles.card}>
           <View style={styles.summary}>
             <Text accessibilityLabel={`Average ${view.average} out of 5`} style={styles.average}>{view.average}</Text>
