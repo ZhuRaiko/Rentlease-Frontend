@@ -8,7 +8,7 @@ import {radius} from '../../../shared/theme/radius';
 import {spacing} from '../../../shared/theme/spacing';
 import type {InAppNotificationsViewModel} from '../viewModels/useInAppNotifications';
 import type {InAppTarget} from '../models/InAppNotification';
-import {groupNotifications, type NotificationTone} from '../models/NotificationPresentation';
+import {groupNotifications, routeNotificationTarget, type NotificationTone} from '../models/NotificationPresentation';
 
 /** Icon circle colors per tone, from the app's tokens: amber maintenance, blue messages, green tenancy, grey review/verification, red urgent. */
 const TONES: Record<NotificationTone, {background: string; ink: string}> = {
@@ -43,7 +43,7 @@ export function NotificationCenterView({viewModel: vm, onClose, onOpenTarget}: {
           {group.rows.map((row, i) => {
             const tone = TONES[row.tone];
             return <Pressable key={row.id} accessibilityRole="button" accessibilityLabel={`${row.unread ? 'Unread' : 'Read'}: ${row.title}. Open update`} accessibilityState={{disabled: locked}} disabled={locked}
-              onPress={() => { void vm.workflow.open(row.id).then(t => { if (t) onOpenTarget(t); }); }} style={[styles.row, i > 0 && styles.rowRule]}>
+              onPress={() => { void vm.workflow.open(row.id).then(t => { if (!t) return; const raw = vm.page?.rows.find(n => n.id === row.id); onOpenTarget(raw ? routeNotificationTarget(raw, t) : t); }); }} style={[styles.row, i > 0 && styles.rowRule]}>
               <View style={[styles.icon, {backgroundColor: tone.background}]}><GlyphIcon kind={row.icon} size={22} color={tone.ink} /></View>
               <View style={styles.copy}>
                 <Text style={[styles.title, row.unread ? styles.titleUnread : null, row.urgent ? {color: colors.restricted} : null]}>{row.title}</Text>

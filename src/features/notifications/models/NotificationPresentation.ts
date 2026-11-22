@@ -1,5 +1,5 @@
 import type {GlyphKind} from '../../../shared/components/GlyphIcon';
-import type {InAppNotification} from './InAppNotification';
+import type {InAppNotification,InAppTarget} from './InAppNotification';
 
 export type NotificationTone = 'amber' | 'blue' | 'green' | 'grey' | 'red';
 export interface NotificationLook {icon: GlyphKind; tone: NotificationTone}
@@ -19,6 +19,11 @@ const LOOKS: Record<string, NotificationLook> = {
   verification_update: {icon: 'shield', tone: 'grey'},
   review_request: {icon: 'star', tone: 'grey'},
 };
+/** The title the server writes on reservation notifications (rentlease_notifications.generate, label 'Reservation update'). They share type viewing_update and kind conversation with viewing updates; the title is the only difference. */
+export const RESERVATION_UPDATE_TITLE = 'Reservation update';
+/** Where a tapped notification opens: the conversation target, on its reservations screen for a reservation update. Every other notification keeps its target as is. */
+export const routeNotificationTarget = (n: Pick<InAppNotification, 'type' | 'title'>, target: InAppTarget): InAppTarget =>
+  target.kind === 'conversation' && n.type === 'viewing_update' && n.title === RESERVATION_UPDATE_TITLE ? {...target, panel: 'reservations'} : target;
 export const notificationLook = (type: string): NotificationLook => LOOKS[type] ?? {icon: 'flag', tone: 'grey'};
 
 /**

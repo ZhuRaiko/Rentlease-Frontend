@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {groupNotifications, notificationLook, notificationRowView, whenLabel} from '../src/features/notifications/models/NotificationPresentation';
+import {groupNotifications, notificationLook, notificationRowView, routeNotificationTarget, whenLabel} from '../src/features/notifications/models/NotificationPresentation';
 import {parseNotificationPage, type InAppNotification} from '../src/features/notifications/models/InAppNotification';
 
 const id = (n: number) => '00000000-0000-4000-8000-' + String(n).padStart(12, '0');
@@ -64,4 +64,13 @@ test('time label: the time today, the day before that (Philippine time)', () => 
   assert.equal(whenLabel('2026-11-17T17:11:00Z', NOW), '1:11 AM');
   assert.equal(whenLabel('2026-11-17T01:00:00Z', NOW), 'Nov 17');
   assert.equal(whenLabel('2026-11-18T04:00:00Z', NOW), '12:00 PM');
+});
+
+test('only a Reservation update opens the reservations screen; every other notification keeps its target', () => {
+  const chat = {kind: 'conversation' as const, id: '00000000-0000-4000-8000-000000000001'}, home = {kind: 'tenancy' as const, id: '00000000-0000-4000-8000-000000000002'};
+  assert.deepEqual(routeNotificationTarget({type: 'viewing_update', title: 'Reservation update'}, chat), {...chat, panel: 'reservations'});
+  assert.deepEqual(routeNotificationTarget({type: 'viewing_update', title: 'Viewing update'}, chat), chat);
+  assert.deepEqual(routeNotificationTarget({type: 'new_message', title: 'New message'}, chat), chat);
+  assert.deepEqual(routeNotificationTarget({type: 'tenancy_update', title: 'Tenancy update'}, home), home);
+  assert.deepEqual(routeNotificationTarget({type: 'tenancy_update', title: 'Reservation update'}, home), home, 'a non-conversation target is never changed');
 });

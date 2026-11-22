@@ -4,7 +4,8 @@ export interface NotificationCursor {createdAt:string;id:string}
 export interface NotificationPage {rows:InAppNotification[];unread:number;through:string;next:NotificationCursor|null}
 /** Where a notification opens. property_verification carries a property id, identity_verification a Tier 2 submission id. */
 export const notificationTargetKinds=['conversation','tenancy','report','property_verification','identity_verification'] as const;
-export interface InAppTarget {kind:(typeof notificationTargetKinds)[number];id:string}
+/** `panel` asks the chat to open on its reservations screen. Only reservation updates set it; the destination id stays the conversation. */
+export interface InAppTarget {kind:(typeof notificationTargetKinds)[number];id:string;panel?:'reservations'}
 export const notificationId=(v:unknown):v is string=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 const date=(v:unknown):v is string=>typeof v==='string'&&Number.isFinite(Date.parse(v));
 const object=(v:unknown):Record<string,unknown>=>{if(!v||typeof v!=='object'||Array.isArray(v))throw Error('Notification response could not be verified.');return v as Record<string,unknown>;};
