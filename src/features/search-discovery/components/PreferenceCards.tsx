@@ -1,5 +1,5 @@
 import type {ReactNode} from 'react';
-import {Pressable, StyleSheet, Switch, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {colors} from '../../../shared/theme/colors';
 import {radius} from '../../../shared/theme/radius';
 import {spacing} from '../../../shared/theme/spacing';
@@ -71,17 +71,6 @@ export function GroupTitle({children, note}: {children: ReactNode; note?: string
   return <Text accessibilityRole="header" style={styles.groupTitle}>{children}{note ? <Text style={styles.groupNote}>{`  ·  ${note}`}</Text> : null}</Text>;
 }
 
-/** "Prioritize nearby essentials": a switch row, on every state of the screen. */
-export function NearbySwitchRow({value, onChange}: {value: boolean; onChange: (next: boolean) => void}) {
-  return <Pressable accessibilityRole="switch" accessibilityState={{checked: value}} accessibilityLabel="Prioritize nearby essentials. Schools, hospitals, malls, and transport terminals." onPress={() => onChange(!value)} style={[styles.panel, styles.switchRow]}>
-    <View style={styles.headCopy}>
-      <Text style={styles.cardTitle}>Prioritize nearby essentials</Text>
-      <Text style={ui.supporting}>Schools, hospitals, malls, and transport terminals.</Text>
-    </View>
-    <Switch accessible={false} importantForAccessibility="no" pointerEvents="none" value={value} onValueChange={onChange} thumbColor={colors.white} trackColor={{false: colors.border, true: colors.primaryAction}} />
-  </Pressable>;
-}
-
 const styles = StyleSheet.create({
   panel: {backgroundColor: colors.background, borderColor: colors.outline, borderWidth: 1, borderRadius: radius.lg, padding: spacing.md},
   folded: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm},
@@ -109,6 +98,5 @@ const styles = StyleSheet.create({
   stayDetailOn: {color: colors.outline},
   groupTitle: {color: colors.ink, fontFamily: typography.family, fontSize: 15, lineHeight: 22, fontWeight: '700'},
   groupNote: {color: colors.textSecondary, fontWeight: '400', fontSize: 13},
-  switchRow: {flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 64},
   pressed: {opacity: 0.72},
 });

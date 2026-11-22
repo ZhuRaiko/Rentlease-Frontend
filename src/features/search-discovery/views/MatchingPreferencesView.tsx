@@ -10,7 +10,7 @@ import {spacing} from '../../../shared/theme/spacing';
 import {typography} from '../../../shared/theme/typography';
 import {ui} from '../../../shared/theme/ui';
 import {DiscardSheet} from '../components/DiscardSheet';
-import {AboutFolded, ChoicePill, GroupTitle, NearbySwitchRow, PreferenceCard, PreferencePanel, StayChoice} from '../components/PreferenceCards';
+import {AboutFolded, ChoicePill, GroupTitle, PreferenceCard, PreferencePanel, StayChoice} from '../components/PreferenceCards';
 import {BudgetPreferences} from '../components/BudgetPreferences';
 import {RankingList, RankingTabs} from '../components/RankingList';
 import {PropertyPreferences} from '../components/PropertyPreferences';
@@ -81,7 +81,6 @@ export function MatchingPreferencesView({viewModel, onClose}: {viewModel: Search
       </View>
 
       <Text style={[ui.supporting, styles.optionalNote]}>Property, budget and what matters most are optional. They narrow your Discover results and shape your For You recommendations.</Text>
-      <NearbySwitchRow value={preferences.prioritizeNearbyPlaces} onChange={next => update('prioritizeNearbyPlaces', next)} />
     </ScrollView>
     <View style={styles.footer}>
       <FeedbackNotice tone="error" message={viewModel.introductionError} />
