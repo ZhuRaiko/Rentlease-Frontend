@@ -1,4 +1,5 @@
 import {PostingSection} from '../components/PostingSection';
+import {leaveFocusedField} from '../../../shared/utils/leaveFocusedField';
 import {PostingChoices} from '../components/PostingChoices';
 import {PostingProgress} from '../components/PostingProgress';
 import type {ReactNode} from 'react';
@@ -40,14 +41,14 @@ export function ListingDetailsView({ viewModel: vm, onClose, priceGuidance }: { 
   const savedLine = vm.postingWizard ? savedLineText(vm.composerNotice) : null;
   const saveLabel = vm.publishedEditing&&vm.listingDraftState.busy?'Saving changes...':vm.composerPhase ? (vm.composerPhase === 'property' ? 'Saving property...' : vm.composerPhase === 'photos' ? 'Saving photos...' : 'Saving listing draft...') : vm.publishedEditing?'Save Changes':'Save Draft';
   const wait = waitingView(waiting, vm.returnTo ? 'Save and return' : 'Continue to Price');
-  const footer = <PropertyProgressFooter compact={vm.postingWizard} viewModel={vm} action={vm.postingWizard?{label:wait.label,disabled:!editable||!!waiting,onPress:vm.continuePostingEstimate}:{label:saveLabel,disabled:vm.composerSaveDisabled,onPress:()=>void vm.saveComposerDraft()}} guidance={<>
+  const footer = <PropertyProgressFooter compact={vm.postingWizard} viewModel={vm} action={vm.postingWizard?{label:wait.label,disabled:!editable||!!waiting,onPress:()=>leaveFocusedField(vm.continuePostingEstimate)}:{label:saveLabel,disabled:vm.composerSaveDisabled,onPress:()=>void vm.saveComposerDraft()}} guidance={<>
     {vm.propertyValidationIssues?.length ? <PropertyReadinessNotice viewModel={vm}/> : null}
     <ListingWorkspaceFeedback viewModel={vm} scope="draft" />
     {vm.composerPhase && !vm.listingDraftState.busy ? <FeedbackNotice message="Saving your progress. Keep this screen open until saving finishes." /> : null}
     {wait.hint ? <Text accessibilityLiveRegion="polite" style={styles.hint}>{wait.hint}</Text> : null}
     {!vm.composerPhase && !vm.listingDraftState.error && issueNow ? <Text accessibilityLiveRegion="polite" style={styles.copy}>{issueNow.message}</Text> : null}
   </>} />;
-  return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} progress={vm.postingWizard?<PostingProgress step={2} onSelect={vm.goToPostingStep}/>:undefined} title={vm.postingWizard?"Rental Listing":vm.listingDraftState.lastConfirmed?"Edit Listing":"Listing Details"} onBack={vm.goBack} onClose={onClose} footer={footer}>
+  return <ListingWizardScaffold menu={vm.postingEditorMenu?.(onClose)} progress={vm.postingWizard?<PostingProgress step={2} onSelect={target=>leaveFocusedField(()=>vm.goToPostingStep(target))}/>:undefined} title={vm.postingWizard?"Rental Listing":vm.listingDraftState.lastConfirmed?"Edit Listing":"Listing Details"} onBack={vm.goBack} onClose={onClose} footer={footer}>
     <ListingCheckLine state={vm.listingCheck.state} message={vm.listingCheck.message} onRetry={() => void vm.retryListingCheck()} />
     {vm.listingCheck.state === 'ok' && savedLine ? <ListingSavedLine text={savedLine} /> : null}
     {vm.publishedEditing?<Text accessibilityLiveRegion="polite" style={styles.copy}>Editing {vm.listingDraftState.lastConfirmed?.status==='paused'?'Paused':'Published'} listing. Saving changes preserves this status.</Text>:null}
